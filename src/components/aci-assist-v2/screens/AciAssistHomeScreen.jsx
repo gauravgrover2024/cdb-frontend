@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Bell,
@@ -8,7 +8,6 @@ import {
   Heart,
   MapPin,
   Search,
-  ShieldCheck,
   Sparkles,
 } from "lucide-react";
 
@@ -22,6 +21,30 @@ import {
   fadeUp,
   stagger,
 } from "../shared/AciAssistShared";
+
+const buildOpenModelAction = (car = {}) => ({
+  ...car,
+  label: car.displayName || car.name || [car.brand || car.make, car.model].filter(Boolean).join(" "),
+  query: car.displayName || car.name || car.model || "",
+  type: "open_vehicle",
+  intent: "vehicle_overview",
+  canvasType: "car_overview_canvas",
+  vehicle: car,
+});
+
+const getModelDisplayName = (car = {}) => {
+  const composed = [car.brand || car.make, car.model].filter(Boolean).join(" ").trim();
+  return composed || car.displayName || car.name || "Vehicle";
+};
+
+const toCityLabel = (value = "") => {
+  const raw = String(value || "").trim();
+  if (!raw) return "Delhi";
+  return raw
+    .replace(/[-_]+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/\b\w/g, (match) => match.toUpperCase());
+};
 
 function DesktopHeader({ data, onAction }) {
   return (
@@ -101,9 +124,13 @@ function DesktopHeader({ data, onAction }) {
 function DesktopHero({ data, onAction }) {
   return (
     <motion.section className="desktop-hero" variants={fadeUp}>
-      <div className="desktop-hero-orb">
+      <motion.div
+        className="desktop-hero-orb"
+        animate={{ y: [0, -5, 0], scale: [1, 1.012, 1] }}
+        transition={{ duration: 5.6, repeat: Infinity, ease: "easeInOut" }}
+      >
         <AciAssistantOrb />
-      </div>
+      </motion.div>
 
       <div className="desktop-hero-copy">
         <h1>
@@ -188,7 +215,12 @@ function DesktopTrendingCars({ data, onAction, savedIds, onToggleSaved }) {
 
       <div className="desktop-trending-grid">
         {data.trendingCars.map((car) => (
-          <article className="desktop-car-card" key={car.name}>
+          <motion.article
+            className="desktop-car-card"
+            key={car.id || car.name}
+            whileHover={{ y: -3, scale: 1.008 }}
+            transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+          >
             <span className="car-tag">{car.tag}</span>
 
             <AciSavedButton
@@ -202,12 +234,12 @@ function DesktopTrendingCars({ data, onAction, savedIds, onToggleSaved }) {
             <button
               type="button"
               className="desktop-car-image"
-              onClick={() => emitAciAction(car, onAction)}
+              onClick={() => emitAciAction(buildOpenModelAction(car), onAction)}
             >
               <AciVehicleVisual vehicle={car} height={142} />
             </button>
 
-            <h3>{car.name}</h3>
+            <h3>{getModelDisplayName(car)}</h3>
             <p>{car.price}</p>
 
             <div className="desktop-car-specs">
@@ -221,7 +253,7 @@ function DesktopTrendingCars({ data, onAction, savedIds, onToggleSaved }) {
                 );
               })}
             </div>
-          </article>
+          </motion.article>
         ))}
       </div>
     </motion.section>
@@ -456,9 +488,13 @@ function MobileHeader({ data, onAction }) {
 function MobileHero({ data, onAction }) {
   return (
     <motion.section className="mobile-hero" variants={fadeUp}>
-      <div className="mobile-hero-orb">
+      <motion.div
+        className="mobile-hero-orb"
+        animate={{ y: [0, -4, 0], scale: [1, 1.01, 1] }}
+        transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
+      >
         <AciAssistantOrb />
-      </div>
+      </motion.div>
 
       <div className="mobile-hero-copy">
         <h1>{data.mobile.heroTitle}</h1>
@@ -478,7 +514,6 @@ function MobileHero({ data, onAction }) {
           }
         >
           {data.mobile.primaryCta}
-          <ChevronRight size={25} />
         </button>
 
         <small>
@@ -497,14 +532,16 @@ function MobileShortcuts({ data, onAction }) {
         const Icon = item.icon;
 
         return (
-          <button
+          <motion.button
             type="button"
             key={item.label}
             onClick={() => emitAciAction(item, onAction)}
+            whileTap={{ scale: 0.98 }}
+            transition={{ duration: 0.2 }}
           >
             <Icon size={30} />
             <span>{item.label}</span>
-          </button>
+          </motion.button>
         );
       })}
     </motion.section>
@@ -514,7 +551,6 @@ function MobileShortcuts({ data, onAction }) {
 function MobileAssistantChips({ onAction }) {
   const chips = [
     "Best SUV under ₹15L",
-    "Lowest EMI car",
     "Compare Creta vs Seltos",
     "Best automatic",
   ];
@@ -522,13 +558,15 @@ function MobileAssistantChips({ onAction }) {
   return (
     <motion.section className="mobile-assistant-chips" variants={fadeUp}>
       {chips.map((chip) => (
-        <button
+        <motion.button
           type="button"
           key={chip}
           onClick={() => emitAciAction({ label: chip, query: chip }, onAction)}
+          whileTap={{ scale: 0.98 }}
+          transition={{ duration: 0.2 }}
         >
           {chip}
-        </button>
+        </motion.button>
       ))}
     </motion.section>
   );
@@ -537,30 +575,52 @@ function MobileAssistantChips({ onAction }) {
 function MobilePopularCars({ data, onAction, savedIds, onToggleSaved }) {
   const cars = data.mobile.popularCars;
   const [index, setIndex] = useState(0);
+  const [hintPlayed, setHintPlayed] = useState(false);
+  const [visibleMeta, setVisibleMeta] = useState({});
+  const metaTimersRef = useRef({});
   const visibleCars = cars.slice(index, index + 2);
+  const slideCount = Math.max(1, cars.length - 1);
 
-  const next = () => setIndex((prev) => Math.min(prev + 1, cars.length - 2));
+  const next = () => setIndex((prev) => Math.min(prev + 1, Math.max(0, cars.length - 2)));
   const prev = () => setIndex((prev) => Math.max(prev - 1, 0));
+  const shouldSwipeHint = !hintPlayed && index === 0 && cars.length > 2;
+
+  useEffect(() => {
+    if (!shouldSwipeHint) return undefined;
+    const timer = setTimeout(() => setHintPlayed(true), 1800);
+    return () => clearTimeout(timer);
+  }, [shouldSwipeHint]);
+
+  useEffect(
+    () => () => {
+      Object.values(metaTimersRef.current).forEach((timerId) => clearTimeout(timerId));
+      metaTimersRef.current = {};
+    },
+    [],
+  );
+
+  const revealMetadata = (carId, loaded) => {
+    if (!carId || visibleMeta[carId]) return;
+
+    if (!loaded) {
+      setVisibleMeta((prev) => ({ ...prev, [carId]: true }));
+      return;
+    }
+
+    if (metaTimersRef.current[carId]) {
+      clearTimeout(metaTimersRef.current[carId]);
+    }
+
+    metaTimersRef.current[carId] = setTimeout(() => {
+      setVisibleMeta((prev) => ({ ...prev, [carId]: true }));
+      delete metaTimersRef.current[carId];
+    }, 100);
+  };
 
   return (
     <motion.section className="mobile-popular" variants={fadeUp}>
       <div className="mobile-section-head">
         <h2>Popular right now</h2>
-
-        <button
-          type="button"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: "View all popular",
-                query: "View all popular",
-              },
-              onAction,
-            )
-          }
-        >
-          View all <ChevronRight size={20} />
-        </button>
       </div>
 
       <div className="mobile-cars-window">
@@ -571,17 +631,40 @@ function MobilePopularCars({ data, onAction, savedIds, onToggleSaved }) {
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.18}
+            whileTap={{ cursor: "grabbing" }}
             onDragEnd={(_, info) => {
               if (info.offset.x < -40) next();
               if (info.offset.x > 40) prev();
             }}
             initial={{ opacity: 0, x: 22 }}
-            animate={{ opacity: 1, x: 0 }}
+            animate={shouldSwipeHint ? { opacity: 1, x: [0, 14, 0] } : { opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -22 }}
-            transition={{ duration: 0.28 }}
+            transition={
+              shouldSwipeHint
+                ? {
+                    duration: 1.2,
+                    times: [0, 0.42, 1],
+                    ease: [0.22, 1, 0.36, 1],
+                  }
+                : {
+                    x: {
+                      type: "spring",
+                      stiffness: 320,
+                      damping: 30,
+                      mass: 0.9,
+                      bounce: 0.12,
+                    },
+                    opacity: { duration: 0.16 },
+                  }
+            }
           >
             {visibleCars.map((car) => (
-              <article className="mobile-car-card" key={car.name}>
+              <motion.article
+                className="mobile-car-card"
+                key={car.id || car.name}
+                whileHover={{ y: -2 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              >
                 <AciSavedButton
                   vehicle={car}
                   saved={savedIds.has(car.id)}
@@ -593,7 +676,7 @@ function MobilePopularCars({ data, onAction, savedIds, onToggleSaved }) {
                 <button
                   type="button"
                   className="mobile-car-body"
-                  onClick={() => emitAciAction(car, onAction)}
+                  onClick={() => emitAciAction(buildOpenModelAction(car), onAction)}
                 >
                   <div className="mobile-car-image">
                     <AciVehicleVisual
@@ -602,64 +685,37 @@ function MobilePopularCars({ data, onAction, savedIds, onToggleSaved }) {
                       className="mobile-creta-card-photo"
                       stage
                       stageVariant="compact"
+                      onImageReady={(loaded) => revealMetadata(car.id || car.name, loaded)}
                     />
                   </div>
 
-                  <h3>{car.name}</h3>
-                  <p>{car.variant || "Top buyer pick"}</p>
-                  <b />
-                  <strong>{car.price}</strong>
+                  <div className={`mobile-car-meta ${visibleMeta[car.id || car.name] ? "is-visible" : ""}`}>
+                    <h3>{getModelDisplayName(car)}</h3>
+                    <b />
+                    <strong>{car.price}</strong>
+                    <em>{`in ${toCityLabel(car.city || data?.selectedVehicle?.city || "Delhi")}`}</em>
+                  </div>
                 </button>
-              </article>
+              </motion.article>
             ))}
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {slideCount > 1 ? (
+        <div className="mobile-cars-dots" aria-label="Popular cars pagination">
+          {Array.from({ length: slideCount }).map((_, dotIndex) => (
+            <button
+              type="button"
+              key={`dot-${dotIndex}`}
+              className={dotIndex === index ? "is-active" : ""}
+              onClick={() => setIndex(dotIndex)}
+              aria-label={`Go to popular cars slide ${dotIndex + 1}`}
+            />
+          ))}
+        </div>
+      ) : null}
     </motion.section>
-  );
-}
-
-function MobileSelectedCar({ data, onAction }) {
-  const car = data.selectedVehicle;
-
-  return (
-    <motion.button
-      type="button"
-      className="mobile-selected-car"
-      onClick={() =>
-        emitAciAction(
-          {
-            label: `Selected ${car.displayName}`,
-            query: car.displayName,
-            vehicle: car,
-          },
-          onAction,
-        )
-      }
-      variants={fadeUp}
-      whileTap={{ scale: 0.985 }}
-    >
-      <div className="selected-thumb">
-        <AciVehicleVisual
-          vehicle={car}
-          height={42}
-          stage
-          stageVariant="compact"
-        />
-      </div>
-
-      <span>
-        <ShieldCheck size={14} />
-        Selected car
-      </span>
-
-      <strong>{car.displayName}</strong>
-
-      <em>
-        <Sparkles size={14} />
-        ACI Assist remembers this car
-      </em>
-    </motion.button>
   );
 }
 
@@ -676,7 +732,6 @@ function MobileHomePage({ data, onAction, savedIds, onToggleSaved }) {
       <MobileShortcuts data={data} onAction={onAction} />
       <MobileAssistantChips onAction={onAction} />
       <MobilePopularCars data={data} onAction={onAction} savedIds={savedIds} onToggleSaved={onToggleSaved} />
-      <MobileSelectedCar data={data} onAction={onAction} />
       <AciComposer mobile onAction={onAction} placeholder="Ask ACI Assist anything…" />
     </motion.main>
   );
@@ -687,7 +742,7 @@ export default function AciAssistHomeScreen({ data, onAction, savedIds = new Set
     <div className="aci-home-root">
       <style>{`
 .aci-home-root .desktop-home-page {
-  padding-bottom: 112px !important;
+  padding-bottom: 90px !important;
 }
       `}</style>
 <DesktopHomePage data={data} onAction={onAction} savedIds={savedIds} onToggleSaved={onToggleSaved} />

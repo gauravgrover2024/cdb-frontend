@@ -14,7 +14,7 @@ export default function AciV2StickyChatBar({
   placeholder,
   selectedVehicle,
   className = "",
-  showDisclaimer = !mobile,
+  showDisclaimer = false,
 }) {
   const finalPlaceholder =
     placeholder || buildDefaultPlaceholder(mobile, selectedVehicle);
@@ -29,9 +29,11 @@ export default function AciV2StickyChatBar({
       <style>{`
         .aci-v2-chatdock {
           position: fixed;
-          left: 16px;
-          right: 16px;
-          bottom: calc(16px + env(safe-area-inset-bottom));
+          left: 50%;
+          right: auto;
+          width: min(430px, calc(100vw - 32px));
+          transform: translateX(-50%);
+          bottom: calc(10px + env(safe-area-inset-bottom));
           z-index: 220;
           pointer-events: none;
           animation: aciV2ChatFadeIn .32s ease;
@@ -47,17 +49,17 @@ export default function AciV2StickyChatBar({
         }
 
         .aci-v2-chatdock .aci-v2-chatbar {
-          height: 68px;
+          height: 58px;
           border-radius: 999px;
           border: 1px solid #dbe3ef;
           background: rgba(255,255,255,.96);
           box-shadow: 0 26px 60px -44px rgba(15,23,42,.5), inset 0 1px 0 #fff;
           backdrop-filter: blur(16px);
           display: grid;
-          grid-template-columns: 48px 1fr 44px 54px;
+          grid-template-columns: 40px 1fr 36px 44px;
           align-items: center;
-          gap: 6px;
-          padding: 7px;
+          gap: 4px;
+          padding: 5px;
         }
 
         .aci-v2-chatdock .chat-btn {
@@ -70,22 +72,22 @@ export default function AciV2StickyChatBar({
         }
 
         .aci-v2-chatdock .chat-btn.spark {
-          width: 46px;
-          height: 46px;
+          width: 36px;
+          height: 36px;
           background: linear-gradient(135deg, #eef4ff, #f7fbff);
           border: 1px solid #d5e1f5;
           color: #2257df;
         }
 
         .aci-v2-chatdock .chat-btn.mic {
-          width: 42px;
-          height: 42px;
+          width: 32px;
+          height: 32px;
           color: #51607a;
         }
 
         .aci-v2-chatdock .chat-btn.send {
-          width: 54px;
-          height: 54px;
+          width: 44px;
+          height: 44px;
           background: linear-gradient(135deg, #2563eb, #1455ef);
           color: white;
           box-shadow: 0 14px 34px -20px rgba(37,99,235,.75);
@@ -97,7 +99,7 @@ export default function AciV2StickyChatBar({
           background: transparent;
           outline: none;
           color: #0f172a;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 530;
           min-width: 0;
         }
@@ -117,13 +119,35 @@ export default function AciV2StickyChatBar({
         .aci-v2-chatdock.is-desktop {
           left: 50%;
           right: auto;
-          width: min(860px, calc(100vw - 40px));
+          width: min(640px, calc(100vw - 56px));
+          bottom: calc(2px + env(safe-area-inset-bottom));
           transform: translateX(-50%);
         }
 
         .aci-v2-chatdock.is-desktop .aci-v2-chatbar {
-          height: 70px;
-          grid-template-columns: 50px 1fr 46px 56px;
+          height: 56px;
+          grid-template-columns: 38px 1fr 36px 42px;
+          gap: 4px;
+          padding: 5px;
+        }
+
+        .aci-v2-chatdock.is-desktop .chat-btn.spark {
+          width: 36px;
+          height: 36px;
+        }
+
+        .aci-v2-chatdock.is-desktop .chat-btn.mic {
+          width: 32px;
+          height: 32px;
+        }
+
+        .aci-v2-chatdock.is-desktop .chat-btn.send {
+          width: 42px;
+          height: 42px;
+        }
+
+        .aci-v2-chatdock.is-desktop input {
+          font-size: 13px;
         }
       `}</style>
 
