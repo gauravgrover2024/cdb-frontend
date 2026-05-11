@@ -149,8 +149,7 @@ export default function AciAssistStyles() {
       .rail-card,
       .mobile-hero,
       .mobile-shortcuts button,
-      .mobile-car-card,
-      .mobile-selected-car {
+      .mobile-car-card {
         border: 1px solid var(--line);
         background: var(--surface);
         box-shadow: var(--shadow), inset 0 1px 0 #fff;
@@ -322,7 +321,7 @@ export default function AciAssistStyles() {
       }
 
       .desktop-prompt-grid button {
-        min-height: 42px;
+        min-height: 44px;
         border-radius: 13px;
         border: 1px solid #dfe7f2;
         background: rgba(255,255,255,.92);
@@ -331,10 +330,12 @@ export default function AciAssistStyles() {
         align-items: center;
         justify-content: center;
         gap: 9px;
-        padding: 0 12px;
-        font-size: 12.5px;
+        padding: 8px 10px;
+        font-size: 12px;
         font-weight: 520;
-        white-space: nowrap;
+        line-height: 1.2;
+        white-space: normal;
+        text-align: center;
         box-shadow: 0 16px 34px -34px rgba(15,23,42,.28);
       }
 
@@ -478,19 +479,28 @@ export default function AciAssistStyles() {
 
       .desktop-car-image {
         height: 140px;
-        border-radius: 16px;
+        border-radius: 12px;
         display: grid;
         place-items: end center;
         overflow: hidden;
-        background: linear-gradient(135deg, #fff, #f4f7fb);
+        background: transparent;
+      }
+
+      .desktop-car-image .aci-car-image-stage,
+      .mobile-car-image .aci-car-image-stage {
+        border: 0;
       }
 
       .desktop-car-card h3 {
         margin: 12px 0 5px;
         color: var(--ink);
         font-size: 15px;
-        line-height: 1;
+        line-height: 1.18;
         font-weight: 650;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
 
       .desktop-car-card p {
@@ -754,6 +764,21 @@ export default function AciAssistStyles() {
         display: block;
       }
 
+      .aci-car-stage-skeleton {
+        position: absolute;
+        inset: 12% 6% 11%;
+        z-index: 1;
+        border-radius: 16px;
+        background: linear-gradient(90deg, rgba(226,236,249,.42) 0%, rgba(255,255,255,.86) 46%, rgba(226,236,249,.42) 100%);
+        background-size: 220% 100%;
+        animation: aciCarStageShimmer 1.1s linear infinite;
+      }
+
+      @keyframes aciCarStageShimmer {
+        0% { background-position: 100% 0; }
+        100% { background-position: -110% 0; }
+      }
+
       .aci-car-image-stage.compact .aci-car-stage-image {
         width: 90%;
         height: 82%;
@@ -956,6 +981,18 @@ export default function AciAssistStyles() {
         }
       }
 
+      @media (max-width: 1360px) and (min-width: 901px) {
+        .desktop-quick-grid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .desktop-quick-grid strong {
+          font-size: 12.5px;
+          line-height: 1.2;
+          word-break: break-word;
+        }
+      }
+
       @media (max-width: 900px) {
         .desktop-header,
         .desktop-home-page {
@@ -1061,23 +1098,25 @@ export default function AciAssistStyles() {
         .mobile-hero-copy p {
           margin: 14px 0 16px;
           color: #4b5563;
-          font-size: 16px;
-          line-height: 1.45;
+          font-size: 14px;
+          line-height: 1.4;
           font-weight: 450;
         }
 
         .mobile-hero-copy button {
-          width: 100%;
-          min-height: 56px;
+          width: fit-content;
+          max-width: 100%;
+          min-height: 50px;
           border: 0;
           border-radius: 999px;
           background: linear-gradient(135deg, var(--blue), var(--blue-dark));
           color: white;
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          padding: 0 16px 0 18px;
-          font-size: 15px;
+          justify-content: center;
+          padding: 0 18px;
+          font-size: clamp(12.4px, 3.2vw, 13.6px);
+          white-space: nowrap;
           font-weight: 650;
           box-shadow: 0 18px 38px -22px rgba(37,99,235,.62);
         }
@@ -1094,8 +1133,7 @@ export default function AciAssistStyles() {
           white-space: nowrap;
         }
 
-        .mobile-hero-copy small svg,
-        .mobile-selected-car em svg {
+        .mobile-hero-copy small svg {
           color: #c68a2a;
           fill: currentColor;
         }
@@ -1110,10 +1148,10 @@ export default function AciAssistStyles() {
           height: 82px;
           border-radius: 22px;
           display: grid;
-          grid-template-columns: 34px 1fr;
+          grid-template-columns: 30px 1fr;
           align-items: center;
-          gap: 9px;
-          padding: 0 12px;
+          gap: 8px;
+          padding: 0 10px;
           color: var(--ink);
           text-align: left;
         }
@@ -1121,18 +1159,26 @@ export default function AciAssistStyles() {
         .mobile-shortcuts svg {
           color: var(--blue);
           flex: 0 0 auto;
+          width: 24px;
+          height: 24px;
         }
 
         .mobile-shortcuts span {
-          font-size: 15px;
-          line-height: 1.16;
-          font-weight: 600;
+          font-size: clamp(11.2px, 2.9vw, 12.6px);
+          line-height: 1.12;
+          font-weight: 700;
           text-align: left;
+          display: -webkit-box;
+          -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+          word-break: normal;
+          overflow-wrap: normal;
         }
 
         .mobile-assistant-chips {
-          display: flex;
-          flex-wrap: wrap;
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
         }
 
@@ -1142,10 +1188,13 @@ export default function AciAssistStyles() {
           border: 1px solid #dbe3ef;
           background: rgba(255,255,255,.94);
           color: #1d4ed8;
-          font-size: 12px;
+          font-size: clamp(8.3px, 2.15vw, 9.8px);
           font-weight: 620;
-          padding: 0 12px;
+          padding: 0 3px;
           white-space: nowrap;
+          text-align: center;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
 
         .mobile-popular {
@@ -1196,7 +1245,7 @@ export default function AciAssistStyles() {
         }
 
         .mobile-car-card {
-          min-height: 258px;
+          min-height: 248px;
           border-radius: 22px;
           overflow: hidden;
           position: relative;
@@ -1227,11 +1276,12 @@ export default function AciAssistStyles() {
         }
 
         .mobile-car-image {
-          height: 116px;
-          margin: 0 0 12px;
-          border-radius: 16px;
+          height: 124px;
+          margin: 0 0 10px;
+          border-radius: 12px;
           overflow: hidden;
           display: block;
+          background: transparent;
         }
 
         .mobile-car-image img,
@@ -1243,8 +1293,8 @@ export default function AciAssistStyles() {
         }
 
         .mobile-car-body h3 {
-          margin: 0 0 5px;
-          font-size: 18px;
+          margin: 0 0 8px;
+          font-size: 17px;
           line-height: 1.18;
           font-weight: 700;
           display: -webkit-box;
@@ -1253,12 +1303,15 @@ export default function AciAssistStyles() {
           overflow: hidden;
         }
 
-        .mobile-car-body p {
-          margin: 0;
-          color: #64748b;
-          font-size: 12px;
-          font-weight: 540;
-          line-height: 1.3;
+        .mobile-car-meta {
+          opacity: 0;
+          transform: translateY(4px);
+          transition: opacity .2s ease, transform .2s ease;
+        }
+
+        .mobile-car-meta.is-visible {
+          opacity: 1;
+          transform: translateY(0);
         }
 
         .mobile-car-body b {
@@ -1266,70 +1319,65 @@ export default function AciAssistStyles() {
           height: 1px;
           display: block;
           background: #bcc5d3;
-          margin: 9px 0 8px;
+          margin: 0 0 8px;
         }
 
         .mobile-car-body strong {
           color: #0f172a;
-          font-size: 16px;
-          font-weight: 700;
+          font-size: 13px;
+          font-weight: 500;
         }
 
-        .mobile-selected-car {
-          width: 100%;
-          min-height: 72px;
-          border-radius: 20px;
-          padding: 10px 12px;
-          display: grid;
-          grid-template-columns: 56px auto auto 1fr auto;
-          align-items: center;
-          gap: 8px;
-          color: inherit;
-          text-align: left;
-        }
-
-        .selected-thumb {
-          width: 54px;
-          height: 44px;
-          overflow: hidden;
-          display: grid;
-          place-items: center;
-        }
-
-        .selected-thumb img {
-          width: 56px;
-          height: 36px;
-          object-fit: contain;
-          filter: drop-shadow(0 6px 6px rgba(15,23,42,.12));
-        }
-
-        .mobile-selected-car span {
-          color: var(--blue);
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 10px;
-          font-weight: 650;
-          white-space: nowrap;
-        }
-
-        .mobile-selected-car strong {
-          color: #11172c;
-          font-size: 12px;
-          font-weight: 650;
-          white-space: nowrap;
-        }
-
-        .mobile-selected-car em {
-          justify-self: end;
-          color: #a76808;
-          display: flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 10px;
+        .mobile-car-body em {
+          display: block;
+          margin-top: 4px;
+          color: #64748b;
+          font-size: 10.5px;
+          font-weight: 520;
           font-style: normal;
-          font-weight: 620;
+          line-height: 1.2;
           white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        .mobile-cars-dots {
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          gap: 7px;
+          margin-top: 2px;
+        }
+
+        .mobile-cars-dots button {
+          width: 7px;
+          height: 7px;
+          border-radius: 999px;
+          border: 0;
+          background: #c7d3e7;
+          transition: width .22s ease, background-color .22s ease;
+        }
+
+        .mobile-cars-dots button.is-active {
+          width: 16px;
+          background: #2563eb;
+        }
+
+        .mobile-hero-copy button,
+        .mobile-shortcuts button,
+        .mobile-assistant-chips button,
+        .mobile-car-body,
+        .mobile-section-head button {
+          transition: transform .12s ease, box-shadow .12s ease;
+        }
+
+        .mobile-hero-copy button:active,
+        .mobile-shortcuts button:active,
+        .mobile-assistant-chips button:active,
+        .mobile-car-body:active,
+        .mobile-section-head button:active {
+          transform: scale(0.985);
+          box-shadow: 0 8px 20px -16px rgba(15,23,42,.22);
         }
 
         .mobile-home-page {
@@ -1363,16 +1411,13 @@ export default function AciAssistStyles() {
         }
 
         .mobile-shortcuts span {
-          font-size: 11px;
+          font-size: 10.9px;
+          line-height: 1.12;
         }
 
-        .mobile-selected-car {
-          grid-template-columns: 52px auto auto 1fr auto;
-          gap: 6px;
-        }
-
-        .mobile-selected-car em {
-          font-size: 7.2px;
+        .mobile-assistant-chips button {
+          font-size: 9.5px;
+          padding: 0 3px;
         }
       }
 

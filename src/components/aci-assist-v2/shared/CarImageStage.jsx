@@ -10,13 +10,20 @@ export default function CarImageStage({
   stageVariant = "default",
   fallbackLabel = "CAR",
   showGroundShadow = true,
+  onImageReady,
 }) {
   const [failed, setFailed] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
   const hasImage = isUsableImageUrl(src) && !failed;
 
   React.useEffect(() => {
     setFailed(false);
+    setLoading(true);
   }, [src]);
+
+  React.useEffect(() => {
+    if (!hasImage) onImageReady?.(false);
+  }, [hasImage, onImageReady]);
 
   return (
     <div className={`aci-car-image-stage ${stageVariant} ${className}`.trim()}>
@@ -24,13 +31,24 @@ export default function CarImageStage({
       {showGroundShadow ? <i className="aci-car-stage-ground" aria-hidden="true" /> : null}
 
       {hasImage ? (
-        <img
-          src={src}
-          alt={alt}
-          className={`aci-car-stage-image ${imageClassName}`.trim()}
-          onError={() => setFailed(true)}
-          draggable="false"
-        />
+        <>
+          {loading ? <i className="aci-car-stage-skeleton" aria-hidden="true" /> : null}
+          <img
+            src={src}
+            alt={alt}
+            className={`aci-car-stage-image ${imageClassName}`.trim()}
+            onLoad={() => {
+              setLoading(false);
+              onImageReady?.(true);
+            }}
+            onError={() => {
+              setFailed(true);
+              setLoading(false);
+              onImageReady?.(false);
+            }}
+            draggable="false"
+          />
+        </>
       ) : (
         <div className="aci-car-stage-fallback" role="img" aria-label={alt}>
           <Car size={34} strokeWidth={1.6} />

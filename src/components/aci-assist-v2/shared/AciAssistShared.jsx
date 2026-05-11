@@ -124,6 +124,7 @@ export function AciVehiclePhoto({
   className = "",
   alt = "Vehicle",
   onError,
+  onLoad,
 }) {
   if (!imageUrl) return null;
 
@@ -131,6 +132,7 @@ export function AciVehiclePhoto({
     <img
       src={imageUrl}
       alt={alt}
+      onLoad={onLoad}
       onError={onError}
       className={`creta-photo vehicle-photo ${className}`}
       draggable="false"
@@ -223,6 +225,7 @@ export function AciVehicleVisual({
   className = "",
   stage = false,
   stageVariant = "default",
+  onImageReady,
 }) {
   const imageUrl = getDisplayCarImage(vehicle);
   const [imageFailed, setImageFailed] = React.useState(false);
@@ -240,6 +243,7 @@ export function AciVehicleVisual({
           className={className}
           stageVariant={stageVariant}
           fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
+          onImageReady={onImageReady}
         />
       );
     }
@@ -249,7 +253,11 @@ export function AciVehicleVisual({
         imageUrl={imageUrl}
         alt={vehicle.name || vehicle.displayName || vehicle.label || "Vehicle"}
         className={className}
-        onError={() => setImageFailed(true)}
+        onLoad={() => onImageReady?.(true)}
+        onError={() => {
+          setImageFailed(true);
+          onImageReady?.(false);
+        }}
       />
     );
   }
@@ -262,6 +270,7 @@ export function AciVehicleVisual({
         className={className}
         stageVariant={stageVariant}
         fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
+        onImageReady={onImageReady}
       />
     );
   }
@@ -274,6 +283,7 @@ export function AciVehicleVisual({
       stageVariant={stage ? stageVariant : "compact"}
       fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
       showGroundShadow={!stage}
+      onImageReady={onImageReady}
     />
   );
 }
@@ -314,7 +324,7 @@ export function AciComposer({
       onAction={onAction}
       placeholder={placeholder}
       selectedVehicle={selectedVehicle}
-      showDisclaimer={!mobile}
+      showDisclaimer={false}
     />
   );
 }
