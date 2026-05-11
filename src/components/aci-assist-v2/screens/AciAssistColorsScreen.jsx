@@ -177,11 +177,15 @@ const getVehiclePrice = (vehicle) =>
   "Price available on request";
 
 const getVehicleImage = (vehicle, color) =>
+  color?.normalizedImageUrl ||
+  color?.cleanImageUrl ||
   color?.imageUrl ||
   color?.carImageUrl ||
   vehicle?.colorImages?.[color?.id] ||
   vehicle?.images?.side ||
   vehicle?.images?.hero ||
+  vehicle?.normalizedImageUrl ||
+  vehicle?.cleanImageUrl ||
   vehicle?.imageUrl ||
   vehicle?.heroImageUrl ||
   vehicle?.carImageUrl ||

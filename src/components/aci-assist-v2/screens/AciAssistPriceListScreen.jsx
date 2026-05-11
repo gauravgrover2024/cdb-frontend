@@ -40,6 +40,12 @@ const FALLBACK_NOTES = [
 ];
 
 const IMAGE_KEYS = [
+"normalizedImageUrl",
+"cleanImageUrl",
+"normalized_image_url",
+"clean_image_url",
+"normalizedImagePngUrl",
+"sourceImageUrl",
 "heroImage",
 "heroImageUrl",
 "vehicleImage",
