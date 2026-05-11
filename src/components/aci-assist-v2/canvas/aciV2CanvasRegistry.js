@@ -5,10 +5,10 @@ import AciAssistEmiScreen from "../screens/AciAssistEmiScreen";
 import AciAssistFeaturesScreen from "../screens/AciAssistFeaturesScreen";
 import AciAssistCompareScreen from "../screens/AciAssistCompareScreen";
 import AciAssistRecommendationScreen from "../screens/AciAssistRecommendationScreen";
+import AciAssistBrandsScreen from "../screens/AciAssistBrandsScreen";
 import AciAssistVariantAdvisorScreen from "../screens/AciAssistVariantAdvisorScreen";
 import AciAssistQuotationScreen from "../screens/AciAssistQuotationScreen";
 import AciAssistOffersScreen from "../screens/AciAssistOffersScreen";
-import AciAssistSafetyScreen from "../screens/AciAssistSafetyScreen";
 
 export const ACI_V2_SCREENS = {
   HOME: "home",
@@ -49,8 +49,8 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = {
   recommendation_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   recommendation_results_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   similar_cars_canvas: ACI_V2_SCREENS.RECOMMENDATION,
-  brand_models_canvas: ACI_V2_SCREENS.RECOMMENDATION,
-  brands_canvas: ACI_V2_SCREENS.RECOMMENDATION,
+  brand_models_canvas: ACI_V2_SCREENS.BRANDS,
+  brands_canvas: ACI_V2_SCREENS.BRANDS,
 
   variant_advisor_canvas: ACI_V2_SCREENS.VARIANT_ADVISOR,
 
@@ -71,10 +71,11 @@ export const ACI_V2_SCREEN_COMPONENTS = {
   [ACI_V2_SCREENS.FEATURES]: AciAssistFeaturesScreen,
   [ACI_V2_SCREENS.COMPARISON]: AciAssistCompareScreen,
   [ACI_V2_SCREENS.RECOMMENDATION]: AciAssistRecommendationScreen,
+  [ACI_V2_SCREENS.BRANDS]: AciAssistBrandsScreen,
   [ACI_V2_SCREENS.VARIANT_ADVISOR]: AciAssistVariantAdvisorScreen,
   [ACI_V2_SCREENS.QUOTATION]: AciAssistQuotationScreen,
   [ACI_V2_SCREENS.OFFERS]: AciAssistOffersScreen,
-  [ACI_V2_SCREENS.SAFETY]: AciAssistSafetyScreen,
+  [ACI_V2_SCREENS.SAFETY]: AciAssistRecommendationScreen,
 };
 
 export const normalizeCanvasType = (value = "") =>
