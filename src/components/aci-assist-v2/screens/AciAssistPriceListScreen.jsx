@@ -21,23 +21,8 @@ import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
 import { emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 
-const FALLBACK_VARIANT_NAMES = [
-"EX MT",
-"S MT",
-"SX MT",
-"SX IVT",
-"SX (O) IVT",
-"Turbo DCT",
-];
-
-const FALLBACK_NOTES = [
-"Essential and efficient",
-"Smart features, great value",
-"Premium comfort and style",
-"Smooth automatic experience",
-"Top features, best value",
-"Powerful performance",
-];
+const FALLBACK_VARIANT_NAMES = [];
+const FALLBACK_NOTES = [];
 
 const IMAGE_KEYS = [
 "normalizedImageUrl",
@@ -127,27 +112,6 @@ if (number > 0 && number < 250) return Math.round(number * 100000);
 return Math.round(number);
 };
 
-const extractRange = (value, fallbackMin = 0, fallbackMax = 0) => {
-const text = String(value || "").replace(/,/g, "");
-const nums = text.match(/\d+(\.\d+)?/g)?.map(Number).filter(Number.isFinite) || [];
-
-if (!nums.length) return { min: fallbackMin, max: fallbackMax };
-
-const multiplier = /crore|cr\b/i.test(text)
-? 10000000
-: /lakh|lac|l\b/i.test(text) || nums.every((num) => num < 250)
-? 100000
-: 1;
-
-const min = Math.round(nums[0] * multiplier);
-const max = Math.round((nums[1] || nums[0]) * multiplier);
-
-return {
-min: min || fallbackMin,
-max: max || fallbackMax || min,
-};
-};
-
 const formatAmount = (value, compact = false) => {
 const amount = Number(value || 0);
 if (!amount) return "—";
@@ -174,8 +138,6 @@ const getVehicleModel = (vehicle) =>
 vehicle?.model ||
 getVehicleTitle(vehicle).split(" ").slice(-1)[0] ||
 "Vehicle";
-
-const getVehicleBrand = (vehicle) => vehicle?.brand || vehicle?.make || "";
 
 const getVehicleCity = (vehicle, widget) =>
 widget?.city ||
@@ -275,7 +237,7 @@ row.variant_display_name ||
 row.variantDisplayName ||
 row.selectedVariant ||
 row.label ||
-`${getVehicleModel(vehicle)} ${FALLBACK_VARIANT_NAMES[index] || `Variant ${index + 1}`}`,
+`${getVehicleModel(vehicle)} Variant ${index + 1}`,
 );
 
 const getFuelTransmission = (row) => {
@@ -402,47 +364,9 @@ onRoad,
 };
 };
 
-const generateFallbackRows = (vehicle, widget) => {
-const city = getVehicleCity(vehicle, widget);
-const priceRange = extractRange(vehicle?.priceRange || widget?.priceRange, 1107000, 2051000);
-
-const min = priceRange.min || 1107000;
-const max = priceRange.max || Math.round(min * 1.45);
-
-return FALLBACK_VARIANT_NAMES.map((name, index) => {
-const progress = FALLBACK_VARIANT_NAMES.length === 1 ? 0 : index / (FALLBACK_VARIANT_NAMES.length - 1);
-const onRoad = Math.round(min + (max - min) * progress);
-const exShowroom = Math.round(onRoad * 0.86);
-const rto = Math.round(exShowroom * 0.095);
-const insurance = Math.round(exShowroom * 0.045);
-const other = Math.max(0, onRoad - exShowroom - rto - insurance);
-
-return {
-id: `${vehicle?.id || makeSlug(getVehicleTitle(vehicle))}-${makeSlug(name)}`,
-brand: getVehicleBrand(vehicle),
-model: getVehicleModel(vehicle),
-variant: name,
-fuel: index >= 5 ? "Petrol Turbo" : "Petrol",
-transmission: name.includes("IVT") ? "Automatic" : name.includes("DCT") ? "DCT" : "Manual",
-city,
-exShowroomPrice: exShowroom,
-rto,
-insurance,
-otherChargesTotal: other,
-onRoadPrice: onRoad,
-note: FALLBACK_NOTES[index] || "Variant details",
-recommended: index === 3,
-};
-});
-};
-
 const normalizeRows = ({ vehicle, widget, message }) => {
 const rawRows = getRawRows({ vehicle, widget, message });
-const sourceRows = rawRows.length
-? rawRows
-: widget?.__fromBackend
-? []
-: generateFallbackRows(vehicle, widget);
+const sourceRows = rawRows.length ? rawRows : [];
 
 const normalizedRows = sourceRows.map((row, index) => {
 const parts = pricePartsFromRow(row);
@@ -459,13 +383,7 @@ rto: parts.rto,
 insurance: parts.insurance,
 otherChargesTotal: parts.listTotal,
 otherItems: parts.listItems,
-note:
-row.note ||
-row.summary ||
-row.description ||
-row.reason ||
-FALLBACK_NOTES[index] ||
-"Variant details",
+note: row.note || row.summary || row.description || row.reason || "Variant details",
 recommended:
 row.recommended ||
 row.bestValue ||

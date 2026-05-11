@@ -19,6 +19,7 @@ import { normalizeAciAction } from "./shared/AciAssistShared";
 import { getDisplayCarImage } from "./shared/aciV2Image";
 import {
   askAciAssistV2,
+  fetchAciBrandCatalog,
   fetchAciVehicleLiveSnapshot,
 } from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
@@ -126,6 +127,47 @@ const mergeVehicleData = (base = {}, incoming = {}) => ({
     base?.normalizedImageUrl,
   imageUrl: getDisplayCarImage({ ...base, ...incoming }) || base?.imageUrl || "",
 });
+
+const BRAND_CANDIDATES = [
+  "hyundai",
+  "kia",
+  "tata",
+  "mahindra",
+  "maruti",
+  "maruti suzuki",
+  "toyota",
+  "honda",
+  "skoda",
+  "volkswagen",
+  "mg",
+  "renault",
+  "nissan",
+];
+
+const resolveBrandQuery = (text = "") => {
+  const normalized = String(text || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "";
+
+  for (const brand of BRAND_CANDIDATES) {
+    const brandText = brand.toLowerCase();
+    if (
+      normalized === brandText ||
+      normalized === `show ${brandText}` ||
+      normalized === `all ${brandText} cars` ||
+      normalized === `${brandText} cars` ||
+      normalized.includes(`show ${brandText} cars`) ||
+      normalized.includes(`cars of ${brandText}`)
+    ) {
+      return brandText;
+    }
+  }
+
+  return "";
+};
 
 export default function AciAssistV2() {
   const [screen, setScreen] = useState(SCREEN.HOME);
@@ -630,6 +672,42 @@ export default function AciAssistV2() {
     const explicitVehicle = action.vehicle || null;
     const vehicleFromQuery = getAciVehicleByQuery(action.query || action.label);
     const targetVehicle = explicitVehicle || vehicleFromQuery || selectedVehicle;
+    const brandQuery = resolveBrandQuery(action.query || action.label || "");
+
+    if (brandQuery && !vehicleFromQuery) {
+      setIsBackendLoading(true);
+      setBackendError("");
+      try {
+        const brandSnapshot = await fetchAciBrandCatalog({
+          brand: brandQuery,
+          city: targetVehicle?.city || "Delhi",
+        });
+
+        setIsBackendLoading(false);
+        setScreen(SCREEN.RECOMMENDATION);
+        setActiveCanvasPayload({
+          __fromBackend: true,
+          canvasType: "brand_models_canvas",
+          title: `${brandQuery[0]?.toUpperCase() || ""}${brandQuery.slice(1)} cars`,
+          answer: `Showing live ${brandQuery} models. Tap any car to open details.`,
+          rows: brandSnapshot?.rows || [],
+          actions: [],
+          leadingQuestions: [],
+        });
+
+        rememberAction({
+          ...action,
+          canvasType: "brand_models_canvas",
+          widget: {
+            rows: brandSnapshot?.rows || [],
+          },
+        });
+        return;
+      } catch (error) {
+        setIsBackendLoading(false);
+        setBackendError(error?.message || "Unable to fetch brand cars");
+      }
+    }
 
     const shouldOpenPriceList =
       isPriceListCanvas(action.canvasType) ||

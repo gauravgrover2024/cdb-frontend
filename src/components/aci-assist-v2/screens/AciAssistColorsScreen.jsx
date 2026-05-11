@@ -21,80 +21,7 @@ import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
 import { emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 
-const FALLBACK_COLORS = [
-  {
-    id: "gold",
-    mobileName: "Cosmic Gold",
-    desktopName: "Pearl White",
-    name: "Pearl White",
-    hex: "#d7ba72",
-    deep: "#8f6d32",
-    filter: "sepia(.55) saturate(1.18) hue-rotate(358deg) brightness(1.06)",
-    votes: 10,
-    description:
-      "Warm, premium and distinctive. Looks elegant in city lighting and hides light dust well.",
-  },
-  {
-    id: "white",
-    mobileName: "Lunar White",
-    desktopName: "Pearl White",
-    name: "Pearl White",
-    hex: "#f4f0e7",
-    deep: "#c9c7be",
-    filter: "grayscale(1) brightness(1.55) contrast(.86) saturate(.18)",
-    votes: 24,
-    description:
-      "Clean, timeless and airy. A practical shade that keeps the car looking fresh.",
-  },
-  {
-    id: "silver",
-    mobileName: "Stellar Frost",
-    desktopName: "Meteor Grey",
-    name: "Meteor Grey",
-    hex: "#c8d0d8",
-    deep: "#7f8a96",
-    filter: "grayscale(1) brightness(1.12) contrast(.98)",
-    votes: 16,
-    description:
-      "Balanced metallic tone. Sophisticated, easy to maintain and forgiving in daily use.",
-  },
-  {
-    id: "blue",
-    mobileName: "Galaxy Blue",
-    desktopName: "Cosmic Dark Blue",
-    name: "Cosmic Dark Blue",
-    hex: "#0b3f7f",
-    deep: "#071d3c",
-    filter: "saturate(1.15) contrast(1.04) brightness(.94)",
-    votes: 38,
-    description:
-      "Deep. Confident. Timeless. A bold blue shade that reflects strength and adventure.",
-  },
-  {
-    id: "black",
-    mobileName: "Oberon Black",
-    desktopName: "Oberon Black",
-    name: "Oberon Black",
-    hex: "#111214",
-    deep: "#020617",
-    filter: "grayscale(1) brightness(.43) contrast(1.34)",
-    votes: 8,
-    description:
-      "Bold, sharp and premium. Best for buyers who love strong road presence.",
-  },
-  {
-    id: "copper",
-    mobileName: "Supernova Copper",
-    desktopName: "Flame Red",
-    name: "Flame Red",
-    hex: "#a85a32",
-    deep: "#6d321c",
-    filter: "sepia(.65) saturate(1.7) hue-rotate(330deg) brightness(.96)",
-    votes: 4,
-    description:
-      "Expressive and warm. A standout shade without feeling too loud.",
-  },
-];
+const FALLBACK_COLORS = [];
 
 const MOODS = [
   {
@@ -222,37 +149,37 @@ const normalizeColors = (vehicle, widget) => {
     return [];
   }
 
-  const finalSource =
-    Array.isArray(source) && source.length ? source : FALLBACK_COLORS;
+  const finalSource = Array.isArray(source) && source.length ? source : [];
+
+  if (!finalSource.length) return [];
 
   return finalSource.map((raw, index) => {
-    const fallback = FALLBACK_COLORS[index % FALLBACK_COLORS.length];
     const name =
       raw.desktopName ||
       raw.mobileName ||
       raw.name ||
       raw.colorName ||
       raw.label ||
-      fallback.name;
+      `Color ${index + 1}`;
 
     return {
       id: raw.id || makeSlug(name, `color-${index + 1}`),
       name,
       mobileName:
-        raw.mobileName || raw.name || raw.colorName || fallback.mobileName,
+        raw.mobileName || raw.name || raw.colorName || name,
       desktopName:
-        raw.desktopName || raw.name || raw.colorName || fallback.desktopName,
-      hex: raw.hex || raw.hexCode || raw.colorHex || fallback.hex,
-      deep: raw.deep || raw.darkHex || raw.deepHex || fallback.deep,
-      filter: raw.filter || raw.cssFilter || fallback.filter,
-      votes: Number(raw.votes ?? raw.popularity ?? fallback.votes ?? 8),
+        raw.desktopName || raw.name || raw.colorName || name,
+      hex: raw.hex || raw.hexCode || raw.colorHex || "#2563EB",
+      deep: raw.deep || raw.darkHex || raw.deepHex || "#1E3A8A",
+      filter: raw.filter || raw.cssFilter || "",
+      votes: Number(raw.votes ?? raw.popularity ?? 0),
       description:
         raw.description ||
         raw.note ||
         raw.summary ||
-        fallback.description ||
         "A premium exterior color available for this model.",
       imageUrl: raw.imageUrl || raw.carImageUrl || "",
+      normalizedImageUrl: raw.normalizedImageUrl || raw.cleanImageUrl || "",
       raw,
     };
   });

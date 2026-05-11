@@ -266,11 +266,13 @@ export function AciVehicleVisual({
   }
 
   return (
-    <AciCarVector
-      type={vehicle?.bodyType || vehicle?.type || "sedan"}
-      label={vehicle?.label || vehicle?.name || "CAR"}
-      height={height}
-      blue={Boolean(vehicle?.blue)}
+    <CarImageStage
+      src=""
+      alt={vehicle?.name || vehicle?.displayName || vehicle?.label || "Vehicle"}
+      className={className}
+      stageVariant={stage ? stageVariant : "compact"}
+      fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
+      showGroundShadow={!stage}
     />
   );
 }

@@ -19,6 +19,7 @@ export const ACI_V2_SCREENS = {
   FEATURES: "features",
   COMPARISON: "comparison",
   RECOMMENDATION: "recommendation",
+  BRANDS: "brands",
   VARIANT_ADVISOR: "variant_advisor",
   QUOTATION: "quotation",
   OFFERS: "offers",
@@ -48,6 +49,8 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = {
   recommendation_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   recommendation_results_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   similar_cars_canvas: ACI_V2_SCREENS.RECOMMENDATION,
+  brand_models_canvas: ACI_V2_SCREENS.RECOMMENDATION,
+  brands_canvas: ACI_V2_SCREENS.RECOMMENDATION,
 
   variant_advisor_canvas: ACI_V2_SCREENS.VARIANT_ADVISOR,
 
@@ -56,8 +59,8 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = {
 
   offers_canvas: ACI_V2_SCREENS.OFFERS,
 
-  safety_ranking_canvas: ACI_V2_SCREENS.SAFETY,
-  safety_advisor_canvas: ACI_V2_SCREENS.SAFETY,
+  safety_ranking_canvas: ACI_V2_SCREENS.RECOMMENDATION,
+  safety_advisor_canvas: ACI_V2_SCREENS.RECOMMENDATION,
 };
 
 export const ACI_V2_SCREEN_COMPONENTS = {
