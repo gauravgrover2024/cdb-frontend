@@ -1,4 +1,5 @@
 import API_BASE_URL from "../../../config/apiBaseUrl";
+import { getDisplayCarImage } from "../shared/aciV2Image";
 
 const DEFAULT_CHAT_ENDPOINT = "/api/ai-agent/chat";
 const DEFAULT_PUBLIC_CHAT_ENDPOINT = "/api/ai-agent/public-chat";
@@ -341,6 +342,20 @@ const normalizeLiveColor = (row = {}, index = 0) => {
     row.desktopName ||
     row.mobileName ||
     `Color ${index + 1}`;
+  const normalizedImageUrl =
+    row.normalizedImageUrl ||
+    row.cleanImageUrl ||
+    row.normalized_image_url ||
+    row.clean_image_url ||
+    row.normalizedImagePngUrl ||
+    "";
+  const rawImageUrl =
+    row.image_url || row.imageUrl || row.car_image_url || "";
+  const displayImage = getDisplayCarImage({
+    normalizedImageUrl,
+    imageUrl: rawImageUrl,
+  });
+
   return {
     ...row,
     id: row._id || row.id || `${name}-${index}`,
@@ -351,8 +366,11 @@ const normalizeLiveColor = (row = {}, index = 0) => {
       normalizeHex(
         row.color_hex || row.hex || row.hexCode || row.colorHex || "",
       ) || "#2563EB",
-    imageUrl: row.image_url || row.imageUrl || row.car_image_url || "",
-    carImageUrl: row.car_image_url || row.image_url || row.imageUrl || "",
+    normalizedImageUrl,
+    cleanImageUrl: row.cleanImageUrl || row.clean_image_url || normalizedImageUrl,
+    imageUrl: displayImage || rawImageUrl,
+    carImageUrl: displayImage || rawImageUrl,
+    sourceImageUrl: rawImageUrl,
   };
 };
 
@@ -534,6 +552,13 @@ export const normalizeAciBackendResponse = (raw) => {
     firstMatchingObject(container, looksLikeVehicle) ||
     null;
 
+  const normalizedVehicle = vehicle
+    ? {
+        ...vehicle,
+        imageUrl: getDisplayCarImage(vehicle),
+      }
+    : null;
+
   const canvasType =
     root.canvasType ||
     root.canvas_type ||
@@ -557,7 +582,7 @@ export const normalizeAciBackendResponse = (raw) => {
       container.answer ||
       "",
     canvasType,
-    vehicle,
+    vehicle: normalizedVehicle,
     contextPatch,
     actions:
       root.actions ||
@@ -773,10 +798,15 @@ export async function fetchAciVehicleLiveSnapshot({
   const minOnRoad = onRoadValues.length ? Math.min(...onRoadValues) : 0;
   const maxOnRoad = onRoadValues.length ? Math.max(...onRoadValues) : 0;
   const minEx = exValues.length ? Math.min(...exValues) : 0;
-  const heroImage =
-    colors.find((item) => item.imageUrl)?.imageUrl ||
-    variantRows.find((item) => item.imageUrl)?.imageUrl ||
-    "";
+  const heroImage = getDisplayCarImage({
+    colors,
+    imageUrl: colors.find((item) => item.imageUrl)?.imageUrl || "",
+  }) ||
+  getDisplayCarImage({
+    variants: variantRows,
+    imageUrl: variantRows.find((item) => item.imageUrl)?.imageUrl || "",
+  }) ||
+  "";
 
   const payload = {
     ok: true,

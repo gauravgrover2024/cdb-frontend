@@ -1,14 +1,6 @@
 import React from "react";
 import { Car } from "lucide-react";
-
-const isUsableImageUrl = (value = "") => {
-  const text = String(value || "").trim();
-  if (!text) return false;
-  if (/^data:image\//i.test(text)) return true;
-  if (/^(https?:)?\/\//i.test(text)) return true;
-  if (text.startsWith("/")) return true;
-  return false;
-};
+import { isUsableImageUrl } from "./aciV2Image";
 
 export default function CarImageStage({
   src = "",

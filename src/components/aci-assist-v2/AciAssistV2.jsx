@@ -8,23 +8,21 @@ import {
   getAciVehicleById,
   getAciVehicleByQuery,
 } from "./data/homeScreenData";
+import {
+  ACI_V2_SCREENS,
+  ACI_V2_SCREEN_COMPONENTS,
+  normalizeCanvasType as normalizeV2CanvasType,
+  resolveScreenFromCanvasType,
+} from "./canvas/aciV2CanvasRegistry";
 import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
+import { getDisplayCarImage } from "./shared/aciV2Image";
 import {
   askAciAssistV2,
   fetchAciVehicleLiveSnapshot,
 } from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
-import AciAssistCarOverviewScreen from "./screens/AciAssistCarOverviewScreen";
-import AciAssistColorsScreen from "./screens/AciAssistColorsScreen";
-import AciAssistPriceListScreen from "./screens/AciAssistPriceListScreen";
-
-const SCREEN = {
-  HOME: "home",
-  CAR_OVERVIEW: "car_overview",
-  COLORS: "colors",
-  PRICELIST: "pricelist",
-};
+const SCREEN = ACI_V2_SCREENS;
 const IMAGE_CACHE_KEY = "aci_v2_live_model_images_v1";
 
 const vehicleIdentityKey = (vehicle = {}) =>
@@ -62,7 +60,12 @@ const mergeVehicle = (fallback, incoming) => {
         .filter(Boolean)
         .join(" ") ||
       fallback?.displayName,
+    normalizedImageUrl:
+      incoming.normalizedImageUrl ||
+      incoming.cleanImageUrl ||
+      (isSameVehicle ? fallback?.normalizedImageUrl : ""),
     imageUrl:
+      getDisplayCarImage(incoming) ||
       incoming.imageUrl ||
       incoming.heroImageUrl ||
       incoming.vehicleImageUrl ||
@@ -83,18 +86,13 @@ const isCanvasInteractionOnly = (action) => {
   );
 };
 
-const normalizeCanvasType = (value = "") =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
 const isPriceListCanvas = (value = "") => {
-  const canvasType = normalizeCanvasType(value);
+  const canvasType = normalizeV2CanvasType(value);
   return canvasType === ACI_CANVAS_TYPES.PRICELIST || canvasType === "pricelist_canvas";
 };
 
 const isColorsCanvas = (value = "") => {
-  const canvasType = normalizeCanvasType(value);
+  const canvasType = normalizeV2CanvasType(value);
   return (
     canvasType === ACI_CANVAS_TYPES.COLORS ||
     canvasType === "color_gallery_canvas" ||
@@ -103,7 +101,7 @@ const isColorsCanvas = (value = "") => {
 };
 
 const isCarOverviewCanvas = (value = "") => {
-  const canvasType = normalizeCanvasType(value);
+  const canvasType = normalizeV2CanvasType(value);
   return (
     canvasType === ACI_CANVAS_TYPES.CAR_OVERVIEW ||
     canvasType === "car_overview_canvas" ||
@@ -122,6 +120,11 @@ const mergeVehicleData = (base = {}, incoming = {}) => ({
     Array.isArray(incoming?.variants) && incoming.variants.length
       ? incoming.variants
       : base?.variants,
+  normalizedImageUrl:
+    incoming?.normalizedImageUrl ||
+    incoming?.cleanImageUrl ||
+    base?.normalizedImageUrl,
+  imageUrl: getDisplayCarImage({ ...base, ...incoming }) || base?.imageUrl || "",
 });
 
 export default function AciAssistV2() {
@@ -538,6 +541,15 @@ export default function AciAssistV2() {
       return true;
     }
 
+    const routedScreen = resolveScreenFromCanvasType(canvasType);
+    if (routedScreen && routedScreen !== SCREEN.HOME) {
+      setSelectedVehicle(backendVehicle);
+      setActiveCanvasPayload(widget);
+      setScreen(routedScreen);
+      rememberAction(enrichedAction);
+      return true;
+    }
+
     if (
       backendVehicle?.model &&
       !action.canvasType &&
@@ -655,6 +667,24 @@ export default function AciAssistV2() {
       setBackendError("");
       openVehicle(targetVehicle, action);
       hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
+      return;
+    }
+
+    const routedScreen = resolveScreenFromCanvasType(action.canvasType);
+    if (
+      routedScreen &&
+      ![SCREEN.HOME, SCREEN.CAR_OVERVIEW, SCREEN.COLORS, SCREEN.PRICELIST].includes(routedScreen)
+    ) {
+      setBackendError("");
+      setSelectedVehicle(targetVehicle);
+      setActiveCanvasPayload(
+        action.widget ||
+          action.payload?.widget ||
+          action.payload ||
+          { __fromBackend: true },
+      );
+      setScreen(routedScreen);
+      rememberAction(action);
       return;
     }
 
@@ -778,28 +808,22 @@ export default function AciAssistV2() {
           savedIds={savedIds}
           onToggleSaved={toggleSaved}
         />
-      ) : screen === SCREEN.COLORS ? (
-        <AciAssistColorsScreen
-          data={homeDataWithLiveImages}
-          vehicle={selectedVehicle}
-          widget={activeCanvasPayload}
-          onAction={handleAciAction}
-        />
-      ) : screen === SCREEN.PRICELIST ? (
-        <AciAssistPriceListScreen
-          data={homeDataWithLiveImages}
-          vehicle={selectedVehicle}
-          widget={activeCanvasPayload}
-          onAction={handleAciAction}
-        />
       ) : (
-        <AciAssistCarOverviewScreen
-          data={homeDataWithLiveImages}
-          vehicle={selectedVehicle}
-          onAction={handleAciAction}
-          savedIds={savedIds}
-          onToggleSaved={toggleSaved}
-        />
+        (() => {
+          const ScreenComponent =
+            ACI_V2_SCREEN_COMPONENTS[screen] ||
+            ACI_V2_SCREEN_COMPONENTS[SCREEN.CAR_OVERVIEW];
+          return (
+            <ScreenComponent
+              data={homeDataWithLiveImages}
+              vehicle={selectedVehicle}
+              widget={activeCanvasPayload}
+              onAction={handleAciAction}
+              savedIds={savedIds}
+              onToggleSaved={toggleSaved}
+            />
+          );
+        })()
       )}
 
       {lastAction ? (

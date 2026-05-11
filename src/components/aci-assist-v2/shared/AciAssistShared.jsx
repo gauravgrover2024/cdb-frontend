@@ -2,15 +2,7 @@ import React from "react";
 import { motion } from "framer-motion";
 import { Heart, Mic, SendHorizontal, Sparkles } from "lucide-react";
 import CarImageStage from "./CarImageStage";
-
-const isUsableImageUrl = (value = "") => {
-  const text = String(value || "").trim();
-  if (!text) return false;
-  if (/^data:image\//i.test(text)) return true;
-  if (/^(https?:)?\/\//i.test(text)) return true;
-  if (text.startsWith("/")) return true;
-  return false;
-};
+import { getDisplayCarImage, isUsableImageUrl } from "./aciV2Image";
 
 export const fadeUp = {
   hidden: { opacity: 0, y: 18, filter: "blur(5px)" },
@@ -231,7 +223,7 @@ export function AciVehicleVisual({
   stage = false,
   stageVariant = "default",
 }) {
-  const imageUrl = vehicle?.imageUrl || "";
+  const imageUrl = getDisplayCarImage(vehicle);
   const [imageFailed, setImageFailed] = React.useState(false);
 
   React.useEffect(() => {
