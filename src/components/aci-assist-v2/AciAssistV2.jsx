@@ -110,6 +110,16 @@ const isCarOverviewCanvas = (value = "") => {
   );
 };
 
+const isFeaturesCanvas = (value = "") => {
+  const canvasType = normalizeV2CanvasType(value);
+  return (
+    canvasType === ACI_CANVAS_TYPES.FEATURES ||
+    canvasType === "features_canvas" ||
+    canvasType === "feature_explorer_canvas" ||
+    canvasType === "features_explorer_canvas"
+  );
+};
+
 const mergeVehicleData = (base = {}, incoming = {}) => ({
   ...base,
   ...incoming,
@@ -497,6 +507,38 @@ export default function AciAssistV2() {
     });
   };
 
+  const openFeatures = (vehicle, sourceAction = {}) => {
+    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
+    if (!nextVehicle?.id) return;
+
+    const canvasPayload =
+      sourceAction.widget ||
+      sourceAction.payload?.widget ||
+      sourceAction.payload ||
+      { __fromBackend: true };
+
+    setActiveCanvasPayload(canvasPayload);
+    setScreen(SCREEN.FEATURES);
+
+    rememberAction({
+      ...sourceAction,
+      id: sourceAction.id || `${nextVehicle.id}-features-open`,
+      label: sourceAction.label || `${nextVehicle.displayName} features`,
+      query: sourceAction.query || `Show features of ${nextVehicle.displayName}`,
+      type: "open_canvas",
+      intent: ACI_INTENTS.FEATURES,
+      canvasType: ACI_CANVAS_TYPES.FEATURES,
+      vehicle: nextVehicle,
+      contextPatch: {
+        selectedVehicle: nextVehicle,
+        anchorModel: nextVehicle.model,
+        anchorMake: nextVehicle.make,
+        anchorCity: nextVehicle.city,
+        ...(sourceAction.contextPatch || {}),
+      },
+    });
+  };
+
   const toggleSaved = (vehicle) => {
     if (!vehicle?.id) return;
 
@@ -733,6 +775,18 @@ export default function AciAssistV2() {
     if (shouldOpenColors) {
       setBackendError("");
       openColors(targetVehicle, action);
+      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
+      return;
+    }
+
+    const shouldOpenFeatures =
+      isFeaturesCanvas(action.canvasType) ||
+      action.intent === ACI_INTENTS.FEATURES ||
+      actionText.includes("feature");
+
+    if (shouldOpenFeatures) {
+      setBackendError("");
+      openFeatures(targetVehicle, action);
       hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
       return;
     }
