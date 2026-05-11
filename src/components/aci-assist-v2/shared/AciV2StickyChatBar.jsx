@@ -1,5 +1,4 @@
 import React from "react";
-import { motion } from "framer-motion";
 import { Mic, SendHorizontal, Sparkles } from "lucide-react";
 
 const buildDefaultPlaceholder = (mobile, selectedVehicle) => {
@@ -24,11 +23,8 @@ export default function AciV2StickyChatBar({
   };
 
   return (
-    <motion.section
+    <section
       className={`aci-v2-chatdock ${mobile ? "is-mobile" : "is-desktop"} ${className}`.trim()}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.42, delay: 0.16 }}
     >
       <style>{`
         .aci-v2-chatdock {
@@ -38,6 +34,12 @@ export default function AciV2StickyChatBar({
           bottom: calc(16px + env(safe-area-inset-bottom));
           z-index: 220;
           pointer-events: none;
+          animation: aciV2ChatFadeIn .32s ease;
+        }
+
+        @keyframes aciV2ChatFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
 
         .aci-v2-chatdock > * {
@@ -182,6 +184,6 @@ export default function AciV2StickyChatBar({
           ACI Assist can make mistakes. Please verify important information.
         </p>
       ) : null}
-    </motion.section>
+    </section>
   );
 }
