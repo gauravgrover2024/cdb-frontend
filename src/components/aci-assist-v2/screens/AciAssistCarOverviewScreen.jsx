@@ -234,6 +234,8 @@ function DesktopHero({ vehicle, onAction, savedIds, onToggleSaved }) {
           vehicle={vehicle}
           height={238}
           className="hero-creta-photo"
+          stage
+          stageVariant="hero"
         />
       </motion.div>
 
@@ -528,6 +530,8 @@ function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobi
                   vehicle={vehicle}
                   height={94}
                   className="variant-creta-photo"
+                  stage
+                  stageVariant="compact"
                 />
               </div>
 
@@ -590,9 +594,11 @@ function PopularVariantsPanel({ vehicle, onAction, savedIds, onToggleSaved, mobi
 
 function ColorsPanel({ vehicle, onAction, mobile = false }) {
   const colors = Array.isArray(vehicle.colors) ? vehicle.colors : [];
+  const [showAll, setShowAll] = useState(false);
 
   const [selected, setSelected] = useState(0);
   const active = colors[selected];
+  const visibleColors = mobile && !showAll ? colors.slice(0, 6) : colors;
 
   return (
     <motion.section
@@ -630,12 +636,13 @@ function ColorsPanel({ vehicle, onAction, mobile = false }) {
           <p style={{ margin: 0, color: "#64748b", fontWeight: 600 }}>
             Live color swatches are loading.
           </p>
-        ) : colors.map((color, index) => (
+        ) : visibleColors.map((color, index) => (
           <button
             type="button"
             key={color.name}
             onClick={() => {
-              setSelected(index);
+              const originalIndex = colors.findIndex((item) => item.name === color.name);
+              setSelected(originalIndex < 0 ? index : originalIndex);
               emitAciAction(
                 {
                   label: color.name,
@@ -653,11 +660,21 @@ function ColorsPanel({ vehicle, onAction, mobile = false }) {
             <ColorOrb
               hex={color.hex}
               name={color.name}
-              selected={index === selected}
+              selected={color.name === active?.name}
             />
           </button>
         ))}
       </div>
+
+      {mobile && colors.length > 6 ? (
+        <button
+          type="button"
+          className="colors-toggle"
+          onClick={() => setShowAll((prev) => !prev)}
+        >
+          {showAll ? "Show fewer colors" : `View all ${colors.length} colors`}
+        </button>
+      ) : null}
 
       {active ? (
         <div className="selected-color">
@@ -704,13 +721,14 @@ function ComparePanel({ vehicle, onAction, mobile = false }) {
           </span>
 
           <div>
-            <h3>{query}</h3>
+            <h3>{`Compare ${vehicle.model} with ${compareWith.model}`}</h3>
+            <p>Price, features, mileage and EMI side-by-side</p>
           </div>
 
           <div className="mobile-compare-cars">
-            <AciVehicleVisual vehicle={vehicle} height={48} />
+            <AciVehicleVisual vehicle={vehicle} height={48} stage stageVariant="compact" />
             <b>VS</b>
-            <AciVehicleVisual vehicle={compareWith} height={48} />
+            <AciVehicleVisual vehicle={compareWith} height={48} stage stageVariant="compact" />
           </div>
         </button>
       </motion.section>
@@ -810,142 +828,6 @@ function ComparePanel({ vehicle, onAction, mobile = false }) {
 function DesktopPage({ data, vehicle, onAction, savedIds, onToggleSaved }) {
   return (
     <>
-      <style>{`
-/* ACI_REMOVE_COMPOSER_BACKDROP_START */
-
-/*
-  Remove only the background/blur layer behind the chatbar.
-  The actual input pill remains unchanged.
-*/
-
-.composer-dock,
-.composer-dock.mobile,
-.aci-home-root .composer-dock,
-.aci-home-root .composer-dock.mobile,
-.desktop-page > .composer-dock,
-.mobile-page > .composer-dock.mobile {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* ACI_REMOVE_COMPOSER_BACKDROP_END */
-`}</style>
-
-      
-      <style>{`
-/* ACI_CAR_OVERVIEW_LOCAL_COMPOSER_FIX_START */
-
-/*
-  Car overview only.
-  Do not depend on aci-creta-page wrapper because this file uses:
-  - desktop-page
-  - mobile-page
-  - AciComposer
-*/
-
-.desktop-page {
-  min-height: auto !important;
-  padding-bottom: 10px !important;
-}
-
-.desktop-page > .composer-dock {
-  position: fixed !important;
-  left: 50% !important;
-  right: auto !important;
-  bottom: 18px !important;
-  top: auto !important;
-  z-index: 9999 !important;
-  width: min(980px, calc(100vw - 72px)) !important;
-  max-width: 980px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  transform: translateX(-50%) !important;
-  background: transparent !important;
-  pointer-events: none !important;
-}
-
-.desktop-page > .composer-dock .composer,
-.desktop-page > .composer-dock p {
-  pointer-events: auto !important;
-}
-
-.desktop-page > .composer-dock .composer {
-  width: 100% !important;
-}
-
-.desktop-page > .composer-dock p {
-  margin-top: 7px !important;
-}
-
-.desktop-page > .composer-dock [class*="selected"],
-.desktop-page > .composer-dock [class*="context"] {
-  max-height: 0 !important;
-  overflow: hidden !important;
-}
-
-@media (max-width: 900px) {
-  .mobile-page {
-    min-height: auto !important;
-    padding-bottom: 10px !important;
-    gap: 14px !important;
-  }
-
-  .mobile-page > .composer-dock.mobile {
-    position: fixed !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: 0 !important;
-    top: auto !important;
-    z-index: 9999 !important;
-    width: min(430px, 100vw) !important;
-    max-width: 430px !important;
-    padding: 7px 14px calc(10px + env(safe-area-inset-bottom)) !important;
-    margin: 0 !important;
-    transform: translateX(-50%) !important;
-    pointer-events: none !important;
-    background: linear-gradient(
-      180deg,
-      rgba(248,251,255,0) 0%,
-      rgba(248,251,255,.90) 30%,
-      rgba(248,251,255,1) 100%
-    ) !important;
-    backdrop-filter: blur(14px) !important;
-  }
-
-  .mobile-page > .composer-dock.mobile .composer {
-    width: 100% !important;
-    pointer-events: auto !important;
-  }
-
-  .mobile-page > .composer-dock.mobile [class*="selected"],
-  .mobile-page > .composer-dock.mobile [class*="context"] {
-    display: none !important;
-  }
-}
-
-
-/* ACI_CAR_OVERVIEW_REMOVE_BOTTOM_GAP */
-.desktop-page {
-  padding-bottom: 10px !important;
-}
-
-.desktop-grid {
-  margin-bottom: 0 !important;
-}
-
-@media (max-width: 900px) {
-  .mobile-page {
-    padding-bottom: 10px !important;
-  }
-
-  .mobile-compare-panel {
-    margin-bottom: 0 !important;
-  }
-}
-
-/* ACI_CAR_OVERVIEW_LOCAL_COMPOSER_FIX_END */
-`}</style>
 <DesktopHeader data={data} onAction={onAction} />
 
       <motion.main
@@ -1036,19 +918,19 @@ function MobilePage({ data, vehicle, onAction, savedIds, onToggleSaved }) {
       <MobileHeader data={data} onAction={onAction} />
 
       <motion.section className="mobile-creta-hero" variants={fadeUp}>
-        <div className="mobile-creta-top">
-          <div className="mobile-creta-copy">
-            <h1>{vehicle.displayName}</h1>
-            <p>{vehicle.subtitle || `${vehicle.segment} · ${vehicle.city} prices`}</p>
-          </div>
+        <div className="mobile-creta-copy">
+          <h1>{vehicle.displayName}</h1>
+          <p>{vehicle.subtitle || `${vehicle.segment} · ${vehicle.city} prices`}</p>
+        </div>
 
-          <div className="mobile-creta-visual">
-            <AciVehicleVisual
-              vehicle={vehicle}
-              height={128}
-              className="mobile-hero-creta-photo"
-            />
-          </div>
+        <div className="mobile-creta-visual">
+          <AciVehicleVisual
+            vehicle={vehicle}
+            height={194}
+            className="mobile-hero-creta-photo"
+            stage
+            stageVariant="hero"
+          />
         </div>
 
         <div className="mobile-price-row">
@@ -1108,20 +990,24 @@ function MobilePage({ data, vehicle, onAction, savedIds, onToggleSaved }) {
       </motion.section>
 
       <motion.section className="mobile-help-panel" variants={fadeUp}>
-        <h3>Need help choosing the right {vehicle.model} variant?</h3>
+        <h3>
+          Tell me your budget and driving use. I will shortlist the right{" "}
+          {vehicle.model} variant.
+        </h3>
 
         <div className="mobile-help-pills">
           {[
-            `Best automatic ${vehicle.model}`,
-            `Compare with ${vehicle.compareWith?.model || "Seltos"}`,
+            "Best automatic",
+            "Family variant",
             "EMI under ₹20k",
+            `Compare with ${vehicle.compareWith?.model || "Verna"}`,
           ].map((item) => (
             <button
               type="button"
               key={item}
               onClick={() => emitAciAction({ label: item, query: item, vehicle }, onAction)}
             >
-              {item.replace(vehicle.model, "").trim() || item}
+              {item}
             </button>
           ))}
         </div>
@@ -1139,7 +1025,12 @@ function MobilePage({ data, vehicle, onAction, savedIds, onToggleSaved }) {
       <ColorsPanel vehicle={vehicle} onAction={onAction} mobile />
       <ComparePanel vehicle={vehicle} onAction={onAction} mobile />
 
-      <AciComposer mobile onAction={onAction} selectedVehicle={vehicle} />
+      <AciComposer
+        mobile
+        onAction={onAction}
+        selectedVehicle={vehicle}
+        placeholder={`Ask ACI Assist about ${vehicle.model}...`}
+      />
     </motion.main>
   );
 }
@@ -1999,10 +1890,10 @@ function CarOverviewScreenStyles() {
           max-width: 430px;
           min-height: 100vh;
           margin: 0 auto;
-          padding: 18px 14px 18px;
+          padding: 14px 16px calc(112px + env(safe-area-inset-bottom));
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 20px;
         }
 
         .mobile-header {
@@ -2036,63 +1927,51 @@ function CarOverviewScreenStyles() {
 
         .mobile-creta-hero {
           border-radius: 26px;
-          padding: 18px 16px 16px;
+          min-height: 372px;
+          padding: 18px 16px;
           overflow: hidden;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 16px;
           background: linear-gradient(135deg, #ffffff 0%, #f4f8ff 100%);
-        }
-
-        .mobile-creta-top {
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) 164px;
-          align-items: end;
-          gap: 8px;
         }
 
         .mobile-creta-copy h1 {
           margin: 0;
           color: #07102b;
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 33px;
+          font-size: 42px;
           line-height: .94;
           letter-spacing: -.065em;
           font-weight: 700;
         }
 
         .mobile-creta-copy p {
-          max-width: 182px;
           margin: 10px 0 0;
           color: #475569;
-          font-size: 13px;
+          font-size: 16px;
           line-height: 1.35;
           font-weight: 520;
         }
 
         .mobile-creta-visual {
-          display: flex;
-          justify-content: flex-end;
-          align-items: flex-end;
-          min-height: 128px;
+          min-height: 178px;
+          width: 100%;
         }
 
         .mobile-hero-creta-photo {
-          width: 192px;
-          height: 128px;
-          object-fit: contain;
-          object-position: center bottom;
-          filter: drop-shadow(0 14px 12px rgba(15,23,42,.14));
+          width: 100%;
+          height: 186px;
         }
 
         .mobile-price-row {
-          min-height: 78px;
+          min-height: 92px;
           border-radius: 20px;
           border: 1px solid #dfe7f2;
           background: rgba(255,255,255,.96);
           padding: 14px;
           display: grid;
-          grid-template-columns: minmax(0, 1fr) 124px;
+          grid-template-columns: minmax(0, 1fr) 136px;
           gap: 10px;
           align-items: center;
           box-shadow: 0 18px 44px -38px rgba(15,23,42,.24);
@@ -2111,14 +1990,14 @@ function CarOverviewScreenStyles() {
           color: #64748b;
           text-transform: uppercase;
           letter-spacing: .12em;
-          font-size: 8px;
+          font-size: 10px;
           line-height: 1;
           font-weight: 700;
         }
 
         .mobile-price-inline strong {
           color: #0f172a;
-          font-size: 23px;
+          font-size: 28px;
           line-height: 1;
           letter-spacing: -.05em;
           font-weight: 760;
@@ -2128,12 +2007,12 @@ function CarOverviewScreenStyles() {
           display: block;
           margin-top: 6px;
           color: #64748b;
-          font-size: 11px;
+          font-size: 12px;
         }
 
         .mobile-price-row button {
-          width: 124px;
-          height: 44px;
+          width: 136px;
+          height: 52px;
           border: 0;
           border-radius: 14px;
           background: linear-gradient(135deg, var(--blue), var(--blue-dark));
@@ -2142,22 +2021,22 @@ function CarOverviewScreenStyles() {
           align-items: center;
           justify-content: center;
           gap: 6px;
-          font-size: 12px;
-          font-weight: 650;
+          font-size: 15px;
+          font-weight: 700;
           box-shadow: 0 18px 34px -22px rgba(37,99,235,.60);
         }
 
         .mobile-action-block {
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
         }
 
         .mobile-action-block h2 {
           margin: 0;
-          padding: 0 14px;
+          padding: 0 4px;
           font-family: Georgia, "Times New Roman", serif;
-          font-size: 18px;
+          font-size: 28px;
           font-weight: 600;
           letter-spacing: -.035em;
         }
@@ -2165,58 +2044,59 @@ function CarOverviewScreenStyles() {
         .mobile-action-block > div {
           display: grid;
           grid-template-columns: repeat(4, minmax(0, 1fr));
-          gap: 10px;
+          gap: 8px;
         }
 
         .mobile-action-block button {
-          height: 74px;
-          border-radius: 18px;
+          height: 80px;
+          border-radius: 22px;
           color: var(--blue);
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: center;
-          gap: 8px;
-          font-size: 11px;
+          gap: 7px;
+          font-size: 13px;
           font-weight: 620;
         }
 
         .mobile-help-panel {
-          min-height: 94px;
+          min-height: 122px;
           border-radius: 22px;
-          padding: 15px 14px 14px;
+          padding: 16px 14px 14px;
           display: flex;
           flex-direction: column;
           align-items: stretch;
           justify-content: center;
-          gap: 13px;
+          gap: 12px;
         }
 
         .mobile-help-panel h3 {
           margin: 0;
           color: #1e293b;
-          font-size: 13.8px;
+          font-size: 14px;
           line-height: 1.2;
-          font-weight: 620;
-          text-align: center;
+          font-weight: 560;
+          text-align: left;
         }
 
         .mobile-help-pills {
           width: 100%;
           display: flex;
-          justify-content: center;
+          flex-wrap: wrap;
+          justify-content: flex-start;
           gap: 7px;
         }
 
         .mobile-help-pills button {
-          height: 31px;
+          height: 34px;
           padding: 0 10px;
           border-radius: 999px;
           border: 1px solid #dfe7f2;
           background: #fff;
           color: var(--blue);
-          font-size: 10px;
-          font-weight: 650;
+          font-size: 12px;
+          font-weight: 620;
           white-space: nowrap;
           flex: 0 0 auto;
           box-shadow: 0 10px 24px -22px rgba(15,23,42,.22);
@@ -2244,12 +2124,23 @@ function CarOverviewScreenStyles() {
 
         .mobile-colors-panel .colors-row {
           justify-content: flex-start;
-          gap: 17px;
+          gap: 12px;
+          overflow-x: auto;
         }
 
         .mobile-colors-panel .color-orb {
-          width: 42px;
-          height: 42px;
+          width: 45px;
+          height: 45px;
+        }
+
+        .colors-toggle {
+          margin-top: 10px;
+          border: 0;
+          background: transparent;
+          color: var(--blue);
+          font-size: 12px;
+          font-weight: 620;
+          padding: 0;
         }
 
         .mobile-compare-panel {
@@ -2280,9 +2171,16 @@ function CarOverviewScreenStyles() {
         .mobile-compare-row h3 {
           margin: 0;
           color: #1e293b;
-          font-size: 14px;
-          line-height: 1.25;
+          font-size: 15px;
+          line-height: 1.2;
           font-weight: 620;
+        }
+
+        .mobile-compare-row p {
+          margin: 4px 0 0;
+          color: #64748b;
+          font-size: 11px;
+          line-height: 1.25;
         }
 
         .mobile-compare-cars {
@@ -2312,7 +2210,7 @@ function CarOverviewScreenStyles() {
 
       /* ACI_CAR_FIXED_COMPOSER_SPACE_START */
       .aci-car-overview-page {
-        padding-bottom: 118px;
+        padding-bottom: 112px;
       }
 
       .desktop-page {
@@ -2321,7 +2219,7 @@ function CarOverviewScreenStyles() {
 
       @media (max-width: 900px) {
         .mobile-page {
-          padding-bottom: 112px !important;
+          padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
         }
       }
       /* ACI_CAR_FIXED_COMPOSER_SPACE_END */

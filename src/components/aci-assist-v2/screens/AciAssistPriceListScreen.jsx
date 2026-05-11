@@ -19,6 +19,7 @@ Sparkles,
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
 import { emitAciAction } from "../shared/AciAssistShared";
+import CarImageStage from "../shared/CarImageStage";
 
 const FALLBACK_VARIANT_NAMES = [
 "EX MT",
@@ -485,6 +486,37 @@ return deduped;
 
 const rowKeyOf = (row, index) => row.id || row._id || row.variantId || `${row.variant}-${index}`;
 
+const MOBILE_VARIANT_FILTERS = [
+{ id: "all", label: "All" },
+{ id: "petrol", label: "Petrol" },
+{ id: "diesel", label: "Diesel" },
+{ id: "manual", label: "Manual" },
+{ id: "automatic", label: "Automatic" },
+{ id: "under_12l", label: "Under ₹12L" },
+];
+
+const rowMatchesFilter = (row, filterId) => {
+if (!row || filterId === "all") return true;
+
+const parts = pricePartsFromRow(row);
+const searchable = `${row.variant || ""} ${row.fuelTransmission || ""}`.toLowerCase();
+
+switch (filterId) {
+case "petrol":
+return searchable.includes("petrol");
+case "diesel":
+return searchable.includes("diesel");
+case "manual":
+return searchable.includes("manual") || searchable.includes("mt");
+case "automatic":
+return /(automatic|amt|cvt|dct|ivt|at)\b/.test(searchable);
+case "under_12l":
+return (parts.exShowroom || parts.onRoad || 0) > 0 && (parts.exShowroom || parts.onRoad) <= 1200000;
+default:
+return true;
+}
+};
+
 const calculateEmi = (amount) => {
 const principal = Math.round((Number(amount || 0) || 0) * 0.9);
 const annualRate = 8.75;
@@ -581,33 +613,23 @@ return (
 );
 }
 
-function VehicleArtwork({ image, imageFailed, onImageError, vehicle, className = "" }) {
-const label = getVehicleModel(vehicle).toUpperCase();
-
+function VehicleArtwork({ image, imageFailed, vehicle, className = "" }) {
 return (
 <div className={`price-car-art ${className}`}>
-{image && !imageFailed ? (
-<motion.img
-key={image}
-src={image}
-alt={getVehicleTitle(vehicle)}
-onError={onImageError}
+<motion.div
 initial={{ opacity: 0, scale: 0.98, y: 8 }}
 animate={{ opacity: 1, scale: 1, y: 0 }}
 transition={{ type: "spring", stiffness: 220, damping: 22 }}
-draggable="false"
-/>
-) : (
-<motion.div
-className="price-car-fallback"
-initial={{ opacity: 0, scale: 0.94, y: 8 }}
-animate={{ opacity: 1, scale: 1, y: 0 }}
-transition={{ type: "spring", stiffness: 220, damping: 22 }}
 >
-<Car size={72} strokeWidth={1.3} />
-<span>{label.slice(0, 10)}</span>
+<CarImageStage
+src={imageFailed ? "" : image}
+alt={getVehicleTitle(vehicle)}
+stageVariant={className.includes("mobile") ? "compact" : "hero"}
+className="price-car-stage"
+fallbackLabel={getVehicleModel(vehicle)}
+imageClassName="price-car-stage-image"
+/>
 </motion.div>
-)}
 </div>
 );
 }
@@ -666,7 +688,6 @@ update breakup, EMI and recommendation.
 <VehicleArtwork
 image={image}
 imageFailed={imageFailed}
-onImageError={() => setImageFailed(true)}
 vehicle={vehicle}
 className="hero-art"
 />
@@ -1048,7 +1069,6 @@ Live
 <VehicleArtwork
 image={image}
 imageFailed={imageFailed}
-onImageError={() => setImageFailed(true)}
 vehicle={vehicle}
 className="side-art"
 />
@@ -1173,46 +1193,19 @@ return (
 );
 }
 
-function MobileFilterPills({ city, onAction, vehicle }) {
+function MobileVariantFilters({ activeFilter, setActiveFilter }) {
 return (
 <div className="mobile-filters">
+{MOBILE_VARIANT_FILTERS.map((filter) => (
 <button
 type="button"
-onClick={() =>
-firePriceAction(
-"Change city",
-{
-vehicle,
-type: "change_city",
-query: `Change city for ${getVehicleTitle(vehicle)} price list`,
-},
-onAction,
-)
-}
+key={filter.id}
+className={activeFilter === filter.id ? "active" : ""}
+onClick={() => setActiveFilter(filter.id)}
 >
-<MapPin size={19} />
-{humanize(city)}
-<ChevronDown size={17} />
+{filter.label}
 </button>
-
-<button
-type="button"
-onClick={() =>
-firePriceAction(
-"Filter transmissions",
-{
-vehicle,
-type: "filter_transmission",
-query: `Filter ${getVehicleTitle(vehicle)} price list by transmission`,
-},
-onAction,
-)
-}
->
-<span>H</span>
-All transmissions
-<ChevronDown size={17} />
-</button>
+))}
 </div>
 );
 }
@@ -1221,24 +1214,24 @@ function MobileHero({
 vehicle,
 minPrice,
 maxPrice,
+city,
+count,
 image,
 imageFailed,
-setImageFailed,
 }) {
 return (
 <motion.section className="mobile-price-hero" variants={fadeUp}>
 <div>
-<h2>{getVehicleTitle(vehicle)}</h2>
+<h2>{getVehicleTitle(vehicle)} price list</h2>
 <strong>
 {formatAmount(minPrice, true)} – {formatAmount(maxPrice, true)}
 </strong>
-<p>Ex-showroom prices</p>
+<p>{humanize(city)} · {count} variants · Ex-showroom</p>
 </div>
 
 <VehicleArtwork
 image={image}
 imageFailed={imageFailed}
-onImageError={() => setImageFailed(true)}
 vehicle={vehicle}
 className="mobile-hero-art"
 />
@@ -1257,19 +1250,22 @@ whileTap={{ scale: 0.986 }}
 onClick={onClick}
 className={`mobile-variant-row ${active ? "active" : ""}`}
 >
-<div>
+<div className="mobile-variant-main">
 <h3>{row.variant || FALLBACK_VARIANT_NAMES[index] || "Variant"}</h3>
 {row.recommended ? <span>Most popular</span> : null}
 </div>
 
-<article>
+<article className="mobile-variant-meta">
 <p>{row.fuelTransmission || "Petrol · Manual"}</p>
 <small>{row.note || FALLBACK_NOTES[index] || "Variant details"}</small>
 </article>
 
+<div className="mobile-variant-price">
 <strong>{formatAmount(parts.exShowroom || parts.onRoad, true)}</strong>
+<small>Ex-showroom</small>
+</div>
 
-<ChevronRight size={22} />
+<ChevronRight size={20} />
 </motion.button>
 );
 }
@@ -1326,12 +1322,13 @@ vehicle,
 rows,
 selectedRowKey,
 setSelectedRowKey,
+activeFilter,
+setActiveFilter,
 minPrice,
 maxPrice,
 city,
 image,
 imageFailed,
-setImageFailed,
 onAction,
 }) {
 return (
@@ -1361,26 +1358,45 @@ onAction,
 }
 >
 <ArrowLeft size={17} />
-Back to car page
+Back to {getVehicleTitle(vehicle)}
 </button>
-
-<h1>{getVehicleTitle(vehicle)} price list</h1>
-<p>Choose the right variant for your city.</p>
 </motion.section>
-
-<MobileFilterPills city={city} vehicle={vehicle} onAction={onAction} />
 
 <MobileHero
 vehicle={vehicle}
 minPrice={minPrice}
 maxPrice={maxPrice}
+city={city}
+count={rows.length}
 image={image}
 imageFailed={imageFailed}
-setImageFailed={setImageFailed}
 />
 
+<motion.div variants={fadeUp} className="mobile-filter-sticky-wrap">
+<button
+type="button"
+className="mobile-city-pill"
+onClick={() =>
+firePriceAction(
+"Change city",
+{
+vehicle,
+type: "change_city",
+query: `Change city for ${getVehicleTitle(vehicle)} price list`,
+},
+onAction,
+)
+}
+>
+<MapPin size={16} />
+{humanize(city)}
+<ChevronDown size={14} />
+</button>
+<MobileVariantFilters activeFilter={activeFilter} setActiveFilter={setActiveFilter} />
+</motion.div>
+
 <motion.div className="mobile-variant-list" variants={fadeUp}>
-{rows.map((row, index) => {
+{rows.length ? rows.map((row, index) => {
 const rowKey = rowKeyOf(row, index);
 
 return (
@@ -1392,7 +1408,12 @@ active={rowKey === selectedRowKey}
 onClick={() => setSelectedRowKey(rowKey)}
 />
 );
-})}
+}) : (
+<div className="mobile-variants-empty">
+<h3>No variants in this filter</h3>
+<p>Try a different fuel, transmission, or budget filter.</p>
+</div>
+)}
 </motion.div>
 
 <MobileComposer vehicle={vehicle} onAction={onAction} />
@@ -1523,6 +1544,7 @@ const defaultSelectedKey = rowKeyOf(rows[recommendedIndex] || rows[0] || {}, rec
 const [selectedRowKey, setSelectedRowKey] = useState(defaultSelectedKey);
 const [openBreakupKey, setOpenBreakupKey] = useState(null);
 const [imageFailed, setImageFailed] = useState(false);
+const [mobileFilter, setMobileFilter] = useState("all");
 
 useEffect(() => {
 if (!rows.length) return;
@@ -1544,6 +1566,18 @@ const image = useMemo(
 () => getVehicleImage(activeVehicle, widget, rows),
 [activeVehicle, widget, rows],
 );
+const mobileRows = useMemo(
+() => rows.filter((row) => rowMatchesFilter(row, mobileFilter)),
+[rows, mobileFilter],
+);
+
+useEffect(() => {
+if (!mobileRows.length) return;
+const existsInMobile = mobileRows.some((row, index) => rowKeyOf(row, index) === selectedRowKey);
+if (!existsInMobile) {
+setSelectedRowKey(rowKeyOf(mobileRows[0], 0));
+}
+}, [mobileRows, selectedRowKey]);
 
 useEffect(() => {
 setImageFailed(false);
@@ -1915,34 +1949,17 @@ place-items: center;
 pointer-events: none;
 }
 
-.price-car-art img {
-display: block;
+.price-car-art .price-car-stage {
 width: 100%;
+height: 100%;
+border-radius: 24px;
+min-height: 92px;
+}
+
+.price-car-art .price-car-stage-image {
+width: 92%;
+height: 86%;
 max-height: 220px;
-object-fit: contain;
-mix-blend-mode: multiply;
-filter: drop-shadow(0 22px 24px rgba(15,23,42,.18));
-user-select: none;
-}
-
-.price-car-fallback {
-position: relative;
-width: 190px;
-height: 94px;
-border-radius: 42px;
-background: linear-gradient(135deg, #334155, #1e293b 46%, #020617);
-color: white;
-display: grid;
-place-items: center;
-box-shadow: 0 18px 50px -28px rgba(15,23,42,.8);
-}
-
-.price-car-fallback span {
-position: absolute;
-bottom: 9px;
-font-size: 9px;
-letter-spacing: .12em;
-font-weight: 900;
 }
 
 .price-live-card {
@@ -2575,7 +2592,7 @@ background: radial-gradient(circle at 50% 42%, #fff 0%, #f8fafc 38%, #eaf2ff 100
 border: 1px solid #dbe3ef;
 }
 
-.side-art img {
+.side-art .price-car-stage-image {
 max-height: 170px;
 }
 
@@ -2917,9 +2934,34 @@ font-size: 15px;
 line-height: 1.35;
 }
 
+.mobile-filter-sticky-wrap {
+position: sticky;
+top: 10px;
+z-index: 12;
+display: flex;
+flex-direction: column;
+gap: 9px;
+padding-top: 2px;
+}
+
+.mobile-city-pill {
+height: 34px;
+width: max-content;
+border-radius: 999px;
+border: 1px solid #dbe3ef;
+background: rgba(255,255,255,.95);
+padding: 0 11px;
+color: #334155;
+display: inline-flex;
+align-items: center;
+gap: 6px;
+font-size: 12px;
+font-weight: 620;
+}
+
 .mobile-filters {
 display: flex;
-gap: 10px;
+gap: 8px;
 overflow-x: auto;
 padding-bottom: 1px;
 scrollbar-width: none;
@@ -2930,59 +2972,48 @@ display: none;
 }
 
 .mobile-filters button {
-height: 46px;
+height: 34px;
 flex: 0 0 auto;
-border-radius: 16px;
-border: 1px solid #dbe3ef;
-background: white;
-padding: 0 13px;
-color: #172033;
-display: inline-flex;
-align-items: center;
-gap: 9px;
-font-size: 13px;
-font-weight: 650;
-box-shadow: 0 20px 58px -48px rgba(15,23,42,.45);
-}
-
-.mobile-filters button > svg:first-child {
-color: var(--blue);
-}
-
-.mobile-filters button span {
-width: 20px;
-height: 20px;
 border-radius: 999px;
-border: 1.5px solid var(--blue);
-color: var(--blue);
-display: grid;
-place-items: center;
-font-size: 10px;
-font-weight: 900;
+border: 1px solid #dbe3ef;
+background: rgba(255,255,255,.95);
+padding: 0 12px;
+color: #475569;
+font-size: 13px;
+font-weight: 590;
+white-space: nowrap;
+}
+
+.mobile-filters button.active {
+background: linear-gradient(135deg, #2563eb, #1d4ed8);
+border-color: #2563eb;
+color: #fff;
+box-shadow: 0 14px 26px -20px rgba(37,99,235,.58);
 }
 
 .mobile-price-hero {
 position: relative;
-min-height: 186px;
+min-height: 224px;
 border-radius: 26px;
 overflow: hidden;
-padding: 18px;
-background:
-repeating-radial-gradient(ellipse at 84% 26%, rgba(255,255,255,.62) 0, rgba(255,255,255,.62) 2px, transparent 3px, transparent 20px),
-linear-gradient(135deg, #f5f9ff 0%, #ffffff 48%, #edf4ff 100%);
+padding: 16px;
+display: flex;
+flex-direction: column;
+justify-content: space-between;
+gap: 10px;
 }
 
 .mobile-price-hero > div:first-child {
 position: relative;
 z-index: 3;
-max-width: 50%;
+max-width: 72%;
 }
 
 .mobile-price-hero h2 {
 margin: 0;
 color: #07102b;
 font-family: var(--serif);
-font-size: 23px;
+font-size: 34px;
 line-height: 1.04;
 letter-spacing: -.045em;
 font-weight: 630;
@@ -2990,155 +3021,174 @@ font-weight: 630;
 
 .mobile-price-hero strong {
 display: block;
-margin-top: 14px;
+margin-top: 10px;
 color: var(--blue);
-font-size: 22px;
+font-size: 28px;
 line-height: 1;
 letter-spacing: -.04em;
-white-space: nowrap;
 }
 
 .mobile-price-hero p {
-margin: 9px 0 0;
+margin: 8px 0 0;
 color: #667085;
-font-size: 13px;
-white-space: nowrap;
+font-size: 12px;
+line-height: 1.3;
 }
 
 .mobile-hero-art {
-position: absolute;
-right: -10px;
-bottom: 2px;
-width: 55%;
-height: 150px;
-z-index: 2;
-}
-
-.mobile-hero-art img {
+position: relative;
+right: auto;
+bottom: auto;
 width: 100%;
-max-height: 148px;
-object-fit: contain;
-}
-
-.mobile-hero-art .price-car-fallback {
-width: 150px;
-height: 74px;
+height: 118px;
+z-index: 2;
 }
 
 .mobile-variant-list {
 display: flex;
 flex-direction: column;
-gap: 10px;
+gap: 12px;
 }
 
 .mobile-variant-row {
-min-height: 74px;
+min-height: 92px;
 width: 100%;
-border-radius: 19px;
-padding: 12px;
+border-radius: 24px;
+padding: 14px 16px;
 display: grid;
-grid-template-columns: 86px minmax(0, 1fr) auto 20px;
-gap: 9px;
+grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto 18px;
+gap: 8px;
 align-items: center;
 text-align: left;
 background: rgba(255,255,255,.96);
 }
 
 .mobile-variant-row.active {
-border-color: #93c5fd;
-background: #eff6ff;
+border-color: #90b8ff;
+background: rgba(239,246,255,.86);
+box-shadow: 0 0 0 2px rgba(37,99,235,.09);
 }
 
-.mobile-variant-row h3 {
+.mobile-variant-main h3 {
 margin: 0;
 color: #07102b;
-font-family: var(--serif);
-font-size: 19px;
-line-height: 1;
-letter-spacing: -.045em;
-font-weight: 630;
+font-size: 16px;
+line-height: 1.14;
+letter-spacing: -.01em;
+font-weight: 740;
+display: -webkit-box;
+-webkit-line-clamp: 2;
+-webkit-box-orient: vertical;
+overflow: hidden;
 }
 
-.mobile-variant-row div > span {
+.mobile-variant-main > span {
 display: inline-flex;
 align-items: center;
-height: 20px;
+height: 21px;
 margin-top: 7px;
 border-radius: 7px;
 background: #dbeafe;
 color: var(--blue);
 padding: 0 7px;
-font-size: 9.5px;
+font-size: 11px;
 font-weight: 800;
 }
 
-.mobile-variant-row p {
+.mobile-variant-meta p {
 margin: 0;
 color: #667085;
-display: flex;
-gap: 6px;
-align-items: center;
 font-size: 12px;
-font-weight: 650;
+font-weight: 620;
 }
 
-.mobile-variant-row small {
+.mobile-variant-meta small {
 display: block;
-margin-top: 6px;
+margin-top: 4px;
 color: #667085;
 font-size: 11px;
-line-height: 1.25;
-white-space: nowrap;
-overflow: hidden;
-text-overflow: ellipsis;
+line-height: 1.24;
 }
 
-.mobile-variant-row > strong {
+.mobile-variant-price {
+display: flex;
+flex-direction: column;
+align-items: flex-end;
+gap: 2px;
+}
+
+.mobile-variant-price > strong {
 color: var(--blue);
-font-size: 17px;
+font-size: 20px;
 line-height: 1;
 letter-spacing: -.04em;
 white-space: nowrap;
+}
+
+.mobile-variant-price > small {
+color: #94a3b8;
+font-size: 11px;
+font-weight: 620;
 }
 
 .mobile-variant-row > svg {
 color: var(--blue);
 }
 
+.mobile-variants-empty {
+padding: 18px;
+border: 1px solid #dbe3ef;
+border-radius: 22px;
+background: rgba(255,255,255,.95);
+}
+
+.mobile-variants-empty h3 {
+margin: 0;
+font-size: 16px;
+font-weight: 680;
+color: #0f172a;
+}
+
+.mobile-variants-empty p {
+margin: 8px 0 0;
+font-size: 13px;
+line-height: 1.35;
+color: #64748b;
+}
+
 .price-mobile-chat-dock {
 position: fixed;
-left: 0;
-right: 0;
-bottom: 0;
+left: 16px;
+right: 16px;
+bottom: calc(8px + env(safe-area-inset-bottom));
 z-index: 160;
-padding: 4px 14px 8px;
-display: flex;
-justify-content: center;
+padding: 0;
+display: block;
 background: transparent;
 }
 
 .price-mobile-chatbar {
-width: min(402px, 100%);
-min-height: 54px;
-border-radius: 25px;
+width: 100%;
+min-height: 68px;
+border-radius: 999px;
 border: 1px solid #dbe3ef;
 background: rgba(255,255,255,.98);
 box-shadow: 0 12px 28px -24px rgba(15,23,42,.24), inset 0 1px 0 rgba(255,255,255,1);
 display: grid;
-grid-template-columns: 38px 1fr 30px 44px;
+grid-template-columns: 48px 1fr 36px 54px;
 gap: 8px;
 align-items: center;
-padding: 6px;
+padding: 7px;
 }
 
 .price-mobile-chatbar button:first-child {
-width: 38px;
-height: 38px;
-border-radius: 17px;
+width: 48px;
+height: 48px;
+border-radius: 999px;
 }
 
 .price-mobile-chatbar input {
-font-size: 12.5px;
+font-size: 14px;
 }
 
 .price-mobile-chatbar button:nth-of-type(2) {
@@ -3152,10 +3202,10 @@ place-items: center;
 }
 
 .price-mobile-chatbar button:last-child {
-width: 44px;
-height: 42px;
+width: 54px;
+height: 54px;
 border: 0;
-border-radius: 16px;
+border-radius: 999px;
 color: #fff;
 background: linear-gradient(135deg, var(--blue), var(--blue-dark));
 display: grid;
@@ -3173,26 +3223,17 @@ padding-inline: 12px;
 font-size: 28px;
 }
 
-.mobile-price-hero {
-min-height: 176px;
-}
-
-.mobile-hero-art {
-width: 52%;
-right: -6px;
-}
-
 .mobile-variant-row {
-grid-template-columns: 76px minmax(0, 1fr) auto 18px;
-padding-inline: 10px;
+grid-template-columns: minmax(0, 1fr) minmax(0, .95fr) auto 16px;
+padding: 12px;
 }
 
-.mobile-variant-row h3 {
-font-size: 17px;
-}
-
-.mobile-variant-row > strong {
+.mobile-variant-main h3 {
 font-size: 15px;
+}
+
+.mobile-variant-price > strong {
+font-size: 18px;
 }
 }
 `}</style>
@@ -3218,20 +3259,21 @@ setOpenBreakupKey={setOpenBreakupKey}
 onAction={onAction}
 />
 
-<MobilePage
-data={data}
-vehicle={activeVehicle}
-rows={rows}
-selectedRowKey={selectedRowKey}
-setSelectedRowKey={setSelectedRowKey}
-minPrice={minPrice}
-maxPrice={maxPrice}
-city={city}
-image={image}
-imageFailed={imageFailed}
-setImageFailed={setImageFailed}
-onAction={onAction}
-/>
+      <MobilePage
+        data={data}
+        vehicle={activeVehicle}
+        rows={mobileRows}
+        selectedRowKey={selectedRowKey}
+        setSelectedRowKey={setSelectedRowKey}
+        activeFilter={mobileFilter}
+        setActiveFilter={setMobileFilter}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+        city={city}
+        image={image}
+        imageFailed={imageFailed}
+        onAction={onAction}
+      />
 </div>
 );
 }

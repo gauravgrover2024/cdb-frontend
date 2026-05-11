@@ -19,6 +19,7 @@ import {
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
 import { emitAciAction } from "../shared/AciAssistShared";
+import CarImageStage from "../shared/CarImageStage";
 
 const FALLBACK_COLORS = [
   {
@@ -175,12 +176,6 @@ const getVehiclePrice = (vehicle) =>
   vehicle?.price ||
   "Price available on request";
 
-const getVehicleLabel = (vehicle) =>
-  vehicle?.label ||
-  vehicle?.model ||
-  getVehicleTitle(vehicle).split(" ").slice(-1)[0] ||
-  "CAR";
-
 const getVehicleImage = (vehicle, color) =>
   color?.imageUrl ||
   color?.carImageUrl ||
@@ -191,6 +186,23 @@ const getVehicleImage = (vehicle, color) =>
   vehicle?.heroImageUrl ||
   vehicle?.carImageUrl ||
   "";
+
+const getColorDisplayLabel = (name = "") => {
+  const clean = String(name || "").trim();
+  if (!clean) return "Color";
+
+  if (/white.*black|black.*white/i.test(clean)) return "White + Black";
+  if (/king.*limited.*matte/i.test(clean)) return "King Edition Matte";
+  if (/shadow grey.*black roof/i.test(clean)) return "Shadow Grey";
+  if (/robust emerald pearl/i.test(clean)) return "Emerald Pearl";
+
+  return clean
+    .replace(/\bwith\b.*$/i, "")
+    .replace(/\blimited edition\b/gi, "Edition")
+    .replace(/\btitanium black matte\b/gi, "Matte")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
 const normalizeColors = (vehicle, widget) => {
   const source =
@@ -316,119 +328,7 @@ function ColorOrb({ color, selected, large = false }) {
   );
 }
 
-function CarVector({ color, vehicle }) {
-  const id = React.useId().replace(/:/g, "");
-  const label = String(getVehicleLabel(vehicle)).slice(0, 10).toUpperCase();
-
-  return (
-    <svg
-      viewBox="0 0 820 430"
-      className="safari-vector"
-      role="img"
-      aria-label={getVehicleTitle(vehicle)}
-    >
-      <defs>
-        <linearGradient id={`paint-${id}`} x1="0" x2="1">
-          <stop offset="0%" stopColor={color.deep} />
-          <stop offset="45%" stopColor={color.hex} />
-          <stop offset="100%" stopColor={color.deep} />
-        </linearGradient>
-
-        <linearGradient id={`glass-${id}`} x1="0" x2="1">
-          <stop offset="0%" stopColor="#dbeafe" />
-          <stop offset="100%" stopColor="#172033" />
-        </linearGradient>
-
-        <filter
-          id={`shadow-${id}`}
-          x="-20%"
-          y="-20%"
-          width="140%"
-          height="150%"
-        >
-          <feDropShadow
-            dx="0"
-            dy="20"
-            stdDeviation="18"
-            floodColor="#0f172a"
-            floodOpacity=".2"
-          />
-        </filter>
-      </defs>
-
-      <ellipse cx="410" cy="360" rx="270" ry="36" fill="rgba(15,23,42,.14)" />
-
-      <g filter={`url(#shadow-${id})`}>
-        <path
-          d="M84 292 L129 212 Q166 145 246 136 L420 127 Q503 123 570 169 L671 233 Q714 261 735 305 L743 326 L76 326 Z"
-          fill={`url(#paint-${id})`}
-        />
-
-        <path
-          d="M237 147 L423 138 Q496 136 554 174 L612 222 L174 222 Z"
-          fill={`url(#glass-${id})`}
-          opacity=".94"
-        />
-
-        <path
-          d="M132 236 L642 236"
-          stroke="rgba(255,255,255,.55)"
-          strokeWidth="10"
-          strokeLinecap="round"
-        />
-        <path
-          d="M113 290 L198 290"
-          stroke="#f8fafc"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-        <path
-          d="M593 290 L715 290"
-          stroke="#f8fafc"
-          strokeWidth="12"
-          strokeLinecap="round"
-        />
-
-        <rect x="338" y="280" width="122" height="34" rx="8" fill="#f8fafc" />
-        <text
-          x="399"
-          y="302"
-          textAnchor="middle"
-          fontSize="17"
-          fontWeight="900"
-          fill="#0f172a"
-        >
-          {label}
-        </text>
-
-        <circle cx="216" cy="326" r="55" fill="#0f172a" />
-        <circle cx="216" cy="326" r="30" fill="#d8dee8" />
-        <circle cx="216" cy="326" r="13" fill="#64748b" />
-
-        <circle cx="622" cy="326" r="55" fill="#0f172a" />
-        <circle cx="622" cy="326" r="30" fill="#d8dee8" />
-        <circle cx="622" cy="326" r="13" fill="#64748b" />
-
-        <path
-          d="M192 136 L574 136"
-          stroke="rgba(15,23,42,.42)"
-          strokeWidth="11"
-          strokeLinecap="round"
-        />
-
-        <path
-          d="M118 260 Q370 218 721 263"
-          stroke="rgba(255,255,255,.18)"
-          strokeWidth="8"
-          fill="none"
-        />
-      </g>
-    </svg>
-  );
-}
-
 function VehicleArtwork({ color, vehicle, size = "desktop" }) {
-  const [failed, setFailed] = useState(false);
   const imageUrl = getVehicleImage(vehicle, color);
   const hasColorSpecificImage = Boolean(color?.imageUrl || color?.carImageUrl);
 
@@ -442,34 +342,29 @@ function VehicleArtwork({ color, vehicle, size = "desktop" }) {
       }}
     >
       <div className="safari-vehicle-inner">
-        {imageUrl && !failed ? (
-          <>
-            <img
-              src={imageUrl}
-              alt={`${getVehicleTitle(vehicle)} in ${color.mobileName}`}
-              onError={() => setFailed(true)}
-              draggable="false"
-            />
-
-            {!hasColorSpecificImage ? (
-              <motion.span
-                className="paint-layer"
-                animate={{
-                  backgroundColor: color.hex,
-                  opacity:
-                    color.id === "white"
-                      ? 0.08
-                      : color.id === "black"
-                        ? 0.12
-                        : 0.18,
-                }}
-                transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-              />
-            ) : null}
-          </>
-        ) : (
-          <CarVector color={color} vehicle={vehicle} />
-        )}
+        <CarImageStage
+          src={imageUrl}
+          alt={`${getVehicleTitle(vehicle)} in ${color.mobileName}`}
+          stageVariant={size === "mood" ? "compact" : "hero"}
+          className={`safari-stage ${size}`}
+          imageClassName={`safari-stage-image ${hasColorSpecificImage ? "" : "tintable"}`}
+          fallbackLabel={getVehicleModel(vehicle)}
+        />
+        {!hasColorSpecificImage ? (
+          <motion.span
+            className="paint-layer"
+            animate={{
+              backgroundColor: color.hex,
+              opacity:
+                color.id === "white"
+                  ? 0.08
+                  : color.id === "black"
+                    ? 0.12
+                    : 0.18,
+            }}
+            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+          />
+        ) : null}
       </div>
     </div>
   );
@@ -984,10 +879,14 @@ function MobileColorPicker({
   setSelectedColor,
   vehicle,
   onAction,
+  showAll,
+  setShowAll,
 }) {
+  const visible = showAll ? colors : colors.slice(0, 6);
+
   return (
     <motion.section className="mobile-color-picker" variants={fadeUp}>
-      {colors.map((color) => {
+      {visible.map((color) => {
         const active = color.id === selectedColor.id;
 
         return (
@@ -1012,10 +911,30 @@ function MobileColorPicker({
             whileTap={{ scale: 0.95 }}
           >
             <ColorOrb color={color} selected={active} large />
-            <span>{color.mobileName}</span>
+            <span>{getColorDisplayLabel(color.mobileName || color.name)}</span>
           </motion.button>
         );
       })}
+
+      {colors.length > 6 ? (
+        <button
+          type="button"
+          className="mobile-colors-toggle"
+          onClick={() => setShowAll((prev) => !prev)}
+        >
+          {showAll ? "Show fewer colors" : `View all ${colors.length} colors`}
+        </button>
+      ) : null}
+    </motion.section>
+  );
+}
+
+function MobileSelectedColorInfo({ selectedColor }) {
+  return (
+    <motion.section className="mobile-selected-color-info" variants={fadeUp}>
+      <p>Selected color</p>
+      <strong>{selectedColor.name}</strong>
+      <small>Color availability may vary by variant and city.</small>
     </motion.section>
   );
 }
@@ -1090,6 +1009,7 @@ function MobileColorsPage({
   onAction,
 }) {
   const currentIndex = colors.findIndex((item) => item.id === selectedColor.id);
+  const [showAllColors, setShowAllColors] = useState(false);
 
   const setByIndex = (nextIndex) => {
     const safeIndex = (nextIndex + colors.length) % colors.length;
@@ -1133,7 +1053,11 @@ function MobileColorsPage({
         setSelectedColor={setSelectedColor}
         vehicle={vehicle}
         onAction={onAction}
+        showAll={showAllColors}
+        setShowAll={setShowAllColors}
       />
+
+      <MobileSelectedColorInfo selectedColor={selectedColor} />
 
       <MobileMoods
         selectedColor={selectedColor}
@@ -1606,7 +1530,7 @@ export default function AciAssistColorsScreen({
           place-items: center;
         }
 
-        .safari-vehicle img {
+        .safari-stage-image {
           display: block;
           width: 100%;
           height: auto;
@@ -1640,10 +1564,9 @@ export default function AciAssistColorsScreen({
           bottom: -15px;
         }
 
-        .safari-vector {
+        .safari-stage {
           width: 100%;
-          height: auto;
-          display: block;
+          height: 100%;
         }
 
         .available-colors h2 {
@@ -2236,7 +2159,7 @@ export default function AciAssistColorsScreen({
             transform: translateY(31px);
           }
 
-          .safari-vehicle.mobile img {
+          .safari-vehicle.mobile .safari-stage-image {
             filter: var(--car-filter) drop-shadow(0 24px 24px rgba(15,23,42,.23));
           }
 
@@ -2272,6 +2195,51 @@ export default function AciAssistColorsScreen({
           .mobile-color-picker button.active span:not(.color-orb) {
             color: var(--blue);
             font-weight: 560;
+          }
+
+          .mobile-colors-toggle {
+            grid-column: 1 / -1;
+            margin-top: 2px;
+            height: 34px;
+            border-radius: 999px;
+            border: 1px solid #dbe3ef;
+            background: rgba(255,255,255,.92);
+            color: #2563eb;
+            font-size: 12px;
+            font-weight: 620;
+          }
+
+          .mobile-selected-color-info {
+            border: 1px solid #dbe3ef;
+            border-radius: 20px;
+            padding: 14px;
+            background: rgba(255,255,255,.95);
+          }
+
+          .mobile-selected-color-info p {
+            margin: 0;
+            color: #64748b;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-weight: 700;
+          }
+
+          .mobile-selected-color-info strong {
+            display: block;
+            margin-top: 6px;
+            color: #0f172a;
+            font-size: 16px;
+            line-height: 1.2;
+            font-weight: 700;
+          }
+
+          .mobile-selected-color-info small {
+            display: block;
+            margin-top: 7px;
+            color: #64748b;
+            font-size: 11px;
+            line-height: 1.3;
           }
 
           .mobile-moods {
@@ -2890,6 +2858,50 @@ export default function AciAssistColorsScreen({
         }
 
         /* ACI_COLORS_CHATBAR_AND_CAR_SIZE_FIX_END */
+
+        @media (max-width: 900px) {
+          .colors-mobile-page {
+            padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+          }
+
+          .mobile-chat-dock {
+            left: 16px !important;
+            right: 16px !important;
+            width: auto !important;
+            transform: none !important;
+            padding: 0 !important;
+            bottom: calc(8px + env(safe-area-inset-bottom)) !important;
+            background: transparent !important;
+          }
+
+          .mobile-chatbar {
+            min-height: 68px !important;
+            border-radius: 999px !important;
+            grid-template-columns: 48px 1fr 36px 54px !important;
+            padding: 7px !important;
+          }
+
+          .mobile-chatbar button:first-child {
+            width: 48px !important;
+            height: 48px !important;
+            border-radius: 999px !important;
+          }
+
+          .mobile-chatbar button:nth-of-type(2) {
+            width: 36px !important;
+            height: 36px !important;
+          }
+
+          .mobile-chatbar button:last-child {
+            width: 54px !important;
+            height: 54px !important;
+            border-radius: 999px !important;
+          }
+
+          .mobile-chatbar input {
+            font-size: 14px !important;
+          }
+        }
 
       `}</style>
 
