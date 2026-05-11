@@ -9,16 +9,14 @@ import {
   ChevronRight,
   Heart,
   Info,
-  Mic,
   Palette,
-  SendHorizontal,
   Sparkles,
   Sun,
   Trees,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
-import { emitAciAction } from "../shared/AciAssistShared";
+import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 
 const FALLBACK_COLORS = [];
@@ -336,74 +334,6 @@ function DesktopHeader({ data, onAction }) {
   );
 }
 
-function Composer({ vehicle, onAction }) {
-  return (
-    <section className="colors-composer-dock">
-      <div className="colors-composer">
-        <button
-          type="button"
-          onClick={() => fireAction("Assistant", { vehicle }, onAction)}
-        >
-          <Sparkles size={22} />
-        </button>
-
-        <input
-          placeholder={`Ask ACI Assist anything about ${getVehicleTitle(vehicle)}...`}
-        />
-
-        <button
-          type="button"
-          onClick={() => fireAction("Voice input", { vehicle }, onAction)}
-        >
-          <Mic size={21} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => fireAction("Send", { vehicle }, onAction)}
-        >
-          <SendHorizontal size={23} />
-        </button>
-      </div>
-
-      <p>ACI Assist can make mistakes. Please verify important information.</p>
-    </section>
-  );
-}
-
-function MobileChatbar({ vehicle, onAction }) {
-  return (
-    <motion.section className="mobile-chat-dock" variants={fadeUp}>
-      <div className="mobile-chatbar">
-        <button
-          type="button"
-          onClick={() => fireAction("Assistant", { vehicle }, onAction)}
-        >
-          <Sparkles size={21} />
-        </button>
-
-        <input
-          placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)} colors...`}
-        />
-
-        <button
-          type="button"
-          onClick={() => fireAction("Voice input", { vehicle }, onAction)}
-        >
-          <Mic size={22} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() => fireAction("Send", { vehicle }, onAction)}
-        >
-          <SendHorizontal size={23} />
-        </button>
-      </div>
-    </motion.section>
-  );
-}
-
 function DesktopGallery({ selectedColor, selectedMood, vehicle }) {
   return (
     <motion.section className="desktop-gallery-card" variants={fadeUp}>
@@ -694,7 +624,11 @@ function DesktopColorsPage({
             </div>
           </motion.section>
 
-          <Composer vehicle={vehicle} onAction={onAction} />
+          <AciComposer
+            selectedVehicle={vehicle}
+            onAction={onAction}
+            placeholder={`Ask ACI Assist anything about ${getVehicleTitle(vehicle)}...`}
+          />
         </section>
 
         <DesktopRail
@@ -998,7 +932,12 @@ function MobileColorsPage({
         onAction={onAction}
       />
 
-      <MobileChatbar vehicle={vehicle} onAction={onAction} />
+      <AciComposer
+        mobile
+        selectedVehicle={vehicle}
+        onAction={onAction}
+        placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)} colors...`}
+      />
     </motion.main>
   );
 }
@@ -1233,7 +1172,6 @@ export default function AciAssistColorsScreen({
         .desktop-gallery-card,
         .available-grid button,
         .rail-card,
-        .colors-composer,
         .mobile-car-card,
         .mobile-moods,
         .mobile-back,
@@ -1818,96 +1756,14 @@ export default function AciAssistColorsScreen({
           padding: 0 8px;
         }
 
-        .colors-composer-dock {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 160;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 12px 24px 14px;
-          background: linear-gradient(
-            180deg,
-            rgba(248,251,255,0),
-            rgba(248,251,255,.88) 28%,
-            rgba(248,251,255,.98) 100%
-          );
-          backdrop-filter: blur(14px);
-        }
 
-        .colors-composer {
-          width: min(860px, calc(100vw - 64px));
-          min-height: 62px;
-          padding: 6px 8px 6px 10px;
-          border-radius: 30px;
-          display: grid;
-          grid-template-columns: 48px 1fr 36px 54px;
-          gap: 10px;
-          align-items: center;
-          border: 1px solid #cbd5e1;
-          background: rgba(255,255,255,.97);
-          box-shadow: var(--shadow), inset 0 1px 0 #fff;
-        }
 
-        .colors-composer button:first-child {
-          width: 48px;
-          height: 48px;
-          border: 1px solid #e0e7f1;
-          border-radius: 19px;
-          background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
-          color: var(--blue);
-          display: grid;
-          place-items: center;
-        }
 
-        .colors-composer button:first-child svg {
-          fill: currentColor;
-        }
 
-        .colors-composer input {
-          min-width: 0;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          color: #1e293b;
-          font-size: 14px;
-          font-weight: 460;
-        }
 
-        .colors-composer input::placeholder {
-          color: #94a3b8;
-        }
 
-        .colors-composer button:nth-of-type(2) {
-          width: 36px;
-          height: 36px;
-          border: 0;
-          background: transparent;
-          color: #526075;
-          display: grid;
-          place-items: center;
-        }
 
-        .colors-composer button:last-child {
-          width: 54px;
-          height: 48px;
-          border: 0;
-          border-radius: 18px;
-          color: #fff;
-          background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-          display: grid;
-          place-items: center;
-          box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
-        }
 
-        .colors-composer-dock p {
-          margin: 8px 0 0;
-          color: #94a3b8;
-          font-size: 10px;
-          font-weight: 460;
-        }
 
         @media (max-width: 1180px) and (min-width: 901px) {
           .colors-desktop-header {
@@ -2248,89 +2104,13 @@ export default function AciAssistColorsScreen({
             bottom: -15px;
           }
 
-          .mobile-chat-dock {
-            position: fixed;
-            left: 50%;
-            bottom: 0;
-            transform: translateX(-50%);
-            z-index: 160;
-            width: min(430px, 100vw);
-            padding: 10px 14px 14px;
-            background: linear-gradient(
-              180deg,
-              rgba(248,251,255,0),
-              rgba(248,251,255,.92) 26%,
-              rgba(248,251,255,1) 100%
-            );
-            backdrop-filter: blur(14px);
-          }
 
-          .mobile-chatbar {
-            min-height: 60px;
-            border-radius: 28px;
-            border: 1px solid rgba(37,99,235,.18);
-            background: rgba(255,255,255,.97);
-            box-shadow:
-              0 0 0 5px rgba(37,99,235,.04),
-              0 20px 44px -34px rgba(37,99,235,.45),
-              inset 0 1px 0 rgba(255,255,255,1);
-            display: grid;
-            grid-template-columns: 42px 1fr 30px 48px;
-            gap: 8px;
-            align-items: center;
-            padding: 6px 7px 6px 8px;
-          }
 
-          .mobile-chatbar button:first-child {
-            width: 40px;
-            height: 40px;
-            border: 1px solid #e0e7f1;
-            border-radius: 18px;
-            background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
-            color: var(--blue);
-            display: grid;
-            place-items: center;
-          }
 
-          .mobile-chatbar button:first-child svg {
-            fill: currentColor;
-          }
 
-          .mobile-chatbar input {
-            min-width: 0;
-            border: 0;
-            outline: 0;
-            background: transparent;
-            color: #1e293b;
-            font-size: 13px;
-            font-weight: 460;
-          }
 
-          .mobile-chatbar input::placeholder {
-            color: #94a3b8;
-          }
 
-          .mobile-chatbar button:nth-of-type(2) {
-            width: 30px;
-            height: 36px;
-            border: 0;
-            background: transparent;
-            color: #526075;
-            display: grid;
-            place-items: center;
-          }
 
-          .mobile-chatbar button:last-child {
-            width: 48px;
-            height: 46px;
-            border: 0;
-            border-radius: 17px;
-            color: #fff;
-            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-            display: grid;
-            place-items: center;
-            box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
-          }
         }
 
         @media (max-width: 390px) {
@@ -2554,46 +2334,9 @@ export default function AciAssistColorsScreen({
           }
 
           /* Mobile chatbar: center it and remove blue glow/blur */
-          .mobile-chat-dock {
-            position: fixed !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            transform: none !important;
-            width: 100% !important;
-            max-width: none !important;
-            padding: 8px 14px 12px !important;
-            display: flex !important;
-            justify-content: center !important;
-            background: linear-gradient(
-              180deg,
-              rgba(248,251,255,0),
-              rgba(248,251,255,.88) 30%,
-              rgba(248,251,255,.98) 100%
-            ) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-          }
 
-          .mobile-chatbar {
-            width: min(402px, 100%) !important;
-            min-height: 58px !important;
-            border-radius: 27px !important;
-            border: 1px solid #dbe3ef !important;
-            background: rgba(255,255,255,.98) !important;
-            box-shadow:
-              0 16px 36px -28px rgba(15,23,42,.26),
-              inset 0 1px 0 rgba(255,255,255,1) !important;
-          }
 
-          .mobile-chatbar button:first-child {
-            box-shadow: none !important;
-            background: #f5f8ff !important;
-          }
 
-          .mobile-chatbar button:last-child {
-            box-shadow: 0 14px 26px -20px rgba(37,99,235,.45) !important;
-          }
         }
 
         @media (max-width: 390px) {
@@ -2611,10 +2354,6 @@ export default function AciAssistColorsScreen({
             max-width: 112% !important;
           }
 
-          .mobile-chat-dock {
-            padding-left: 12px !important;
-            padding-right: 12px !important;
-          }
         }
 
         /* ACI_COLORS_POLISH_FIXES_END */
@@ -2631,19 +2370,7 @@ export default function AciAssistColorsScreen({
           padding-bottom: 86px !important;
         }
 
-        .colors-composer-dock {
-          padding: 6px 24px 8px !important;
-          background: transparent !important;
-          backdrop-filter: none !important;
-          -webkit-backdrop-filter: none !important;
-        }
 
-        .colors-composer {
-          min-height: 58px !important;
-          box-shadow:
-            0 14px 34px -28px rgba(15,23,42,.24),
-            inset 0 1px 0 rgba(255,255,255,1) !important;
-        }
 
         /* Desktop car should sit inside stage without feeling oversized */
         .desktop-stage {
@@ -2729,34 +2456,10 @@ export default function AciAssistColorsScreen({
           }
 
           /* Chatbar: no big gradient/blur area above it */
-          .mobile-chat-dock {
-            padding: 4px 14px 8px !important;
-            background: transparent !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-          }
 
-          .mobile-chatbar {
-            min-height: 54px !important;
-            border-radius: 25px !important;
-            box-shadow:
-              0 12px 28px -24px rgba(15,23,42,.24),
-              inset 0 1px 0 rgba(255,255,255,1) !important;
-          }
 
-          .mobile-chatbar button:first-child {
-            width: 38px !important;
-            height: 38px !important;
-          }
 
-          .mobile-chatbar button:last-child {
-            width: 44px !important;
-            height: 42px !important;
-          }
 
-          .mobile-chatbar input {
-            font-size: 12.5px !important;
-          }
         }
 
         @media (max-width: 390px) {
@@ -2783,9 +2486,6 @@ export default function AciAssistColorsScreen({
             padding-bottom: 66px !important;
           }
 
-          .mobile-chat-dock {
-            padding-bottom: 7px !important;
-          }
         }
 
         /* ACI_COLORS_CHATBAR_AND_CAR_SIZE_FIX_END */
@@ -2795,43 +2495,11 @@ export default function AciAssistColorsScreen({
             padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
           }
 
-          .mobile-chat-dock {
-            left: 16px !important;
-            right: 16px !important;
-            width: auto !important;
-            transform: none !important;
-            padding: 0 !important;
-            bottom: calc(8px + env(safe-area-inset-bottom)) !important;
-            background: transparent !important;
-          }
 
-          .mobile-chatbar {
-            min-height: 68px !important;
-            border-radius: 999px !important;
-            grid-template-columns: 48px 1fr 36px 54px !important;
-            padding: 7px !important;
-          }
 
-          .mobile-chatbar button:first-child {
-            width: 48px !important;
-            height: 48px !important;
-            border-radius: 999px !important;
-          }
 
-          .mobile-chatbar button:nth-of-type(2) {
-            width: 36px !important;
-            height: 36px !important;
-          }
 
-          .mobile-chatbar button:last-child {
-            width: 54px !important;
-            height: 54px !important;
-            border-radius: 999px !important;
-          }
 
-          .mobile-chatbar input {
-            font-size: 14px !important;
-          }
         }
 
       `}</style>
