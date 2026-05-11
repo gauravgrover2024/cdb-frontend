@@ -1666,8 +1666,15 @@ backdrop-filter: blur(18px);
 .price-table-card,
 .mini-panel,
 .side-card,
+.price-composer,
 .mobile-price-hero,
 .mobile-variant-row,
+.price-mobile-chatbar {
+border: 1px solid var(--line);
+background: var(--surface);
+box-shadow: var(--shadow), inset 0 1px 0 #fff;
+backdrop-filter: blur(18px);
+}
 
 .desktop-actions {
 display: flex;
@@ -2604,6 +2611,101 @@ line-height: 1.5;
 font-weight: 650;
 }
 
+.price-composer-dock {
+position: fixed;
+left: 0;
+right: 0;
+bottom: 0;
+z-index: 160;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 6px 24px 8px;
+background: transparent;
+}
+
+.price-composer {
+width: min(860px, calc(100vw - 64px));
+min-height: 58px;
+padding: 6px 8px 6px 10px;
+border-radius: 30px;
+display: grid;
+grid-template-columns: 48px 1fr 36px 54px;
+gap: 10px;
+align-items: center;
+background: rgba(255,255,255,.97);
+border: 1px solid #cbd5e1;
+box-shadow: 0 14px 34px -28px rgba(15,23,42,.24), inset 0 1px 0 rgba(255,255,255,1);
+}
+
+.price-composer button:first-child,
+.price-mobile-chatbar button:first-child {
+border: 1px solid #e0e7f1;
+background: #f5f8ff;
+color: var(--blue);
+display: grid;
+place-items: center;
+}
+
+.price-composer button:first-child {
+width: 48px;
+height: 48px;
+border-radius: 19px;
+}
+
+.price-composer button:first-child svg,
+.price-mobile-chatbar button:first-child svg {
+fill: currentColor;
+}
+
+.price-composer input,
+.price-mobile-chatbar input {
+min-width: 0;
+border: 0;
+outline: 0;
+background: transparent;
+color: #1e293b;
+font-weight: 460;
+}
+
+.price-composer input {
+font-size: 14px;
+}
+
+.price-composer input::placeholder,
+.price-mobile-chatbar input::placeholder {
+color: #94a3b8;
+}
+
+.price-composer button:nth-of-type(2) {
+width: 36px;
+height: 36px;
+border: 0;
+background: transparent;
+color: #526075;
+display: grid;
+place-items: center;
+}
+
+.price-composer button:last-child {
+width: 54px;
+height: 48px;
+border: 0;
+border-radius: 18px;
+color: #fff;
+background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+display: grid;
+place-items: center;
+box-shadow: 0 14px 26px -20px rgba(37,99,235,.45);
+}
+
+.price-composer-dock p {
+margin: 7px 0 0;
+color: #94a3b8;
+font-size: 10px;
+font-weight: 460;
+}
+
 @media (max-width: 1240px) and (min-width: 901px) {
 .price-desktop-page {
 grid-template-columns: 1fr;
@@ -2939,6 +3041,62 @@ line-height: 1.35;
 color: #64748b;
 }
 
+.price-mobile-chat-dock {
+position: fixed;
+left: 16px;
+right: 16px;
+bottom: calc(8px + env(safe-area-inset-bottom));
+z-index: 160;
+padding: 0;
+display: block;
+background: transparent;
+}
+
+.price-mobile-chatbar {
+width: 100%;
+min-height: 68px;
+border-radius: 999px;
+border: 1px solid #dbe3ef;
+background: rgba(255,255,255,.98);
+box-shadow: 0 12px 28px -24px rgba(15,23,42,.24), inset 0 1px 0 rgba(255,255,255,1);
+display: grid;
+grid-template-columns: 48px 1fr 36px 54px;
+gap: 8px;
+align-items: center;
+padding: 7px;
+}
+
+.price-mobile-chatbar button:first-child {
+width: 48px;
+height: 48px;
+border-radius: 999px;
+}
+
+.price-mobile-chatbar input {
+font-size: 14px;
+}
+
+.price-mobile-chatbar button:nth-of-type(2) {
+width: 30px;
+height: 36px;
+border: 0;
+background: transparent;
+color: #526075;
+display: grid;
+place-items: center;
+}
+
+.price-mobile-chatbar button:last-child {
+width: 54px;
+height: 54px;
+border: 0;
+border-radius: 999px;
+color: #fff;
+background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+display: grid;
+place-items: center;
+box-shadow: 0 14px 26px -20px rgba(37,99,235,.45);
+}
 }
 
 @media (max-width: 390px) {
