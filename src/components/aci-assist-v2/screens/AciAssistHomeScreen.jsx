@@ -16,7 +16,6 @@ import {
   AciAssistantOrb,
   AciComposer,
   AciLogo,
-  AciVehiclePhoto,
   AciSavedButton,
   AciVehicleVisual,
   emitAciAction,
@@ -534,6 +533,29 @@ function MobileShortcuts({ data, onAction }) {
   );
 }
 
+function MobileAssistantChips({ onAction }) {
+  const chips = [
+    "Best SUV under ₹15L",
+    "Lowest EMI car",
+    "Compare Creta vs Seltos",
+    "Best automatic",
+  ];
+
+  return (
+    <motion.section className="mobile-assistant-chips" variants={fadeUp}>
+      {chips.map((chip) => (
+        <button
+          type="button"
+          key={chip}
+          onClick={() => emitAciAction({ label: chip, query: chip }, onAction)}
+        >
+          {chip}
+        </button>
+      ))}
+    </motion.section>
+  );
+}
+
 function MobilePopularCars({ data, onAction, savedIds, onToggleSaved }) {
   const cars = data.mobile.popularCars;
   const [index, setIndex] = useState(0);
@@ -600,11 +622,13 @@ function MobilePopularCars({ data, onAction, savedIds, onToggleSaved }) {
                       vehicle={car}
                       height={130}
                       className="mobile-creta-card-photo"
+                      stage
+                      stageVariant="compact"
                     />
                   </div>
 
                   <h3>{car.name}</h3>
-                  <p>{car.variant}</p>
+                  <p>{car.variant || "Top buyer pick"}</p>
                   <b />
                   <strong>{car.price}</strong>
                 </button>
@@ -638,7 +662,12 @@ function MobileSelectedCar({ data, onAction }) {
       whileTap={{ scale: 0.985 }}
     >
       <div className="selected-thumb">
-        <AciVehiclePhoto imageUrl={car.imageUrl} alt={car.displayName} />
+        <AciVehicleVisual
+          vehicle={car}
+          height={42}
+          stage
+          stageVariant="compact"
+        />
       </div>
 
       <span>
@@ -667,9 +696,10 @@ function MobileHomePage({ data, onAction, savedIds, onToggleSaved }) {
       <MobileHeader data={data} onAction={onAction} />
       <MobileHero data={data} onAction={onAction} />
       <MobileShortcuts data={data} onAction={onAction} />
+      <MobileAssistantChips onAction={onAction} />
       <MobilePopularCars data={data} onAction={onAction} savedIds={savedIds} onToggleSaved={onToggleSaved} />
       <MobileSelectedCar data={data} onAction={onAction} />
-      <AciComposer mobile onAction={onAction} />
+      <AciComposer mobile onAction={onAction} placeholder="Ask ACI Assist anything…" />
     </motion.main>
   );
 }
@@ -678,88 +708,10 @@ export default function AciAssistHomeScreen({ data, onAction, savedIds = new Set
   return (
     <div className="aci-home-root">
       <style>{`
-/* ACI_SCREEN_FINAL_COMPOSER_FIX_START */
-
-/* HOME SCREEN ONLY */
-.aci-home-root .composer-dock {
-  position: fixed !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  top: auto !important;
-  z-index: 9999 !important;
-  width: 100% !important;
-  padding: 10px 24px 14px !important;
-  margin: 0 !important;
-  transform: none !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  pointer-events: none !important;
-  background: linear-gradient(
-    180deg,
-    rgba(248,251,255,0) 0%,
-    rgba(248,251,255,.88) 30%,
-    rgba(248,251,255,.98) 100%
-  ) !important;
-  backdrop-filter: blur(14px) !important;
-}
-
-.aci-home-root .composer-dock .composer,
-.aci-home-root .composer-dock p {
-  pointer-events: auto !important;
-}
-
-.aci-home-root .composer-dock .composer {
-  width: min(850px, calc(100vw - 64px)) !important;
-  max-width: 850px !important;
-}
-
 .aci-home-root .desktop-home-page {
   padding-bottom: 112px !important;
 }
-
-@media (max-width: 900px) {
-  .aci-home-root .mobile-home-page {
-    min-height: calc(100dvh - 0px) !important;
-    padding-bottom: 104px !important;
-    gap: 14px !important;
-  }
-
-  .aci-home-root .mobile-selected-car {
-    margin-top: auto !important;
-    margin-bottom: 0 !important;
-  }
-
-  .aci-home-root .composer-dock.mobile {
-    position: fixed !important;
-    left: 50% !important;
-    right: auto !important;
-    bottom: 0 !important;
-    top: auto !important;
-    z-index: 9999 !important;
-    width: min(430px, 100vw) !important;
-    max-width: 430px !important;
-    padding: 8px 14px calc(12px + env(safe-area-inset-bottom)) !important;
-    margin: 0 !important;
-    transform: translateX(-50%) !important;
-    pointer-events: none !important;
-    background: linear-gradient(
-      180deg,
-      rgba(248,251,255,0) 0%,
-      rgba(248,251,255,.92) 28%,
-      rgba(248,251,255,1) 100%
-    ) !important;
-  }
-
-  .aci-home-root .composer-dock.mobile .composer {
-    width: 100% !important;
-    pointer-events: auto !important;
-  }
-}
-
-/* ACI_SCREEN_FINAL_COMPOSER_FIX_END */
-`}</style>
+      `}</style>
 <DesktopHomePage data={data} onAction={onAction} savedIds={savedIds} onToggleSaved={onToggleSaved} />
       <MobileHomePage data={data} onAction={onAction} savedIds={savedIds} onToggleSaved={onToggleSaved} />
     </div>

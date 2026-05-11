@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { Heart, Mic, SendHorizontal, Sparkles } from "lucide-react";
+import CarImageStage from "./CarImageStage";
 
 const isUsableImageUrl = (value = "") => {
   const text = String(value || "").trim();
@@ -227,6 +228,8 @@ export function AciVehicleVisual({
   vehicle,
   height = 120,
   className = "",
+  stage = false,
+  stageVariant = "default",
 }) {
   const imageUrl = vehicle?.imageUrl || "";
   const [imageFailed, setImageFailed] = React.useState(false);
@@ -236,12 +239,36 @@ export function AciVehicleVisual({
   }, [imageUrl]);
 
   if (isUsableImageUrl(imageUrl) && !imageFailed) {
+    if (stage) {
+      return (
+        <CarImageStage
+          src={imageUrl}
+          alt={vehicle.name || vehicle.displayName || vehicle.label || "Vehicle"}
+          className={className}
+          stageVariant={stageVariant}
+          fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
+        />
+      );
+    }
+
     return (
       <AciVehiclePhoto
         imageUrl={imageUrl}
         alt={vehicle.name || vehicle.displayName || vehicle.label || "Vehicle"}
         className={className}
         onError={() => setImageFailed(true)}
+      />
+    );
+  }
+
+  if (stage) {
+    return (
+      <CarImageStage
+        src=""
+        alt={vehicle.name || vehicle.displayName || vehicle.label || "Vehicle"}
+        className={className}
+        stageVariant={stageVariant}
+        fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
       />
     );
   }
@@ -316,7 +343,7 @@ export function AciComposer({
           }
           aria-label="Open assistant"
         >
-          <Sparkles size={mobile ? 20 : 21} />
+          <Sparkles size={mobile ? 21 : 21} />
         </button>
 
         <input placeholder={finalPlaceholder} />
@@ -337,7 +364,7 @@ export function AciComposer({
           }
           aria-label="Voice input"
         >
-          <Mic size={mobile ? 22 : 20} />
+          <Mic size={mobile ? 24 : 20} />
         </button>
 
         <button
@@ -356,7 +383,7 @@ export function AciComposer({
           }
           aria-label="Send"
         >
-          <SendHorizontal size={mobile ? 22 : 22} />
+          <SendHorizontal size={mobile ? 23 : 22} />
         </button>
       </div>
 
