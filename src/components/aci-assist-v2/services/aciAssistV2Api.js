@@ -5,6 +5,7 @@ const DEFAULT_CHAT_ENDPOINT = "/api/ai-agent/chat";
 const DEFAULT_PUBLIC_CHAT_ENDPOINT = "/api/ai-agent/public-chat";
 const VEHICLE_MEDIA_ENDPOINT = "/api/vehicles/media";
 const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
+const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
 const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
 const liveSnapshotMemory = new Map();
 
@@ -442,6 +443,55 @@ const fetchJsonSafe = async (url, token = "", signal) => {
   return response.json();
 };
 
+const normalizeBrandCard = ({ brand = "", model = "", city = "Delhi", variants = [], media = [] } = {}) => {
+  const rows = Array.isArray(variants) ? variants : [];
+  const values = rows
+    .map((item) =>
+      parseAmount(
+        item.onRoadPrice ||
+          item.on_road_price ||
+          item.total_on_road_with_accessories ||
+          item.exShowroom ||
+          item.exShowroomPrice,
+      ),
+    )
+    .filter(Boolean);
+
+  const minOnRoad = values.length ? Math.min(...values) : 0;
+  const imageRow = (Array.isArray(media) ? media : []).find(
+    (item) =>
+      item?.normalizedImageUrl ||
+      item?.cleanImageUrl ||
+      item?.imageUrl ||
+      item?.image_url ||
+      item?.car_image_url,
+  );
+  const variantImage = rows.find((item) => item?.imageUrl || item?.image_url);
+
+  const imageUrl = getDisplayCarImage(
+    imageRow || variantImage || { imageUrl: "", normalizedImageUrl: "" },
+  );
+
+  return {
+    id: `${String(brand).toLowerCase()}-${String(model).toLowerCase()}`.replace(
+      /[^a-z0-9]+/g,
+      "-",
+    ),
+    brand,
+    make: brand,
+    model,
+    displayName: `${brand} ${model}`.trim(),
+    city,
+    imageUrl,
+    normalizedImageUrl: imageRow?.normalizedImageUrl || imageRow?.cleanImageUrl || "",
+    sourceImageUrl: imageRow?.sourceImageUrl || imageRow?.image_url || imageRow?.imageUrl || "",
+    startingOnRoadPrice: formatCompactAmount(minOnRoad),
+    priceRange: formatCompactAmount(minOnRoad),
+    variantCount: rows.length || undefined,
+    variants: rows,
+  };
+};
+
 export const normalizeAciBackendResponse = (raw) => {
   const container =
     raw?.data?.response ||
@@ -849,4 +899,90 @@ export async function fetchAciVehicleLiveSnapshot({
   }
 
   return payload;
+}
+
+export async function fetchAciBrandCatalog({
+  brand = "",
+  city = "Delhi",
+  signal,
+} = {}) {
+  const cleanedBrand = String(brand || "").trim();
+  const cleanedCity = String(city || "Delhi").trim();
+  if (!cleanedBrand) {
+    return { ok: false, rows: [] };
+  }
+
+  const token = getAuthToken();
+  const candidates = resolveApiBaseCandidates();
+  let models = [];
+
+  for (const apiBase of candidates) {
+    const url = cleanJoin(
+      apiBase,
+      `${VEHICLE_MODELS_ENDPOINT}?${queryString({ make: cleanedBrand, city: cleanedCity })}`,
+    );
+    const response = await fetchJsonSafe(url, token, signal);
+    const rows = Array.isArray(response?.data) ? response.data : [];
+    if (rows.length) {
+      models = rows;
+      break;
+    }
+  }
+
+  const list = models.slice(0, 24);
+  if (!list.length) return { ok: true, rows: [] };
+
+  const rows = await Promise.all(
+    list.map(async (modelName) => {
+      const model = String(modelName || "").trim();
+      if (!model) return null;
+
+      let variants = [];
+      let media = [];
+
+      for (const apiBase of candidates) {
+        const variantsUrl = cleanJoin(
+          apiBase,
+          `${VEHICLE_VARIANTS_ENDPOINT}?${queryString({
+            make: cleanedBrand,
+            model,
+            city: cleanedCity,
+          })}`,
+        );
+        const mediaUrl = cleanJoin(
+          apiBase,
+          `${VEHICLE_MEDIA_ENDPOINT}?${queryString({
+            make: cleanedBrand,
+            model,
+          })}`,
+        );
+
+        const [variantsRes, mediaRes] = await Promise.allSettled([
+          fetchJsonSafe(variantsUrl, token, signal),
+          fetchJsonSafe(mediaUrl, token, signal),
+        ]);
+
+        const nextVariants = Array.isArray(variantsRes.value?.data) ? variantsRes.value.data : [];
+        const nextMedia = Array.isArray(mediaRes.value?.data) ? mediaRes.value.data : [];
+
+        if (!variants.length) variants = nextVariants;
+        if (!media.length) media = nextMedia;
+        if (variants.length || media.length) break;
+      }
+
+      return normalizeBrandCard({
+        brand: cleanedBrand,
+        model,
+        city: cleanedCity,
+        variants,
+        media,
+      });
+    }),
+  );
+
+  return {
+    ok: true,
+    brand: cleanedBrand,
+    rows: rows.filter(Boolean),
+  };
 }
