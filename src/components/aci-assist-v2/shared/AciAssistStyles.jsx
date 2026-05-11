@@ -147,7 +147,6 @@ export default function AciAssistStyles() {
       .desktop-trending,
       .desktop-car-card,
       .rail-card,
-      .composer,
       .mobile-hero,
       .mobile-shortcuts button,
       .mobile-car-card,
@@ -785,94 +784,6 @@ export default function AciAssistStyles() {
         font-weight: 800;
       }
 
-      .composer-dock {
-        position: sticky;
-        bottom: 0;
-        z-index: 70;
-        width: 100%;
-        padding: 10px 0 4px;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        background: linear-gradient(
-          180deg,
-          rgba(248,251,255,0),
-          rgba(248,251,255,.88) 40%,
-          rgba(248,251,255,.98)
-        );
-      }
-
-      .composer {
-        width: min(850px, 82vw);
-        min-height: 62px;
-        padding: 6px 8px 6px 10px;
-        border-radius: 30px;
-        display: grid;
-        grid-template-columns: 48px 1fr 36px 54px;
-        gap: 10px;
-        align-items: center;
-        background: rgba(255,255,255,.97);
-        border-color: #cbd5e1;
-      }
-
-      .composer-spark {
-        width: 48px;
-        height: 48px;
-        border: 1px solid #e0e7f1;
-        border-radius: 19px;
-        background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
-        color: var(--blue);
-        display: grid;
-        place-items: center;
-      }
-
-      .composer-spark svg {
-        fill: currentColor;
-      }
-
-      .composer input {
-        min-width: 0;
-        border: 0;
-        outline: 0;
-        background: transparent;
-        color: #1e293b;
-        font-size: 14px;
-        font-weight: 460;
-      }
-
-      .composer input::placeholder {
-        color: #94a3b8;
-      }
-
-      .composer-mic {
-        width: 36px;
-        height: 36px;
-        border: 0;
-        background: transparent;
-        color: #526075;
-        display: grid;
-        place-items: center;
-      }
-
-      .composer-send {
-        width: 54px;
-        height: 48px;
-        border: 0;
-        border-radius: 18px;
-        color: #fff;
-        background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-        display: grid;
-        place-items: center;
-        box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
-      }
-
-      .composer-dock p {
-        margin: 8px 0 0;
-        color: #94a3b8;
-        font-size: 10px;
-        font-weight: 460;
-      }
-
       .orb {
         position: relative;
         width: 188px;
@@ -1419,52 +1330,6 @@ export default function AciAssistStyles() {
           font-style: normal;
           font-weight: 620;
           white-space: nowrap;
-        }
-
-        .composer-dock.mobile {
-          position: fixed;
-          left: 16px;
-          right: 16px;
-          bottom: calc(8px + env(safe-area-inset-bottom));
-          z-index: 70;
-          width: auto;
-          padding: 0;
-          background: transparent;
-        }
-
-        .composer-dock.mobile .composer {
-          width: 100%;
-          min-height: 68px;
-          grid-template-columns: 48px 1fr 36px 54px;
-          border-radius: 999px;
-          padding: 7px;
-          gap: 8px;
-          border-color: rgba(37,99,235,.18);
-          box-shadow:
-            0 0 0 5px rgba(37,99,235,.035),
-            0 20px 44px -32px rgba(37,99,235,.38),
-            inset 0 1px 0 rgba(255,255,255,1);
-        }
-
-        .composer-dock.mobile .composer-spark {
-          width: 48px;
-          height: 48px;
-          border-radius: 999px;
-        }
-
-        .composer-dock.mobile .composer input {
-          font-size: 14px;
-        }
-
-        .composer-dock.mobile .composer-mic {
-          width: 36px;
-          height: 36px;
-        }
-
-        .composer-dock.mobile .composer-send {
-          width: 54px;
-          height: 54px;
-          border-radius: 999px;
         }
 
         .mobile-home-page {

@@ -389,28 +389,6 @@ function DesktopRightRail({ data, onAction, savedIds, onToggleSaved }) {
 function DesktopHomePage({ data, onAction, savedIds, onToggleSaved }) {
   return (
     <>
-      <style>{`
-/* ACI_REMOVE_COMPOSER_BACKDROP_START */
-
-/*
-  Remove only the background/blur layer behind the chatbar.
-  The actual input pill remains unchanged.
-*/
-
-.composer-dock,
-.composer-dock.mobile,
-.aci-home-root .composer-dock,
-.aci-home-root .composer-dock.mobile,
-.desktop-page > .composer-dock,
-.mobile-page > .composer-dock.mobile {
-  background: transparent !important;
-  backdrop-filter: none !important;
-  -webkit-backdrop-filter: none !important;
-}
-
-/* ACI_REMOVE_COMPOSER_BACKDROP_END */
-`}</style>
-
       <DesktopHeader data={data} onAction={onAction} />
 
       <motion.main

@@ -1,8 +1,9 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Heart, Mic, SendHorizontal, Sparkles } from "lucide-react";
+import { Heart, Sparkles } from "lucide-react";
 import CarImageStage from "./CarImageStage";
 import { getDisplayCarImage, isUsableImageUrl } from "./aciV2Image";
+import AciV2StickyChatBar from "./AciV2StickyChatBar";
 
 export const fadeUp = {
   hidden: { opacity: 0, y: 18, filter: "blur(5px)" },
@@ -307,85 +308,13 @@ export function AciComposer({
   placeholder,
   selectedVehicle,
 }) {
-  const finalPlaceholder =
-    placeholder ||
-    (mobile
-      ? `Ask ACI Assist ${selectedVehicle?.model ? `about ${selectedVehicle.model}` : "anything"}...`
-      : "Ask ACI Assist anything about new cars...");
-
   return (
-    <motion.section
-      className={`composer-dock ${mobile ? "mobile" : ""}`}
-      initial={{ opacity: 0, y: 18 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45, delay: 0.22 }}
-    >
-      <div className="composer">
-        <button
-          type="button"
-          className="composer-spark"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: "Open assistant",
-                query: "",
-                type: "open_assistant",
-                vehicle: selectedVehicle || null,
-              },
-              onAction,
-            )
-          }
-          aria-label="Open assistant"
-        >
-          <Sparkles size={mobile ? 21 : 21} />
-        </button>
-
-        <input placeholder={finalPlaceholder} />
-
-        <button
-          type="button"
-          className="composer-mic"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: "Voice input",
-                query: "",
-                type: "voice_input",
-                vehicle: selectedVehicle || null,
-              },
-              onAction,
-            )
-          }
-          aria-label="Voice input"
-        >
-          <Mic size={mobile ? 24 : 20} />
-        </button>
-
-        <button
-          type="button"
-          className="composer-send"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: "Send",
-                query: "",
-                type: "send",
-                vehicle: selectedVehicle || null,
-              },
-              onAction,
-            )
-          }
-          aria-label="Send"
-        >
-          <SendHorizontal size={mobile ? 23 : 22} />
-        </button>
-      </div>
-
-      {!mobile ? (
-        <p>
-          ACI Assist can make mistakes. Please verify important information.
-        </p>
-      ) : null}
-    </motion.section>
+    <AciV2StickyChatBar
+      mobile={mobile}
+      onAction={onAction}
+      placeholder={placeholder}
+      selectedVehicle={selectedVehicle}
+      showDisclaimer={!mobile}
+    />
   );
 }
