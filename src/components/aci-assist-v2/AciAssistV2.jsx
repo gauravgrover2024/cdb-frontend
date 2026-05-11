@@ -684,10 +684,11 @@ export default function AciAssistV2() {
         });
 
         setIsBackendLoading(false);
-        setScreen(SCREEN.RECOMMENDATION);
+        setScreen(SCREEN.BRANDS);
         setActiveCanvasPayload({
           __fromBackend: true,
           canvasType: "brand_models_canvas",
+          brand: brandQuery,
           title: `${brandQuery[0]?.toUpperCase() || ""}${brandQuery.slice(1)} cars`,
           answer: `Showing live ${brandQuery} models. Tap any car to open details.`,
           rows: brandSnapshot?.rows || [],
