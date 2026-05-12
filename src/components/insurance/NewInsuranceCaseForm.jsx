@@ -672,7 +672,39 @@ const buildAutoReceivableRow = (
   };
 };
 
-const validateStep1 = (data) => {
+/** Strips spaces / +91 etc. so step save + validation match what users type. */
+const normalizeIndianMobile = (raw) => {
+  let d = String(raw ?? "").replace(/\D/g, "");
+  if (d.length >= 12 && d.startsWith("91")) d = d.slice(-10);
+  else if (d.length === 11 && d.startsWith("0")) d = d.slice(1);
+  else if (d.length > 10) d = d.slice(-10);
+  return d;
+};
+
+/** Minimum to move past step 1 and create a DB draft — name + 10-digit mobile only. */
+const validateStep1Minimal = (data) => {
+  const errors = {};
+  const isCompany = data.buyerType === "Company";
+  const mobileDigits = normalizeIndianMobile(data.mobile);
+  if (!mobileDigits) errors.mobile = "Mobile number is required";
+  else if (mobileDigits.length !== 10)
+    errors.mobile = "Enter a valid 10-digit mobile number";
+  if (
+    (data.alternatePhone || "").trim() &&
+    normalizeIndianMobile(data.alternatePhone).length !== 10
+  )
+    errors.alternatePhone = "Enter a valid 10-digit alternate number";
+  if (isCompany) {
+    if (!(data.companyName || "").trim())
+      errors.companyName = "Company name is required";
+  } else if (!(data.customerName || "").trim()) {
+    errors.customerName = "Customer name is required";
+  }
+  return errors;
+};
+
+/** Full checks before final submit (ops / compliance fields). */
+const validateStep1Strict = (data) => {
   const errors = {};
   const isCompany = data.buyerType === "Company";
   const sourceMode = String(
@@ -714,12 +746,13 @@ const validateStep1 = (data) => {
     errors.brokerName = "Broker name is required";
   if (policyDoneBy === "Showroom" && !(data.showroomName || "").trim())
     errors.showroomName = "Showroom name is required";
-  if (!(data.mobile || "").trim()) errors.mobile = "Mobile number is required";
-  else if (!/^\d{10}$/.test((data.mobile || "").trim()))
+  const mobileDigits = normalizeIndianMobile(data.mobile);
+  if (!mobileDigits) errors.mobile = "Mobile number is required";
+  else if (mobileDigits.length !== 10)
     errors.mobile = "Enter a valid 10-digit mobile number";
   if (
     (data.alternatePhone || "").trim() &&
-    !/^\d{10}$/.test((data.alternatePhone || "").trim())
+    normalizeIndianMobile(data.alternatePhone).length !== 10
   )
     errors.alternatePhone = "Enter a valid 10-digit alternate number";
   // if (!(data.email || "").trim()) errors.email = "Email address is required";
@@ -750,9 +783,9 @@ const validateStep1 = (data) => {
     errors.nomineeRelationship = "Nominee relationship is required";
   if (!(data.referenceName || "").trim())
     errors.referenceName = "Reference name is required";
-  if (!(data.referencePhone || "").trim())
-    errors.referencePhone = "Reference mobile is required";
-  else if (!/^\d{10}$/.test((data.referencePhone || "").trim()))
+  const refDigits = normalizeIndianMobile(data.referencePhone);
+  if (!refDigits) errors.referencePhone = "Reference mobile is required";
+  else if (refDigits.length !== 10)
     errors.referencePhone = "Enter a valid 10-digit reference mobile";
 
   return errors;
@@ -2467,7 +2500,14 @@ const NewInsuranceCaseForm = ({
     },
     [isExtendedWarranty, isNewCar, shouldSkipPreviousPolicyForUsedCar],
   );
-  const step1Errors = useMemo(() => validateStep1(formData), [formData]);
+  const step1Errors = useMemo(
+    () => validateStep1Minimal(formData),
+    [formData],
+  );
+  const step1StrictErrors = useMemo(
+    () => validateStep1Strict(formData),
+    [formData],
+  );
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
   const step3Errors = useMemo(() => validateStep3(formData), [formData]);
   const acceptedQuote =
@@ -2483,7 +2523,7 @@ const NewInsuranceCaseForm = ({
     documents.length > 0 && docsTaggedCount === documents.length;
   const finalSubmitErrors = useMemo(() => {
     const errors = [];
-    if (Object.keys(step1Errors).length)
+    if (Object.keys(step1StrictErrors).length)
       errors.push("Case details are incomplete.");
     if (Object.keys(step2Errors).length)
       errors.push("Vehicle details are incomplete.");
@@ -2519,7 +2559,7 @@ const NewInsuranceCaseForm = ({
     formData,
     quotes.length,
     shouldSkipStep,
-    step1Errors,
+    step1StrictErrors,
     step2Errors,
     step3Errors,
   ]);
@@ -2749,8 +2789,21 @@ const NewInsuranceCaseForm = ({
         safeFormData.payoutPercent ?? safeFormData.payoutPercentage ?? 0,
       );
 
+      const mobileNorm = normalizeIndianMobile(safeFormData.mobile);
+      const altNorm = normalizeIndianMobile(safeFormData.alternatePhone);
+      const refNorm = normalizeIndianMobile(safeFormData.referencePhone);
+
       return {
         ...safeFormData,
+        mobile: mobileNorm.length === 10 ? mobileNorm : safeFormData.mobile,
+        alternatePhone:
+          altNorm.length === 10
+            ? altNorm
+            : String(safeFormData.alternatePhone || "").trim() || "",
+        referencePhone:
+          refNorm.length === 10
+            ? refNorm
+            : String(safeFormData.referencePhone || "").trim() || "",
         source: normalizedSource,
         sourceOrigin: normalizedSource,
         policyCategory: safeFormData.policyCategory || "Insurance Policy",
@@ -2792,8 +2845,8 @@ const NewInsuranceCaseForm = ({
                 payload?.customerName || payload?.companyName || "",
               ).trim(),
             );
-            const mobile = String(payload?.mobile || "").trim();
-            if (!hasName || !/^\d{10}$/.test(mobile)) {
+            const mobile = normalizeIndianMobile(payload?.mobile);
+            if (!hasName || mobile.length !== 10) {
               const errorText =
                 "Customer/company name and valid 10-digit mobile are required to create insurance case.";
               setSaveError(errorText);
@@ -3495,7 +3548,7 @@ const NewInsuranceCaseForm = ({
       return {
         key: "insurance-step-validation",
         content:
-          "Customer/company name, 10-digit mobile, address (city + pin) and required fields must be filled before continuing.",
+          "Customer name (or company name) and a valid 10-digit mobile are required before moving to the next step. +91 / spaces are OK.",
       };
     }
     if (step === 2 && Object.keys(step2Errors).length) {
