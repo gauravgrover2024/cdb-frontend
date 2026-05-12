@@ -614,7 +614,7 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
 
   if (!doc) {
     return (
-      <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm lg:sticky lg:top-4">
+      <div className="rounded-xl border border-slate-200/75 bg-white p-6 shadow-sm lg:sticky lg:top-4">
         <div className="flex min-h-[360px] flex-col items-center justify-center rounded-[24px] border border-dashed border-slate-200 bg-slate-50 px-6 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
             <Icon name="PanelRightOpen" size={22} />
@@ -1260,7 +1260,7 @@ const Step6Documents = ({
       />
 
       <div className="-mt-2 flex flex-col gap-3">
-        <section className="overflow-hidden rounded-[30px] border border-slate-200 bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] shadow-[0_10px_40px_rgba(15,23,42,0.06)]">
+        <section className="overflow-hidden rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 shadow-sm">
           <div className="px-5 py-3.5 md:px-6 md:py-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">

@@ -17,14 +17,15 @@ import dayjs from "dayjs";
 
 const { Text } = Typography;
 
-const shellStyle = "rounded-2xl border border-slate-200 bg-white shadow-sm";
+const shellStyle =
+  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500";
 
 const labelClass = "text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600";
 
-const fieldWrapClass = "w-full";
+const fieldWrapClass = "insurance-field-wrap";
 
 const controlStyle = { width: "100%" };
 const inputControlStyle = { width: "100%" };
@@ -193,7 +194,7 @@ const Step1CustomerInfo = ({
       ),
       children: (
         <div className="pt-3">
-          <Row gutter={[24, 22]} align="top">
+          <Row gutter={[16, 16]} align="top">
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Buyer Type" required>
@@ -257,6 +258,7 @@ const Step1CustomerInfo = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Channel / Dealer Number">
                   <Input
+                    size="large"
                     value={formData.channelDealerNo}
                     onChange={(e) => setField("channelDealerNo", e.target.value)}
                     placeholder="Dealer Number"
@@ -270,6 +272,7 @@ const Step1CustomerInfo = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Employee (staff)" required>
                   <AutoComplete
+                    size="large"
                     value={formData.employeeName}
                     onSearch={(val) => {
                       setField("employeeName", val);
@@ -307,7 +310,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Done By" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={policyDoneBy || "Autocredits India LLP"}
                     onChange={(value) => {
                       if (onPolicyDoneByChange) onPolicyDoneByChange(value);
@@ -334,6 +337,7 @@ const Step1CustomerInfo = ({
                 <div className={fieldWrapClass}>
                   <CleanField label="Broker Name" required>
                     <Input
+                      size="large"
                       allowClear
                       value={formData.brokerName}
                       onChange={handleChange("brokerName")}
@@ -355,6 +359,7 @@ const Step1CustomerInfo = ({
                 <div className={fieldWrapClass}>
                   <CleanField label="Showroom Name" required>
                     <Input
+                      size="large"
                       allowClear
                       value={formData.showroomName}
                       onChange={handleChange("showroomName")}
@@ -374,7 +379,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Source" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={sourceMode || "Direct"}
                     onChange={(value) => {
                       if (onSourceChange) onSourceChange(value);
@@ -399,6 +404,7 @@ const Step1CustomerInfo = ({
                 <div className={fieldWrapClass}>
                   <CleanField label="Source Name" required>
                     <Input
+                      size="large"
                       allowClear
                       value={formData.sourceName}
                       onChange={handleChange("sourceName")}
@@ -420,7 +426,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel" required>
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.dealerChannelName}
                         onChange={handleChange("dealerChannelName")}
                         placeholder="Dealer / Channel"
@@ -440,7 +446,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel Address" required>
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.dealerChannelAddress}
                         onChange={handleChange("dealerChannelAddress")}
                         placeholder="Dealer / Channel address"
@@ -462,7 +468,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Payout Applicable" required>
-                      <Select allowClear
+                      <Select size="large" allowClear
                         value={formData.payoutApplicable || "No"}
                         onChange={(value) =>
                           setField("payoutApplicable", value)
@@ -489,6 +495,7 @@ const Step1CustomerInfo = ({
                     <div className={fieldWrapClass}>
                       <CleanField label="Payout %" required>
                         <InputNumber
+                          size="large"
                           min={0}
                           max={100}
                           value={
@@ -573,7 +580,7 @@ const Step1CustomerInfo = ({
       ),
       children: (
         <div className="pt-3">
-          <Row gutter={[24, 22]} align="top">
+          <Row gutter={[16, 16]} align="top">
             {isCompany ? (
               <>
                 <Col xs={24} md={12}>
@@ -626,7 +633,7 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={12}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Contact Person Name" required>
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.contactPersonName}
                         onChange={handleChange("contactPersonName")}
                        
@@ -753,7 +760,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label="Alternate Phone">
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.alternatePhone}
                     onChange={(e) => {
                       const digits = String(e?.target?.value || "")
@@ -772,7 +779,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label="Email Address">
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.email}
                     onChange={handleChange("email")}
                    
@@ -790,7 +797,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={12}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Gender" required>
-                    <Select allowClear
+                    <Select size="large" allowClear
                       value={formData.gender || undefined}
                       onChange={(v) => setField("gender", v)}
                       style={controlStyle}
@@ -813,7 +820,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label={`PAN Number ${isCompany ? "*" : ""}`}>
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.panNumber}
                     onChange={handleChange("panNumber")}
                    
@@ -831,7 +838,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={12}>
                 <div className={fieldWrapClass}>
                   <CleanField label="GST Number">
-                    <Input allowClear
+                    <Input size="large" allowClear
                       value={formData.gstNumber}
                       onChange={handleChange("gstNumber")}
                      
@@ -844,7 +851,7 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={12}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Aadhaar Number">
-                    <Input allowClear
+                    <Input size="large" allowClear
                       value={formData.aadhaarNumber}
                       onChange={handleChange("aadhaarNumber")}
                      
@@ -879,7 +886,7 @@ const Step1CustomerInfo = ({
             <Col xs={24} md={12}>
               <div className={fieldWrapClass}>
                 <CleanField label="Pincode" required>
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.pincode}
                     onChange={(e) => {
                       const digits = String(e?.target?.value || "")
@@ -912,7 +919,7 @@ const Step1CustomerInfo = ({
                     ) : null
                   }
                 >
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.city}
                     onChange={handleChange("city")}
                    
@@ -963,7 +970,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Name">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.nomineeName}
                         onChange={handleChange("nomineeName")}
                         placeholder="Name"
@@ -977,7 +984,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Relationship">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.nomineeRelationship}
                         onChange={handleChange("nomineeRelationship")}
                         placeholder="Relationship"
@@ -1015,6 +1022,7 @@ const Step1CustomerInfo = ({
                   <div className={fieldWrapClass}>
                     <CleanField label={`Age (${nomineeDobLabel})`}>
                       <InputNumber
+                        size="large"
                         min={0}
                         value={
                           formData.nomineeAge === "" ||
@@ -1048,7 +1056,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Name">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.referenceName}
                         onChange={handleChange("referenceName")}
                         placeholder="Reference Name"
@@ -1061,7 +1069,7 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Phone">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.referencePhone}
                         onChange={handleChange("referencePhone")}
                         placeholder="Reference Phone"
@@ -1080,7 +1088,7 @@ const Step1CustomerInfo = ({
 
   return (
     <div className="step1-customer-info flex flex-col gap-6">
-      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:p-6">
+      <div className="relative overflow-hidden rounded-xl border border-slate-200/75 bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Customer information</div>
@@ -1139,10 +1147,10 @@ const Step1CustomerInfo = ({
         </div>
       </div>
 
-      <Row gutter={[20, 20]}>
+      <Row gutter={[16, 16]}>
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="xl:sticky xl:top-[150px] self-start">
-            <div className="relative overflow-hidden rounded-2xl bg-white ring-1 ring-slate-200 shadow-sm">
+            <div className="relative overflow-hidden rounded-xl border border-slate-200/75 bg-white shadow-sm">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">

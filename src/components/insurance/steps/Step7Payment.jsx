@@ -1224,7 +1224,7 @@ const Step7Payment = ({
   return (
     <div className="flex flex-col gap-5 font-sans">
       <div
-        className="rounded-[30px] p-5 ring-1 ring-[var(--ins-border)] shadow-[0_10px_32px_rgba(15,23,42,0.06)] md:p-6"
+        className="rounded-xl border border-slate-200/65 p-5 shadow-sm md:p-6"
         style={{
           background:
             "linear-gradient(110deg, color-mix(in srgb, var(--ins-primary) 11%, #fff), #ffffff 52%, color-mix(in srgb, var(--ins-primary-2) 13%, #fff))",

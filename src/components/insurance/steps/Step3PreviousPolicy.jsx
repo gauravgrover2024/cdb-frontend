@@ -26,7 +26,7 @@ import { lenderHypothecationOptions } from "../../../constants/lenderHypothecati
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 
 const shellStyle =
-  "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
+  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -568,7 +568,7 @@ const Step3PreviousPolicy = ({
       ),
       children: (
         <div className="pt-3">
-          <Row gutter={[22, 20]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} md={16}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Company">
@@ -597,7 +597,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.previousPolicyType}
                     onChange={(v) => {
                       setField("previousPolicyType", v);
@@ -628,7 +628,7 @@ const Step3PreviousPolicy = ({
                   label="Policy Number"
                   extra={longPolicyNumberPreview}
                 >
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.previousPolicyNumber}
                     onChange={handleChange("previousPolicyNumber")}
                    
@@ -667,7 +667,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Duration">
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.previousPolicyDuration}
                     onChange={(v) =>
                       handlePreviousPolicyStartOrDuration({
@@ -688,7 +688,7 @@ const Step3PreviousPolicy = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="OD Expiry Date">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         type="date"
                         value={formData.previousOdExpiryDate}
                         style={{ pointerEvents: 'none', cursor: 'default' }}
@@ -701,7 +701,7 @@ const Step3PreviousPolicy = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="TP Expiry Date">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         type="date"
                         value={formData.previousTpExpiryDate}
                         style={{ pointerEvents: 'none', cursor: 'default' }}
@@ -718,7 +718,7 @@ const Step3PreviousPolicy = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="OD Expiry Date">
-                    <Input allowClear
+                    <Input size="large" allowClear
                       type="date"
                       value={formData.previousOdExpiryDate}
                       style={{ pointerEvents: 'none', cursor: 'default' }}
@@ -734,7 +734,7 @@ const Step3PreviousPolicy = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="TP Expiry Date">
-                    <Input allowClear
+                    <Input size="large" allowClear
                       type="date"
                       value={formData.previousTpExpiryDate}
                       style={{ pointerEvents: 'none', cursor: 'default' }}
@@ -749,7 +749,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={Number(formData.previousNcbDiscount ?? 0)}
                     onChange={(v) =>
                       setField("previousNcbDiscount", Number(v ?? 0))
@@ -786,7 +786,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Claim Last Year" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.claimTakenLastYear}
                     onChange={(v) => setField("claimTakenLastYear", v)}
                    
@@ -813,7 +813,7 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Hypothecation">
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.previousHypothecation}
                     onChange={(v) => setField("previousHypothecation", v)}
                    
@@ -848,7 +848,7 @@ const Step3PreviousPolicy = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -891,10 +891,10 @@ const Step3PreviousPolicy = ({
         </div>
       </div>
 
-      <Row gutter={[20, 20]} align="top">
+      <Row gutter={[16, 16]} align="top">
         <Col xs={24} xl={8}>
           <div className="flex flex-col gap-4 md:sticky md:top-4">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">

@@ -11,6 +11,8 @@ import {
   Tooltip,
   message,
 } from "antd";
+import InsuranceAntdProvider from "../../components/insurance/InsuranceAntdProvider";
+import "../../components/insurance/insurance-forms.css";
 import dayjs from "dayjs";
 import { motion } from "framer-motion";
 import {
@@ -570,8 +572,9 @@ const InsuranceRenewalCasesPage = () => {
   };
 
   return (
+    <InsuranceAntdProvider>
     <div
-      className="min-h-screen px-4 py-4"
+      className="min-h-screen px-4 py-4 insurance-antd-page"
       style={{ background: "linear-gradient(160deg, #f0f4ff 0%, #fafafa 60%)" }}
     >
       <div className="mx-auto max-w-[1920px] space-y-4">
@@ -1580,6 +1583,7 @@ const InsuranceRenewalCasesPage = () => {
       >
         <Select
           showSearch
+          size="large"
           className="w-full"
           placeholder="Search executive by name/email"
           value={assigneeId || undefined}
@@ -1731,6 +1735,7 @@ const InsuranceRenewalCasesPage = () => {
         ) : null}
       </Modal>
     </div>
+    </InsuranceAntdProvider>
   );
 };
 

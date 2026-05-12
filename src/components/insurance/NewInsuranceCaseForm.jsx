@@ -39,6 +39,8 @@ import { DEFAULT_PAYOUT_PERCENTAGE } from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
 import "./insurance-header-pills.css";
+import "./insurance-forms.css";
+import InsuranceAntdProvider from "./InsuranceAntdProvider";
 import {
   lookupCityByPincode,
   normalizePincode,
@@ -868,7 +870,7 @@ const NewInsuranceCaseForm = ({
     goNext: null,
     persistNow: null,
   });
-  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(132);
+  const [stickyHeaderHeight, setStickyHeaderHeight] = useState(96);
 
   // Customer search (for Employee Name / Step-1 auto-fill)
   const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
@@ -3821,87 +3823,89 @@ const NewInsuranceCaseForm = ({
     ) -
     summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0);
 
-  // ─── Step 8 success screen ────────────────────────────────────────────────
-  if (submitted) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 dark:bg-slate-950">
-        <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-          <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
-            <CheckCircleFilled
-              className="text-emerald-500"
-              style={{ fontSize: 44 }}
-            />
-          </div>
-          <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
-            Case Submitted!
-          </h2>
-          <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
-            Your insurance case has been successfully submitted and saved.
-          </p>
-          <div className="mb-8 rounded-xl border border-slate-100 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Case Reference
-            </p>
-            <p className="mt-1 text-2xl font-bold tracking-wide text-slate-900 dark:text-white">
-              {caseReference}
-            </p>
-          </div>
-          <div className="mb-4 space-y-2 text-left">
-            {(formData.customerName || formData.companyName) && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Customer</span>
-                <span className="font-medium text-slate-800 dark:text-slate-200">
-                  {formData.customerName || formData.companyName}
-                </span>
-              </div>
-            )}
-            {formData.registrationNumber && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Vehicle</span>
-                <span className="font-medium text-slate-800 dark:text-slate-200">
-                  {formData.registrationNumber}
-                </span>
-              </div>
-            )}
-            {summaryGrossPremium > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-slate-500">Total Premium</span>
-                <span className="font-semibold text-emerald-600">
-                  {toINR(summaryGrossPremium)}
-                </span>
-              </div>
-            )}
-          </div>
-          <Button
-            type="primary"
-            size="large"
-            block
-            onClick={() => onCancel?.()}
-            className="mt-4 h-11"
-          >
-            Done
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={`insurance-case-skin insurance-dashboard-shell ${
-        step === 1 ? "insurance-step1-neutral" : ""
-      } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
+  // ─── Step 8 success screen + wizard (shared Ant Design theme with Loan PreFile)
+  const insuranceShellClassName = `insurance-case-skin insurance-dashboard-shell ${
+    step === 1 ? "insurance-step1-neutral" : ""
+  } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
         [&_.ant-card]:!rounded-xl
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
         [&_.ant-form-item-label_>label]:!text-sm [&_.ant-form-item-label_>label]:!font-medium
-        [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-lg
-        [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-lg
+        [&_.ant-input]:!min-h-10 [&_.ant-input]:!rounded-xl
+        [&_.ant-input-affix-wrapper]:!min-h-10 [&_.ant-input-affix-wrapper]:!rounded-xl
+        [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-xl
+        [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-xl
         [&_.ant-select-selection-item]:!leading-10
-        [&_.ant-btn]:!rounded-lg [&_.ant-btn]:!h-10 [&_.ant-btn-lg]:!h-11
-        [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-lg
+        [&_.ant-btn]:!rounded-xl [&_.ant-btn]:!h-10 [&_.ant-btn-lg]:!h-11
+        [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-xl
         [&_.ant-picker-input_>input]:!h-8
-        [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`}
+        [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`;
+
+  return (
+    <InsuranceAntdProvider>
+      {submitted ? (
+        <div className="flex min-h-screen items-center justify-center bg-slate-50 p-6 dark:bg-slate-950">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-10 text-center shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
+              <CheckCircleFilled
+                className="text-emerald-500"
+                style={{ fontSize: 44 }}
+              />
+            </div>
+            <h2 className="mb-2 text-2xl font-bold text-slate-900 dark:text-slate-100">
+              Case Submitted!
+            </h2>
+            <p className="mb-6 text-sm text-slate-500 dark:text-slate-400">
+              Your insurance case has been successfully submitted and saved.
+            </p>
+            <div className="mb-8 rounded-xl border border-slate-100 bg-slate-50 px-6 py-4 dark:border-slate-700 dark:bg-slate-800">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
+                Case Reference
+              </p>
+              <p className="mt-1 text-2xl font-bold tracking-wide text-slate-900 dark:text-white">
+                {caseReference}
+              </p>
+            </div>
+            <div className="mb-4 space-y-2 text-left">
+              {(formData.customerName || formData.companyName) && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Customer</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {formData.customerName || formData.companyName}
+                  </span>
+                </div>
+              )}
+              {formData.registrationNumber && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Vehicle</span>
+                  <span className="font-medium text-slate-800 dark:text-slate-200">
+                    {formData.registrationNumber}
+                  </span>
+                </div>
+              )}
+              {summaryGrossPremium > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-slate-500">Total Premium</span>
+                  <span className="font-semibold text-emerald-600">
+                    {toINR(summaryGrossPremium)}
+                  </span>
+                </div>
+              )}
+            </div>
+            <Button
+              type="primary"
+              size="large"
+              block
+              onClick={() => onCancel?.()}
+              className="mt-4 h-11"
+            >
+              Done
+            </Button>
+          </div>
+        </div>
+      ) : (
+    <div
+      className={insuranceShellClassName}
     >
       {InsuranceStickyHeader ? (
         <InsuranceStickyHeader
@@ -3915,8 +3919,10 @@ const NewInsuranceCaseForm = ({
       ) : null}
 
       <div
-        className="pb-44 md:pb-40"
-        style={{ paddingTop: `${Math.max(stickyHeaderHeight + 12, 128)}px` }}
+        className="pb-36 sm:pb-40 md:pb-44"
+        style={{
+          paddingTop: `max(${stickyHeaderHeight + 10}px, 3.25rem)`,
+        }}
       >
         <div className="w-full px-3 py-3 md:px-5 lg:px-6">
           <div className="space-y-5">{renderStep()}</div>
@@ -4022,7 +4028,7 @@ const NewInsuranceCaseForm = ({
             </Radio.Group>
           </div>
 
-          <Row gutter={[12, 12]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} md={12}>
               <Text strong>Amount (₹) *</Text>
               <InputNumber
@@ -4101,6 +4107,8 @@ const NewInsuranceCaseForm = ({
         </Space>
       </Modal>
     </div>
+      )}
+    </InsuranceAntdProvider>
   );
 };
 

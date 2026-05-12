@@ -25,7 +25,7 @@ import { lenderHypothecationOptions } from "../../../constants/lenderHypothecati
 const { Text } = Typography;
 
 const shellStyle =
-  "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
+  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -266,12 +266,12 @@ const Step2VehicleDetails = ({
               Clear Selection
             </button>
           </div>
-          <Row gutter={[22, 20]}>
+          <Row gutter={[16, 16]}>
             {isNewCar ? (
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Registration Allotted?" required>
-                    <Select allowClear
+                    <Select size="large" allowClear
                       value={formData.registrationAllotted || "Yes"}
                       onChange={(nextValue) => {
                         const resolved = nextValue || "Yes";
@@ -304,7 +304,7 @@ const Step2VehicleDetails = ({
                   required
                 >
                   {regDisabled ? (
-                    <Input allowClear
+                    <Input size="large" allowClear
                       value={formData.registrationNumber}
                       readOnly
                      
@@ -401,7 +401,7 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Reg Authority">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.regAuthority}
                         onChange={handleChange("regAuthority")}
                        
@@ -435,7 +435,7 @@ const Step2VehicleDetails = ({
       ),
       children: (
         <div className="pt-3">
-          <Row gutter={[22, 20]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24}>
               <Checkbox
                 checked={Boolean(includeDiscontinuedVehicles)}
@@ -451,7 +451,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Make" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.vehicleMake || undefined}
                     placeholder="Select Make"
                     onChange={(val) => {
@@ -488,7 +488,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Model" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.vehicleModel || undefined}
                     placeholder="Select Model"
                     onChange={(val) => {
@@ -525,7 +525,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Variant" required>
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.vehicleVariant || undefined}
                     placeholder="Select Variant"
                     onChange={(val) => {
@@ -570,7 +570,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Fuel Type">
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.fuelType || undefined}
                     onChange={(v) => setField("fuelType", v || "")}
                     style={controlStyle}
@@ -584,7 +584,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Cubic Capacity (cc)">
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.cubicCapacity}
                     onChange={handleChange("cubicCapacity")}
                    
@@ -597,7 +597,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Type of Vehicle">
-                  <Select allowClear
+                  <Select size="large" allowClear
                     value={formData.typesOfVehicle || "Four Wheeler"}
                     onChange={(v) =>
                       setField("typesOfVehicle", v || "Four Wheeler")
@@ -631,11 +631,11 @@ const Step2VehicleDetails = ({
       ),
       children: (
         <div className="pt-3">
-          <Row gutter={[22, 20]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Engine Number" required>
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.engineNumber}
                     onChange={handleChange("engineNumber")}
                    
@@ -654,7 +654,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Chassis Number" required>
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.chassisNumber}
                     onChange={handleChange("chassisNumber")}
                    
@@ -673,7 +673,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Month" required>
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.manufactureMonth}
                     onChange={handleChange("manufactureMonth")}
                    
@@ -692,7 +692,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Year" required>
-                  <Input allowClear
+                  <Input size="large" allowClear
                     value={formData.manufactureYear}
                     onChange={handleChange("manufactureYear")}
                    
@@ -711,7 +711,7 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Date of Reg">
-                  <Input allowClear
+                  <Input size="large" allowClear
                     type="date"
                     value={formData.dateOfReg}
                     onChange={handleChange("dateOfReg")}
@@ -725,7 +725,7 @@ const Step2VehicleDetails = ({
               <Col xs={24} md={16}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Hypothecation">
-                    <Select allowClear
+                    <Select size="large" allowClear
                       value={formData.hypothecation || "Not applicable"}
                       onChange={(v) =>
                         setField("hypothecation", v || "Not applicable")
@@ -749,7 +749,7 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Battery Number">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.batteryNumber}
                         onChange={handleChange("batteryNumber")}
                        
@@ -762,7 +762,7 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Charger Number">
-                      <Input allowClear
+                      <Input size="large" allowClear
                         value={formData.chargerNumber}
                         onChange={handleChange("chargerNumber")}
                        
@@ -827,7 +827,7 @@ const Step2VehicleDetails = ({
           }
         `}
       </style>
-      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-4 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] sm:p-5 md:p-6">
+      <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-4 shadow-sm sm:p-5 md:p-6">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Vehicle information</div>
@@ -909,10 +909,10 @@ const Step2VehicleDetails = ({
         </div>
       </div>
 
-      <Row gutter={[20, 20]} align="stretch">
+      <Row gutter={[16, 16]} align="stretch">
         <Col xs={24} xl={8} className="xl:self-stretch">
           <div className="flex flex-col gap-4 xl:sticky xl:top-[150px]">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">

@@ -184,7 +184,7 @@ const Step8Payout = ({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className={sectionHeaderLabel}>Payout information</div>
@@ -207,7 +207,7 @@ const Step8Payout = ({
       </div>
 
       {/* Section 1: Real-time Quote Data */}
-      <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200/75 bg-white shadow-sm">
         <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100">
           <div className="flex items-center gap-3">
             <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-100 text-blue-600 shadow-sm">
@@ -250,7 +250,7 @@ const Step8Payout = ({
       </div>
 
       {/* Section 2: Payout Calculation Logic */}
-      <div className="overflow-hidden rounded-[30px] border border-slate-200 bg-white shadow-sm">
+      <div className="overflow-hidden rounded-xl border border-slate-200/75 bg-white shadow-sm">
         <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -269,7 +269,7 @@ const Step8Payout = ({
         </div>
 
         <div className="p-6">
-          <Row gutter={[24, 24]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} md={6}>
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Payout Percentage</label>
@@ -465,7 +465,7 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) =>
         </Popconfirm>
       </div>
 
-      <Row gutter={[12, 12]}>
+      <Row gutter={[16, 16]}>
         <Col span={8}>
           <Text type="secondary" className="text-[10px] uppercase font-bold">
             Party Name
