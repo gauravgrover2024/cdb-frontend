@@ -11,12 +11,11 @@ import {
   Alert,
   Button,
   Card,
-  Col,
+  ConfigProvider,
   DatePicker,
   Input,
   InputNumber,
   Modal,
-  Row,
   Select,
   Spin,
   Table,
@@ -47,7 +46,22 @@ import { loansApi } from "../../api/loans";
 const { RangePicker } = DatePicker;
 dayjs.extend(customParseFormat);
 
+/** Tailwind-only polish for Ant Table (replaces former analytics-table CSS). */
+const TABLE_SHELL_CLASS =
+  "[&_.ant-table-thead>tr>th]:!bg-muted/70 [&_.ant-table-thead>tr>th]:!text-[11px] [&_.ant-table-thead>tr>th]:!font-bold [&_.ant-table-thead>tr>th]:uppercase [&_.ant-table-thead>tr>th]:!tracking-wider [&_.ant-table-tbody>tr:hover>td]:!bg-primary/10";
+
+const analyticsTabsTheme = {
+  components: {
+    Tabs: {
+      inkBarColor: "rgb(var(--primary))",
+      itemSelectedColor: "rgb(var(--primary))",
+      itemHoverColor: "rgb(var(--primary))",
+    },
+  },
+};
+
 const RANGE_OPTIONS = [
+  { label: "All", value: "all" },
   { label: "Month till date", value: "mtd" },
   { label: "Last 1 month", value: "1m" },
   { label: "Last 3 months", value: "3m" },
@@ -353,7 +367,11 @@ const getRangeWindow = (rangePreset, customRange) => {
   const now = dayjs();
   let start = now.startOf("month");
   let end = now.endOf("day");
-  if (rangePreset === "1m") start = now.subtract(1, "month").startOf("day");
+  if (rangePreset === "all") {
+    start = dayjs(0).startOf("day");
+    end = now.endOf("day");
+  } else if (rangePreset === "1m")
+    start = now.subtract(1, "month").startOf("day");
   else if (rangePreset === "3m")
     start = now.subtract(3, "month").startOf("day");
   else if (rangePreset === "1y") start = now.subtract(1, "year").startOf("day");
@@ -375,6 +393,10 @@ const getRangeWindow = (rangePreset, customRange) => {
 const getTimeframeLabel = (rangePreset, customRange) => {
   const meta = RANGE_OPTIONS.find((o) => o.value === rangePreset);
   const presetLabel = meta?.label || String(rangePreset || "Custom");
+  if (rangePreset === "all") {
+    const end = dayjs().endOf("day");
+    return `${presetLabel} · entire history through ${end.format("DD MMM YYYY")}`;
+  }
   const { start, end } = getRangeWindow(rangePreset, customRange);
   return `${presetLabel} · ${start.format("DD MMM YYYY")} - ${end.format("DD MMM YYYY")}`;
 };
@@ -1296,8 +1318,8 @@ const DisbursedAmountTrendChart = ({ rows = [], onSelect }) => {
   const totalCases = rows.reduce((sum, r) => sum + Number(r.count || 0), 0);
 
   return (
-    <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
+    <div className="flex min-h-0 flex-col space-y-4">
+      <div className="grid shrink-0 grid-cols-2 gap-3">
         <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3">
           <div className="text-xs font-medium text-muted-foreground">
             Total Disbursed
@@ -1316,7 +1338,11 @@ const DisbursedAmountTrendChart = ({ rows = [], onSelect }) => {
         </div>
       </div>
 
-      <div className="space-y-2">
+      <div
+        className="min-h-0 max-h-[min(18rem,45vh)] space-y-2 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
+        role="region"
+        aria-label="Month-wise disbursal breakdown"
+      >
         {rows.map((row, idx) => {
           const amount = Number(row.amount || 0);
           const count = Number(row.count || 0);
@@ -1428,7 +1454,7 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
   const basePath = describeArc(120, 120, 82, start, end);
   const fillPath = describeArc(120, 120, 82, start, fillEnd);
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-border bg-card p-6">
+    <div className="relative overflow-hidden rounded-xl bg-muted/25 p-4 ring-1 ring-border/50">
       <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         {title}
       </div>
@@ -1449,7 +1475,7 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
         <path
           d={fillPath}
           fill="none"
-          stroke="#1d9bf0"
+          stroke="rgb(var(--primary))"
           strokeWidth="14"
           strokeLinecap="round"
         />
@@ -1474,80 +1500,155 @@ const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
   );
 };
 
-const WidgetShell = ({ title, subtitle, icon: Icon, children }) => (
-  <Card
-    size="small"
-    bordered
-    hoverable
-    bodyStyle={{ paddingTop: 12 }}
-    style={{ height: "100%" }}
-  >
-    <div className="mb-3 flex items-center gap-2">
-      {Icon ? (
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-primary/5 text-primary">
-          <Icon size={15} strokeWidth={2} />
-        </span>
-      ) : null}
-      <div className="min-w-0">
-        <Typography.Text strong className="block truncate text-xs">
-          {title}
-        </Typography.Text>
-        {subtitle ? (
-          <Typography.Text
-            type="secondary"
-            className="block truncate text-[11px]"
-          >
-            {subtitle}
-          </Typography.Text>
-        ) : null}
-      </div>
-    </div>
-    <div>{children}</div>
-  </Card>
-);
+const WIDGET_ACCENT = {
+  blue: "bg-sky-500/[0.12] text-sky-700 ring-sky-500/25 dark:text-sky-300",
+  emerald:
+    "bg-emerald-500/[0.12] text-emerald-700 ring-emerald-500/25 dark:text-emerald-300",
+  indigo:
+    "bg-indigo-500/[0.12] text-indigo-700 ring-indigo-500/25 dark:text-indigo-300",
+  slate:
+    "bg-slate-500/[0.1] text-slate-700 ring-slate-400/30 dark:text-slate-300",
+  amber:
+    "bg-amber-500/[0.14] text-amber-800 ring-amber-500/30 dark:text-amber-300",
+  rose: "bg-rose-500/[0.12] text-rose-700 ring-rose-500/25 dark:text-rose-300",
+};
 
-const KpiTile = ({ label, value, subLabel, icon: Icon, loading = false }) => (
-  <Card
-    size="small"
-    bordered
-    hoverable
-    bodyStyle={{ padding: 16 }}
-    style={{ height: "100%" }}
-  >
-    <div className="flex items-start justify-between gap-3">
-      <div className="min-w-0 flex-1">
-        <Typography.Text
-          type="secondary"
-          className="text-[10px] font-bold uppercase tracking-widest"
-        >
-          {label}
-        </Typography.Text>
-        <div className="mt-2 text-2xl font-black tracking-tight tabular-nums md:text-3xl">
-          {loading ? (
-            <span className="inline-block h-8 w-24 animate-pulse rounded-md bg-muted" />
-          ) : (
-            value
-          )}
-        </div>
-        {subLabel && !loading ? (
-          <Typography.Text type="secondary" className="mt-1 block text-[11px]">
-            {subLabel}
+const KPI_TONE = {
+  blue: {
+    wash: "from-sky-500/[0.08] via-transparent to-cyan-500/[0.04]",
+    icon: "bg-sky-500/[0.12] text-sky-700 ring-sky-500/20 dark:text-sky-300",
+    dot: "bg-sky-500",
+  },
+  emerald: {
+    wash: "from-emerald-500/[0.08] via-transparent to-teal-500/[0.04]",
+    icon: "bg-emerald-500/[0.12] text-emerald-700 ring-emerald-500/20 dark:text-emerald-300",
+    dot: "bg-emerald-500",
+  },
+  amber: {
+    wash: "from-amber-500/[0.1] via-transparent to-orange-500/[0.05]",
+    icon: "bg-amber-500/[0.14] text-amber-900 ring-amber-500/25 dark:text-amber-300",
+    dot: "bg-amber-500",
+  },
+  rose: {
+    wash: "from-rose-500/[0.08] via-transparent to-fuchsia-500/[0.04]",
+    icon: "bg-rose-500/[0.12] text-rose-700 ring-rose-500/20 dark:text-rose-300",
+    dot: "bg-rose-500",
+  },
+};
+
+const WidgetShell = ({
+  title,
+  subtitle,
+  icon: Icon,
+  children,
+  color = "slate",
+}) => {
+  const accent = WIDGET_ACCENT[color] || WIDGET_ACCENT.slate;
+  return (
+    <Card
+      className="h-full min-h-0 border-border/60 bg-card/90 shadow-sm backdrop-blur-[1px] transition-all duration-200 hover:-translate-y-px hover:shadow-md"
+      size="small"
+      bordered={false}
+      hoverable
+      bodyStyle={{ paddingTop: 14, paddingBottom: 14 }}
+      style={{ height: "100%" }}
+    >
+      <div className="mb-3 flex items-start gap-3">
+        {Icon ? (
+          <span
+            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${accent}`}
+            aria-hidden
+          >
+            <Icon size={16} strokeWidth={2} />
+          </span>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <Typography.Text className="block truncate text-sm font-semibold leading-tight tracking-tight text-foreground">
+            {title}
           </Typography.Text>
-        ) : loading ? (
-          <span className="mt-2 inline-block h-3 w-20 animate-pulse rounded bg-muted" />
+          {subtitle ? (
+            <Typography.Text
+              type="secondary"
+              className="mt-0.5 block truncate text-[11px] leading-snug"
+            >
+              {subtitle}
+            </Typography.Text>
+          ) : null}
+        </div>
+      </div>
+      <div className="min-h-0">{children}</div>
+    </Card>
+  );
+};
+
+const KpiTile = ({
+  label,
+  value,
+  subLabel,
+  icon: Icon,
+  loading = false,
+  tone = "blue",
+}) => {
+  const t = KPI_TONE[tone] || KPI_TONE.blue;
+  return (
+    <Card
+      className="group relative flex min-h-[128px] flex-col justify-center overflow-hidden border-border/55 bg-card shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md"
+      bordered={false}
+      hoverable
+      bodyStyle={{ padding: 18 }}
+      style={{ height: "100%" }}
+    >
+      <div
+        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${t.wash}`}
+        aria-hidden
+      />
+      <div className="relative flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span
+              className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`}
+              aria-hidden
+            />
+            <Typography.Text
+              type="secondary"
+              className="text-[10px] font-bold uppercase tracking-[0.14em]"
+            >
+              {label}
+            </Typography.Text>
+          </div>
+          <div className="mt-2 text-2xl font-black tracking-tight tabular-nums text-foreground md:text-3xl">
+            {loading ? (
+              <span className="inline-block h-8 w-28 animate-pulse rounded-lg bg-muted/80" />
+            ) : (
+              value
+            )}
+          </div>
+          {subLabel && !loading ? (
+            <Typography.Text
+              type="secondary"
+              className="mt-1.5 block text-[11px] leading-relaxed"
+            >
+              {subLabel}
+            </Typography.Text>
+          ) : loading ? (
+            <span className="mt-2 inline-block h-3 w-24 animate-pulse rounded bg-muted/80" />
+          ) : null}
+        </div>
+        {Icon ? (
+          <span
+            className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${t.icon}`}
+            aria-hidden
+          >
+            <Icon size={18} strokeWidth={1.75} />
+          </span>
         ) : null}
       </div>
-      {Icon ? (
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/5 text-primary">
-          <Icon size={18} strokeWidth={1.75} />
-        </span>
-      ) : null}
-    </div>
-  </Card>
-);
+    </Card>
+  );
+};
 
 const AnalyticsDashboard = () => {
-  const [rangePreset, setRangePreset] = useState("mtd");
+  const [rangePreset, setRangePreset] = useState("all");
   const [customRange, setCustomRange] = useState([
     dayjs().startOf("month"),
     dayjs(),
@@ -2018,87 +2119,101 @@ const AnalyticsDashboard = () => {
   }, [drillRows, drillSearch]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-transparent">
-      <div className="app-max-wrap py-6 space-y-6">
-        <Card bordered hoverable={false}>
-          <Row gutter={[16, 16]} align="middle" justify="space-between">
-            <Col xs={24} md={16}>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <ChartNoAxesCombined
-                    size={18}
-                    strokeWidth={2}
-                    className="text-primary"
-                  />
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                    AutoCredits India LLP
-                  </span>
-                </div>
-                <Typography.Title level={3} style={{ margin: 0 }}>
-                  Analytics Dashboard
-                </Typography.Title>
-                <Typography.Text type="secondary" className="text-xs">
-                  Loan performance insights, pipeline analytics, and custom
-                  reporting.
-                </Typography.Text>
+    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/30">
+      <ConfigProvider theme={analyticsTabsTheme}>
+        <div className="app-max-wrap space-y-6 py-6 md:space-y-8 md:py-8">
+        <header className="relative overflow-hidden rounded-2xl border border-border/70 bg-card px-4 py-6 shadow-sm transition-shadow duration-300 hover:shadow-md dark:hover:shadow-black/40 sm:px-6 md:px-8 md:py-7">
+          <div
+            className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary/[0.09] blur-3xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-violet-500/[0.07] blur-3xl dark:bg-violet-500/[0.12]"
+            aria-hidden
+          />
+          <div className="relative z-[1] flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 space-y-2">
+              <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/50 px-3 py-1">
+                <ChartNoAxesCombined
+                  size={15}
+                  strokeWidth={2}
+                  className="shrink-0 text-primary"
+                  aria-hidden
+                />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                  AutoCredits India LLP
+                </span>
               </div>
-            </Col>
-            <Col xs={24} md="auto">
-              <Row gutter={[8, 8]} justify="end" align="middle" wrap>
-                <Col>
-                  <Typography.Text
-                    type="secondary"
-                    className="hidden text-[11px] sm:inline-block"
-                  >
-                    {timeframeLabel}
-                  </Typography.Text>
-                </Col>
-                <Col>
-                  <Row gutter={[4, 4]}>
-                    {RANGE_OPTIONS.map((option) => (
-                      <Col key={option.value}>
-                        <Button
-                          size="small"
-                          type={
-                            rangePreset === option.value ? "primary" : "default"
-                          }
-                          onClick={() => setRangePreset(option.value)}
-                        >
-                          {option.label}
-                        </Button>
-                      </Col>
-                    ))}
-                  </Row>
-                </Col>
-                <Col>
-                  {rangePreset === "custom" ? (
-                    <RangePicker
-                      value={customRange}
-                      allowClear={false}
-                      onChange={(values) => setCustomRange(values || [])}
-                      size="small"
+              <Typography.Title
+                level={2}
+                className="!mb-0 !mt-1 !text-2xl !font-bold !tracking-tight md:!text-3xl"
+              >
+                Analytics
+              </Typography.Title>
+              <Typography.Text
+                type="secondary"
+                className="block max-w-xl text-sm leading-relaxed"
+              >
+                Pipeline performance, disbursement trends, and configurable
+                reports for the selected window.
+              </Typography.Text>
+            </div>
+
+            <div className="flex w-full flex-col gap-4 lg:max-w-2xl lg:items-end">
+              <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:justify-end">
+                <Typography.Text
+                  type="secondary"
+                  className="text-xs font-medium tabular-nums"
+                >
+                  {timeframeLabel}
+                </Typography.Text>
+                <Button
+                  type={refreshing ? "primary" : "default"}
+                  size="small"
+                  className="shrink-0 rounded-xl border-border font-semibold"
+                  icon={
+                    <RefreshCcw
+                      size={14}
+                      className={refreshing ? "animate-spin" : ""}
                     />
-                  ) : null}
-                </Col>
-                <Col>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={
-                      <RefreshCcw
-                        size={13}
-                        className={refreshing ? "animate-spin" : ""}
-                      />
-                    }
-                    onClick={fetchOverview}
+                  }
+                  onClick={fetchOverview}
+                >
+                  {refreshing ? "Refreshing…" : "Refresh data"}
+                </Button>
+              </div>
+
+              <div className="flex w-full flex-wrap items-center gap-2">
+                {RANGE_OPTIONS.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setRangePreset(option.value)}
+                    className={`min-h-[40px] rounded-xl border px-3.5 py-2 text-left text-xs font-semibold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                      rangePreset === option.value
+                        ? "border-primary bg-primary text-primary-foreground shadow-[0_2px_12px_-4px_rgb(var(--primary)_/_0.45)]"
+                        : "border-border/80 bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/70 hover:text-foreground"
+                    }`}
                   >
-                    {refreshing ? "Refreshing" : "Refresh"}
-                  </Button>
-                </Col>
-              </Row>
-            </Col>
-          </Row>
-        </Card>
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              {rangePreset === "custom" ? (
+                <div className="w-full max-w-md lg:ml-auto [&_.ant-picker]:rounded-xl [&_.ant-picker-input_input]:text-[13px]">
+                  <RangePicker
+                    value={customRange}
+                    allowClear={false}
+                    onChange={(values) => setCustomRange(values || [])}
+                    size="middle"
+                    className="w-full"
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </header>
 
         {error ? (
           <Alert
@@ -2110,11 +2225,19 @@ const AnalyticsDashboard = () => {
         ) : null}
 
         <div>
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-              Key Metrics
-            </h2>
-            <section className="analytics-kpi-grid grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-[1px] md:p-6">
+            <div className="mb-5">
+              <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Key metrics
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Condensed totals for{" "}
+                <span className="font-medium text-foreground">
+                  {timeframeLabel}
+                </span>
+              </p>
+            </div>
+            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <KpiTile
                 label="Total Cases"
                 value={Number(totals.totalCases || 0).toLocaleString("en-IN")}
@@ -2156,10 +2279,16 @@ const AnalyticsDashboard = () => {
         </div>
 
         <div>
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="mb-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
-              Charts & Insights
-            </h2>
+          <section className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-[1px] md:p-6">
+            <div className="mb-5">
+              <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
+                Charts & insights
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Click bars or segments to open case-level drilldown for that
+                slice.
+              </p>
+            </div>
             <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
               {loading ? (
                 <>
@@ -2588,9 +2717,8 @@ const AnalyticsDashboard = () => {
             </section>
           </section>
 
-          <section className="relative overflow-hidden rounded-2xl border border-border bg-card p-6 shadow-sm">
+          <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-[1px] md:p-6">
             <Tabs
-              className="analytics-tabs"
               defaultActiveKey="customWidget"
               items={[
                 {
@@ -2747,8 +2875,8 @@ const AnalyticsDashboard = () => {
                       >
                         Generate Report
                       </Button>
-                      <div className="analytics-report-panel rounded-xl border border-border bg-card p-3">
-                        <div className="analytics-report-toolbar mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div className="overflow-x-auto rounded-xl border border-border bg-card p-3 transition-shadow">
+                        <div className="mb-3 flex flex-col gap-2 border-b border-border pb-3 md:flex-row md:items-center md:justify-between">
                           <div className="text-sm font-bold text-foreground">
                             Report Output
                           </div>
@@ -2760,9 +2888,9 @@ const AnalyticsDashboard = () => {
                                 setCustomReportSearch(e.target.value)
                               }
                               placeholder="Search across generated report rows"
-                              className="analytics-report-search w-full md:w-80"
+                              className="h-[2.35rem] w-full rounded-xl md:w-80"
                             />
-                            <div className="analytics-report-stats inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
+                            <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
                               <span>Rows: {filteredReportRows.length}</span>
                               <span className="text-muted-foreground">•</span>
                               <span>
@@ -2779,7 +2907,7 @@ const AnalyticsDashboard = () => {
                           </div>
                         </div>
                         <Table
-                          className="analytics-table"
+                          className={TABLE_SHELL_CLASS}
                           rowKey={(row, idx) =>
                             row.loanId || row._id || `r-${idx}`
                           }
@@ -2788,7 +2916,7 @@ const AnalyticsDashboard = () => {
                           size="small"
                           pagination={{ pageSize: 20, showSizeChanger: true }}
                           rowClassName={(_, index) =>
-                            index % 2 ? "analytics-report-row-alt" : ""
+                            index % 2 ? "[&>td]:!bg-muted/50" : ""
                           }
                           scroll={{ x: 1400 }}
                         />
@@ -2800,11 +2928,10 @@ const AnalyticsDashboard = () => {
             />
           </section>
         </div>
-      </div>
+        </div>
+      </ConfigProvider>
 
       <Modal
-        className="analytics-modal"
-        wrapClassName="analytics-modal-wrap"
         title={drillTitle}
         open={drillOpen}
         onCancel={() => {
@@ -2813,6 +2940,14 @@ const AnalyticsDashboard = () => {
         }}
         footer={null}
         width={1200}
+        styles={{
+          content: {
+            borderRadius: 16,
+            overflow: "hidden",
+            border: "1px solid rgb(var(--border))",
+          },
+          header: { borderRadius: "16px 16px 0 0" },
+        }}
       >
         <Spin spinning={drillLoading}>
           {drillError ? (
@@ -2896,7 +3031,7 @@ const AnalyticsDashboard = () => {
             </div>
           ) : (
             <Table
-              className="analytics-table"
+              className={TABLE_SHELL_CLASS}
               rowKey={(row) => row._id || row.loanId}
               columns={drillColumns}
               dataSource={filteredDrillRows}
