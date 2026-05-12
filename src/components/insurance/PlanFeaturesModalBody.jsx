@@ -1,5 +1,6 @@
 import React from "react";
 import { Button, Divider, Tabs, Typography } from "antd";
+import InsuranceAntdProvider from "./InsuranceAntdProvider";
 import {
   Car,
   CloudRain,
@@ -130,6 +131,7 @@ const PlanFeaturesModalBody = ({
   const isAccepted = String(acceptedQuoteId) === String(rid);
 
   return (
+    <InsuranceAntdProvider>
     <div className="flex flex-col gap-6 px-6 pb-6 pt-0 lg:flex-row lg:items-start lg:gap-8">
       <div className="min-w-0 flex-1 lg:max-w-[62%]">
         <div className="mb-4 flex flex-col justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50/80 px-4 py-3 sm:flex-row sm:items-center dark:border-slate-600 dark:bg-slate-800/50">
@@ -303,6 +305,7 @@ const PlanFeaturesModalBody = ({
         </div>
       </div>
     </div>
+    </InsuranceAntdProvider>
   );
 };
 

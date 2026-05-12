@@ -24,6 +24,8 @@ import {
   Phone,
 } from "lucide-react";
 import { Alert, message, Modal, Pagination, Popconfirm, Tooltip } from "antd";
+import InsuranceAntdProvider from "../../components/insurance/InsuranceAntdProvider";
+import "../../components/insurance/insurance-forms.css";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
@@ -1727,36 +1729,6 @@ const InsuranceDashboardPage = () => {
     const renewal30 = cases.filter((c) =>
       isExpiringSoonCase(c, renewedIds),
     ).length;
-    const today = dayjs();
-    const currentMonth = today.format("YYYY-MM");
-    const policyIssuedTodayRows = cases.filter((c) => {
-      const issued = parseInsuranceDate(getPolicyIssueDate(c));
-      return (
-        issued &&
-        issued.isSame(today, "day") &&
-        (hasPolicyNumber(c) || isCompletedPolicy(c))
-      );
-    });
-    const renewalRows = cases.filter((c) =>
-      ["renewal", "rollover"].includes(getPolicyOriginType(c).toLowerCase()),
-    );
-    const renewalsConvertedThisMonthRows = renewalRows.filter((c) => {
-      const issued = parseInsuranceDate(getPolicyIssueDate(c));
-      return (
-        issued &&
-        issued.format("YYYY-MM") === currentMonth &&
-        (hasPolicyNumber(c) || isCompletedPolicy(c))
-      );
-    });
-    const renewalsPendingThisMonthRows = renewalRows.filter((c) => {
-      if (hasPolicyNumber(c) || isCompletedPolicy(c)) return false;
-      const expiry = parseInsuranceDate(getPolicyPulseExpiryDate(c));
-      return expiry && expiry.format("YYYY-MM") === currentMonth;
-    });
-    const sumPremium = (rows) =>
-      rows.reduce((sum, c) => sum + premiumNum(c), 0);
-    const conversionRate =
-      total > 0 ? Math.round((completed / total) * 100) : 0;
     return {
       total,
       draft,
@@ -1764,15 +1736,6 @@ const InsuranceDashboardPage = () => {
       paymentDue,
       paymentDueAmount,
       expiringSoon: renewal30,
-      conversionRate,
-      policyIssuedToday: policyIssuedTodayRows.length,
-      policyIssuedTodayAmount: sumPremium(policyIssuedTodayRows),
-      renewalsConvertedThisMonth: renewalsConvertedThisMonthRows.length,
-      renewalsConvertedThisMonthAmount: sumPremium(
-        renewalsConvertedThisMonthRows,
-      ),
-      renewalsPendingThisMonth: renewalsPendingThisMonthRows.length,
-      renewalsPendingThisMonthAmount: sumPremium(renewalsPendingThisMonthRows),
     };
   }, [cases]);
 
@@ -2335,8 +2298,9 @@ const InsuranceDashboardPage = () => {
   // ============================================
 
   return (
+    <InsuranceAntdProvider>
     <div
-      className="h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden p-4 bg-slate-50"
+      className="insurance-antd-page h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden p-4 bg-slate-50"
       style={{
         ...FONT_VARS,
         fontFamily: "var(--default-font-family)",
@@ -2352,96 +2316,16 @@ const InsuranceDashboardPage = () => {
 
         {/* Header */}
         <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Insurance Workspace
-              </p>
-              <h1 className="mt-0.5 text-2xl font-black text-slate-900">
-                Policy Dashboard
-              </h1>
-              <p className="mt-1 text-[13px] text-slate-500">
-                Cases, revenue, renewals &amp; payments — one view.
-              </p>
-            </div>
-
-            <>
-              <style>{`
-    @font-face {
-      font-family: 'Inter';
-      font-style: normal;
-      font-weight: 100 900;
-      font-display: swap;
-      src: url('https://fonts.gstatic.com/s/inter/v13/UcCo3FwrK3iLTcviYwY.woff2') format('woff2');
-    }
-  `}</style>
-
-              <div
-                className="w-full lg:w-auto"
-                style={{
-                  fontFamily:
-                    'Inter, "Segoe UI", "Helvetica Neue", Arial, sans-serif',
-                  WebkitFontSmoothing: "antialiased",
-                  MozOsxFontSmoothing: "grayscale",
-                  textRendering: "optimizeLegibility",
-                  fontFeatureSettings: '"tnum" 1, "cv05" 1, "cv08" 1',
-                  fontVariationSettings: '"opsz" 14',
-                }}
-              >
-                <div className="grid grid-cols-2 gap-2 rounded-[18px] bg-white p-2 shadow-[0_2px_10px_rgba(148,163,184,0.12)] sm:grid-cols-4 sm:gap-0 sm:px-3 sm:py-2.5">
-                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[150px] sm:border-0 sm:px-4">
-                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
-                      Policy Issued Today
-                    </p>
-                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-slate-900 tabular-nums">
-                      {formatInr(stats.policyIssuedTodayAmount)}
-                      <span className="ml-1 text-[9px] font-semibold tracking-normal text-slate-500">
-                        ({stats.policyIssuedToday})
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="hidden h-9 w-px bg-slate-200 sm:block" />
-
-                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[172px] sm:border-0 sm:px-4">
-                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
-                      Renewals Converted
-                    </p>
-                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-emerald-600 tabular-nums">
-                      {formatInr(stats.renewalsConvertedThisMonthAmount)}
-                      <span className="ml-1 text-[9px] font-semibold tracking-normal text-emerald-500">
-                        ({stats.renewalsConvertedThisMonth})
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="hidden h-9 w-px bg-slate-200 sm:block" />
-
-                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[172px] sm:border-0 sm:px-4">
-                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
-                      Renewals Pending
-                    </p>
-                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-amber-600 tabular-nums">
-                      {formatInr(stats.renewalsPendingThisMonthAmount)}
-                      <span className="ml-1 text-[9px] font-semibold tracking-normal text-amber-500">
-                        ({stats.renewalsPendingThisMonth})
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="hidden h-9 w-px bg-slate-200 sm:block" />
-
-                  <div className="rounded-xl border border-slate-100 px-3 py-2 text-center sm:min-w-[108px] sm:border-0 sm:px-4">
-                    <p className="text-[12px] font-medium leading-none tracking-[-0.02em] text-slate-500">
-                      Conversion
-                    </p>
-                    <p className="mt-1.5 text-[17px] font-extrabold leading-none tracking-[-0.045em] text-blue-600 tabular-nums">
-                      {stats.conversionRate}%
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              Insurance Workspace
+            </p>
+            <h1 className="mt-0.5 text-2xl font-black text-slate-900">
+              Policy Dashboard
+            </h1>
+            <p className="mt-1 text-[13px] text-slate-500">
+              Cases, revenue, renewals &amp; payments — one view.
+            </p>
           </div>
         </div>
 
@@ -2899,6 +2783,7 @@ const InsuranceDashboardPage = () => {
         />
       )}
     </div>
+    </InsuranceAntdProvider>
   );
 };
 

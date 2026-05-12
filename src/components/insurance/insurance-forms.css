@@ -1,0 +1,22 @@
+/* Insurance wizard field layout — matches Loan full-width column pattern */
+.insurance-field-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.insurance-case-skin .insurance-field-wrap .ant-input,
+.insurance-case-skin .insurance-field-wrap .ant-input-affix-wrapper,
+.insurance-case-skin .insurance-field-wrap .ant-select,
+.insurance-case-skin .insurance-field-wrap .ant-picker,
+.insurance-case-skin .insurance-field-wrap .ant-input-number,
+.insurance-case-skin .insurance-field-wrap .ant-input-number-group-wrapper {
+  width: 100%;
+  max-width: 100%;
+}
+
+/* Dashboard / renewal pages using InsuranceAntdProvider without wizard shell */
+.insurance-antd-page .ant-select:not(.ant-select-customize-input),
+.insurance-antd-page .ant-picker {
+  width: 100%;
+  max-width: 100%;
+}

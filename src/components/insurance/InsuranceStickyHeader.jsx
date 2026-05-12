@@ -111,7 +111,7 @@ const SummarySegment = ({
   const c = SEGMENT_STYLES[colorIdx] ?? SEGMENT_STYLES[0];
   return (
     <div
-      className={`min-w-[160px] flex-1 px-4 py-2.5 ${divider ? "border-r border-slate-100" : ""}`}
+      className={`min-w-[120px] flex-1 px-2 py-2 sm:min-w-[140px] sm:px-3 md:min-w-[160px] md:px-4 md:py-2.5 ${divider ? "border-r border-slate-100" : ""}`}
       style={{ background: c.bg }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -183,9 +183,8 @@ const InsuranceStickyHeader = ({
       {/* ── Sticky Summary Bar ── */}
       <div
         ref={innerRef}
-        className="fixed left-0 right-0 z-[100] w-full"
+        className="fixed left-0 right-0 z-[100] w-full top-12 md:top-14 xl:top-16"
         style={{
-          top: 60,
           background: "#ffffff",
           borderBottom: "1px solid #e2e8f0",
           boxShadow: "0 2px 8px rgba(0,0,0,0.06)",

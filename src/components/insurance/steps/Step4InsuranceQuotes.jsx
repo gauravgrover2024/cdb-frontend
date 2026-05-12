@@ -948,7 +948,7 @@ const Step4InsuranceQuotes = ({
   return (
     <div className="insurance-step4 min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
       {/* Page Header */}
-      <div className="mb-5 rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="mb-5 rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className={sectionHeaderLabel}>Policy information</div>

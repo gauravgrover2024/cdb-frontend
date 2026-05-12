@@ -22,7 +22,7 @@ import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceComp
 import PremiumBreakupCard from "../PremiumBreakupCard";
 
 const shellStyle =
-  "rounded-[28px] border border-slate-200 bg-white shadow-[0_8px_28px_rgba(15,23,42,0.05)]";
+  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -456,7 +456,7 @@ const Step5NewPolicyDetails = ({
   if (isExtendedWarranty) {
     return (
       <div className="flex flex-col gap-6">
-        <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+        <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
           <div className={sectionHeaderLabel}>Policy information</div>
           <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
             Extended warranty details
@@ -467,7 +467,7 @@ const Step5NewPolicyDetails = ({
         </div>
 
         <div className={`${shellStyle} p-5 md:p-6`}>
-          <Row gutter={[22, 20]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Ex-Showroom Price" required>
@@ -489,6 +489,7 @@ const Step5NewPolicyDetails = ({
                 <div className={fieldWrapClass}>
                   <CleanField label="Date of Sale of Vehicle" required>
                     <Input
+                      size="large"
                       allowClear
                       type="date"
                       value={formData.dateOfSale}
@@ -503,6 +504,7 @@ const Step5NewPolicyDetails = ({
                   <div className={fieldWrapClass}>
                     <CleanField label="Date of Purchase" required>
                       <Input
+                        size="large"
                         allowClear
                         type="date"
                         value={formData.dateOfPurchase}
@@ -532,6 +534,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Purchase Date" required>
                   <Input
+                    size="large"
                     allowClear
                     type="date"
                     value={formData.policyPurchaseDate}
@@ -545,6 +548,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Duration" required>
                   <Select
+                    size="large"
                     allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) => setField("newInsuranceDuration", v)}
@@ -558,6 +562,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date" required>
                   <Input
+                    size="large"
                     allowClear
                     type="date"
                     value={formData.ewCommencementDate}
@@ -575,6 +580,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy End Date" required>
                   <Input
+                    size="large"
                     allowClear
                     type="date"
                     value={formData.ewExpiryDate}
@@ -590,6 +596,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Kms Coverage" required>
                   <Input
+                    size="large"
                     allowClear
                     value={String(formData.kmsCoverage ?? "")}
                     onChange={(e) => setField("kmsCoverage", e.target.value)}
@@ -659,7 +666,7 @@ const Step5NewPolicyDetails = ({
       ),
       children: (
         <div className="pt-3">
-          <Row gutter={[22, 20]}>
+          <Row gutter={[16, 16]}>
             <Col xs={24} md={16} lg={16}>
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Company" required>
@@ -681,6 +688,7 @@ const Step5NewPolicyDetails = ({
                     }
                   >
                     <Input
+                      size="large"
                       style={controlStyle}
                       placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     />
@@ -693,6 +701,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
                   <Select
+                    size="large"
                     allowClear
                     value={formData.newPolicyType}
                     onChange={(v) => {
@@ -719,6 +728,7 @@ const Step5NewPolicyDetails = ({
                   extra={longPolicyNumberPreview}
                 >
                   <Input
+                    size="large"
                     allowClear
                     value={formData.newPolicyNumber}
                     onChange={handleChange("newPolicyNumber")}
@@ -780,6 +790,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Insurance Duration" required>
                   <Select
+                    size="large"
                     allowClear
                     value={formData.newInsuranceDuration}
                     onChange={(v) =>
@@ -799,6 +810,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="OD Expiry Date">
                   <Input
+                    size="large"
                     allowClear
                     type="text"
                     value={
@@ -819,6 +831,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="TP Expiry Date">
                   <Input
+                    size="large"
                     allowClear
                     type="text"
                     value={
@@ -839,6 +852,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
                   <Select
+                    size="large"
                     allowClear
                     value={Number(formData.newNcbDiscount || 0)}
                     onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
@@ -938,6 +952,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Hypothecation">
                   <Select
+                    size="large"
                     allowClear
                     value={formData.newHypothecation}
                     onChange={(v) => setField("newHypothecation", v)}
@@ -972,7 +987,7 @@ const Step5NewPolicyDetails = ({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="rounded-[30px] bg-gradient-to-r from-[#DAF3FF] via-white to-[#FFE6C6] p-5 ring-1 ring-slate-200 shadow-[0_10px_40px_rgba(15,23,42,0.06)] md:p-6">
+      <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -1015,10 +1030,10 @@ const Step5NewPolicyDetails = ({
         </div>
       </div>
 
-      <Row gutter={[20, 20]} align="top">
+      <Row gutter={[16, 16]} align="top">
         <Col xs={24} xl={8}>
           <div className="flex flex-col gap-4 xl:sticky xl:top-24">
-            <div className="relative overflow-hidden rounded-[28px] bg-white ring-1 ring-[#9FC0FF] shadow-[0_8px_28px_rgba(15,23,42,0.06)]">
+            <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm">
               <div className="px-5 pt-5 pb-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
