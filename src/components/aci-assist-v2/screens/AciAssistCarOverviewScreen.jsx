@@ -19,9 +19,8 @@ import {
   Scale,
 } from "lucide-react";
 
+import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
 import {
-  ACI_CANVAS_TYPES,
-  ACI_INTENTS,
   buildVehicleQuickActions,
   makeAciAction,
 } from "../data/homeScreenData";
@@ -791,7 +790,7 @@ function ComparePanel({ vehicle, onAction, mobile = false }) {
         {[
           { icon: Gauge, top: "Mileage", bottom: "18.4 km/l" },
           { icon: Wallet, top: "Boot Space", bottom: "433 L" },
-          { icon: ShieldCheck, top: "Safety", bottom: "5★" },
+          { icon: ShieldCheck, top: "Safety", bottom: "Check" },
         ].map((item) => {
           const Icon = item.icon;
 

@@ -1,12 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ACI_ASSIST_HOME_DATA,
-  ACI_CANVAS_TYPES,
   ACI_HOME_IMAGES,
-  ACI_INTENTS,
-  buildVehicleAction,
-  getAciVehicleById,
-  getAciVehicleByQuery,
 } from "./data/homeScreenData";
 import {
   ACI_V2_SCREENS,
@@ -16,181 +11,338 @@ import {
 } from "./canvas/aciV2CanvasRegistry";
 import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
-import { getDisplayCarImage } from "./shared/aciV2Image";
-import {
-  askAciAssistV2,
-  fetchAciBrandCatalog,
-  fetchAciVehicleLiveSnapshot,
-} from "./services/aciAssistV2Api";
+import { askAciAssistV2 } from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
+
 const SCREEN = ACI_V2_SCREENS;
-const IMAGE_CACHE_KEY = "aci_v2_live_model_images_v1";
 
-const vehicleIdentityKey = (vehicle = {}) =>
-  String(vehicle?.id || vehicle?._id || "")
-    .trim()
-    .toLowerCase() ||
-  `${String(vehicle?.make || vehicle?.brand || "")
-    .trim()
-    .toLowerCase()}|${String(vehicle?.model || "")
-    .trim()
-    .toLowerCase()}`;
+const isObject = (value) =>
+  Boolean(value && typeof value === "object" && !Array.isArray(value));
 
-const mergeVehicle = (fallback, incoming) => {
-  if (!incoming) return fallback;
+const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
-  const fallbackId = fallback?.id || fallback?._id || "";
-  const incomingId = incoming?.id || incoming?._id || "";
-  const fallbackModel = String(fallback?.model || "").toLowerCase();
-  const incomingModel = String(incoming?.model || "").toLowerCase();
-  const isSameVehicle =
-    (fallbackId && incomingId && fallbackId === incomingId) ||
-    (fallbackModel && incomingModel && fallbackModel === incomingModel);
+const firstValue = (...values) => {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return "";
+};
+
+const getVehicleId = (vehicle = {}) =>
+  firstValue(vehicle?.id, vehicle?._id, vehicle?.vehicleId, vehicle?.modelId);
+
+const getVehicleTitle = (vehicle = {}) =>
+  firstValue(
+    vehicle?.displayName,
+    vehicle?.name,
+    [vehicle?.brand || vehicle?.make, vehicle?.model].filter(Boolean).join(" "),
+    vehicle?.model,
+  );
+
+const hasVehicleIdentity = (vehicle = {}) =>
+  Boolean(
+    getVehicleId(vehicle) ||
+      vehicle?.model ||
+      vehicle?.name ||
+      vehicle?.displayName,
+  );
+
+const normalizeVehicle = (vehicle) => {
+  if (!isObject(vehicle) || !hasVehicleIdentity(vehicle)) return null;
+
+  const make = firstValue(vehicle.make, vehicle.brand);
+  const brand = firstValue(vehicle.brand, vehicle.make);
+  const model = firstValue(vehicle.model, vehicle.modelName);
+  const displayName = getVehicleTitle({ ...vehicle, make, brand, model });
 
   return {
-    ...(fallback || {}),
-    ...incoming,
-    id: incoming.id || incoming._id || fallback?.id,
-    make: incoming.make || incoming.brand || fallback?.make || fallback?.brand,
-    brand: incoming.brand || incoming.make || fallback?.brand || fallback?.make,
-    model: incoming.model || fallback?.model,
-    displayName:
-      incoming.displayName ||
-      incoming.name ||
-      [incoming.brand || incoming.make || fallback?.brand || fallback?.make, incoming.model || fallback?.model]
-        .filter(Boolean)
-        .join(" ") ||
-      fallback?.displayName,
-    normalizedImageUrl:
-      incoming.normalizedImageUrl ||
-      incoming.cleanImageUrl ||
-      (isSameVehicle ? fallback?.normalizedImageUrl : ""),
-    imageUrl:
-      getDisplayCarImage(incoming) ||
-      incoming.imageUrl ||
-      incoming.heroImageUrl ||
-      incoming.vehicleImageUrl ||
-      incoming.image ||
-      (isSameVehicle ? fallback?.imageUrl : ""),
+    ...vehicle,
+    id: firstValue(vehicle.id, vehicle._id, vehicle.vehicleId, vehicle.modelId),
+    _id: vehicle._id,
+    make,
+    brand,
+    model,
+    displayName,
   };
 };
 
-const isCanvasInteractionOnly = (action) => {
-  return Boolean(
+const mergeVehicle = (base, incoming) => {
+  const normalizedBase = normalizeVehicle(base);
+  const normalizedIncoming = normalizeVehicle(incoming);
+
+  if (!normalizedIncoming) return normalizedBase;
+  if (!normalizedBase) return normalizedIncoming;
+
+  const baseId = getVehicleId(normalizedBase);
+  const incomingId = getVehicleId(normalizedIncoming);
+  const baseModel = String(normalizedBase.model || "").toLowerCase();
+  const incomingModel = String(normalizedIncoming.model || "").toLowerCase();
+
+  const isSameVehicle =
+    (baseId && incomingId && String(baseId) === String(incomingId)) ||
+    (baseModel && incomingModel && baseModel === incomingModel);
+
+  return {
+    ...(isSameVehicle ? normalizedBase : {}),
+    ...normalizedIncoming,
+    id: firstValue(normalizedIncoming.id, normalizedIncoming._id, normalizedBase.id),
+    make: firstValue(normalizedIncoming.make, normalizedIncoming.brand, normalizedBase.make),
+    brand: firstValue(normalizedIncoming.brand, normalizedIncoming.make, normalizedBase.brand),
+    model: firstValue(normalizedIncoming.model, normalizedBase.model),
+    displayName: firstValue(
+      normalizedIncoming.displayName,
+      normalizedIncoming.name,
+      normalizedBase.displayName,
+      normalizedBase.name,
+    ),
+    imageUrl: firstValue(
+      normalizedIncoming.imageUrl,
+      normalizedIncoming.normalizedImageUrl,
+      normalizedIncoming.cleanImageUrl,
+      normalizedIncoming.heroImageUrl,
+      normalizedIncoming.vehicleImageUrl,
+      isSameVehicle ? normalizedBase.imageUrl : "",
+    ),
+    normalizedImageUrl: firstValue(
+      normalizedIncoming.normalizedImageUrl,
+      normalizedIncoming.cleanImageUrl,
+      isSameVehicle ? normalizedBase.normalizedImageUrl : "",
+    ),
+  };
+};
+
+const mergeSessionContext = (previous = {}, patch = {}) => {
+  const selectedVehicle = mergeVehicle(
+    previous.selectedVehicle,
+    patch.selectedVehicle || patch.vehicle || patch.activeVehicle,
+  );
+
+  return {
+    ...previous,
+    ...patch,
+    selectedVehicle: selectedVehicle || previous.selectedVehicle || null,
+    anchorMake: firstValue(
+      patch.anchorMake,
+      selectedVehicle?.make,
+      selectedVehicle?.brand,
+      previous.anchorMake,
+    ),
+    anchorModel: firstValue(
+      patch.anchorModel,
+      selectedVehicle?.model,
+      previous.anchorModel,
+    ),
+    anchorVariant: firstValue(
+      patch.anchorVariant,
+      selectedVehicle?.variant,
+      selectedVehicle?.variantName,
+      previous.anchorVariant,
+    ),
+    anchorCity: firstValue(
+      patch.anchorCity,
+      selectedVehicle?.city,
+      previous.anchorCity,
+      "Delhi",
+    ),
+  };
+};
+
+const normalizeBackendWidget = (backend = {}) => {
+  const widget =
+    (isObject(backend.widget) && backend.widget) ||
+    (isObject(backend.canvas) && backend.canvas) ||
+    (isObject(backend.payload?.widget) && backend.payload.widget) ||
+    (isObject(backend.data?.widget) && backend.data.widget) ||
+    {};
+
+  return {
+    ...widget,
+    canvasType: firstValue(backend.canvasType, widget.canvasType),
+    title: firstValue(backend.title, widget.title),
+    subtitle: firstValue(backend.subtitle, widget.subtitle),
+    answer: firstValue(backend.answer, widget.answer),
+    rows: toArray(firstValue(backend.rows, widget.rows)),
+    colors: toArray(firstValue(backend.colors, widget.colors)),
+    variants: toArray(firstValue(backend.variants, widget.variants)),
+    actions: toArray(firstValue(backend.actions, widget.actions)),
+    leadingQuestions: toArray(
+      firstValue(backend.leadingQuestions, widget.leadingQuestions),
+    ),
+    contextPatch: {
+      ...(widget.contextPatch || {}),
+      ...(backend.contextPatch || {}),
+    },
+    raw: backend.raw || widget.raw || null,
+  };
+};
+
+const buildContextPatchFromBackend = (backend = {}, widget = {}) => ({
+  ...(widget.contextPatch || {}),
+  ...(backend.contextPatch || {}),
+  selectedVehicle:
+    backend.contextPatch?.selectedVehicle ||
+    widget.contextPatch?.selectedVehicle ||
+    backend.vehicle ||
+    widget.vehicle ||
+    null,
+});
+
+const isCanvasInteractionOnly = (action = {}) =>
+  Boolean(
     action.payload?.color ||
       action.payload?.selectedColor ||
       action.selectedColor ||
       action.type === "color_selected" ||
       action.type === "select_color_mood" ||
       action.type === "save_color" ||
-      action.type === "save_color_insight",
+      action.type === "save_color_insight" ||
+      action.type === "tab_change" ||
+      action.type === "accordion_toggle" ||
+      action.type === "sort_change",
   );
-};
 
-const isPriceListCanvas = (value = "") => {
-  const canvasType = normalizeV2CanvasType(value);
-  return canvasType === ACI_CANVAS_TYPES.PRICELIST || canvasType === "pricelist_canvas";
-};
-
-const isColorsCanvas = (value = "") => {
-  const canvasType = normalizeV2CanvasType(value);
-  return (
-    canvasType === ACI_CANVAS_TYPES.COLORS ||
-    canvasType === "color_gallery_canvas" ||
-    canvasType === "color_studio_canvas"
+const getActionMessage = (action = {}, targetVehicle = null) => {
+  const direct = firstValue(
+    action.query,
+    action.prompt,
+    action.payload?.query,
+    action.label,
   );
-};
 
-const isCarOverviewCanvas = (value = "") => {
-  const canvasType = normalizeV2CanvasType(value);
-  return (
-    canvasType === ACI_CANVAS_TYPES.CAR_OVERVIEW ||
-    canvasType === "car_overview_canvas" ||
-    canvasType === "vehicle_overview_canvas"
-  );
-};
+  if (direct) return String(direct).trim();
 
-const isFeaturesCanvas = (value = "") => {
-  const canvasType = normalizeV2CanvasType(value);
-  return (
-    canvasType === ACI_CANVAS_TYPES.FEATURES ||
-    canvasType === "features_canvas" ||
-    canvasType === "feature_explorer_canvas" ||
-    canvasType === "features_explorer_canvas"
-  );
-};
-
-const mergeVehicleData = (base = {}, incoming = {}) => ({
-  ...base,
-  ...incoming,
-  colors:
-    Array.isArray(incoming?.colors) && incoming.colors.length
-      ? incoming.colors
-      : base?.colors,
-  variants:
-    Array.isArray(incoming?.variants) && incoming.variants.length
-      ? incoming.variants
-      : base?.variants,
-  normalizedImageUrl:
-    incoming?.normalizedImageUrl ||
-    incoming?.cleanImageUrl ||
-    base?.normalizedImageUrl,
-  imageUrl: getDisplayCarImage({ ...base, ...incoming }) || base?.imageUrl || "",
-});
-
-const BRAND_CANDIDATES = [
-  "hyundai",
-  "kia",
-  "tata",
-  "mahindra",
-  "maruti",
-  "maruti suzuki",
-  "toyota",
-  "honda",
-  "skoda",
-  "volkswagen",
-  "mg",
-  "renault",
-  "nissan",
-];
-
-const resolveBrandQuery = (text = "") => {
-  const normalized = String(text || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9 ]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!normalized) return "";
-
-  for (const brand of BRAND_CANDIDATES) {
-    const brandText = brand.toLowerCase();
-    if (
-      normalized === brandText ||
-      normalized === `show ${brandText}` ||
-      normalized === `all ${brandText} cars` ||
-      normalized === `${brandText} cars` ||
-      normalized.includes(`show ${brandText} cars`) ||
-      normalized.includes(`cars of ${brandText}`)
-    ) {
-      return brandText;
-    }
-  }
+  const title = getVehicleTitle(targetVehicle || action.vehicle);
+  if (title) return `Open ${title}`;
 
   return "";
 };
 
+const MAX_CONTEXT_ITEMS = 20;
+const MAX_CONTEXT_TEXT = 700;
+
+const trimContextText = (value) => {
+  if (typeof value !== "string") return value;
+  return value.length > MAX_CONTEXT_TEXT
+    ? `${value.slice(0, MAX_CONTEXT_TEXT)}…`
+    : value;
+};
+
+const sanitizeRecordForBackendContext = (record) => {
+  if (!isObject(record)) return trimContextText(record);
+
+  const blockedKeys = new Set([
+    "raw",
+    "backendRaw",
+    "html",
+    "descriptionHtml",
+    "imageBase64",
+    "base64",
+    "blob",
+    "file",
+  ]);
+
+  return Object.entries(record).reduce((acc, [key, value]) => {
+    if (blockedKeys.has(key)) return acc;
+
+    if (Array.isArray(value)) {
+      acc[key] = value.slice(0, MAX_CONTEXT_ITEMS).map(sanitizeRecordForBackendContext);
+      return acc;
+    }
+
+    if (isObject(value)) {
+      acc[key] = sanitizeRecordForBackendContext(value);
+      return acc;
+    }
+
+    acc[key] = trimContextText(value);
+    return acc;
+  }, {});
+};
+
+const sanitizeWidgetForBackendContext = (widget) => {
+  if (!isObject(widget)) return null;
+
+  const allowedScalarKeys = [
+    "canvasType",
+    "__rawCanvasType",
+    "title",
+    "subtitle",
+    "answer",
+    "summary",
+    "selectedVariant",
+    "selectedColor",
+    "model",
+    "make",
+    "brand",
+    "city",
+  ];
+
+  const allowedArrayKeys = [
+    "rows",
+    "items",
+    "variants",
+    "colors",
+    "actions",
+    "leadingQuestions",
+    "suggestions",
+  ];
+
+  const clean = {};
+
+  allowedScalarKeys.forEach((key) => {
+    if (widget[key] !== undefined && widget[key] !== null && widget[key] !== "") {
+      clean[key] = trimContextText(widget[key]);
+    }
+  });
+
+  allowedArrayKeys.forEach((key) => {
+    const list = toArray(widget[key]);
+    if (list.length) {
+      clean[key] = list.slice(0, MAX_CONTEXT_ITEMS).map(sanitizeRecordForBackendContext);
+    }
+  });
+
+  return Object.keys(clean).length ? clean : null;
+};
+
+const sanitizeActionForBackendContext = (action) => {
+  if (!isObject(action)) return null;
+
+  return {
+    id: action.id || "",
+    label: action.label || "",
+    query: action.query || "",
+    type: action.type || "",
+    intent: action.intent || "",
+    canvasType: action.canvasType || "",
+    vehicle: normalizeVehicle(action.vehicle),
+    contextPatch: {
+      ...(action.contextPatch || {}),
+      selectedVehicle: normalizeVehicle(action.contextPatch?.selectedVehicle),
+    },
+  };
+};
+
+
 export default function AciAssistV2() {
+  const requestSeqRef = useRef(0);
+  const requestAbortRef = useRef(null);
+
   const [screen, setScreen] = useState(SCREEN.HOME);
-  const [selectedVehicleId, setSelectedVehicleId] = useState("hyundai-creta");
-  const [activeVehicleOverride, setActiveVehicleOverride] = useState(null);
-  const [savedIds, setSavedIds] = useState(() => new Set(["hyundai-verna"]));
+  const [savedIds, setSavedIds] = useState(() => new Set());
   const [lastAction, setLastAction] = useState(null);
   const [activeCanvasPayload, setActiveCanvasPayload] = useState(null);
   const [isBackendLoading, setIsBackendLoading] = useState(false);
   const [backendError, setBackendError] = useState("");
-  const [liveModelImages, setLiveModelImages] = useState({});
-  const [liveVehiclePatches, setLiveVehiclePatches] = useState({});
-  const pendingLiveFetchRef = useRef(new Map());
+  const [sessionContext, setSessionContext] = useState({
+    selectedVehicle: null,
+    anchorMake: "",
+    anchorModel: "",
+    anchorVariant: "",
+    anchorCity: "Delhi",
+    selectedColor: null,
+    lastCanvasType: "",
+  });
 
   const homeData = useMemo(
     () => ({
@@ -200,193 +352,21 @@ export default function AciAssistV2() {
     [],
   );
 
-  const hydrateVehicleLive = useCallback(async (vehicle, { timeoutMs = 4200 } = {}) => {
-    const key = vehicleIdentityKey(vehicle);
-    if (!key || !vehicle?.model) return null;
-
-    const existingPending = pendingLiveFetchRef.current.get(key);
-    if (existingPending) return existingPending;
-
-    const task = (async () => {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), timeoutMs);
-
-      try {
-        const snapshot = await fetchAciVehicleLiveSnapshot({
-          make: vehicle.make || vehicle.brand || "",
-          model: vehicle.model || "",
-          city: vehicle.city || "Delhi",
-          signal: controller.signal,
-        });
-
-        const patch = snapshot?.vehicle || null;
-        if (!patch) return null;
-
-        const mergedPatch = mergeVehicleData(vehicle, patch);
-        setLiveVehiclePatches((prev) => ({
-          ...prev,
-          [key]: mergeVehicleData(prev[key] || {}, mergedPatch),
-        }));
-
-        if (mergedPatch.imageUrl) {
-          setLiveModelImages((prev) => ({
-            ...prev,
-            [vehicle.id]: mergedPatch.imageUrl,
-          }));
-          try {
-            const cached = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || "{}");
-            localStorage.setItem(
-              IMAGE_CACHE_KEY,
-              JSON.stringify({
-                ...(cached && typeof cached === "object" ? cached : {}),
-                [vehicle.id]: { url: mergedPatch.imageUrl, ts: Date.now() },
-              }),
-            );
-          } catch {
-            // ignore cache write errors
-          }
-        }
-
-        return snapshot;
-      } catch {
-        return null;
-      } finally {
-        clearTimeout(timeout);
-      }
-    })();
-
-    pendingLiveFetchRef.current.set(key, task);
-    try {
-      return await task;
-    } finally {
-      pendingLiveFetchRef.current.delete(key);
-    }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const hydrateHomeImages = async () => {
-      try {
-        const cached = localStorage.getItem(IMAGE_CACHE_KEY);
-        if (cached && !cancelled) {
-          const parsed = JSON.parse(cached);
-          if (parsed && typeof parsed === "object") {
-            const normalized = Object.fromEntries(
-              Object.entries(parsed)
-                .map(([id, value]) => [
-                  id,
-                  typeof value === "string" ? value : value?.url || "",
-                ])
-                .filter(([, value]) => Boolean(value)),
-            );
-            setLiveModelImages((prev) => ({ ...normalized, ...prev }));
-          }
-        }
-      } catch {
-        // ignore cache read issues
-      }
-
-      const candidates = [
-        homeData?.selectedVehicle,
-        ...(homeData?.trendingCars || []),
-        ...(homeData?.rightRail?.savedCars || []),
-        ...(homeData?.mobile?.popularCars || []),
-      ].filter(Boolean);
-
-      const byId = {};
-      for (const vehicle of candidates) {
-        if (!vehicle?.id || byId[vehicle.id]) continue;
-        byId[vehicle.id] = vehicle;
-      }
-
-      const list = Object.values(byId).slice(0, 6);
-      const now = Date.now();
-      const recentMs = 1000 * 60 * 60 * 6;
-
-      const cachedMap = (() => {
-        try {
-          const cached = JSON.parse(localStorage.getItem(IMAGE_CACHE_KEY) || "{}");
-          return cached && typeof cached === "object" ? cached : {};
-        } catch {
-          return {};
-        }
-      })();
-
-      await Promise.allSettled(
-        list.map(async (vehicle) => {
-          if (cancelled || !vehicle?.id) return;
-
-          const cachedEntry = cachedMap[vehicle.id];
-          if (
-            cachedEntry?.url &&
-            cachedEntry?.ts &&
-            now - Number(cachedEntry.ts) < recentMs
-          ) {
-            if (!cancelled) {
-              setLiveModelImages((prev) => ({
-                ...prev,
-                [vehicle.id]: cachedEntry.url,
-              }));
-            }
-            return;
-          }
-
-          await hydrateVehicleLive(vehicle, { timeoutMs: 3200 });
-        }),
-      );
-    };
-
-    hydrateHomeImages().catch(() => {});
-
-    return () => {
-      cancelled = true;
-    };
-  }, [homeData, hydrateVehicleLive]);
-
-  const homeDataWithLiveImages = useMemo(() => {
-    const patchImage = (vehicle) => {
-      if (!vehicle) return vehicle;
-      const key = vehicleIdentityKey(vehicle);
-      const patch = liveVehiclePatches[key] || {};
-      const merged = mergeVehicleData(vehicle, patch);
-      const imageUrl = liveModelImages[vehicle.id] || merged.imageUrl || "";
-      return { ...merged, imageUrl };
-    };
-
-    return {
-      ...homeData,
-      selectedVehicle: patchImage(homeData?.selectedVehicle),
-      trendingCars: (homeData?.trendingCars || []).map(patchImage),
-      rightRail: {
-        ...(homeData?.rightRail || {}),
-        savedCars: (homeData?.rightRail?.savedCars || []).map(patchImage),
-      },
-      mobile: {
-        ...(homeData?.mobile || {}),
-        popularCars: (homeData?.mobile?.popularCars || []).map(patchImage),
-      },
-    };
-  }, [homeData, liveModelImages, liveVehiclePatches]);
-
-  const fallbackSelectedVehicle = useMemo(
-    () => getAciVehicleById(selectedVehicleId),
-    [selectedVehicleId],
-  );
-
   const selectedVehicle = useMemo(
-    () =>
-      mergeVehicleData(
-        mergeVehicle(
-          fallbackSelectedVehicle,
-          liveVehiclePatches[vehicleIdentityKey(fallbackSelectedVehicle)] || null,
-        ),
-        activeVehicleOverride || {},
-      ),
-    [fallbackSelectedVehicle, activeVehicleOverride, liveVehiclePatches],
+    () => sessionContext.selectedVehicle || null,
+    [sessionContext.selectedVehicle],
   );
 
-  const dispatchBrowserEvent = (action) => {
+  useEffect(
+    () => () => {
+      requestAbortRef.current?.abort();
+      requestAbortRef.current = null;
+    },
+    [],
+  );
+
+
+  const dispatchBrowserEvent = useCallback((action) => {
     if (typeof window === "undefined") return;
 
     window.dispatchEvent(
@@ -394,465 +374,373 @@ export default function AciAssistV2() {
         detail: action,
       }),
     );
-  };
+  }, []);
 
-  const rememberAction = (action) => {
-    setLastAction(action);
-    console.log("ACI Assist V2 action:", action);
-    dispatchBrowserEvent(action);
-  };
+  const cancelActiveBackendRequest = useCallback(() => {
+    requestSeqRef.current += 1;
+    requestAbortRef.current?.abort();
+    requestAbortRef.current = null;
+    setIsBackendLoading(false);
+  }, []);
 
-  const setSelectedVehicle = (vehicle) => {
-    const nextVehicle = mergeVehicle(selectedVehicle, vehicle);
-    if (!nextVehicle?.id) return nextVehicle;
 
-    const key = vehicleIdentityKey(nextVehicle);
-    const patchedVehicle = mergeVehicleData(
-      nextVehicle,
-      liveVehiclePatches[key] || {},
-    );
+  const rememberAction = useCallback(
+    (action) => {
+      setLastAction(action);
 
-    setSelectedVehicleId(nextVehicle.id);
-    setActiveVehicleOverride(patchedVehicle);
+      if (process.env.NODE_ENV === "development") {
+        console.log("ACI Assist V2 action:", action);
+      }
 
-    hydrateVehicleLive(patchedVehicle).then((snapshot) => {
-      const liveVehicle = snapshot?.vehicle;
-      if (!liveVehicle) return;
-      setActiveVehicleOverride((prev) =>
-        mergeVehicleData(mergeVehicle(prev || patchedVehicle, liveVehicle), liveVehicle),
-      );
-    });
+      dispatchBrowserEvent(action);
+    },
+    [dispatchBrowserEvent],
+  );
 
-    return patchedVehicle;
-  };
+  const setSelectedVehicle = useCallback(
+    (vehicle, extraContext = {}) => {
+      const nextVehicle = mergeVehicle(selectedVehicle, vehicle);
+      if (!nextVehicle) return null;
 
-  const openVehicle = (vehicle, sourceAction = {}) => {
-    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
-    if (!nextVehicle?.id) return;
-
-    setActiveCanvasPayload(null);
-    setScreen(SCREEN.CAR_OVERVIEW);
-
-    rememberAction({
-      ...buildVehicleAction(nextVehicle),
-      sourceAction,
-    });
-  };
-
-  const openColors = (vehicle, sourceAction = {}) => {
-    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
-    if (!nextVehicle?.id) return;
-
-    const canvasPayload =
-      sourceAction.widget ||
-      sourceAction.payload?.widget ||
-      sourceAction.payload ||
-      { __fromBackend: true };
-
-    setActiveCanvasPayload(
-      canvasPayload,
-    );
-    setScreen(SCREEN.COLORS);
-
-    rememberAction({
-      ...sourceAction,
-      id: sourceAction.id || `${nextVehicle.id}-colors-open`,
-      label: sourceAction.label || `Colors of ${nextVehicle.displayName}`,
-      query: sourceAction.query || `Show colors of ${nextVehicle.displayName}`,
-      type: "open_canvas",
-      intent: ACI_INTENTS.COLORS,
-      canvasType: ACI_CANVAS_TYPES.COLORS,
-      vehicle: nextVehicle,
-      contextPatch: {
-        selectedVehicle: nextVehicle,
-        anchorModel: nextVehicle.model,
-        anchorMake: nextVehicle.make,
-        anchorCity: nextVehicle.city,
-        ...(sourceAction.contextPatch || {}),
-      },
-    });
-  };
-
-  const openPriceList = (vehicle, sourceAction = {}) => {
-    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
-    if (!nextVehicle?.id) return;
-
-    const canvasPayload =
-      sourceAction.widget ||
-      sourceAction.payload?.widget ||
-      sourceAction.payload ||
-      { __fromBackend: true };
-
-    setActiveCanvasPayload(
-      canvasPayload,
-    );
-    setScreen(SCREEN.PRICELIST);
-
-    rememberAction({
-      ...sourceAction,
-      id: sourceAction.id || `${nextVehicle.id}-pricelist-open`,
-      label: sourceAction.label || `${nextVehicle.displayName} price list`,
-      query: sourceAction.query || `${nextVehicle.displayName} pricelist`,
-      type: "open_canvas",
-      intent: ACI_INTENTS.PRICELIST,
-      canvasType: ACI_CANVAS_TYPES.PRICELIST,
-      vehicle: nextVehicle,
-      contextPatch: {
-        selectedVehicle: nextVehicle,
-        anchorModel: nextVehicle.model,
-        anchorMake: nextVehicle.make,
-        anchorCity: nextVehicle.city,
-        ...(sourceAction.contextPatch || {}),
-      },
-    });
-  };
-
-  const openFeatures = (vehicle, sourceAction = {}) => {
-    const nextVehicle = setSelectedVehicle(vehicle || selectedVehicle);
-    if (!nextVehicle?.id) return;
-
-    const canvasPayload =
-      sourceAction.widget ||
-      sourceAction.payload?.widget ||
-      sourceAction.payload ||
-      { __fromBackend: true };
-
-    setActiveCanvasPayload(canvasPayload);
-    setScreen(SCREEN.FEATURES);
-
-    rememberAction({
-      ...sourceAction,
-      id: sourceAction.id || `${nextVehicle.id}-features-open`,
-      label: sourceAction.label || `${nextVehicle.displayName} features`,
-      query: sourceAction.query || `Show features of ${nextVehicle.displayName}`,
-      type: "open_canvas",
-      intent: ACI_INTENTS.FEATURES,
-      canvasType: ACI_CANVAS_TYPES.FEATURES,
-      vehicle: nextVehicle,
-      contextPatch: {
-        selectedVehicle: nextVehicle,
-        anchorModel: nextVehicle.model,
-        anchorMake: nextVehicle.make,
-        anchorCity: nextVehicle.city,
-        ...(sourceAction.contextPatch || {}),
-      },
-    });
-  };
-
-  const toggleSaved = (vehicle) => {
-    if (!vehicle?.id) return;
-
-    setSavedIds((prev) => {
-      const next = new Set(prev);
-      const saved = next.has(vehicle.id);
-
-      if (saved) next.delete(vehicle.id);
-      else next.add(vehicle.id);
-
-      rememberAction(
-        normalizeAciAction({
-          id: `${saved ? "unsave" : "save"}-${vehicle.id}`,
-          label: saved
-            ? `Removed ${vehicle.displayName || vehicle.name}`
-            : `Saved ${vehicle.displayName || vehicle.name}`,
-          query: saved
-            ? `Remove saved car ${vehicle.displayName || vehicle.name}`
-            : `Save car ${vehicle.displayName || vehicle.name}`,
-          type: "toggle_saved",
-          intent: ACI_INTENTS.TOGGLE_SAVED,
-          vehicle,
-          payload: {
-            saved: !saved,
-          },
+      setSessionContext((previous) =>
+        mergeSessionContext(previous, {
+          ...extraContext,
+          selectedVehicle: nextVehicle,
         }),
       );
 
-      return next;
-    });
-  };
+      return nextVehicle;
+    },
+    [selectedVehicle],
+  );
 
-  const buildContextForBackend = (action, targetVehicle) => ({
-    selectedVehicle: targetVehicle || selectedVehicle,
-    activeScreen: screen,
-    activeCanvasPayload,
-    anchorModel: targetVehicle?.model || selectedVehicle?.model,
-    anchorMake: targetVehicle?.make || selectedVehicle?.make,
-    anchorCity: targetVehicle?.city || selectedVehicle?.city,
-    ...(action.contextPatch || {}),
-  });
-
-  const routeBackendResponse = (action, backend, targetVehicle) => {
-    const backendVehicle = mergeVehicle(
-      targetVehicle || selectedVehicle,
-      backend.vehicle || backend.contextPatch?.selectedVehicle,
-    );
-    const canvasType = backend.canvasType || action.canvasType;
-    const widget = {
-      ...(backend.widget || {}),
-      ...(backend.rows?.length ? { rows: backend.rows } : {}),
-      ...(backend.colors?.length ? { colors: backend.colors } : {}),
-      contextPatch: backend.contextPatch || {},
-      actions: backend.actions || [],
-      leadingQuestions: backend.leadingQuestions || [],
-      answer: backend.answer || "",
-    };
-
-    const enrichedAction = {
-      ...action,
-      answer: backend.answer,
-      canvasType,
-      widget,
-      payload: {
-        ...(action.payload || {}),
-        widget,
-        backendRaw: backend.raw,
-      },
-      vehicle: backendVehicle,
-    };
-
-    if (isPriceListCanvas(canvasType)) {
-      openPriceList(backendVehicle, enrichedAction);
-      return true;
-    }
-
-    if (isColorsCanvas(canvasType)) {
-      openColors(backendVehicle, enrichedAction);
-      return true;
-    }
-
-    if (isCarOverviewCanvas(canvasType) || action.intent === ACI_INTENTS.OPEN_VEHICLE) {
-      openVehicle(backendVehicle, enrichedAction);
-      return true;
-    }
-
-    const routedScreen = resolveScreenFromCanvasType(canvasType);
-    if (routedScreen && routedScreen !== SCREEN.HOME) {
-      setSelectedVehicle(backendVehicle);
-      setActiveCanvasPayload(widget);
-      setScreen(routedScreen);
-      rememberAction(enrichedAction);
-      return true;
-    }
-
-    if (
-      backendVehicle?.model &&
-      !action.canvasType &&
-      !action.intent
-    ) {
-      openVehicle(backendVehicle, enrichedAction);
-      return true;
-    }
-
-    rememberAction({
-      ...enrichedAction,
-      contextPatch: {
-        selectedVehicle: selectedVehicle,
+  const buildContextForBackend = useCallback(
+    (action, targetVehicle) => {
+      const effectiveContext = mergeSessionContext(sessionContext, {
         ...(action.contextPatch || {}),
-      },
-    });
-
-    return false;
-  };
-
-  const shouldAskBackend = (action) => {
-    const actionText = `${action.label || ""} ${action.query || ""}`.toLowerCase();
-
-    if (!action.query && !action.label) return false;
-    if (isCanvasInteractionOnly(action)) return false;
-
-    return Boolean(
-      action.canvasType ||
-        action.intent ||
-        actionText.includes("compare") ||
-        actionText.includes("emi") ||
-        actionText.includes("feature") ||
-        actionText.includes("quotation") ||
-        actionText.includes("quote"),
-    );
-  };
-
-  const handleAciAction = async (rawAction) => {
-    const action = normalizeAciAction(rawAction);
-    const actionText = `${action.label || ""} ${action.query || ""}`.toLowerCase();
-
-    if (action.type === "go_home" || action.label === "Home") {
-      setScreen(SCREEN.HOME);
-      setActiveCanvasPayload(null);
-      setBackendError("");
-      rememberAction(action);
-      return;
-    }
-
-    if (action.type === "back_to_car" || actionText.startsWith("back to")) {
-      if (action.vehicle?.id) setSelectedVehicle(action.vehicle);
-      setScreen(SCREEN.CAR_OVERVIEW);
-      setActiveCanvasPayload(null);
-      setBackendError("");
-      rememberAction(action);
-      return;
-    }
-
-    if (action.type === "toggle_saved") {
-      toggleSaved(action.vehicle);
-      return;
-    }
-
-    if (isCanvasInteractionOnly(action)) {
-      rememberAction({
-        ...action,
-        contextPatch: {
-          selectedVehicle,
-          anchorModel: selectedVehicle?.model,
-          anchorMake: selectedVehicle?.make,
-          anchorCity: selectedVehicle?.city,
-          ...(action.contextPatch || {}),
-        },
+        selectedVehicle:
+          targetVehicle ||
+          action.vehicle ||
+          action.contextPatch?.selectedVehicle ||
+          sessionContext.selectedVehicle,
       });
-      return;
-    }
 
-    const explicitVehicle = action.vehicle || null;
-    const vehicleFromQuery = getAciVehicleByQuery(action.query || action.label);
-    const targetVehicle = explicitVehicle || vehicleFromQuery || selectedVehicle;
-    const brandQuery = resolveBrandQuery(action.query || action.label || "");
+      return {
+        ...effectiveContext,
+        activeScreen: screen,
+        activeCanvasType:
+          activeCanvasPayload?.canvasType ||
+          activeCanvasPayload?.__rawCanvasType ||
+          sessionContext.lastCanvasType ||
+          "",
+        activeCanvasPayload: sanitizeWidgetForBackendContext(activeCanvasPayload),
+        lastAction: sanitizeActionForBackendContext(lastAction),
+      };
+    },
+    [activeCanvasPayload, lastAction, screen, sessionContext],
+  );
 
-    if (brandQuery && !vehicleFromQuery) {
-      setIsBackendLoading(true);
-      setBackendError("");
-      try {
-        const brandSnapshot = await fetchAciBrandCatalog({
-          brand: brandQuery,
-          city: targetVehicle?.city || "Delhi",
-        });
-
-        setIsBackendLoading(false);
-        setScreen(SCREEN.BRANDS);
-        setActiveCanvasPayload({
-          __fromBackend: true,
-          canvasType: "brand_models_canvas",
-          brand: brandQuery,
-          title: `${brandQuery[0]?.toUpperCase() || ""}${brandQuery.slice(1)} cars`,
-          answer: `Showing live ${brandQuery} models. Tap any car to open details.`,
-          rows: brandSnapshot?.rows || [],
-          actions: [],
-          leadingQuestions: [],
-        });
-
-        rememberAction({
-          ...action,
-          canvasType: "brand_models_canvas",
-          widget: {
-            rows: brandSnapshot?.rows || [],
-          },
-        });
-        return;
-      } catch (error) {
-        setIsBackendLoading(false);
-        setBackendError(error?.message || "Unable to fetch brand cars");
-      }
-    }
-
-    const shouldOpenPriceList =
-      isPriceListCanvas(action.canvasType) ||
-      action.intent === ACI_INTENTS.PRICELIST ||
-      actionText.includes("price list") ||
-      actionText.includes("pricelist") ||
-      actionText.includes("prices");
-
-    if (shouldOpenPriceList) {
-      setBackendError("");
-      openPriceList(targetVehicle, action);
-      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
-      return;
-    }
-
-    const shouldOpenColors =
-      isColorsCanvas(action.canvasType) ||
-      action.intent === ACI_INTENTS.COLORS ||
-      actionText.includes("color") ||
-      actionText.includes("colour");
-
-    if (shouldOpenColors) {
-      setBackendError("");
-      openColors(targetVehicle, action);
-      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
-      return;
-    }
-
-    const shouldOpenFeatures =
-      isFeaturesCanvas(action.canvasType) ||
-      action.intent === ACI_INTENTS.FEATURES ||
-      actionText.includes("feature");
-
-    if (shouldOpenFeatures) {
-      setBackendError("");
-      openFeatures(targetVehicle, action);
-      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
-      return;
-    }
-
-    const shouldOpenVehicle =
-      action.type === "open_vehicle" ||
-      action.intent === ACI_INTENTS.OPEN_VEHICLE ||
-      Boolean(vehicleFromQuery);
-
-    if (shouldOpenVehicle) {
-      setBackendError("");
-      openVehicle(targetVehicle, action);
-      hydrateVehicleLive(targetVehicle, { timeoutMs: 4500 });
-      return;
-    }
-
-    const routedScreen = resolveScreenFromCanvasType(action.canvasType);
-    if (
-      routedScreen &&
-      ![SCREEN.HOME, SCREEN.CAR_OVERVIEW, SCREEN.COLORS, SCREEN.PRICELIST].includes(routedScreen)
-    ) {
-      setBackendError("");
-      setSelectedVehicle(targetVehicle);
-      setActiveCanvasPayload(
-        action.widget ||
-          action.payload?.widget ||
-          action.payload ||
-          { __fromBackend: true },
+  const routeBackendResponse = useCallback(
+    (action, backend = {}, targetVehicle = null) => {
+      const widget = normalizeBackendWidget(backend);
+      const canvasType = normalizeV2CanvasType(
+        firstValue(
+          backend.canvasType,
+          backend.canvas_type,
+          widget.canvasType,
+          widget.canvas_type,
+          widget.__rawCanvasType,
+          action.canvasType,
+          action.canvas_type,
+        ),
       );
-      setScreen(routedScreen);
-      rememberAction(action);
-      return;
-    }
 
-    if (shouldAskBackend(action)) {
+      const contextPatch = buildContextPatchFromBackend(backend, widget);
+      const backendVehicle = mergeVehicle(
+        targetVehicle || selectedVehicle,
+        contextPatch.selectedVehicle || backend.vehicle || widget.vehicle,
+      );
+
+      setSessionContext((previous) =>
+        mergeSessionContext(previous, {
+          ...contextPatch,
+          selectedVehicle:
+            backendVehicle ||
+            contextPatch.selectedVehicle ||
+            previous.selectedVehicle,
+          lastCanvasType: canvasType || previous.lastCanvasType,
+        }),
+      );
+
+      const enrichedAction = {
+        ...action,
+        answer: firstValue(backend.answer, widget.answer),
+        canvasType,
+        widget,
+        payload: {
+          ...(action.payload || {}),
+          widget,
+          backendRaw: backend.raw,
+        },
+        vehicle: backendVehicle || targetVehicle || selectedVehicle,
+        contextPatch: {
+          ...(action.contextPatch || {}),
+          ...contextPatch,
+          selectedVehicle:
+            backendVehicle ||
+            contextPatch.selectedVehicle ||
+            targetVehicle ||
+            selectedVehicle,
+        },
+      };
+
+      if (canvasType) {
+        const routedScreen = resolveScreenFromCanvasType(canvasType);
+        if (routedScreen && routedScreen !== SCREEN.HOME) {
+          setScreen(routedScreen);
+          setActiveCanvasPayload(widget);
+          rememberAction(enrichedAction);
+          return true;
+        }
+      }
+
+      rememberAction(enrichedAction);
+      return false;
+    },
+    [rememberAction, selectedVehicle],
+  );
+
+  const sendActionToBackend = useCallback(
+    async (action, targetVehicle = null) => {
+      const message = getActionMessage(action, targetVehicle);
+      if (!message) {
+        rememberAction(action);
+        return;
+      }
+
+      requestAbortRef.current?.abort();
+
+      const controller = new AbortController();
+      requestAbortRef.current = controller;
+
+      const requestId = requestSeqRef.current + 1;
+      requestSeqRef.current = requestId;
+
       setIsBackendLoading(true);
       setBackendError("");
 
       try {
         const backend = await askAciAssistV2({
-          message: action.query || action.label,
+          message,
           context: buildContextForBackend(action, targetVehicle),
+          signal: controller.signal,
         });
 
-        setIsBackendLoading(false);
+        if (requestSeqRef.current !== requestId) return;
 
-        const routed = routeBackendResponse(action, backend, targetVehicle);
-        if (routed) return;
+        if (requestAbortRef.current === controller) {
+          requestAbortRef.current = null;
+        }
+
+        setIsBackendLoading(false);
+        routeBackendResponse(action, backend, targetVehicle);
       } catch (error) {
-        console.error("ACI Assist V2 backend failed. Falling back to local route.", error);
-        setIsBackendLoading(false);
-        setBackendError(error?.message || "Backend request failed");
-      }
-    }
+        if (error?.name === "AbortError") {
+          if (requestAbortRef.current === controller) {
+            requestAbortRef.current = null;
+          }
+          return;
+        }
 
-    rememberAction({
-      ...action,
-      contextPatch: {
-        selectedVehicle,
-        anchorModel: selectedVehicle?.model,
-        anchorMake: selectedVehicle?.make,
-        anchorCity: selectedVehicle?.city,
-        ...(action.contextPatch || {}),
-      },
-    });
-  };
+        if (requestSeqRef.current !== requestId) return;
+
+        if (requestAbortRef.current === controller) {
+          requestAbortRef.current = null;
+        }
+
+        console.error("ACI Assist V2 backend failed:", error);
+        setIsBackendLoading(false);
+        setBackendError(
+          error?.message || "Unable to fetch live ACI data right now.",
+        );
+
+        rememberAction({
+          ...action,
+          type: action.type || "backend_error",
+          error: error?.message || "Backend request failed",
+          contextPatch: {
+            ...(action.contextPatch || {}),
+            selectedVehicle: targetVehicle || selectedVehicle,
+          },
+        });
+      }
+    },
+    [buildContextForBackend, rememberAction, routeBackendResponse, selectedVehicle],
+  );
+
+  const openBackendWidgetFromAction = useCallback(
+    (action, targetVehicle = null) => {
+      const explicitWidget =
+        action.widget ||
+        action.payload?.widget ||
+        (action.payload?.__fromBackend ? action.payload : null);
+
+      if (!action.canvasType || !explicitWidget) return false;
+
+      return routeBackendResponse(
+        action,
+        {
+          canvasType: action.canvasType,
+          widget: explicitWidget,
+          contextPatch: action.contextPatch || {},
+          vehicle:
+            action.vehicle ||
+            action.contextPatch?.selectedVehicle ||
+            targetVehicle ||
+            selectedVehicle,
+        },
+        targetVehicle || action.vehicle || selectedVehicle,
+      );
+    },
+    [routeBackendResponse, selectedVehicle],
+  );
+
+  const toggleSaved = useCallback(
+    (vehicle) => {
+      const id = getVehicleId(vehicle);
+      if (!id) return;
+
+      setSavedIds((previous) => {
+        const next = new Set(previous);
+        const saved = next.has(id);
+
+        if (saved) next.delete(id);
+        else next.add(id);
+
+        rememberAction(
+          normalizeAciAction({
+            id: `${saved ? "unsave" : "save"}-${id}`,
+            label: saved
+              ? `Removed ${getVehicleTitle(vehicle)}`
+              : `Saved ${getVehicleTitle(vehicle)}`,
+            query: saved
+              ? `Remove saved car ${getVehicleTitle(vehicle)}`
+              : `Save car ${getVehicleTitle(vehicle)}`,
+            type: "toggle_saved",
+            vehicle,
+            payload: {
+              saved: !saved,
+            },
+          }),
+        );
+
+        return next;
+      });
+    },
+    [rememberAction],
+  );
+
+  const handleAciAction = useCallback(
+    async (rawAction) => {
+      const action = normalizeAciAction(rawAction);
+      const actionText = `${action.label || ""} ${action.query || ""}`.toLowerCase();
+
+      if (action.type === "go_home" || action.label === "Home") {
+        cancelActiveBackendRequest();
+        setScreen(SCREEN.HOME);
+        setActiveCanvasPayload(null);
+        setBackendError("");
+        rememberAction(action);
+        return;
+      }
+
+      if (action.type === "back_to_car" || actionText.startsWith("back to")) {
+        cancelActiveBackendRequest();
+
+        const nextVehicle = setSelectedVehicle(
+          action.vehicle || action.contextPatch?.selectedVehicle || selectedVehicle,
+          action.contextPatch || {},
+        );
+
+        if (nextVehicle || selectedVehicle) {
+          setScreen(SCREEN.CAR_OVERVIEW);
+          setActiveCanvasPayload(null);
+          setBackendError("");
+        }
+
+        rememberAction(action);
+        return;
+      }
+
+      if (action.type === "toggle_saved") {
+        toggleSaved(action.vehicle || action.payload?.vehicle);
+        return;
+      }
+
+      const targetVehicle =
+        action.vehicle ||
+        action.contextPatch?.selectedVehicle ||
+        selectedVehicle ||
+        null;
+
+      if (isCanvasInteractionOnly(action)) {
+        setSessionContext((previous) =>
+          mergeSessionContext(previous, {
+            ...(action.contextPatch || {}),
+            selectedVehicle: targetVehicle || previous.selectedVehicle,
+            selectedColor:
+              action.selectedColor ||
+              action.payload?.selectedColor ||
+              action.payload?.color ||
+              previous.selectedColor,
+          }),
+        );
+
+        rememberAction({
+          ...action,
+          contextPatch: {
+            selectedVehicle: targetVehicle || selectedVehicle,
+            anchorModel: targetVehicle?.model || sessionContext.anchorModel,
+            anchorMake:
+              targetVehicle?.make ||
+              targetVehicle?.brand ||
+              sessionContext.anchorMake,
+            anchorCity: targetVehicle?.city || sessionContext.anchorCity,
+            ...(action.contextPatch || {}),
+          },
+        });
+
+        return;
+      }
+
+      if (openBackendWidgetFromAction(action, targetVehicle)) {
+        return;
+      }
+
+      if (targetVehicle || action.contextPatch) {
+        setSessionContext((previous) =>
+          mergeSessionContext(previous, {
+            ...(action.contextPatch || {}),
+            selectedVehicle: targetVehicle || previous.selectedVehicle,
+          }),
+        );
+      }
+
+      await sendActionToBackend(action, targetVehicle);
+    },
+    [
+      cancelActiveBackendRequest,
+      openBackendWidgetFromAction,
+      rememberAction,
+      selectedVehicle,
+      sendActionToBackend,
+      sessionContext.anchorCity,
+      sessionContext.anchorMake,
+      sessionContext.anchorModel,
+      setSelectedVehicle,
+      toggleSaved,
+    ],
+  );
 
   return (
     <>
@@ -928,29 +816,36 @@ export default function AciAssistV2() {
           <span className="aci-v2-pulse" />
           Fetching live ACI data
         </div>
-      ) : backendError ? (
+      ) : backendError && !activeCanvasPayload ? (
         <div className="aci-v2-backend-state error">
-          Using fallback data · backend not reached
+          Unable to fetch live ACI data
         </div>
       ) : null}
 
       {screen === SCREEN.HOME ? (
         <AciAssistHomeScreen
-          data={homeDataWithLiveImages}
+          data={homeData}
           onAction={handleAciAction}
           savedIds={savedIds}
           onToggleSaved={toggleSaved}
+          context={sessionContext}
+          vehicle={selectedVehicle}
+          widget={activeCanvasPayload}
         />
       ) : (
         (() => {
           const ScreenComponent =
             ACI_V2_SCREEN_COMPONENTS[screen] ||
             ACI_V2_SCREEN_COMPONENTS[SCREEN.CAR_OVERVIEW];
+
           return (
             <ScreenComponent
-              data={homeDataWithLiveImages}
+              data={homeData}
               vehicle={selectedVehicle}
               widget={activeCanvasPayload}
+              status={isBackendLoading ? "loading" : backendError ? "error" : "ready"}
+              error={backendError}
+              context={sessionContext}
               onAction={handleAciAction}
               savedIds={savedIds}
               onToggleSaved={toggleSaved}

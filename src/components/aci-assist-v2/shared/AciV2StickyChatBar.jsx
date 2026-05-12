@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { Mic, SendHorizontal, Sparkles } from "lucide-react";
 
 const buildDefaultPlaceholder = (mobile, selectedVehicle) => {
@@ -15,11 +15,60 @@ export default function AciV2StickyChatBar({
   selectedVehicle,
   className = "",
   showDisclaimer = false,
+  disabled = false,
 }) {
   const finalPlaceholder =
     placeholder || buildDefaultPlaceholder(mobile, selectedVehicle);
+  const [text, setText] = useState("");
+  const submitLockRef = useRef(0);
+  const composingRef = useRef(false);
+
   const fire = (detail) => {
     if (typeof onAction === "function") onAction(detail);
+  };
+
+  const submit = () => {
+    const query = String(text || "").trim();
+    if (!query || disabled) return;
+
+    const now = Date.now();
+    if (now - submitLockRef.current < 280) return;
+    submitLockRef.current = now;
+
+    fire({
+      id: `sticky-chat-${now}`,
+      label: query,
+      query,
+      type: "ask",
+      vehicle: selectedVehicle || null,
+      contextPatch: selectedVehicle
+        ? {
+            selectedVehicle,
+            anchorMake: selectedVehicle.make || selectedVehicle.brand || "",
+            anchorModel: selectedVehicle.model || "",
+            anchorVariant:
+              selectedVehicle.variant ||
+              selectedVehicle.selectedVariant ||
+              selectedVehicle.variantName ||
+              "",
+            anchorCity: selectedVehicle.city || "Delhi",
+          }
+        : {},
+      source: "aci_v2_sticky_chatbar",
+    });
+
+    setText("");
+  };
+
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    submit();
+  };
+
+  const handleKeyDown = (event) => {
+    if (event.key !== "Enter" || composingRef.current) return;
+    event.preventDefault();
+    submit();
   };
 
   return (
@@ -151,16 +200,19 @@ export default function AciV2StickyChatBar({
         }
       `}</style>
 
-      <div className="aci-v2-chatbar">
+      <form className="aci-v2-chatbar" onSubmit={handleSubmit}>
         <button
           type="button"
           className="chat-btn spark"
+          disabled={disabled}
           onClick={() =>
             fire({
               label: "Open assistant",
               query: "",
               type: "open_assistant",
               vehicle: selectedVehicle || null,
+              contextPatch: selectedVehicle ? { selectedVehicle } : {},
+              source: "aci_v2_sticky_chatbar",
             })
           }
           aria-label="Open assistant"
@@ -168,17 +220,33 @@ export default function AciV2StickyChatBar({
           <Sparkles size={21} />
         </button>
 
-        <input placeholder={finalPlaceholder} />
+        <input
+          value={text}
+          onChange={(event) => setText(event.target.value)}
+          onCompositionStart={() => {
+            composingRef.current = true;
+          }}
+          onCompositionEnd={() => {
+            composingRef.current = false;
+          }}
+          onKeyDown={handleKeyDown}
+          placeholder={finalPlaceholder}
+          disabled={disabled}
+          aria-label="Ask ACI Assist"
+        />
 
         <button
           type="button"
           className="chat-btn mic"
+          disabled={disabled}
           onClick={() =>
             fire({
               label: "Voice input",
               query: "",
               type: "voice_input",
               vehicle: selectedVehicle || null,
+              contextPatch: selectedVehicle ? { selectedVehicle } : {},
+              source: "aci_v2_sticky_chatbar",
             })
           }
           aria-label="Voice input"
@@ -187,21 +255,14 @@ export default function AciV2StickyChatBar({
         </button>
 
         <button
-          type="button"
+          type="submit"
           className="chat-btn send"
-          onClick={() =>
-            fire({
-              label: "Send",
-              query: "",
-              type: "send",
-              vehicle: selectedVehicle || null,
-            })
-          }
+          disabled={disabled || !String(text || "").trim()}
           aria-label="Send"
         >
           <SendHorizontal size={23} />
         </button>
-      </div>
+      </form>
 
       {showDisclaimer ? (
         <p className="aci-v2-disclaimer">

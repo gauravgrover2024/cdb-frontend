@@ -1,5 +1,4 @@
 import React from "react";
-import { Car } from "lucide-react";
 import { isUsableImageUrl } from "./aciV2Image";
 
 export default function CarImageStage({
@@ -50,9 +49,8 @@ export default function CarImageStage({
           />
         </>
       ) : (
-        <div className="aci-car-stage-fallback" role="img" aria-label={alt}>
-          <Car size={34} strokeWidth={1.6} />
-          <span>{String(fallbackLabel || "CAR").slice(0, 12).toUpperCase()}</span>
+        <div className="aci-car-stage-fallback text-only" role="img" aria-label={alt}>
+          <span>{String(fallbackLabel || "IMAGE NOT AVAILABLE").slice(0, 24).toUpperCase()}</span>
         </div>
       )}
     </div>

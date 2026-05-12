@@ -27,7 +27,7 @@ import {
   Filter,
 } from "lucide-react";
 
-import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
+import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
 import { emitAciAction } from "../shared/AciAssistShared";
 import { getDisplayCarImage } from "../shared/aciV2Image";
 

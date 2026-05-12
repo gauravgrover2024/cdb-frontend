@@ -317,6 +317,9 @@ export function AciComposer({
   onAction,
   placeholder,
   selectedVehicle,
+  className = "",
+  disabled = false,
+  showDisclaimer = false,
 }) {
   return (
     <AciV2StickyChatBar
@@ -324,7 +327,9 @@ export function AciComposer({
       onAction={onAction}
       placeholder={placeholder}
       selectedVehicle={selectedVehicle}
-      showDisclaimer={false}
+      className={className}
+      disabled={disabled}
+      showDisclaimer={showDisclaimer}
     />
   );
 }

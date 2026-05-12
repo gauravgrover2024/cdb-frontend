@@ -16,8 +16,7 @@ import {
 } from "lucide-react";
 
 export const ACI_HOME_IMAGES = {
-  avatar:
-    "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=240&auto=format&fit=crop",
+  avatar: "",
   creta: "",
 };
 
@@ -85,198 +84,19 @@ export const makeAciAction = ({
   };
 };
 
-export const ACI_VEHICLES = [
-  {
-    id: "hyundai-creta",
-    brand: "Hyundai",
-    make: "Hyundai",
-    model: "Creta",
-    displayName: "Hyundai Creta",
-    bodyType: "suv",
-    label: "CRETA",
-    city: "Delhi",
-    segment: "Premium mid-size SUV",
-    subtitle: "Premium mid-size SUV · Delhi prices",
-    imageUrl: ACI_HOME_IMAGES.creta,
-    priceRange: "₹12.65L – ₹20.15L",
-    startingOnRoadPrice: "₹12.65L",
-    exShowroomPrice: "₹11.11L",
-    selectedVariant: "SX Tech IVT",
-    fuelText: "Petrol / Diesel",
-    transmissionText: "Manual / Automatic",
-    variantCount: 26,
-    chips: ["26 variants", "Petrol / Diesel", "Manual / Automatic"],
-    heroBadges: ["Selected car hub", "ACI Assist remembers this car"],
-    specs: [
-      { icon: Fuel, label: "Petrol / Diesel" },
-      { icon: Gauge, label: "Manual / Automatic" },
-      { icon: Users, label: "5 Seater" },
-    ],
-    highlights: [
-      { icon: Sparkles, value: "26", label: "Variants" },
-      { icon: Fuel, value: "3", label: "Fuel options" },
-      { icon: Scale, value: "2", label: "Transmissions" },
-      { icon: Gauge, value: "18.4 km/l", label: "Mileage (ARAI)" },
-      { icon: Sparkles, value: "5★", label: "Global NCAP" },
-    ],
-    colors: [
-      { name: "Atlas White", hex: "#F7F7F5" },
-      { name: "Abyss Black", hex: "#050912" },
-      { name: "Titan Grey", hex: "#8E98A6" },
-      { name: "Fiery Red", hex: "#CD1E25" },
-      { name: "Starry Blue", hex: "#19338C" },
-    ],
-    variants: [
-      {
-        id: "creta-sxo-ivt",
-        tag: "BEST SELLER",
-        name: "SX (O) IVT",
-        fuel: "Petrol",
-        transmission: "Automatic",
-        price: "₹17.55L",
-        sub: "On-road Delhi",
-        meta: ["18.4 km/l", "5★ Safety"],
-      },
-      {
-        id: "creta-sx-tech-ivt",
-        tag: "TOP RATED",
-        name: "SX Tech IVT",
-        fuel: "Petrol",
-        transmission: "Automatic",
-        price: "₹18.98L",
-        sub: "On-road Delhi",
-        meta: ["18.4 km/l", "5★ Safety"],
-      },
-      {
-        id: "creta-so-ivt",
-        tag: "VALUE PICK",
-        name: "S (O) IVT",
-        fuel: "Petrol",
-        transmission: "Automatic",
-        price: "₹15.45L",
-        sub: "On-road Delhi",
-        meta: ["17.8 km/l", "5★ Safety"],
-      },
-    ],
-    compareWith: {
-      brand: "Hyundai",
-      model: "Verna",
-      displayName: "Hyundai Verna",
-      variant: "SX IVT",
-      price: "₹16.70L",
-      bodyType: "sedan",
-      label: "VERNA",
-    },
-    query: "Hyundai Creta",
-  },
-  {
-    id: "hyundai-verna",
-    brand: "Hyundai",
-    make: "Hyundai",
-    model: "Verna",
-    displayName: "Hyundai Verna",
-    bodyType: "sedan",
-    label: "VERNA",
-    city: "Delhi",
-    segment: "Executive sedan",
-    subtitle: "Executive sedan · Delhi prices",
-    priceRange: "₹12.98 – 17.38 Lakh",
-    startingOnRoadPrice: "₹12.98L",
-    exShowroomPrice: "₹11.07L",
-    selectedVariant: "SX (O) IVT",
-    fuelText: "Petrol",
-    transmissionText: "Manual / IVT",
-    variantCount: 18,
-    blue: false,
-    specs: [
-      { icon: Fuel, label: "Petrol" },
-      { icon: Gauge, label: "Manual / IVT" },
-      { icon: Users, label: "5 Seater" },
-    ],
-    query: "Hyundai Verna",
-  },
-  {
-    id: "tata-safari",
-    brand: "Tata",
-    make: "Tata",
-    model: "Safari",
-    displayName: "Tata Safari",
-    bodyType: "suv",
-    label: "SAFARI",
-    city: "Delhi",
-    segment: "Premium 7-seater SUV",
-    subtitle: "Premium SUV · Delhi prices",
-    priceRange: "₹15.49 – 25.49 Lakh",
-    startingOnRoadPrice: "₹16.19L",
-    selectedVariant: "Accomplished+ 6S",
-    fuelText: "Diesel",
-    transmissionText: "Manual / Automatic",
-    variantCount: 22,
-    blue: true,
-    specs: [
-      { icon: Fuel, label: "Diesel" },
-      { icon: Gauge, label: "Manual / Automatic" },
-      { icon: Users, label: "6/7 Seater" },
-    ],
-    query: "Tata Safari",
-  },
-  {
-    id: "kia-seltos",
-    brand: "Kia",
-    make: "Kia",
-    model: "Seltos",
-    displayName: "Kia Seltos",
-    bodyType: "suv",
-    label: "SELTOS",
-    city: "Delhi",
-    segment: "Premium compact SUV",
-    subtitle: "Premium compact SUV · Delhi prices",
-    priceRange: "₹11.13 – 20.51 Lakh",
-    startingOnRoadPrice: "₹11.13L",
-    selectedVariant: "HTX IVT",
-    fuelText: "Petrol / Diesel",
-    transmissionText: "Manual / DCT",
-    variantCount: 24,
-    blue: false,
-    specs: [
-      { icon: Fuel, label: "Petrol / Diesel" },
-      { icon: Gauge, label: "Manual / DCT" },
-      { icon: Users, label: "5 Seater" },
-    ],
-    query: "Kia Seltos",
-  },
-];
+export const ACI_VEHICLES = [];
 
-ACI_VEHICLES.forEach((vehicle) => {
-  vehicle.name = vehicle.name || vehicle.displayName || [vehicle.brand, vehicle.model].filter(Boolean).join(" ");
-  vehicle.price = vehicle.price || vehicle.priceRange || vehicle.startingOnRoadPrice || "";
-  vehicle.variant = vehicle.variant || vehicle.selectedVariant || "";
-});
+/**
+ * No static vehicle catalogue is kept in frontend.
+ * Vehicles, variants, prices, colors, images, safety and recommendations
+ * must come from the backend live response.
+ */
 
 const vehicleById = Object.fromEntries(ACI_VEHICLES.map((item) => [item.id, item]));
 
-export const getAciVehicleById = (id) => vehicleById[id] || ACI_VEHICLES[0];
+export const getAciVehicleById = (id) => vehicleById[id] || null;
 
-export const getAciVehicleByQuery = (query = "") => {
-  const lower = String(query || "").toLowerCase();
-
-  return (
-    ACI_VEHICLES.find((vehicle) => {
-      const keys = [
-        vehicle.id,
-        vehicle.brand,
-        vehicle.make,
-        vehicle.model,
-        vehicle.displayName,
-        vehicle.label,
-      ]
-        .filter(Boolean)
-        .map((item) => String(item).toLowerCase());
-
-      return keys.some((key) => lower.includes(key));
-    }) || null
-  );
-};
+export const getAciVehicleByQuery = () => null;
 
 export const buildVehicleAction = (vehicle) =>
   makeAciAction({
@@ -359,7 +179,7 @@ export const buildVehicleQuickActions = (vehicle) => [
 ];
 
 export const ACI_ASSIST_HOME_DATA = {
-  selectedVehicle: ACI_VEHICLES[0],
+  selectedVehicle: null,
 
   header: {
     searchPlaceholder: "Search for cars, brands, features, prices...",
@@ -527,7 +347,7 @@ export const ACI_ASSIST_HOME_DATA = {
     }),
   ],
 
-  trendingCars: [ACI_VEHICLES[1], ACI_VEHICLES[2], ACI_VEHICLES[3]],
+  trendingCars: [],
 
   rightRail: {
     popularAsks: [
@@ -537,7 +357,7 @@ export const ACI_ASSIST_HOME_DATA = {
       "Top rated cars for city driving",
       "Low maintenance cars in India",
     ],
-    savedCars: [ACI_VEHICLES[1], ACI_VEHICLES[2], ACI_VEHICLES[3]],
+    savedCars: [],
     help: [
       "Find the right car for me",
       "Compare cars and variants",
@@ -552,7 +372,7 @@ export const ACI_ASSIST_HOME_DATA = {
     heroSubtitle:
       "Ask one question and get a clear, confident answer to find your perfect new car.",
     primaryCta: "Start with your budget",
-    trustLine: "Trusted by 2M+ car buyers",
+    trustLine: "Live new-car assistance",
     shortcuts: [
       makeAciAction({
         icon: Wallet,
@@ -576,6 +396,6 @@ export const ACI_ASSIST_HOME_DATA = {
         canvasType: ACI_CANVAS_TYPES.PRICELIST,
       }),
     ],
-    popularCars: [ACI_VEHICLES[1], ACI_VEHICLES[2], ACI_VEHICLES[0]],
+    popularCars: [],
   },
 };

@@ -15,7 +15,7 @@ import {
   Trees,
 } from "lucide-react";
 
-import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../data/homeScreenData";
+import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
 import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 

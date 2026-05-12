@@ -9,6 +9,19 @@ const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
 const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
 const liveSnapshotMemory = new Map();
 
+const createAbortError = () => {
+  const error = new Error("Request aborted");
+  error.name = "AbortError";
+  return error;
+};
+
+const throwIfAborted = (signal) => {
+  if (signal?.aborted) throw createAbortError();
+};
+
+const toSafeList = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+
+
 const cleanJoin = (base = "", path = "") => {
   if (!base) return path;
   if (/^https?:\/\//i.test(path)) return path;
@@ -430,12 +443,16 @@ const writeLiveSnapshotCache = (cache) => {
 };
 
 const fetchJsonSafe = async (url, token = "", signal) => {
+  throwIfAborted(signal);
+
   const response = await fetch(url, {
     method: "GET",
     signal,
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     credentials: "include",
   });
+
+  throwIfAborted(signal);
 
   if (!response.ok) return null;
   const contentType = response.headers.get("content-type") || "";
@@ -493,6 +510,30 @@ const normalizeBrandCard = ({ brand = "", model = "", city = "Delhi", variants =
 };
 
 export const normalizeAciBackendResponse = (raw) => {
+  if (typeof raw === "string") {
+    return {
+      ok: true,
+      raw,
+      answer: raw,
+      canvasType: "",
+      vehicle: null,
+      contextPatch: {},
+      actions: [],
+      leadingQuestions: [],
+      suggestions: [],
+      widget: {
+        __fromBackend: true,
+        __rawCanvasType: "",
+        answer: raw,
+        contextPatch: {},
+        actions: [],
+        leadingQuestions: [],
+      },
+      rows: [],
+      colors: [],
+    };
+  }
+
   const container =
     raw?.data?.response ||
     raw?.data?.result ||
@@ -586,6 +627,55 @@ export const normalizeAciBackendResponse = (raw) => {
     container.context_patch ||
     {};
 
+  const actions = toSafeList(
+    firstArrayFromKnownPaths(
+      root.actions,
+      root.quickActions,
+      root.suggestedActions,
+      root.data?.actions,
+      knownWidget.actions,
+      knownWidget.quickActions,
+      knownWidget.suggestedActions,
+      canvas.actions,
+      container.actions,
+      container.quickActions,
+      container.suggestedActions,
+      container.data?.actions,
+    ),
+  );
+
+  const leadingQuestions = toSafeList(
+    firstArrayFromKnownPaths(
+      root.leadingQuestions,
+      root.leading_questions,
+      root.data?.leadingQuestions,
+      knownWidget.leadingQuestions,
+      knownWidget.leading_questions,
+      canvas.leadingQuestions,
+      container.leadingQuestions,
+      container.leading_questions,
+      container.data?.leadingQuestions,
+    ),
+  );
+
+  const suggestions = toSafeList(
+    firstArrayFromKnownPaths(
+      root.suggestions,
+      root.followUps,
+      root.follow_up_suggestions,
+      root.leadingQuestions,
+      root.data?.suggestions,
+      knownWidget.suggestions,
+      knownWidget.followUps,
+      canvas.suggestions,
+      container.suggestions,
+      container.followUps,
+      container.follow_up_suggestions,
+      container.leadingQuestions,
+      container.data?.suggestions,
+    ),
+  );
+
   const vehicle =
     firstObject(
       root.vehicle,
@@ -613,12 +703,17 @@ export const normalizeAciBackendResponse = (raw) => {
     root.canvasType ||
     root.canvas_type ||
     root.summary?.canvasType ||
+    root.summary?.canvas_type ||
     root.type ||
     canvas.canvasType ||
     canvas.canvas_type ||
     canvas.type ||
     knownWidget.canvasType ||
+    knownWidget.canvas_type ||
+    knownWidget.type ||
     container.canvasType ||
+    container.canvas_type ||
+    container.type ||
     "";
 
   return {
@@ -634,23 +729,9 @@ export const normalizeAciBackendResponse = (raw) => {
     canvasType,
     vehicle: normalizedVehicle,
     contextPatch,
-    actions:
-      root.actions ||
-      root.quickActions ||
-      root.suggestedActions ||
-      container.actions ||
-      [],
-    leadingQuestions:
-      root.leadingQuestions ||
-      root.leading_questions ||
-      container.leadingQuestions ||
-      [],
-    suggestions:
-      root.suggestions ||
-      root.followUps ||
-      root.follow_up_suggestions ||
-      root.leadingQuestions ||
-      [],
+    actions,
+    leadingQuestions,
+    suggestions,
     widget: {
       ...knownWidget,
       __fromBackend: true,
@@ -658,17 +739,8 @@ export const normalizeAciBackendResponse = (raw) => {
       ...(rows.length ? { rows } : {}),
       ...(colors.length ? { colors } : {}),
       contextPatch,
-      actions:
-        root.actions ||
-        root.quickActions ||
-        root.suggestedActions ||
-        container.actions ||
-        [],
-      leadingQuestions:
-        root.leadingQuestions ||
-        root.leading_questions ||
-        container.leadingQuestions ||
-        [],
+      actions,
+      leadingQuestions,
       answer:
         root.answer ||
         root.text ||
@@ -733,7 +805,7 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
   }
 
   const normalized = normalizeAciBackendResponse(body);
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV === "development") {
     console.log("ACI Assist V2 normalized backend:", normalized);
   }
   return normalized;
@@ -784,6 +856,8 @@ export async function fetchAciVehicleLiveSnapshot({
 
   const candidates = resolveApiBaseCandidates();
   for (const apiBase of candidates) {
+    throwIfAborted(signal);
+
     const mediaUrl = cleanJoin(
       apiBase,
       `${VEHICLE_MEDIA_ENDPOINT}?${queryString({
@@ -804,6 +878,8 @@ export async function fetchAciVehicleLiveSnapshot({
       fetchJsonSafe(mediaUrl, token, signal),
       fetchJsonSafe(variantsUrl, token, signal),
     ]);
+
+    throwIfAborted(signal);
 
     const nextMediaRows = Array.isArray(mediaRes.value?.data)
       ? mediaRes.value.data
@@ -890,7 +966,7 @@ export async function fetchAciVehicleLiveSnapshot({
     [key]: entry,
   });
 
-  if (process.env.NODE_ENV !== "production") {
+  if (process.env.NODE_ENV === "development") {
     console.log("ACI Assist V2 live snapshot:", {
       key,
       rows: payload.rows.length,
@@ -917,6 +993,8 @@ export async function fetchAciBrandCatalog({
   let models = [];
 
   for (const apiBase of candidates) {
+    throwIfAborted(signal);
+
     const url = cleanJoin(
       apiBase,
       `${VEHICLE_MODELS_ENDPOINT}?${queryString({ make: cleanedBrand, city: cleanedCity })}`,
@@ -941,6 +1019,8 @@ export async function fetchAciBrandCatalog({
       let media = [];
 
       for (const apiBase of candidates) {
+        throwIfAborted(signal);
+
         const variantsUrl = cleanJoin(
           apiBase,
           `${VEHICLE_VARIANTS_ENDPOINT}?${queryString({
@@ -961,6 +1041,8 @@ export async function fetchAciBrandCatalog({
           fetchJsonSafe(variantsUrl, token, signal),
           fetchJsonSafe(mediaUrl, token, signal),
         ]);
+
+        throwIfAborted(signal);
 
         const nextVariants = Array.isArray(variantsRes.value?.data) ? variantsRes.value.data : [];
         const nextMedia = Array.isArray(mediaRes.value?.data) ? mediaRes.value.data : [];
