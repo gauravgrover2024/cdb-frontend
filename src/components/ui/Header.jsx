@@ -134,12 +134,6 @@ const Header = () => {
       roles: FEATURE_ACCESS.ANALYTICS,
     },
     {
-      label: "Analytics",
-      path: "/analytics",
-      icon: <Icon name="BarChart3" size={18} />,
-      roles: FEATURE_ACCESS.ANALYTICS,
-    },
-    {
       label: "Insurance",
       icon: <Icon name="Shield" size={18} />,
       roles: FEATURE_ACCESS.INSURANCE,
@@ -148,12 +142,6 @@ const Header = () => {
           label: "Dashboard",
           path: "/insurance",
           desc: "View all insurance cases",
-          roles: FEATURE_ACCESS.INSURANCE,
-        },
-        {
-          label: "Insurance Dashboard V2",
-          path: "/insurance/dashboard-v2",
-          desc: "Open the accurate insurance dashboard",
           roles: FEATURE_ACCESS.INSURANCE,
         },
         {
@@ -362,10 +350,6 @@ const Header = () => {
 
   const groupAccent = (label) => {
     const map = {
-      Analytics: {
-        icon: "bg-gradient-to-br from-sky-100 to-indigo-100 text-sky-700 dark:from-sky-500/20 dark:to-indigo-500/20 dark:text-sky-300",
-        dot: "bg-sky-500 dark:bg-sky-400",
-      },
       "ACI Assist": {
         icon: "bg-gradient-to-br from-indigo-100 to-fuchsia-100 text-indigo-700 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300",
         dot: "bg-indigo-500 dark:bg-indigo-400",
