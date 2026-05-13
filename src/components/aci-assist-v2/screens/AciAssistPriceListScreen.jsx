@@ -282,135 +282,9 @@ const getFuelTransmission = (row) => {
 };
 
 const pricePartsFromRow = (row = {}) => {
-  const breakup = row.priceBreakup || row.price_breakup || {};
-  const tooltip = row.otherChargesTooltip || row.other_charges_tooltip || {};
-
-  const visibleLines = Array.isArray(breakup.visibleLines)
-    ? breakup.visibleLines
-    : Array.isArray(row.priceBreakupLines)
-      ? row.priceBreakupLines
-      : [];
-
-  const findVisibleLineAmount = (...keys) => {
-    const normalizedKeys = keys.map((key) =>
-      String(key || "").toLowerCase().replace(/[^a-z0-9]+/g, ""),
-    );
-
-    const line = visibleLines.find((item) => {
-      const key = String(item.key || item.label || "")
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "");
-
-      return normalizedKeys.some((target) => key.includes(target));
-    });
-
-    return parseMoney(line?.amount ?? line?.value ?? line?.displayValue);
-  };
-
-  const normalizeChargeItem = (item = {}, index = 0, sectionLabel = "") => {
-    if (typeof item === "number" || typeof item === "string") {
-      return {
-        label: sectionLabel
-          ? `${sectionLabel} · Other charge ${index + 1}`
-          : `Other charge ${index + 1}`,
-        amount: parseMoney(item),
-        sectionLabel,
-      };
-    }
-
-    const label =
-      item.label ||
-      item.name ||
-      item.title ||
-      item.text ||
-      item.key ||
-      `Other charge ${index + 1}`;
-
-    return {
-      ...item,
-      label: sectionLabel ? `${sectionLabel} · ${label}` : label,
-      rawLabel: label,
-      sectionLabel,
-      amount: parseMoney(
-        item.amount ??
-          item.value ??
-          item.price ??
-          item.cost ??
-          item.displayValue,
-      ),
-    };
-  };
-
-  const extractItemsFromSections = (sections = []) => {
-    if (!Array.isArray(sections)) return [];
-
-    return sections.flatMap((section, sectionIndex) => {
-      const sectionLabel =
-        section.label ||
-        section.title ||
-        section.name ||
-        `Charge group ${sectionIndex + 1}`;
-
-      return (Array.isArray(section.items) ? section.items : [])
-        .map((item, itemIndex) =>
-          normalizeChargeItem(item, itemIndex, sectionLabel),
-        )
-        .filter((item) => item.amount);
-    });
-  };
-
-  const directOtherItems = [
-    ...(Array.isArray(row.otherChargeItems) ? row.otherChargeItems : []),
-    ...(Array.isArray(row.optionalChargeItems) ? row.optionalChargeItems : []),
-    ...(Array.isArray(row.otherListItems) ? row.otherListItems : []),
-    ...(Array.isArray(breakup.otherChargeItems) ? breakup.otherChargeItems : []),
-    ...(Array.isArray(breakup.optionalItems) ? breakup.optionalItems : []),
-    ...(Array.isArray(breakup.otherItems) ? breakup.otherItems : []),
-  ]
-    .map((item, index) => normalizeChargeItem(item, index))
-    .filter((item) => item.amount);
-
-  const sectionItems = [
-    ...extractItemsFromSections(tooltip.sections),
-    ...extractItemsFromSections(breakup.detailSections),
-  ];
-
-  const otherRaw =
-    row.other_charges ||
-    row.optionalItems ||
-    row.optional_items ||
-    row.accessories ||
-    row.charges ||
-    row.breakup ||
-    [];
-
-  let legacyItems = [];
-
-  if (Array.isArray(otherRaw)) {
-    legacyItems = otherRaw
-      .map((item, index) => normalizeChargeItem(item, index))
-      .filter((item) => item.amount);
-  } else if (otherRaw && typeof otherRaw === "object") {
-    legacyItems = Object.entries(otherRaw)
-      .map(([label, amount]) => ({
-        label: humanize(label),
-        amount: parseMoney(amount),
-      }))
-      .filter((item) => item.amount);
-  }
-
-  const listItems = sectionItems.length
-    ? sectionItems
-    : directOtherItems.length
-      ? directOtherItems
-      : legacyItems;
-
   const exShowroom =
     parseMoney(
-      breakup.exShowroom ??
-        breakup.ex_showroom ??
-        findVisibleLineAmount("exshowroom", "ex_showroom") ??
-        row.exShowroomPrice ??
+      row.exShowroomPrice ??
         row.ex_showroom_price ??
         row.exShowroom ??
         row.ex_showroom ??
@@ -420,9 +294,7 @@ const pricePartsFromRow = (row = {}) => {
 
   const rto =
     parseMoney(
-      breakup.rto ??
-        findVisibleLineAmount("rto", "roadtax", "registration") ??
-        row.rto ??
+      row.rto ??
         row.roadTax ??
         row.road_tax ??
         row.registration ??
@@ -431,33 +303,62 @@ const pricePartsFromRow = (row = {}) => {
 
   const insurance =
     parseMoney(
-      breakup.insurance ??
-        findVisibleLineAmount("insurance") ??
-        row.insurance ??
+      row.insurance ??
         row.insuranceCost ??
         row.insurance_cost ??
         row.insuranceAmount,
     ) || 0;
 
+  const otherRaw =
+    row.otherCharges ||
+    row.other_charges ||
+    row.optionalItems ||
+    row.optional_items ||
+    row.accessories ||
+    row.charges ||
+    row.breakup ||
+    [];
+
+  let listItems = [];
+
+  if (Array.isArray(otherRaw)) {
+    listItems = otherRaw
+      .map((item, index) => {
+        if (typeof item === "number" || typeof item === "string") {
+          return {
+            label: `Other charge ${index + 1}`,
+            amount: parseMoney(item),
+          };
+        }
+        return {
+          label:
+            item.label ||
+            item.name ||
+            item.title ||
+            `Other charge ${index + 1}`,
+          amount: parseMoney(
+            item.amount ?? item.value ?? item.price ?? item.cost,
+          ),
+        };
+      })
+      .filter((item) => item.amount);
+  } else if (otherRaw && typeof otherRaw === "object") {
+    listItems = Object.entries(otherRaw)
+      .map(([label, amount]) => ({
+        label: humanize(label),
+        amount: parseMoney(amount),
+      }))
+      .filter((item) => item.amount);
+  }
+
   const listTotal =
     parseMoney(
-      breakup.otherCharges ??
-        breakup.other_charges ??
-        tooltip.amount ??
-        row.otherChargesTotal ??
-        row.otherCharges ??
-        row.other ??
-        row.otherAmount ??
-        row.miscCharges ??
-        findVisibleLineAmount("othercharges", "other"),
+      row.other ?? row.otherAmount ?? row.otherChargesTotal ?? row.miscCharges,
     ) || listItems.reduce((sum, item) => sum + item.amount, 0);
 
   const onRoad =
     parseMoney(
-      breakup.onRoadPrice ??
-        breakup.onRoad ??
-        breakup.canonicalOnRoadPrice ??
-        row.onRoadPrice ??
+      row.onRoadPrice ??
         row.on_road_price ??
         row.onRoad ??
         row.on_road ??
@@ -467,22 +368,7 @@ const pricePartsFromRow = (row = {}) => {
     exShowroom + rto + insurance + listTotal ||
     0;
 
-  return {
-    exShowroom,
-    rto,
-    insurance,
-    listItems,
-    listTotal,
-    onRoad,
-    visibleLines,
-    detailSections:
-      Array.isArray(tooltip.sections) && tooltip.sections.length
-        ? tooltip.sections
-        : Array.isArray(breakup.detailSections)
-          ? breakup.detailSections
-          : [],
-    priceIntegrity: row.priceIntegrity || breakup.priceIntegrity || null,
-  };
+  return { exShowroom, rto, insurance, listItems, listTotal, onRoad };
 };
 
 const normalizeRows = ({ vehicle, widget, message }) => {

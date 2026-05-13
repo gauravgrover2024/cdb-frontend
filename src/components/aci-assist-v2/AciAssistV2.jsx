@@ -363,35 +363,47 @@ const canvasTypeLabel = (canvasType = "") =>
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase()) || "Result";
 
-const getWidgetTitle = (widget = {}, canvasType = "", vehicle = null) =>
-  firstValue(
-    widget.title,
-    widget.heading,
-    widget.model,
-    widget.displayName,
+const safeWidget = (widget) => (isObject(widget) ? widget : {});
+
+const getWidgetTitle = (widget = {}, canvasType = "", vehicle = null) => {
+  const item = safeWidget(widget);
+
+  return firstValue(
+    item.title,
+    item.heading,
+    item.model,
+    item.displayName,
     vehicle?.displayName,
     canvasTypeLabel(canvasType),
   );
+};
 
-const getWidgetSubtitle = (widget = {}, vehicle = null) =>
-  firstValue(
-    widget.subtitle,
-    widget.summary,
-    widget.answer,
-    widget.city ? `Live ${widget.city} data` : "",
+const getWidgetSubtitle = (widget = {}, vehicle = null) => {
+  const item = safeWidget(widget);
+
+  return firstValue(
+    item.subtitle,
+    item.summary,
+    item.answer,
+    item.city ? `Live ${item.city} data` : "",
     vehicle?.city ? `Using ${vehicle.city} as city context` : "",
   );
+};
 
-const getWidgetRows = (widget = {}) =>
-  toArray(
-    widget.rows || widget.variants || widget.items || widget.colors,
+const getWidgetRows = (widget = {}) => {
+  const item = safeWidget(widget);
+
+  return toArray(
+    item.rows || item.variants || item.items || item.colors,
   ).slice(0, 3);
+};
 
 const getWidgetCountText = (widget = {}) => {
-  const rows = toArray(widget.rows);
-  const variants = toArray(widget.variants);
-  const colors = toArray(widget.colors);
-  const items = toArray(widget.items);
+  const item = safeWidget(widget);
+  const rows = toArray(item.rows);
+  const variants = toArray(item.variants);
+  const colors = toArray(item.colors);
+  const items = toArray(item.items);
 
   if (rows.length) return `${rows.length} results`;
   if (variants.length) return `${variants.length} variants`;
@@ -404,40 +416,20 @@ const formatIndianPrice = (value) => {
   if (value === null || value === undefined || value === "") return "";
 
   const originalText = String(value).trim();
-
   if (!originalText) return "";
 
   const normalizeNumber = (input) => {
     const clean = String(input).replace(/[₹,\s]/g, "");
     const number = Number(clean.replace(/[^\d.]/g, ""));
-
     return Number.isFinite(number) ? number : null;
   };
 
   const formatSinglePrice = (input, inheritedUnit = "") => {
     let text = String(input || "").trim();
-
     if (!text) return "";
 
-    const hasUnit = /lakh|crore/i.test(text);
-
-    if (!hasUnit && inheritedUnit) {
-      text = `${text} ${inheritedUnit}`;
-    }
-
-    const unitMatch = text.match(/([\d,.]+)\s*(lakh|crore)/i);
-
-    if (unitMatch) {
-      const numeric = normalizeNumber(unitMatch[1]);
-      const unit = unitMatch[2].toLowerCase();
-
-      if (numeric === null) return text.startsWith("₹") ? text : `₹${text}`;
-
-      const rupeeValue =
-        unit === "crore" ? numeric * 10000000 : numeric * 100000;
-
-      return `₹${Math.round(rupeeValue).toLocaleString("en-IN")}`;
-    }
+    const explicitUnit =
+      text.match(/lakh|crore/i)?.[0]?.toLowerCase() || inheritedUnit;
 
     const number = normalizeNumber(text);
 
@@ -445,7 +437,17 @@ const formatIndianPrice = (value) => {
       return text.startsWith("₹") ? text : `₹${text}`;
     }
 
-    return `₹${Math.round(number).toLocaleString("en-IN")}`;
+    let rupeeValue = number;
+
+    if (explicitUnit === "crore") {
+      rupeeValue = number * 10000000;
+    } else if (explicitUnit === "lakh") {
+      rupeeValue = number * 100000;
+    } else if (number > 0 && number < 1000 && String(text).includes(".")) {
+      rupeeValue = number * 100000;
+    }
+
+    return `₹${Math.round(rupeeValue).toLocaleString("en-IN")}`;
   };
 
   const inheritedUnit = /crore/i.test(originalText)
@@ -465,21 +467,223 @@ const formatIndianPrice = (value) => {
       .join(" – ");
   }
 
-  return formatSinglePrice(originalText);
+  return formatSinglePrice(originalText, inheritedUnit);
 };
 
-function AciV2CanvasPreviewCard({ message = {}, selectedVehicle, onAction }) {
+const getQuestionIconType = (label = "", index = 0) => {
+  const text = String(label).toLowerCase();
+
+  if (/automatic|manual|imt|ivt|dct|transmission/.test(text)) return "gear";
+  if (
+    /pricelist|price list|price breakup|breakup|on-road|road tax|insurance|fee/.test(
+      text,
+    )
+  )
+    return "receipt";
+  if (/charge|on-road|road tax|insurance|fee/.test(text)) return "receipt";
+  if (/best value|value|emi|loan|finance|budget|price/.test(text))
+    return "money";
+  if (/compare|comparison|versus|vs/.test(text)) return "compare";
+  if (/petrol|diesel|fuel|cng|ev|electric/.test(text)) return "fuel";
+  if (/city|highway|road|drive|traffic/.test(text)) return "road";
+  if (/seat|seater|family|space/.test(text)) return "people";
+  if (/feature|sunroof|safety|variant/.test(text)) return "spark";
+
+  return ["spark", "gear", "money", "road", "compare"][index % 5];
+};
+
+function AciQuestionIcon({ label = "", index = 0 }) {
+  const type = getQuestionIconType(label, index);
+
+  return (
+    <span className="aci-chat-chip-icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none">
+        {type === "gear" ? (
+          <>
+            <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
+            <path d="M12 2.8v2.4" />
+            <path d="M12 18.8v2.4" />
+            <path d="M4.2 6.1l1.7 1.7" />
+            <path d="M18.1 16.2l1.7 1.7" />
+            <path d="M2.8 12h2.4" />
+            <path d="M18.8 12h2.4" />
+            <path d="M4.2 17.9l1.7-1.7" />
+            <path d="M18.1 7.8l1.7-1.7" />
+          </>
+        ) : type === "receipt" ? (
+          <>
+            <path d="M7 3h10v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2V3Z" />
+            <path d="M9 8h6" />
+            <path d="M9 12h6" />
+            <path d="M9 16h4" />
+          </>
+        ) : type === "money" ? (
+          <>
+            <path d="M7 5h10" />
+            <path d="M7 9h10" />
+            <path d="M9 5c5 0 5 8 0 8H8l7 6" />
+          </>
+        ) : type === "compare" ? (
+          <>
+            <path d="M7 5v14" />
+            <path d="M17 5v14" />
+            <path d="M4 9h6l-3 5-3-5Z" />
+            <path d="M14 9h6l-3 5-3-5Z" />
+          </>
+        ) : type === "fuel" ? (
+          <>
+            <path d="M6 20V5.8C6 4.8 6.8 4 7.8 4h5.4c1 0 1.8.8 1.8 1.8V20" />
+            <path d="M5 20h11" />
+            <path d="M8 8h5" />
+            <path d="M15 7l3 3v7a1.6 1.6 0 0 0 3.2 0v-4.5L18 9" />
+          </>
+        ) : type === "road" ? (
+          <>
+            <path d="M8 21 11 3" />
+            <path d="M16 21 13 3" />
+            <path d="M12 7v2" />
+            <path d="M12 13v2" />
+            <path d="M12 19v1" />
+          </>
+        ) : type === "people" ? (
+          <>
+            <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+            <path d="M17 10a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
+            <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
+            <path d="M14 17.5a4.5 4.5 0 0 1 6.5 2.5" />
+          </>
+        ) : (
+          <>
+            <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z" />
+            <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" />
+          </>
+        )}
+      </svg>
+    </span>
+  );
+}
+
+const normalizeSuggestionKey = (item = {}) =>
+  String(item.label || item.title || item.query || item.id || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+const buildChatSuggestions = ({
+  widget = {},
+  message = {},
+  limit = 4,
+} = {}) => {
+  const merged = [];
+  const seen = new Set();
+
+  [
+    ...toArray(widget.leadingQuestions),
+    ...toArray(message.leadingQuestions),
+    ...toArray(widget.actions),
+    ...toArray(message.actions),
+  ].forEach((item) => {
+    const key = normalizeSuggestionKey(item);
+    if (!key || seen.has(key)) return;
+
+    seen.add(key);
+    merged.push(item);
+  });
+
+  return merged.slice(0, limit);
+};
+
+function AciV2CanvasPreviewCard({
+  message = {},
+  selectedVehicle,
+  onAction,
+  onOpen,
+}) {
   const widget = message.widget || {};
   const rows = getWidgetRows(widget);
-  const actions = toArray(
-    widget.leadingQuestions || widget.actions || message.actions,
-  ).slice(0, 4);
+
+  const canvasType =
+    message.canvasType || widget.canvasType || widget.__rawCanvasType || "";
+
+  const hasCanvas = Boolean(canvasType);
+
+  const openCanvasLabel =
+    canvasType === "pricelist_canvas" || canvasType === "price_breakup_canvas"
+      ? "Open Pricelist"
+      : `Open ${canvasTypeLabel(canvasType)}`;
+
+  const actions = buildChatSuggestions
+    ? buildChatSuggestions({ widget, message, limit: 4 })
+    : toArray(
+        widget.leadingQuestions || widget.actions || message.actions,
+      ).slice(0, 4);
+
+  const carouselRef = useRef(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+
+  const maxCarouselIndex = Math.max(0, rows.length - 2);
+  const carouselProgress =
+    maxCarouselIndex > 0 ? (carouselIndex + 1) / (maxCarouselIndex + 1) : 1;
+
+  const getCarouselStep = () => {
+    const scroller = carouselRef.current;
+    if (!scroller) return 0;
+
+    const firstCard = scroller.querySelector("button");
+    if (!firstCard) return 0;
+
+    const styles = window.getComputedStyle(scroller);
+    const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+
+    return firstCard.getBoundingClientRect().width + gap;
+  };
+
+  const handleCarouselScroll = () => {
+    const scroller = carouselRef.current;
+    if (!scroller) return;
+
+    const step = getCarouselStep();
+    if (!step) return;
+
+    const nextIndex = Math.max(
+      0,
+      Math.min(maxCarouselIndex, Math.round(scroller.scrollLeft / step)),
+    );
+
+    setCarouselIndex(nextIndex);
+  };
+
+  const handleCarouselIndicatorClick = () => {
+    const scroller = carouselRef.current;
+    if (!scroller || maxCarouselIndex <= 0) return;
+
+    const step = getCarouselStep();
+    if (!step) return;
+
+    const nextIndex = carouselIndex >= maxCarouselIndex ? 0 : carouselIndex + 1;
+
+    scroller.scrollTo({
+      left: step * nextIndex,
+      behavior: "smooth",
+    });
+
+    setCarouselIndex(nextIndex);
+  };
+
+  const handleOpenCanvas = () => {
+    if (!hasCanvas || typeof onOpen !== "function") return;
+    onOpen(message);
+  };
 
   return (
     <article className="aci-chat-result-card">
       {rows.length ? (
         <>
-          <div className="aci-chat-result-rows">
+          <div
+            className="aci-chat-result-rows"
+            ref={carouselRef}
+            onScroll={handleCarouselScroll}
+          >
             {rows.map((row, index) => {
               const rowTitle =
                 row.variant ||
@@ -507,7 +711,19 @@ function AciV2CanvasPreviewCard({ message = {}, selectedVehicle, onAction }) {
                   type="button"
                   key={row.id || row._id || rowTitle || index}
                   aria-label={`View ${rowTitle}`}
-                  onClick={() =>
+                  onClick={() => {
+                    if (hasCanvas && typeof onOpen === "function") {
+                      onOpen({
+                        ...message,
+                        widget: {
+                          ...widget,
+                          selectedRow: row,
+                          selectedRowIndex: index,
+                        },
+                      });
+                      return;
+                    }
+
                     onAction?.({
                       id: `chat-preview-row-${index}`,
                       label: rowTitle,
@@ -518,8 +734,8 @@ function AciV2CanvasPreviewCard({ message = {}, selectedVehicle, onAction }) {
                         anchorModel: selectedVehicle?.model,
                         anchorCity: selectedVehicle?.city || "Delhi",
                       },
-                    })
-                  }
+                    });
+                  }}
                 >
                   <div className="aci-chat-row-visual">
                     <AciVehicleVisual
@@ -541,10 +757,16 @@ function AciV2CanvasPreviewCard({ message = {}, selectedVehicle, onAction }) {
           </div>
 
           {rows.length > 2 ? (
-            <div className="aci-chat-carousel-indicator" aria-hidden="true">
+            <button
+              type="button"
+              className="aci-chat-carousel-indicator"
+              style={{ "--aci-carousel-progress": carouselProgress }}
+              onClick={handleCarouselIndicatorClick}
+              aria-label="Show more car options"
+            >
               <span />
               <i />
-            </div>
+            </button>
           ) : null}
         </>
       ) : (
@@ -555,17 +777,34 @@ function AciV2CanvasPreviewCard({ message = {}, selectedVehicle, onAction }) {
         </div>
       )}
 
-      {actions.length ? (
+      {hasCanvas || actions.length ? (
         <footer>
-          {actions.map((item, index) => (
+          {hasCanvas ? (
             <button
               type="button"
-              key={item.id || item.label || item.query || index}
-              onClick={() => onAction?.(item)}
+              className="aci-chat-open-canvas-pill"
+              onClick={handleOpenCanvas}
             >
-              {item.label || item.title || item.query || `Next ${index + 1}`}
+              <AciQuestionIcon label={openCanvasLabel} index={0} />
+              <span>{openCanvasLabel}</span>
             </button>
-          ))}
+          ) : null}
+
+          {actions.map((item, index) => {
+            const label =
+              item.label || item.title || item.query || `Next ${index + 1}`;
+
+            return (
+              <button
+                type="button"
+                key={item.id || item.label || item.query || index}
+                onClick={() => onAction?.(item)}
+              >
+                <AciQuestionIcon label={label} index={index + 1} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </footer>
       ) : null}
     </article>
@@ -584,10 +823,12 @@ function AciV2ChatMessage({
     message.widget?.canvasType ||
     message.widget?.__rawCanvasType,
   );
-  const followups = toArray(message.leadingQuestions || message.actions).slice(
-    0,
-    5,
-  );
+
+  const followups = buildChatSuggestions({
+    widget: message.widget || {},
+    message,
+    limit: 4,
+  });
 
   if (isUser) {
     return (
@@ -629,18 +870,24 @@ function AciV2ChatMessage({
 
         {followups.length && !hasCanvas ? (
           <div className="aci-chat-followups">
-            {followups.map((item, index) => (
-              <button
-                type="button"
-                key={item.id || item.label || item.query || index}
-                onClick={() => onAction?.(item)}
-              >
-                {item.label ||
-                  item.title ||
-                  item.query ||
-                  `Suggestion ${index + 1}`}
-              </button>
-            ))}
+            {followups.map((item, index) => {
+              const label =
+                item.label ||
+                item.title ||
+                item.query ||
+                `Suggestion ${index + 1}`;
+
+              return (
+                <button
+                  type="button"
+                  key={item.id || item.label || item.query || index}
+                  onClick={() => onAction?.(item)}
+                >
+                  <AciQuestionIcon label={label} index={index} />
+                  <span>{label}</span>
+                </button>
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -821,6 +1068,12 @@ function AciV2FullCanvasShell({
   onToggleSaved,
   onBack,
 }) {
+  const safeCanvasWidget = safeWidget(widget);
+  const canvasType =
+    safeCanvasWidget.canvasType ||
+    safeCanvasWidget.__rawCanvasType ||
+    "";
+
   const ScreenComponent =
     ACI_V2_SCREEN_COMPONENTS[screen] ||
     ACI_V2_SCREEN_COMPONENTS[SCREEN.CAR_OVERVIEW];
@@ -833,19 +1086,15 @@ function AciV2FullCanvasShell({
         </button>
 
         <div>
-          <strong>
-            {canvasTypeLabel(
-              widget?.canvasType || widget?.__rawCanvasType || "",
-            )}
-          </strong>
-          <span>{getWidgetTitle(widget, widget?.canvasType, vehicle)}</span>
+          <strong>{canvasTypeLabel(canvasType)}</strong>
+          <span>{getWidgetTitle(safeCanvasWidget, canvasType, vehicle)}</span>
         </div>
       </header>
 
       <ScreenComponent
         data={data}
         vehicle={vehicle}
-        widget={widget}
+        widget={safeCanvasWidget}
         onAction={onAction}
         savedIds={savedIds}
         onToggleSaved={onToggleSaved}
@@ -1393,8 +1642,7 @@ export default function AciAssistV2() {
 
 /* =========================================================
    ACI ASSIST CHAT SHELL
-   Premium natural chat UI
-   Composer/chatbar untouched
+   Clean replacement: no duplicate overrides, no composer styling
    ========================================================= */
 
 .aci-chat-shell {
@@ -1403,14 +1651,13 @@ export default function AciAssistV2() {
   --aci-ink: #071126;
   --aci-text: #111827;
   --aci-muted: #667085;
-  --aci-soft-muted: #8791a4;
   --aci-gold: #bd8420;
   --aci-line: rgba(208, 220, 239, 0.78);
 
   position: relative;
   min-height: 100svh;
   isolation: isolate;
-  overflow-x: clip;
+  overflow-x: hidden;
   padding: 18px 18px 120px;
   color: var(--aci-text);
   font-family:
@@ -1444,10 +1691,8 @@ export default function AciAssistV2() {
   mask-image: linear-gradient(to bottom, transparent 0%, #000 12%, #000 82%, transparent 100%);
 }
 
-/* Main chat width */
-
 .aci-chat-app-frame {
-  width: min(720px, calc(100vw - 44px));
+  width: min(800px, calc(100vw - 44px));
   min-height: calc(100svh - 142px);
   margin: 0 auto;
   padding: 0 0 24px;
@@ -1455,8 +1700,6 @@ export default function AciAssistV2() {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
 }
 
 /* Header */
@@ -1542,7 +1785,7 @@ export default function AciAssistV2() {
   border-radius: inherit;
 }
 
-/* Context strip */
+/* Context */
 
 .aci-chat-context-pill {
   min-height: 48px;
@@ -1609,7 +1852,7 @@ export default function AciAssistV2() {
   font-weight: 820;
 }
 
-/* Thread */
+/* Messages */
 
 .aci-chat-thread {
   width: 100%;
@@ -1626,16 +1869,15 @@ export default function AciAssistV2() {
   animation: aciAnswerReveal 360ms cubic-bezier(0.19, 1, 0.22, 1) both;
 }
 
-.aci-chat-message.is-assistant {
-  justify-content: flex-start;
-  align-items: flex-start;
-}
-
 .aci-chat-message.is-user {
   justify-content: flex-end;
 }
 
-/* Assistant orb */
+.aci-chat-message.is-assistant {
+  justify-content: flex-start;
+  align-items: flex-start;
+  width: 100%;
+}
 
 .aci-chat-orb {
   width: 40px;
@@ -1666,11 +1908,19 @@ export default function AciAssistV2() {
     );
 }
 
-/* Chat bubbles */
+.aci-chat-assistant-stack {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: calc(100% - 50px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
 
 .aci-chat-bubble {
   position: relative;
-  max-width: min(560px, calc(100% - 54px));
+  max-width: min(560px, 100%);
   padding: 12px 15px;
   border-radius: 22px;
   color: var(--aci-text);
@@ -1682,6 +1932,9 @@ export default function AciAssistV2() {
 }
 
 .aci-chat-message.is-assistant .aci-chat-bubble {
+  width: fit-content;
+  max-width: 100%;
+  margin: 0;
   border-bottom-left-radius: 7px;
   transform-origin: left top;
   animation: aciAssistantBubblePop 360ms cubic-bezier(0.19, 1, 0.22, 1) both;
@@ -1735,70 +1988,42 @@ export default function AciAssistV2() {
   font-weight: 500;
 }
 
-.aci-chat-message.is-assistant .aci-chat-bubble > p {
-  color: #111827;
-}
-
-/* Result cards stay inside assistant bubble, aligned with response text */
-
-.aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble {
-  width: min(620px, calc(100% - 54px));
-  max-width: min(620px, calc(100% - 54px));
-  padding: 13px 14px 14px;
-}
+/* Result cards */
 
 .aci-chat-result-card {
-  position: relative;
-  overflow: visible;
-  margin-top: 12px;
+  width: calc(100% + 50px);
+  max-width: min(800px, calc(100vw - 44px));
+  margin-left: -50px;
+  margin-right: 0;
+  margin-top: 0;
   padding: 0;
+  overflow: hidden;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
 }
 
-/* Remove Price List, model name, city context, Open Details */
-
+.aci-chat-result-card::before,
+.aci-chat-result-card::after,
 .aci-chat-result-card header,
 .aci-chat-result-card h3,
 .aci-chat-result-card p,
 .aci-chat-result-card header > button,
 .aci-chat-result-card header span {
   display: none !important;
-}
-
-/* Elegant non-text carousel indicator */
-
-.aci-chat-result-card::before {
   content: none !important;
 }
 
-.aci-chat-result-card::after {
-  content: "";
-  display: block;
-  width: 5px;
-  height: 5px;
-  margin: 13px auto 0;
-  border-radius: 999px;
-  background: var(--aci-blue);
-  box-shadow:
-    11px 0 0 rgba(180, 194, 218, 0.9),
-    22px 0 0 rgba(180, 194, 218, 0.9);
-  opacity: 0.9;
-}
-
-/* Premium car cards */
-
 .aci-chat-result-rows {
-  position: relative;
-  z-index: 1;
   width: 100%;
-  padding: 0;
-  margin: 0;
+  max-width: 100%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 13px;
+  gap: 16px;
+  padding: 0;
+  margin: 0;
+  overflow: visible;
 }
 
 .aci-chat-result-rows > button {
@@ -1806,33 +2031,24 @@ export default function AciAssistV2() {
   min-width: 0;
   position: relative;
   overflow: hidden;
-  padding: 13px;
+  padding: 14px;
   border: 1px solid rgba(216, 226, 240, 0.96);
-  border-radius: 26px;
+  border-radius: 28px;
   text-align: left;
+  box-sizing: border-box;
   background:
     radial-gradient(circle at 50% -16%, rgba(7, 88, 248, 0.055), transparent 42%),
     rgba(255, 255, 255, 0.97);
   box-shadow:
     0 24px 58px -44px rgba(15, 23, 42, 0.44),
     inset 0 1px 0 rgba(255, 255, 255, 1);
+  opacity: 0;
+  transform-origin: center bottom;
+  animation: aciPremiumCardIn 560ms cubic-bezier(0.19, 1, 0.22, 1) both;
   transition:
     transform 180ms cubic-bezier(0.19, 1, 0.22, 1),
     border-color 180ms ease,
     box-shadow 180ms ease;
-  opacity: 0;
-  transform-origin: center bottom;
-  animation: aciPremiumCardIn 560ms cubic-bezier(0.19, 1, 0.22, 1) both;
-}
-
-.aci-chat-result-rows > button::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at 50% -10%, rgba(7, 88, 248, 0.045), transparent 40%),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.58), transparent 42%);
 }
 
 .aci-chat-result-rows > button:nth-child(1) {
@@ -1847,19 +2063,13 @@ export default function AciAssistV2() {
   animation-delay: 240ms;
 }
 
-.aci-chat-result-rows > button:nth-child(4) {
-  animation-delay: 315ms;
-}
-
-/* Car image area: no inner border */
-
 .aci-chat-row-visual {
   position: relative;
   z-index: 1;
-  height: 130px;
+  height: 142px;
   margin-bottom: 13px;
   border: 0;
-  border-radius: 22px;
+  border-radius: 24px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -1884,32 +2094,10 @@ export default function AciAssistV2() {
 .aci-chat-row-visual svg {
   position: relative;
   z-index: 1;
-  animation: aciVehicleSettle 680ms cubic-bezier(0.19, 1, 0.22, 1) both;
-}
-
-.aci-chat-row-visual img {
-  max-width: 130%;
-  max-height: 102%;
+  max-width: 132%;
+  max-height: 104%;
   object-fit: contain;
-  filter:
-    drop-shadow(0 16px 14px rgba(15, 23, 42, 0.16))
-    saturate(1.04)
-    contrast(1.02);
-}
-
-.aci-chat-result-rows > button:nth-child(1) .aci-chat-row-visual img,
-.aci-chat-result-rows > button:nth-child(1) .aci-chat-row-visual svg {
-  animation-delay: 190ms;
-}
-
-.aci-chat-result-rows > button:nth-child(2) .aci-chat-row-visual img,
-.aci-chat-result-rows > button:nth-child(2) .aci-chat-row-visual svg {
-  animation-delay: 270ms;
-}
-
-.aci-chat-result-rows > button:nth-child(3) .aci-chat-row-visual img,
-.aci-chat-result-rows > button:nth-child(3) .aci-chat-row-visual svg {
-  animation-delay: 350ms;
+  animation: aciVehicleSettle 680ms cubic-bezier(0.19, 1, 0.22, 1) both;
 }
 
 .aci-chat-result-rows strong,
@@ -1919,8 +2107,6 @@ export default function AciAssistV2() {
   z-index: 1;
   display: block;
 }
-
-/* Variant badge */
 
 .aci-chat-result-rows strong {
   width: fit-content;
@@ -1952,8 +2138,6 @@ export default function AciAssistV2() {
   letter-spacing: -0.012em;
 }
 
-/* Price */
-
 .aci-chat-result-rows b {
   margin-top: 10px;
   padding-top: 10px;
@@ -1969,64 +2153,78 @@ export default function AciAssistV2() {
   content: none !important;
 }
 
+/* Functional carousel indicator */
+
+.aci-chat-carousel-indicator {
+  display: none;
+}
+
 /* Follow-up chips */
 
 .aci-chat-result-card footer,
 .aci-chat-followups {
-  position: relative;
-  z-index: 1;
+  width: 100%;
   display: flex;
   flex-wrap: wrap;
-  gap: 9px;
+  align-items: center;
+  gap: 10px;
   padding: 14px 0 0;
   margin: 0;
-}
-
-.aci-chat-followups {
-  padding: 0;
-  margin-top: 11px;
+  overflow: visible;
 }
 
 .aci-chat-result-card footer button,
 .aci-chat-followups button {
   appearance: none;
-  min-height: 36px;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
   border-radius: 999px;
-  border: 1px solid rgba(166, 195, 246, 0.7);
-  background: rgba(255, 255, 255, 0.92);
-  color: var(--aci-blue);
-  padding: 0 14px;
-  font-size: 12.5px;
+  border: 1.3px solid rgba(7, 88, 248, 0.56);
+  background: rgba(255, 255, 255, 0.94);
+  color: #111827;
+  padding: 0 15px 0 11px;
+  font-size: 13px;
   line-height: 1;
-  font-weight: 750;
+  font-weight: 520;
+  letter-spacing: -0.018em;
+  white-space: nowrap;
   box-shadow:
-    0 12px 28px -25px rgba(15, 23, 42, 0.32),
-    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+    0 16px 34px -30px rgba(7, 88, 248, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
   opacity: 0;
   animation: aciChipReveal 420ms cubic-bezier(0.19, 1, 0.22, 1) both;
 }
 
-.aci-chat-followups button:nth-child(1),
-.aci-chat-result-card footer button:nth-child(1) {
-  animation-delay: 360ms;
+.aci-chat-result-card footer button > span:not(.aci-chat-chip-icon),
+.aci-chat-followups button > span:not(.aci-chat-chip-icon) {
+  font-weight: 520;
 }
 
-.aci-chat-followups button:nth-child(2),
-.aci-chat-result-card footer button:nth-child(2) {
-  animation-delay: 420ms;
+.aci-chat-chip-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--aci-blue);
+  background: #f2f7ff;
+  border: 1px solid rgba(161, 190, 244, 0.56);
 }
 
-.aci-chat-followups button:nth-child(3),
-.aci-chat-result-card footer button:nth-child(3) {
-  animation-delay: 480ms;
+.aci-chat-chip-icon svg {
+  width: 15px;
+  height: 15px;
+  stroke: currentColor;
+  stroke-width: 2.1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.aci-chat-followups button:nth-child(4),
-.aci-chat-result-card footer button:nth-child(4) {
-  animation-delay: 540ms;
-}
-
-/* Loading */
+/* Loading / error */
 
 .aci-chat-thinking {
   min-height: 42px;
@@ -2058,6 +2256,18 @@ export default function AciAssistV2() {
   font-weight: 560 !important;
 }
 
+.aci-chat-error-note {
+  margin-top: 10px;
+  border-radius: 13px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #a44a08;
+  padding: 9px 11px;
+  font-size: 12px;
+  line-height: 1.3;
+  font-weight: 690;
+}
+
 .aci-chat-result-skeleton {
   position: relative;
   z-index: 1;
@@ -2072,20 +2282,6 @@ export default function AciAssistV2() {
   background: linear-gradient(90deg, #edf4ff, #ffffff, #e8f1ff);
   background-size: 220% 100%;
   animation: aciSkeleton 1.25s ease-in-out infinite;
-}
-
-/* Error */
-
-.aci-chat-error-note {
-  margin-top: 10px;
-  border-radius: 13px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #a44a08;
-  padding: 9px 11px;
-  font-size: 12px;
-  line-height: 1.3;
-  font-weight: 690;
 }
 
 /* Full canvas */
@@ -2143,44 +2339,6 @@ export default function AciAssistV2() {
   font-weight: 820;
 }
 
-/* Optional real right rail support only if JSX exists */
-
-.aci-chat-right-rail {
-  display: none;
-}
-
-@media (min-width: 1180px) {
-  .aci-chat-layout {
-    width: min(1120px, calc(100vw - 72px));
-    margin: 0 auto;
-    display: grid;
-    grid-template-columns: minmax(0, 720px) 280px;
-    gap: 40px;
-    align-items: start;
-  }
-
-  .aci-chat-layout .aci-chat-app-frame {
-    width: 100%;
-    margin: 0;
-  }
-
-  .aci-chat-right-rail {
-    display: block;
-    position: sticky;
-    top: 110px;
-  }
-
-  .aci-chat-right-rail-card {
-    border: 1px solid rgba(216, 226, 240, 0.94);
-    border-radius: 28px;
-    background: rgba(255, 255, 255, 0.92);
-    box-shadow:
-      0 24px 62px -50px rgba(15, 23, 42, 0.48),
-      inset 0 1px 0 rgba(255, 255, 255, 1);
-    padding: 18px;
-  }
-}
-
 /* Hover */
 
 @media (hover: hover) {
@@ -2201,10 +2359,13 @@ export default function AciAssistV2() {
       inset 0 1px 0 #fff;
   }
 
-  .aci-chat-result-rows > button:hover .aci-chat-row-visual img,
-  .aci-chat-result-rows > button:hover .aci-chat-row-visual svg {
-    transform: translateY(-2px) scale(1.025);
-    transition: transform 260ms cubic-bezier(0.19, 1, 0.22, 1);
+  .aci-chat-result-card footer button:hover,
+  .aci-chat-followups button:hover {
+    transform: translateY(-2px);
+    border-color: rgba(7, 88, 248, 0.78);
+    box-shadow:
+      0 20px 42px -30px rgba(7, 88, 248, 0.44),
+      inset 0 1px 0 rgba(255, 255, 255, 1);
   }
 }
 
@@ -2213,6 +2374,7 @@ export default function AciAssistV2() {
 @media (max-width: 760px) {
   .aci-chat-shell {
     padding: 0 0 116px;
+    overflow-x: hidden;
     background:
       radial-gradient(circle at -8% 18%, rgba(7, 88, 248, 0.064), transparent 34%),
       radial-gradient(circle at 110% 94%, rgba(7, 88, 248, 0.05), transparent 36%),
@@ -2226,6 +2388,7 @@ export default function AciAssistV2() {
 
   .aci-chat-app-frame {
     width: min(430px, calc(100vw - 28px));
+    max-width: calc(100vw - 28px);
     min-height: calc(100svh - 116px);
     margin: 0 auto;
     padding: 0 0 22px;
@@ -2242,8 +2405,6 @@ export default function AciAssistV2() {
     box-shadow:
       0 1px 0 rgba(222, 230, 242, 0.72),
       0 14px 36px -34px rgba(15, 23, 42, 0.32);
-    backdrop-filter: blur(18px) saturate(1.12);
-    -webkit-backdrop-filter: blur(18px) saturate(1.12);
   }
 
   .aci-chat-header .aci-logo {
@@ -2258,10 +2419,6 @@ export default function AciAssistV2() {
     border: 0;
     background: transparent;
     box-shadow: none;
-  }
-
-  .aci-chat-header-actions {
-    gap: 7px;
   }
 
   .aci-chat-avatar {
@@ -2292,12 +2449,7 @@ export default function AciAssistV2() {
     font-size: 11.5px;
   }
 
-  .aci-chat-thread {
-    width: 100%;
-    gap: 12px;
-  }
-
-  .aci-chat-message {
+  .aci-chat-message.is-assistant {
     gap: 9px;
   }
 
@@ -2308,8 +2460,12 @@ export default function AciAssistV2() {
     margin-top: 2px;
   }
 
+  .aci-chat-assistant-stack {
+    max-width: calc(100% - 47px);
+  }
+
   .aci-chat-bubble {
-    max-width: calc(100% - 48px);
+    max-width: 100%;
     padding: 12px 14px;
     border-radius: 21px;
     border-bottom-left-radius: 7px;
@@ -2329,26 +2485,26 @@ export default function AciAssistV2() {
     font-weight: 500;
   }
 
-  .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble {
-    width: calc(100% - 47px);
-    max-width: calc(100% - 47px);
-    padding: 12px 12px 13px;
-  }
-
   .aci-chat-result-card {
-    margin-top: 12px;
+    width: calc(100% + 47px);
+    max-width: calc(100vw - 28px);
+    margin-left: -47px;
+    overflow: hidden;
   }
 
   .aci-chat-result-rows {
+    width: 100%;
+    max-width: 100%;
     display: flex;
+    grid-template-columns: none;
     gap: 11px;
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
     scroll-behavior: smooth;
-    scroll-padding-left: 0;
-    padding: 0 0 2px;
+    padding: 0 0 4px;
     margin: 0;
+    box-sizing: border-box;
     scrollbar-width: none;
     -webkit-overflow-scrolling: touch;
   }
@@ -2359,9 +2515,11 @@ export default function AciAssistV2() {
 
   .aci-chat-result-rows > button {
     flex: 0 0 calc((100% - 11px) / 2);
+    max-width: calc((100% - 11px) / 2);
     scroll-snap-align: start;
     padding: 10px;
     border-radius: 23px;
+    box-sizing: border-box;
   }
 
   .aci-chat-result-rows > button:active {
@@ -2369,14 +2527,9 @@ export default function AciAssistV2() {
   }
 
   .aci-chat-row-visual {
-    height: clamp(108px, 29vw, 126px);
+    height: clamp(106px, 28vw, 122px);
     border-radius: 19px;
     margin-bottom: 10px;
-  }
-
-  .aci-chat-row-visual img {
-    max-width: 138%;
-    max-height: 104%;
   }
 
   .aci-chat-result-rows strong {
@@ -2399,58 +2552,70 @@ export default function AciAssistV2() {
     font-weight: 620;
   }
 
-  .aci-chat-result-card::after {
-    width: 5px;
-    height: 5px;
-    margin-top: 12px;
-    box-shadow:
-      11px 0 0 rgba(180, 194, 218, 0.9),
-      22px 0 0 rgba(180, 194, 218, 0.9);
+  .aci-chat-carousel-indicator {
+    appearance: none;
+    border: 0;
+    width: 54px;
+    height: 12px;
+    margin: 11px auto 0;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    background: transparent;
+    cursor: pointer;
+  }
+
+  .aci-chat-carousel-indicator span {
+    width: 6px;
+    height: 6px;
+    flex: 0 0 6px;
+    border-radius: 999px;
+    background: var(--aci-blue);
+    box-shadow: 0 6px 16px -8px rgba(7, 88, 248, 0.9);
+  }
+
+  .aci-chat-carousel-indicator i {
+    position: relative;
+    width: 31px;
+    height: 4px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(7, 88, 248, 0.18);
+  }
+
+  .aci-chat-carousel-indicator i::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: rgba(7, 88, 248, 0.72);
+    transform-origin: left center;
+    transform: scaleX(var(--aci-carousel-progress, 0.5));
+    transition: transform 220ms cubic-bezier(0.19, 1, 0.22, 1);
   }
 
   .aci-chat-result-card footer,
   .aci-chat-followups {
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 8px;
-    scrollbar-width: none;
-  }
-
-  .aci-chat-result-card footer::-webkit-scrollbar,
-  .aci-chat-followups::-webkit-scrollbar {
-    display: none;
+    flex-wrap: wrap;
+    overflow: visible;
+    gap: 9px;
+    padding-top: 14px;
   }
 
   .aci-chat-result-card footer button,
   .aci-chat-followups button {
-    flex: 0 0 auto;
-    min-height: 35px;
-    padding: 0 13px;
-    white-space: nowrap;
-    font-size: 12px;
-  }
-}
-
-@media (max-width: 430px) {
-  .aci-chat-app-frame {
-    width: min(410px, calc(100vw - 24px));
+    min-height: 39px;
+    padding: 0 13px 0 10px;
+    font-size: 12.5px;
+    font-weight: 520;
   }
 
-  .aci-chat-header-actions > button:not(.aci-chat-avatar):first-child {
-    display: none;
-  }
-
-  .aci-chat-message.is-user .aci-chat-bubble {
-    max-width: 82vw;
-  }
-
-  .aci-chat-bubble {
-    max-width: calc(100% - 48px);
-  }
-
-  .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble {
-    width: calc(100% - 47px);
-    max-width: calc(100% - 47px);
+  .aci-chat-chip-icon {
+    width: 23px;
+    height: 23px;
+    flex-basis: 23px;
   }
 }
 
@@ -2461,24 +2626,12 @@ export default function AciAssistV2() {
 
   .aci-chat-result-rows > button {
     flex-basis: calc((100% - 9px) / 2);
+    max-width: calc((100% - 9px) / 2);
     padding: 9px;
   }
 
   .aci-chat-row-visual {
-    height: 100px;
-  }
-
-  .aci-chat-result-rows strong {
-    font-size: 9.8px;
-    padding: 0 7px;
-  }
-
-  .aci-chat-result-rows span {
-    font-size: 10.4px;
-  }
-
-  .aci-chat-result-rows b {
-    font-size: 11.6px;
+    height: 98px;
   }
 }
 
@@ -2595,8 +2748,6 @@ export default function AciAssistV2() {
   }
 }
 
-/* Reduced motion */
-
 @media (prefers-reduced-motion: reduce) {
   .aci-chat-message,
   .aci-chat-message.is-user .aci-chat-bubble,
@@ -2624,212 +2775,17 @@ export default function AciAssistV2() {
   }
 }
 
-/* =========================================================
-   FINAL ALIGNMENT + CAROUSEL FIX
-   Orb stays. Bubble stays. Cards start from left chat edge.
-   ========================================================= */
-
-.aci-chat-app-frame {
-  width: min(800px, calc(100vw - 44px)) !important;
-}
-
-/* Assistant orb must stay visible beside the answer */
-.aci-chat-message.is-assistant {
-  display: flex !important;
-  align-items: flex-start !important;
-  gap: 10px !important;
-}
-
-.aci-chat-message.is-assistant .aci-chat-orb {
-  display: grid !important;
-  visibility: visible !important;
-  opacity: 1 !important;
-  align-self: flex-start !important;
-  margin-top: 2px !important;
-  margin-bottom: 0 !important;
-  flex: 0 0 40px !important;
-}
-
-/* Keep the response bubble, but let the card section break left to full chat edge */
-.aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble {
-  width: min(680px, calc(100% - 54px)) !important;
-  max-width: min(680px, calc(100% - 54px)) !important;
-  padding: 12px 15px 15px !important;
-  border: 1px solid rgba(218, 228, 242, 0.94) !important;
-  border-radius: 22px !important;
-  border-bottom-left-radius: 7px !important;
-  background: rgba(255, 255, 255, 0.95) !important;
+.aci-chat-open-canvas-pill {
+  border-color: rgba(7, 88, 248, 0.82) !important;
   box-shadow:
-    0 16px 42px -36px rgba(15, 23, 42, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98) !important;
+    0 18px 38px -28px rgba(7, 88, 248, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
 }
 
-/* Cards start from the actual left chat border, not after orb */
-.aci-chat-result-card {
-  margin-top: 12px !important;
-  margin-left: -50px !important;
-  width: calc(100% + 50px) !important;
-  max-width: calc(100vw - 32px) !important;
-  padding: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-/* Remove header/button/title area */
-.aci-chat-result-card header,
-.aci-chat-result-card h3,
-.aci-chat-result-card p,
-.aci-chat-result-card header > button,
-.aci-chat-result-card header span {
-  display: none !important;
-}
-
-/* Wider, more luxurious laptop cards */
-.aci-chat-result-rows {
-  width: 100% !important;
-  display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-  gap: 16px !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-.aci-chat-result-rows > button {
-  padding: 14px !important;
-  border-radius: 28px !important;
-}
-
-.aci-chat-row-visual {
-  height: 142px !important;
-  border: 0 !important;
-  border-radius: 24px !important;
-  margin-bottom: 13px !important;
-}
-
-/* No swipe indicator on laptop/tablet */
-.aci-chat-result-card::before,
-.aci-chat-result-card::after {
-  display: none !important;
-  content: none !important;
-}
-
-/* Price should come from JS formatter, not CSS */
-.aci-chat-result-rows b::before {
-  content: none !important;
-}
-
-/* Mobile: two cards visible, third only on swipe */
-@media (max-width: 760px) {
-  .aci-chat-app-frame {
-    width: min(430px, calc(100vw - 28px)) !important;
-  }
-
-  .aci-chat-message.is-assistant .aci-chat-orb {
-    width: 38px !important;
-    height: 38px !important;
-    flex-basis: 38px !important;
-  }
-
-  .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble {
-    width: calc(100% - 47px) !important;
-    max-width: calc(100% - 47px) !important;
-    padding: 12px 12px 14px !important;
-  }
-
-  .aci-chat-result-card {
-    margin-left: -47px !important;
-    width: calc(100% + 47px) !important;
-    max-width: 100% !important;
-  }
-
-  .aci-chat-result-rows {
-    display: flex !important;
-    grid-template-columns: none !important;
-    gap: 11px !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scroll-snap-type: x mandatory !important;
-    scroll-behavior: smooth !important;
-    padding: 0 0 3px !important;
-    margin: 0 !important;
-    scrollbar-width: none !important;
-    -webkit-overflow-scrolling: touch !important;
-  }
-
-  .aci-chat-result-rows::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  .aci-chat-result-rows > button {
-    flex: 0 0 calc((100% - 11px) / 2) !important;
-    scroll-snap-align: start !important;
-    padding: 10px !important;
-    border-radius: 23px !important;
-  }
-
-  .aci-chat-result-rows > button:active {
-    transform: scale(0.985) !important;
-  }
-
-  .aci-chat-row-visual {
-    height: clamp(108px, 29vw, 126px) !important;
-    border-radius: 19px !important;
-    margin-bottom: 10px !important;
-  }
-
-  /* Elegant modern indicator: one dot + one line */
-  .aci-chat-result-card::after {
-    content: "" !important;
-    display: block !important;
-    width: 46px !important;
-    height: 6px !important;
-    margin: 13px auto 0 !important;
-    border-radius: 999px !important;
-    background:
-      radial-gradient(circle at 3px 50%, #0758f8 0 3px, transparent 3.4px),
-      linear-gradient(
-        90deg,
-        transparent 0 13px,
-        rgba(7, 88, 248, 0.28) 13px 100%
-      ) !important;
-    box-shadow: 0 8px 18px -13px rgba(7, 88, 248, 0.6) !important;
-    animation: aciSwipeCue 1.8s cubic-bezier(0.19, 1, 0.22, 1) infinite !important;
-  }
-}
-
-@media (max-width: 390px) {
-  .aci-chat-result-rows {
-    gap: 9px !important;
-  }
-
-  .aci-chat-result-rows > button {
-    flex-basis: calc((100% - 9px) / 2) !important;
-    padding: 9px !important;
-  }
-
-  .aci-chat-row-visual {
-    height: 100px !important;
-  }
-}
-
-@keyframes aciSwipeCue {
-  0%,
-  100% {
-    opacity: 0.72;
-    transform: translateX(0);
-  }
-
-  50% {
-    opacity: 1;
-    transform: translateX(2px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .aci-chat-result-card::after {
-    animation: none !important;
-  }
+.aci-chat-open-canvas-pill .aci-chat-chip-icon {
+  background: #0758f8 !important;
+  color: #fff !important;
+  border-color: rgba(7, 88, 248, 0.28) !important;
 }
 
 /* ACI_CHAT_REFERENCE_SHELL_END */`}</style>
