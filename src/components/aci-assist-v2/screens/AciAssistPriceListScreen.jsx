@@ -169,6 +169,53 @@ const getVehicleImage = (vehicle, widget, rows) => {
   return searchValue(vehicle) || searchValue(widget) || searchValue(rows) || "";
 };
 
+const getVehicleVisualGallery = (vehicle, widget, rows = []) => {
+  const candidates = [
+    widget?.selectedColor,
+    vehicle?.selectedColor,
+    ...(Array.isArray(widget?.visualGallery) ? widget.visualGallery : []),
+    ...(Array.isArray(vehicle?.visualGallery) ? vehicle.visualGallery : []),
+    ...(Array.isArray(widget?.colors) ? widget.colors : []),
+    ...(Array.isArray(vehicle?.colors) ? vehicle.colors : []),
+    ...(Array.isArray(rows) ? rows : []),
+    ...(Array.isArray(rows)
+      ? rows.flatMap((row) =>
+          Array.isArray(row.visualGallery) ? row.visualGallery : [],
+        )
+      : []),
+  ];
+
+  const seen = new Set();
+
+  return candidates
+    .map((item, index) => {
+      const imageUrl = getVehicleImage(item, null, null);
+      if (!imageUrl) return null;
+
+      return {
+        ...(typeof item === "object" && item ? item : {}),
+        id: item?.id || item?._id || `visual-${index}`,
+        imageUrl,
+        normalizedImageUrl:
+          item?.normalizedImageUrl || item?.cleanImageUrl || imageUrl,
+        colorName:
+          item?.colorName ||
+          item?.color_name ||
+          item?.name ||
+          item?.label ||
+          item?.selectedColor?.colorName ||
+          "",
+      };
+    })
+    .filter(Boolean)
+    .filter((item) => {
+      const key = item.imageUrl || item.normalizedImageUrl;
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
 const getRawRows = ({ vehicle, widget, message }) => {
   const candidates = [
     widget?.rows,
@@ -417,56 +464,70 @@ const normalizeRows = ({ vehicle, widget, message }) => {
 const rowKeyOf = (row, index) =>
   row.id || row._id || row.variantId || `${row.variant}-${index}`;
 
-const buildVariantFilters = (rows = []) => {
+const buildFilterGroups = (rows = []) => {
   const list = Array.isArray(rows) ? rows : [];
   const has = (predicate) =>
     list.some((row) => predicate(splitFuelTransmission(row)));
-  const filters = [{ id: "all", label: "All" }];
 
-  if (has((meta) => /petrol/i.test(meta.fuel)))
-    filters.push({ id: "petrol", label: "Petrol" });
-  if (has((meta) => /diesel/i.test(meta.fuel)))
-    filters.push({ id: "diesel", label: "Diesel" });
-  if (has((meta) => /cng/i.test(meta.fuel)))
-    filters.push({ id: "cng", label: "CNG" });
-  if (has((meta) => /electric|ev/i.test(meta.fuel)))
-    filters.push({ id: "electric", label: "Electric" });
-  if (has((meta) => /hybrid/i.test(meta.fuel)))
-    filters.push({ id: "hybrid", label: "Hybrid" });
-  if (has((meta) => /manual|mt/i.test(meta.transmission)))
-    filters.push({ id: "manual", label: "Manual" });
-  if (has((meta) => /automatic|amt|cvt|dct|ivt|at/i.test(meta.transmission))) {
-    filters.push({ id: "automatic", label: "Automatic" });
+  const fuel = [{ id: "all", label: "All fuel" }];
+  const transmission = [{ id: "all", label: "All transmission" }];
+
+  if (has((meta) => /petrol/i.test(meta.fuel))) {
+    fuel.push({ id: "petrol", label: "Petrol" });
+  }
+  if (has((meta) => /diesel/i.test(meta.fuel))) {
+    fuel.push({ id: "diesel", label: "Diesel" });
+  }
+  if (has((meta) => /cng/i.test(meta.fuel))) {
+    fuel.push({ id: "cng", label: "CNG" });
+  }
+  if (has((meta) => /electric|ev/i.test(meta.fuel))) {
+    fuel.push({ id: "electric", label: "Electric" });
+  }
+  if (has((meta) => /hybrid/i.test(meta.fuel))) {
+    fuel.push({ id: "hybrid", label: "Hybrid" });
   }
 
-  return filters;
+  if (has((meta) => /manual|mt/i.test(meta.transmission))) {
+    transmission.push({ id: "manual", label: "Manual" });
+  }
+  if (has((meta) => /automatic|amt|cvt|dct|ivt|at/i.test(meta.transmission))) {
+    transmission.push({ id: "automatic", label: "Automatic" });
+  }
+
+  return { fuel, transmission };
 };
 
-const rowMatchesFilter = (row, filterId) => {
-  if (!row || filterId === "all") return true;
+const normalizeFilterState = (filters = {}) => ({
+  fuel: filters?.fuel || "all",
+  transmission: filters?.transmission || "all",
+});
 
+const rowMatchesFilters = (row, filters = {}) => {
+  if (!row) return false;
+
+  const active = normalizeFilterState(filters);
   const meta = splitFuelTransmission(row);
   const fuel = String(meta.fuel || "").toLowerCase();
   const transmission = String(meta.transmission || "").toLowerCase();
 
-  switch (filterId) {
-    case "petrol":
-      return fuel.includes("petrol");
-    case "diesel":
-      return fuel.includes("diesel");
-    case "cng":
-      return fuel.includes("cng");
-    case "electric":
-      return fuel.includes("electric") || fuel.includes("ev");
-    case "hybrid":
-      return fuel.includes("hybrid");
-    case "manual":
-      return transmission.includes("manual") || transmission === "mt";
-    case "automatic":
-      return /(automatic|amt|cvt|dct|ivt|at)/.test(transmission);
-    default:
-      return true;
-  }
+  const fuelMatch =
+    active.fuel === "all" ||
+    (active.fuel === "petrol" && fuel.includes("petrol")) ||
+    (active.fuel === "diesel" && fuel.includes("diesel")) ||
+    (active.fuel === "cng" && fuel.includes("cng")) ||
+    (active.fuel === "electric" &&
+      (fuel.includes("electric") || fuel.includes("ev"))) ||
+    (active.fuel === "hybrid" && fuel.includes("hybrid"));
+
+  const transmissionMatch =
+    active.transmission === "all" ||
+    (active.transmission === "manual" &&
+      (transmission.includes("manual") || transmission === "mt")) ||
+    (active.transmission === "automatic" &&
+      /(automatic|amt|cvt|dct|ivt|at)/.test(transmission));
+
+  return fuelMatch && transmissionMatch;
 };
 
 const rowExShowroomValue = (row) =>
@@ -657,29 +718,69 @@ function DesktopHero({ vehicle, rows, minPrice, maxPrice, city, onAction }) {
 
 function FilterPills({
   rows = [],
-  activeFilter = "all",
-  setActiveFilter = () => {},
+  activeFilters = { fuel: "all", transmission: "all" },
+  setActiveFilters = () => {},
   className = "",
 }) {
-  const filters = useMemo(() => buildVariantFilters(rows), [rows]);
+  const groups = useMemo(() => buildFilterGroups(rows), [rows]);
+  const active = normalizeFilterState(activeFilters);
 
   useEffect(() => {
-    if (!filters.some((filter) => filter.id === activeFilter))
-      setActiveFilter("all");
-  }, [activeFilter, filters, setActiveFilter]);
+    setActiveFilters((previous) => {
+      const current = normalizeFilterState(previous);
+      const next = { ...current };
+
+      if (!groups.fuel.some((filter) => filter.id === current.fuel)) {
+        next.fuel = "all";
+      }
+      if (
+        !groups.transmission.some(
+          (filter) => filter.id === current.transmission,
+        )
+      ) {
+        next.transmission = "all";
+      }
+
+      if (
+        next.fuel === current.fuel &&
+        next.transmission === current.transmission
+      ) {
+        return previous;
+      }
+
+      return next;
+    });
+  }, [groups, setActiveFilters]);
+
+  const updateFilter = (type, id) => {
+    setActiveFilters((previous) => ({
+      ...normalizeFilterState(previous),
+      [type]: id,
+    }));
+  };
+
+  const renderGroup = (type, label, filters) => (
+    <div className="price-filter-group" key={type}>
+      <span>{label}</span>
+      <div className="price-filter-options">
+        {filters.map((filter) => (
+          <button
+            type="button"
+            key={filter.id}
+            className={active[type] === filter.id ? "active" : ""}
+            onClick={() => updateFilter(type, filter.id)}
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
     <div className={`price-filter-pills ${className}`}>
-      {filters.map((filter) => (
-        <button
-          type="button"
-          key={filter.id}
-          className={activeFilter === filter.id ? "active" : ""}
-          onClick={() => setActiveFilter(filter.id)}
-        >
-          {filter.label}
-        </button>
-      ))}
+      {renderGroup("fuel", "Fuel", groups.fuel)}
+      {renderGroup("transmission", "Transmission", groups.transmission)}
     </div>
   );
 }
@@ -704,16 +805,17 @@ function DesktopPriceTable({
   setSelectedRowKey,
   openBreakupKey,
   setOpenBreakupKey,
-  activeFilter,
-  setActiveFilter,
+  activeFilters,
+  setActiveFilters,
+  onRowSelect,
 }) {
   return (
     <motion.section className="price-table-card" variants={fadeUp}>
       <div className="table-head">
         <FilterPills
           rows={allRows}
-          activeFilter={activeFilter}
-          setActiveFilter={setActiveFilter}
+          activeFilters={activeFilters}
+          setActiveFilters={setActiveFilters}
         />
         <p>{rows.length} variants · prices are indicative</p>
       </div>
@@ -722,13 +824,13 @@ function DesktopPriceTable({
         <table>
           <colgroup>
             <col style={{ width: "4%" }} />
-            <col style={{ width: "19%" }} />
-            <col style={{ width: "15%" }} />
-            <col style={{ width: "13%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "11%" }} />
-            <col style={{ width: "12%" }} />
-            <col style={{ width: "15%" }} />
+            <col style={{ width: "26%" }} />
+            <col style={{ width: "20%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
+            <col style={{ width: "10%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -746,7 +848,9 @@ function DesktopPriceTable({
               ))}
             </tr>
           </thead>
-          <tbody key={activeFilter}>
+          <tbody
+            key={`${activeFilters?.fuel || "all"}-${activeFilters?.transmission || "all"}`}
+          >
             {rows.length ? (
               rows.map((row, index) => {
                 const rowKey = rowKeyOf(row, index);
@@ -761,7 +865,11 @@ function DesktopPriceTable({
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -8 }}
                     transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-                    onClick={() => setSelectedRowKey(rowKey)}
+                    onClick={() =>
+                      onRowSelect
+                        ? onRowSelect(rowKey)
+                        : setSelectedRowKey(rowKey)
+                    }
                     whileHover={{ backgroundColor: "rgba(248,250,252,0.9)" }}
                     whileTap={{ scale: 0.996 }}
                     className={isSelected ? "selected" : ""}
@@ -863,6 +971,7 @@ function SideSummary({
   image,
   imageFailed,
   onAction,
+  onSelectRow,
 }) {
   const emi = calculateEmi(selectedParts.onRoad);
 
@@ -1171,8 +1280,8 @@ function MobilePage({
   rows,
   selectedRowKey,
   setSelectedRowKey,
-  activeFilter,
-  setActiveFilter,
+  activeFilters,
+  setActiveFilters,
   budgetMin,
   budgetMax,
   budgetValue,
@@ -1183,6 +1292,7 @@ function MobilePage({
   image,
   imageFailed,
   onAction,
+  onSelectRow,
 }) {
   const [expandedMobileRowKey, setExpandedMobileRowKey] = useState("");
   const controlsAnchorRef = useRef(null);
@@ -1299,8 +1409,8 @@ function MobilePage({
 
           <FilterPills
             rows={allRows}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
             className="mobile-filters"
           />
 
@@ -1325,7 +1435,8 @@ function MobilePage({
                   active={rowKey === selectedRowKey}
                   expanded={expandedMobileRowKey === rowKey}
                   onClick={() => {
-                    setSelectedRowKey(rowKey);
+                    if (onSelectRow) onSelectRow(rowKey);
+                    else setSelectedRowKey(rowKey);
                     setExpandedMobileRowKey((previous) =>
                       previous === rowKey ? "" : rowKey,
                     );
@@ -1364,8 +1475,8 @@ function DesktopPage({
   vehicle,
   rows,
   allRows,
-  activeFilter,
-  setActiveFilter,
+  activeFilters,
+  setActiveFilters,
   selectedRow,
   selectedParts,
   selectedRowKey,
@@ -1378,6 +1489,7 @@ function DesktopPage({
   image,
   imageFailed,
   onAction,
+  onSelectRow,
 }) {
   return (
     <>
@@ -1405,8 +1517,9 @@ function DesktopPage({
             setSelectedRowKey={setSelectedRowKey}
             openBreakupKey={openBreakupKey}
             setOpenBreakupKey={setOpenBreakupKey}
-            activeFilter={activeFilter}
-            setActiveFilter={setActiveFilter}
+            activeFilters={activeFilters}
+            setActiveFilters={setActiveFilters}
+            onRowSelect={onSelectRow}
           />
 
           <AciComposer
@@ -1470,9 +1583,16 @@ export default function AciAssistPriceListScreen({
   const [selectedRowKey, setSelectedRowKey] = useState(defaultSelectedKey);
   const [openBreakupKey, setOpenBreakupKey] = useState(null);
   const [imageFailed, setImageFailed] = useState(false);
-  const [mobileFilter, setMobileFilter] = useState("all");
-  const [desktopFilter, setDesktopFilter] = useState("all");
+  const [mobileFilters, setMobileFilters] = useState({
+    fuel: "all",
+    transmission: "all",
+  });
+  const [desktopFilters, setDesktopFilters] = useState({
+    fuel: "all",
+    transmission: "all",
+  });
   const [mobileBudgetMax, setMobileBudgetMax] = useState(0);
+  const [visualIndex, setVisualIndex] = useState(0);
 
   useEffect(() => {
     if (!rows.length) return;
@@ -1489,12 +1609,38 @@ export default function AciAssistPriceListScreen({
   const selectedRow = rows[selectedIndex] || rows[0] || {};
   const selectedParts = pricePartsFromRow(selectedRow);
   const city = getVehicleCity(activeVehicle, widget);
-  const image = useMemo(
-    () => getVehicleImage(activeVehicle, widget, rows),
+  const visualGallery = useMemo(
+    () => getVehicleVisualGallery(activeVehicle, widget, rows),
     [activeVehicle, widget, rows],
   );
+  const activeVisual = visualGallery.length
+    ? visualGallery[visualIndex % visualGallery.length]
+    : null;
+  const fallbackImage = useMemo(
+    () =>
+      getVehicleImage(selectedRow, widget, rows) ||
+      getVehicleImage(activeVehicle, widget, rows),
+    [selectedRow, activeVehicle, widget, rows],
+  );
+  const image =
+    activeVisual?.imageUrl || activeVisual?.normalizedImageUrl || fallbackImage;
+
+  const rotateVisual = () => {
+    setVisualIndex((previous) =>
+      visualGallery.length ? (previous + 1) % visualGallery.length : previous,
+    );
+  };
+
+  const handleSelectRow = (rowKey) => {
+    setSelectedRowKey(rowKey);
+    rotateVisual();
+  };
 
   useEffect(() => setImageFailed(false), [image]);
+  useEffect(
+    () => setVisualIndex(0),
+    [visualGallery.length, activeVehicle?.model, widget?.title],
+  );
 
   const mobileBudgetValues = useMemo(
     () => rows.map(rowExShowroomValue).filter(Boolean),
@@ -1529,14 +1675,14 @@ export default function AciAssistPriceListScreen({
         const price = rowExShowroomValue(row);
         const withinBudget =
           !mobileBudgetMax || !price || price <= mobileBudgetMax;
-        return rowMatchesFilter(row, mobileFilter) && withinBudget;
+        return rowMatchesFilters(row, mobileFilters) && withinBudget;
       }),
-    [rows, mobileFilter, mobileBudgetMax],
+    [rows, mobileFilters, mobileBudgetMax],
   );
 
   const desktopRows = useMemo(
-    () => rows.filter((row) => rowMatchesFilter(row, desktopFilter)),
-    [rows, desktopFilter],
+    () => rows.filter((row) => rowMatchesFilters(row, desktopFilters)),
+    [rows, desktopFilters],
   );
 
   useEffect(() => {
@@ -1597,8 +1743,8 @@ export default function AciAssistPriceListScreen({
         vehicle={activeVehicle}
         rows={desktopRows}
         allRows={rows}
-        activeFilter={desktopFilter}
-        setActiveFilter={setDesktopFilter}
+        activeFilters={desktopFilters}
+        setActiveFilters={setDesktopFilters}
         selectedRow={selectedRow}
         selectedParts={selectedParts}
         selectedRowKey={selectedRowKey}
@@ -1611,6 +1757,7 @@ export default function AciAssistPriceListScreen({
         image={image}
         imageFailed={imageFailed}
         onAction={onAction}
+        onSelectRow={handleSelectRow}
       />
 
       <MobilePage
@@ -1620,8 +1767,8 @@ export default function AciAssistPriceListScreen({
         rows={mobileRows}
         selectedRowKey={selectedRowKey}
         setSelectedRowKey={setSelectedRowKey}
-        activeFilter={mobileFilter}
-        setActiveFilter={setMobileFilter}
+        activeFilters={mobileFilters}
+        setActiveFilters={setMobileFilters}
         budgetMin={mobileBudgetMin}
         budgetMax={mobileBudgetMaxAvailable}
         budgetValue={mobileBudgetMax || mobileBudgetMaxAvailable}
@@ -1632,6 +1779,7 @@ export default function AciAssistPriceListScreen({
         image={image}
         imageFailed={imageFailed}
         onAction={onAction}
+        onSelectRow={handleSelectRow}
       />
     </div>
   );
@@ -1841,21 +1989,49 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .table-head p { margin: 0; color: #94a3b8; font-size: 11px; font-weight: 750; }
 .price-filter-pills {
   display: flex;
-  gap: 7px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
   overflow-x: auto;
   scrollbar-width: none;
 }
 .price-filter-pills::-webkit-scrollbar { display: none; }
+.price-filter-group {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+.price-filter-group > span {
+  color: #64748b;
+  font-size: 9.5px;
+  line-height: 1;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.price-filter-options {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
 .price-filter-pills button {
-  height: 30px;
+  min-height: 34px;
+  height: auto;
   border-radius: 999px;
   border: 1px solid #dbe3ef;
   background: #fff;
   color: #475569;
-  padding: 0 12px;
+  padding: 7px 13px;
   font-size: 11.5px;
-  font-weight: 760;
+  line-height: 1.2;
+  font-weight: 780;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .price-filter-pills button.active { background: var(--blue); border-color: var(--blue); color: #fff; }
 .price-table-wrap {
@@ -1931,8 +2107,32 @@ td .on-road { color: var(--blue); }
 .side-head > span:not(.icon-box) { color: #059669; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 900; }
 .side-head > span i { width: 8px; height: 8px; border-radius: 999px; background: #10b981; }
 .selected-summary h4 { margin: 12px 0 6px; color: #0f172a; font-size: 16.5px; line-height: 1.1; font-weight: 900; }
-.side-art { height: 126px; margin-top: 12px; border-radius: 18px; overflow: hidden; background: radial-gradient(circle at 50% 42%, #fff 0%, #f8fafc 38%, #eaf2ff 100%); border: 1px solid #dbe3ef; }
-.side-art .price-car-stage-image { max-height: 112px; }
+.side-art {
+  position: relative;
+  height: 238px;
+  margin-top: 12px;
+  border-radius: 26px;
+  overflow: hidden;
+  border: 1px solid rgba(203,213,225,.96);
+  background:
+    radial-gradient(circle at 78% 20%, rgba(37,99,235,.18), transparent 32%),
+    radial-gradient(circle at 22% 92%, rgba(15,23,42,.10), transparent 28%),
+    linear-gradient(135deg, #ffffff 0%, #f7fbff 44%, #eaf3ff 100%);
+  box-shadow: 0 22px 52px -42px rgba(15,23,42,.48), inset 0 1px 0 #fff;
+}
+.side-art::after {
+  content: "";
+  position: absolute;
+  left: 15%;
+  right: 15%;
+  bottom: 14%;
+  height: 20px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(15,23,42,.28), transparent 70%);
+  filter: blur(8px);
+  pointer-events: none;
+}
+.side-art .price-car-stage-image { max-height: none; }
 .side-price { margin-top: 12px; border-top: 1px solid #e2e8f0; padding-top: 12px; }
 .side-price span { display: block; color: #64748b; text-transform: uppercase; letter-spacing: .12em; font-size: 9.5px; font-weight: 900; }
 .side-price strong { display: block; margin-top: 7px; color: var(--blue); font-size: 21px; line-height: 1; letter-spacing: -.04em; }
@@ -1952,8 +2152,16 @@ td .on-road { color: var(--blue); }
 .price-fallback-stage strong { position: relative; z-index: 2; margin-top: 44px; color: #0f172a; font-size: 11px; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
 .price-fallback-stage small { position: relative; z-index: 2; margin-top: -16px; color: #94a3b8; font-size: 9px; font-weight: 800; }
 .price-car-art { width: 100%; height: 100%; display: grid; place-items: center; pointer-events: none; }
-.price-car-art .price-car-stage { width: 100%; height: 100%; border-radius: 18px; min-height: 88px; }
-.price-car-art .price-car-stage-image { width: 92%; height: 86%; object-fit: contain; }
+.price-car-art .price-car-stage { width: 100%; height: 100%; border-radius: inherit; min-height: 88px; position: relative; z-index: 2; }
+.price-car-art .price-car-stage-image {
+  width: 128%;
+  max-width: none;
+  height: 96%;
+  object-fit: contain;
+  object-position: center bottom;
+  transform: translateY(8px) scale(1.06);
+  filter: drop-shadow(0 24px 18px rgba(15,23,42,.18));
+}
 
 .aci-live-empty { width: min(560px, 100%); margin: 80px auto; border: 1px solid #dbe3ef; border-radius: 28px; background: rgba(255,255,255,.96); box-shadow: 0 24px 74px -56px rgba(15,23,42,.52); padding: 28px; text-align: center; }
 .aci-live-empty h2 { margin: 0; font-family: var(--serif); font-size: 34px; line-height: 1; letter-spacing: -.05em; }
@@ -1984,7 +2192,7 @@ td .on-road { color: var(--blue); }
     padding: 12px;
     border-radius: 22px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 108px;
+    grid-template-columns: minmax(0, 1fr) 150px;
     align-items: center;
     gap: 10px;
     background: #fff;
@@ -1992,7 +2200,37 @@ td .on-road { color: var(--blue); }
   .mobile-price-hero h2 { margin: 0; color: #07102b; font-size: 20px; line-height: 1.02; letter-spacing: -.04em; font-weight: 780; }
   .mobile-price-hero strong { display: block; margin-top: 6px; color: var(--blue); font-size: 20px; line-height: 1; letter-spacing: -.04em; }
   .mobile-price-hero p { margin: 5px 0 0; color: #64748b; font-size: 10.8px; font-weight: 680; }
-  .mobile-hero-art { width: 108px; height: 88px; }
+  .mobile-hero-art {
+    position: relative;
+    width: 150px;
+    height: 112px;
+    border-radius: 22px;
+    overflow: hidden;
+    border: 1px solid rgba(203,213,225,.9);
+    background:
+      radial-gradient(circle at 72% 22%, rgba(37,99,235,.18), transparent 34%),
+      linear-gradient(135deg, #fff 0%, #f7fbff 44%, #eaf3ff 100%);
+  }
+  .mobile-hero-art::after {
+    content: "";
+    position: absolute;
+    left: 14%;
+    right: 14%;
+    bottom: 11%;
+    height: 14px;
+    border-radius: 999px;
+    background: radial-gradient(ellipse, rgba(15,23,42,.24), transparent 70%);
+    filter: blur(7px);
+    pointer-events: none;
+  }
+  .mobile-hero-art .price-car-stage-image {
+    width: 132%;
+    height: 96%;
+    max-width: none;
+    object-fit: contain;
+    object-position: center bottom;
+    transform: translateY(6px) scale(1.04);
+  }
   .mobile-filter-sticky-wrap {
     position: sticky;
     top: 0;
@@ -2006,7 +2244,11 @@ td .on-road { color: var(--blue); }
     box-shadow: 0 16px 24px -28px rgba(15,23,42,.32);
   }
   .mobile-city-pill { width: max-content; height: 31px; padding: 0 11px; font-size: 11.5px; font-weight: 760; }
-  .mobile-filters button { height: 27px; padding-inline: 10px; font-size: 10.5px; }
+  .mobile-filters { gap: 7px 10px; }
+  .mobile-filters .price-filter-group { width: 100%; align-items: flex-start; flex-direction: column; gap: 5px; }
+  .mobile-filters .price-filter-options { width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .mobile-filters .price-filter-options::-webkit-scrollbar { display: none; }
+  .mobile-filters button { min-height: 31px; padding: 6px 11px; font-size: 10.8px; line-height: 1.2; }
   .mobile-budget-slider { width: 100%; border-radius: 16px; padding: 8px 10px 7px; }
   .mobile-budget-slider-head, .mobile-budget-slider-scale { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
   .mobile-budget-slider-head span { color: #64748b; font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: .075em; }
@@ -2376,6 +2618,7 @@ td .on-road { color: var(--blue); }
 }
 
 /* ACI_PRICE_LAPTOP_ROW_RAIL_FIX_END */
+
 `}</style>
   );
 }
