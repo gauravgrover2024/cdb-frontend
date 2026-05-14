@@ -5,6 +5,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { motion } from "framer-motion";
 import { ACI_ASSIST_HOME_DATA, ACI_HOME_IMAGES } from "./data/homeScreenData";
 import {
   ACI_V2_SCREENS,
@@ -504,6 +505,9 @@ const formatIndianPrice = (value) => {
   return formatSinglePrice(originalText, inheritedUnit);
 };
 
+
+
+
 const getQuestionIconType = (label = "", index = 0) => {
   const text = String(label).toLowerCase();
 
@@ -627,6 +631,8 @@ const buildChatSuggestions = ({
   return merged.slice(0, limit);
 };
 
+
+
 function AciV2CanvasPreviewCard({
   message = {},
   selectedVehicle,
@@ -663,7 +669,7 @@ function AciV2CanvasPreviewCard({
     const scroller = carouselRef.current;
     if (!scroller) return 0;
 
-    const firstCard = scroller.querySelector("button");
+    const firstCard = scroller.querySelector(".aci-chat-preview-card");
     if (!firstCard) return 0;
 
     const styles = window.getComputedStyle(scroller);
@@ -683,6 +689,26 @@ function AciV2CanvasPreviewCard({
       0,
       Math.min(maxCarouselIndex, Math.round(scroller.scrollLeft / step)),
     );
+
+    setCarouselIndex(nextIndex);
+  };
+
+  const snapCarouselToNearest = () => {
+    const scroller = carouselRef.current;
+    if (!scroller) return;
+
+    const step = getCarouselStep();
+    if (!step) return;
+
+    const nextIndex = Math.max(
+      0,
+      Math.min(maxCarouselIndex, Math.round(scroller.scrollLeft / step)),
+    );
+
+    scroller.scrollTo({
+      left: step * nextIndex,
+      behavior: "smooth",
+    });
 
     setCarouselIndex(nextIndex);
   };
@@ -717,6 +743,8 @@ function AciV2CanvasPreviewCard({
             className="aci-chat-result-rows"
             ref={carouselRef}
             onScroll={handleCarouselScroll}
+            onTouchEnd={snapCarouselToNearest}
+            onMouseUp={snapCarouselToNearest}
           >
             {rows.map((row, index) => {
               const rowTitle =
@@ -740,11 +768,29 @@ function AciV2CanvasPreviewCard({
                 row.value ||
                 "";
 
+              const priceContext =
+                row.exShowroomPrice &&
+                !row.onRoadPrice &&
+                !row.price &&
+                !row.priceRange &&
+                !row.value
+                  ? "Ex-showroom"
+                  : "On-road";
+
               return (
-                <button
+                <motion.button
                   type="button"
+                  className="aci-chat-preview-card"
                   key={row.id || row._id || rowTitle || index}
                   aria-label={`View ${rowTitle}`}
+                  initial={{ opacity: 0, y: 12, scale: 0.985 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  whileTap={{ scale: 0.985 }}
+                  transition={{
+                    duration: 0.38,
+                    ease: [0.22, 1, 0.36, 1],
+                    delay: Math.min(index * 0.045, 0.12),
+                  }}
                   onClick={() => {
                     if (hasCanvas && typeof onOpen === "function") {
                       onOpen({
@@ -772,20 +818,40 @@ function AciV2CanvasPreviewCard({
                   }}
                 >
                   <div className="aci-chat-row-visual">
-                    <AciVehicleVisual
-                      vehicle={row.vehicle || row}
-                      height={104}
-                      stage
-                      stageVariant="compact"
-                    />
+                    <motion.div
+                      className="aci-chat-row-car-motion"
+                      initial={{ opacity: 0, y: 10, scale: 0.94 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      transition={{
+                        duration: 0.52,
+                        ease: [0.19, 1, 0.22, 1],
+                        delay: Math.min(index * 0.055, 0.16),
+                      }}
+                    >
+                      <AciVehicleVisual
+                        vehicle={row.vehicle || row}
+                        height={112}
+                        stage
+                        stageVariant="compact"
+                      />
+                    </motion.div>
                   </div>
 
                   <div className="aci-chat-row-copy">
                     <strong>{rowTitle}</strong>
                     {rowSub ? <span>{rowSub}</span> : null}
-                    {rowPrice ? <b>{formatIndianPrice(rowPrice)}</b> : null}
+                    {rowPrice ? (
+                      <b className="aci-chat-row-price">
+                        <span className="aci-chat-price-context">
+                          {priceContext}
+                        </span>
+                        <span className="aci-chat-price-amount">
+                          {formatIndianPrice(rowPrice)}
+                        </span>
+                      </b>
+                    ) : null}
                   </div>
-                </button>
+                </motion.button>
               );
             })}
           </div>
@@ -993,6 +1059,57 @@ function AciV2ChatFirstShell({
 }) {
   const hasMessages = Array.isArray(messages) && messages.length > 0;
   const activeVehicle = selectedVehicle || homeData?.selectedVehicle || null;
+  const threadRef = useRef(null);
+  const threadEndRef = useRef(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    const scrollToEnd = (behavior = "smooth") => {
+      const thread = threadRef.current;
+      if (!thread) return;
+
+      thread.scrollTo({
+        top: thread.scrollHeight + 9999,
+        behavior,
+      });
+
+      threadEndRef.current?.scrollIntoView({
+        behavior,
+        block: "end",
+        inline: "nearest",
+      });
+    };
+
+    const rafOne = window.requestAnimationFrame(() => scrollToEnd("smooth"));
+    const rafTwo = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => scrollToEnd("smooth"));
+    });
+
+    const settleTimers = [140, 360, 760].map((delay) =>
+      window.setTimeout(() => scrollToEnd("auto"), delay),
+    );
+
+    const thread = threadRef.current;
+    const images = thread ? Array.from(thread.querySelectorAll("img")) : [];
+
+    const handleImageLoad = () => scrollToEnd("auto");
+
+    images.forEach((img) => {
+      if (!img.complete) {
+        img.addEventListener("load", handleImageLoad, { once: true });
+      }
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafOne);
+      window.cancelAnimationFrame(rafTwo);
+      settleTimers.forEach((timer) => window.clearTimeout(timer));
+      images.forEach((img) => {
+        img.removeEventListener("load", handleImageLoad);
+      });
+    };
+  }, [messages.length, isLoading, error]);
 
   return (
     <main className="aci-chat-shell">
@@ -1037,6 +1154,7 @@ function AciV2ChatFirstShell({
         />
 
         <section
+          ref={threadRef}
           className="aci-chat-thread"
           aria-label="ACI Assist conversation"
         >
@@ -1078,6 +1196,12 @@ function AciV2ChatFirstShell({
               onOpenCanvas={onOpenCanvas}
             />
           ) : null}
+
+          <div
+            ref={threadEndRef}
+            className="aci-chat-scroll-anchor"
+            aria-hidden="true"
+          />
         </section>
       </section>
 
@@ -2976,6 +3100,308 @@ export default function AciAssistV2() {
   color: #fff !important;
   border-color: rgba(7, 88, 248, 0.28) !important;
 }
+
+
+
+
+
+
+/* ACI_CHAT_ONROAD_FRAMER_POLISH_START */
+
+.aci-chat-preview-card {
+  will-change: transform, opacity;
+}
+
+.aci-chat-row-car-motion {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+}
+
+.aci-chat-row-price {
+  display: inline-flex !important;
+  align-items: baseline !important;
+  gap: 5px !important;
+  white-space: nowrap !important;
+}
+
+.aci-chat-price-context,
+.aci-chat-price-amount {
+  display: inline-flex !important;
+  line-height: 1 !important;
+}
+
+.aci-chat-price-context {
+  color: #7b8496 !important;
+  font-size: 9.2px !important;
+  font-weight: 850 !important;
+  letter-spacing: 0.035em !important;
+  text-transform: uppercase !important;
+}
+
+.aci-chat-price-amount {
+  color: var(--aci-blue) !important;
+  font-size: inherit !important;
+  font-weight: inherit !important;
+  letter-spacing: inherit !important;
+}
+
+.aci-chat-carousel-indicator {
+  margin-left: auto !important;
+  margin-right: auto !important;
+}
+
+/* Mobile card/car/indicator polish */
+@media (max-width: 760px) {
+  .aci-chat-result-rows {
+    display: flex !important;
+    grid-template-columns: none !important;
+    gap: 12px !important;
+    scroll-snap-type: x mandatory !important;
+    scroll-behavior: smooth !important;
+    -webkit-overflow-scrolling: touch !important;
+    scrollbar-width: none !important;
+  }
+
+  .aci-chat-result-rows::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .aci-chat-result-rows > button,
+  .aci-chat-result-rows > .aci-chat-preview-card {
+    flex: 0 0 calc((100% - 12px) / 2) !important;
+    width: calc((100% - 12px) / 2) !important;
+    min-width: calc((100% - 12px) / 2) !important;
+    max-width: calc((100% - 12px) / 2) !important;
+    scroll-snap-align: start !important;
+    scroll-snap-stop: always !important;
+  }
+
+  .aci-chat-row-visual {
+    display: grid !important;
+    place-items: center !important;
+    padding: 2px 8px 0 !important;
+    overflow: visible !important;
+  }
+
+  .aci-chat-row-car-motion {
+    place-items: center !important;
+  }
+
+  .aci-chat-row-visual .aci-car-image-stage,
+  .aci-chat-row-car-motion .aci-car-image-stage {
+    width: 96% !important;
+    max-width: 96% !important;
+    height: 126px !important;
+    min-height: 126px !important;
+    max-height: 126px !important;
+    margin: 0 auto !important;
+    transform: translateY(-2px) !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-row-visual img,
+  .aci-chat-row-visual svg,
+  .aci-chat-row-car-motion img,
+  .aci-chat-row-car-motion svg {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+    transform: none !important;
+  }
+
+  .aci-chat-row-copy {
+    overflow: visible !important;
+  }
+
+  .aci-chat-row-price {
+    margin-top: 6px !important;
+    gap: 4px !important;
+  }
+
+  .aci-chat-price-context {
+    font-size: 8.2px !important;
+  }
+
+  .aci-chat-carousel-indicator {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+    width: 68px !important;
+    height: 18px !important;
+    margin: 10px auto 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    transform: none !important;
+  }
+
+  .aci-chat-carousel-indicator span {
+    display: block !important;
+    width: 7px !important;
+    height: 7px !important;
+    flex: 0 0 7px !important;
+    border-radius: 999px !important;
+    background: #0758f8 !important;
+    box-shadow: 0 0 0 3px rgba(7, 88, 248, 0.08) !important;
+  }
+
+  .aci-chat-carousel-indicator i {
+    position: relative !important;
+    display: block !important;
+    width: 34px !important;
+    height: 4px !important;
+    flex: 0 0 34px !important;
+    border-radius: 999px !important;
+    background: rgba(7, 88, 248, 0.16) !important;
+    overflow: hidden !important;
+  }
+
+  .aci-chat-carousel-indicator i::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 auto 0 0 !important;
+    width: calc(var(--aci-carousel-progress, 0.5) * 100%) !important;
+    min-width: 12px !important;
+    border-radius: inherit !important;
+    background: linear-gradient(90deg, #0758f8 0%, #72a3ff 100%) !important;
+    transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+}
+
+/* ACI_CHAT_ONROAD_FRAMER_POLISH_END */
+
+
+
+/* ACI_CHAT_SCROLL_INDICATOR_REPAIR_START */
+
+/*
+  Repair only:
+  1) centered dot + line swipe indicator
+  2) messenger-style scroll to latest answer above chatbar
+*/
+@media (max-width: 760px) {
+  .aci-chat-shell {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    max-height: 100svh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .aci-chat-app-frame {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+  }
+
+  .aci-chat-header,
+  .aci-chat-context-pill {
+    flex: 0 0 auto !important;
+  }
+
+  .aci-chat-thread {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
+    scroll-behavior: smooth !important;
+    padding-bottom: 0 !important;
+  }
+
+  /*
+    This anchor creates safe scroll space equal to the composer area,
+    so the last answer/question lands above the chat bar instead of
+    getting hidden behind it.
+  */
+  .aci-chat-scroll-anchor {
+    width: 100% !important;
+    height: 112px !important;
+    min-height: 112px !important;
+    flex: 0 0 112px !important;
+    pointer-events: none !important;
+  }
+
+  .aci-chat-result-card {
+    overflow: visible !important;
+  }
+
+  /*
+    Force the swipe indicator to the exact visual center of the result card.
+    This overrides all previous margin/inline-flex conflicts.
+  */
+  .aci-chat-carousel-indicator {
+    position: relative !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+
+    width: 68px !important;
+    height: 18px !important;
+    min-width: 68px !important;
+
+    margin: 10px 0 0 !important;
+    padding: 0 !important;
+
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-carousel-indicator span {
+    display: block !important;
+    width: 7px !important;
+    height: 7px !important;
+    min-width: 7px !important;
+    border-radius: 999px !important;
+    background: #0758f8 !important;
+    box-shadow: 0 0 0 3px rgba(7, 88, 248, 0.08) !important;
+  }
+
+  .aci-chat-carousel-indicator i {
+    position: relative !important;
+    display: block !important;
+    width: 34px !important;
+    height: 4px !important;
+    min-width: 34px !important;
+    border-radius: 999px !important;
+    background: rgba(7, 88, 248, 0.16) !important;
+    overflow: hidden !important;
+  }
+
+  .aci-chat-carousel-indicator i::after {
+    content: "" !important;
+    position: absolute !important;
+    inset: 0 auto 0 0 !important;
+    width: calc(var(--aci-carousel-progress, 0.5) * 100%) !important;
+    min-width: 12px !important;
+    border-radius: inherit !important;
+    background: linear-gradient(90deg, #0758f8 0%, #72a3ff 100%) !important;
+    transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+}
+
+/* ACI_CHAT_SCROLL_INDICATOR_REPAIR_END */
+
 
 /* ACI_CHAT_REFERENCE_SHELL_END */`}</style>
 

@@ -6,9 +6,12 @@ const DEFAULT_PUBLIC_CHAT_ENDPOINT = "/api/ai-agent/public-chat";
 const VEHICLE_MEDIA_ENDPOINT = "/api/vehicles/media";
 const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
 const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
+const POPULAR_CARS_ENDPOINT = "/api/vehicles/popular-cars";
 const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
 const LIVE_SNAPSHOT_CACHE_VERSION = "model-exact-v3";
 const liveSnapshotMemory = new Map();
+const POPULAR_CARS_TTL_MS = 1000 * 60 * 10;
+const popularCarsMemory = new Map();
 
 const createAbortError = () => {
   const error = new Error("Request aborted");
@@ -727,6 +730,27 @@ const writeLiveSnapshotCache = (cache) => {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem("aci_v2_live_snapshot_cache", JSON.stringify(cache));
+  } catch {
+    // ignore cache write errors
+  }
+};
+
+const readPopularCarsCache = () => {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem("aci_v2_popular_cars_cache");
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+};
+
+const writePopularCarsCache = (cache) => {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem("aci_v2_popular_cars_cache", JSON.stringify(cache));
   } catch {
     // ignore cache write errors
   }
@@ -1459,6 +1483,82 @@ export async function fetchAciVehicleLiveSnapshot({
   }
 
   return payload;
+}
+
+export async function fetchAciPopularCars({
+  city = "new-delhi",
+  limit = 25,
+  signal,
+} = {}) {
+  const normalizedCity = String(city || "new-delhi").trim() || "new-delhi";
+  const normalizedLimit = Math.min(Math.max(Number(limit) || 25, 1), 25);
+  const key = `${normalizedCity}|${normalizedLimit}`;
+  const now = Date.now();
+
+  const memoryHit = popularCarsMemory.get(key);
+  if (memoryHit && now - Number(memoryHit.ts || 0) < POPULAR_CARS_TTL_MS) {
+    return memoryHit.payload;
+  }
+
+  const localCache = readPopularCarsCache();
+  const localHit = localCache[key];
+  if (localHit && now - Number(localHit.ts || 0) < POPULAR_CARS_TTL_MS) {
+    popularCarsMemory.set(key, localHit);
+    return localHit.payload;
+  }
+
+  const token = getAuthToken();
+  const candidates = resolveApiBaseCandidates();
+  let lastError = null;
+
+  for (const apiBase of candidates) {
+    throwIfAborted(signal);
+
+    const url = cleanJoin(
+      apiBase,
+      `${POPULAR_CARS_ENDPOINT}?${queryString({
+        city: normalizedCity,
+        limit: normalizedLimit,
+      })}`,
+    );
+
+    try {
+      const response = await fetchJsonSafe(url, token, signal);
+      const rows = Array.isArray(response?.rows) ? response.rows : [];
+      if (!response?.ok || !rows.length) continue;
+
+      const payload = {
+        ok: true,
+        source: response.source || "v3cars",
+        month: response.month || "",
+        year: response.year || null,
+        city: response.city || normalizedCity,
+        count: Number(response.count || rows.length) || rows.length,
+        rows,
+      };
+      const entry = { ts: now, payload };
+      popularCarsMemory.set(key, entry);
+      writePopularCarsCache({
+        ...localCache,
+        [key]: entry,
+      });
+      return payload;
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      lastError = error;
+    }
+  }
+
+  return {
+    ok: false,
+    reason: lastError?.message || "popular_cars_unavailable",
+    source: "v3cars",
+    month: "",
+    year: null,
+    city: normalizedCity,
+    count: 0,
+    rows: [],
+  };
 }
 
 export async function fetchAciBrandCatalog({
