@@ -1517,9 +1517,39 @@ function DesktopPriceTable({
   onRowSelect,
 }) {
   const tableCardRef = useRef(null);
-  const closeBreakup = () => setOpenBreakupKey(null);
+  const breakupCloseTimerRef = useRef(null);
+
+  const clearBreakupCloseTimer = () => {
+    if (!breakupCloseTimerRef.current) return;
+    window.clearTimeout(breakupCloseTimerRef.current);
+    breakupCloseTimerRef.current = null;
+  };
+
+  const closeBreakup = () => {
+    clearBreakupCloseTimer();
+    setOpenBreakupKey(null);
+  };
+
+  const scheduleBreakupClose = () => {
+    clearBreakupCloseTimer();
+    breakupCloseTimerRef.current = window.setTimeout(() => {
+      breakupCloseTimerRef.current = null;
+      setOpenBreakupKey(null);
+    }, 90);
+  };
+
+  useEffect(
+    () => () => {
+      if (breakupCloseTimerRef.current) {
+        window.clearTimeout(breakupCloseTimerRef.current);
+      }
+    },
+    [],
+  );
+
   const showBreakup = (event, rowKey, parts, index) => {
     event.stopPropagation();
+    clearBreakupCloseTimer();
 
     const rect = event.currentTarget.getBoundingClientRect();
     const cardRect = tableCardRef.current?.getBoundingClientRect();
@@ -1563,11 +1593,29 @@ function DesktopPriceTable({
     });
   };
 
+  const handleBreakupPointerMove = (event) => {
+    if (!openBreakupKey) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+
+    if (
+      target.closest(".breakup-popover") ||
+      target.closest("[data-breakup-trigger='true']")
+    ) {
+      clearBreakupCloseTimer();
+      return;
+    }
+
+    scheduleBreakupClose();
+  };
+
   return (
     <motion.section
       className="price-table-card"
       variants={fadeUp}
       ref={tableCardRef}
+      onPointerMove={handleBreakupPointerMove}
+      onPointerLeave={closeBreakup}
     >
       <div className="table-head">
         <FilterPills
@@ -1655,11 +1703,13 @@ function DesktopPriceTable({
                           <span>{formatAmount(parts.listTotal)}</span>
                           <button
                             type="button"
+                            data-breakup-trigger="true"
                             aria-label="Show other charge breakup"
                             aria-expanded={openBreakupKey?.key === rowKey}
                             onMouseEnter={(event) =>
                               showBreakup(event, rowKey, parts, index)
                             }
+                            onMouseLeave={scheduleBreakupClose}
                             onFocus={(event) =>
                               showBreakup(event, rowKey, parts, index)
                             }
@@ -1702,7 +1752,10 @@ function DesktopPriceTable({
         <div
           className={`breakup-popover floating ${openBreakupKey.placement || "bottom"}`}
           style={openBreakupKey.style}
+          onMouseEnter={clearBreakupCloseTimer}
+          onPointerEnter={clearBreakupCloseTimer}
           onMouseLeave={closeBreakup}
+          onPointerLeave={closeBreakup}
           onClick={(event) => event.stopPropagation()}
         >
           <div>
@@ -2662,7 +2715,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 }
 
 .desktop-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
-.icon-bell, .plain-icon {
+.icon-bell {
   position: relative;
   width: 36px;
   height: 36px;
@@ -3277,8 +3330,7 @@ td .on-road { color: var(--blue); }
     align-items: center !important;
   }
 
-  .aci-price-root .price-filter-pills button,
-  .aci-price-root .location-pill {
+  .aci-price-root .price-filter-pills button {
     min-height: 30px !important;
     padding-top: 5px !important;
     padding-bottom: 5px !important;
@@ -3333,27 +3385,6 @@ td .on-road { color: var(--blue); }
     padding: 15px 6px !important;
   }
 
-  .aci-price-root .desktop-fuel-transmission {
-    display: inline-grid !important;
-    grid-template-columns: 14px minmax(0, 1fr) !important;
-    grid-auto-rows: min-content !important;
-    align-items: center !important;
-    row-gap: 4px !important;
-    column-gap: 5px !important;
-    white-space: normal !important;
-    line-height: 1.08 !important;
-    font-size: 10.5px !important;
-    max-width: 82px !important;
-  }
-
-  .aci-price-root .desktop-fuel-transmission em {
-    display: none !important;
-  }
-
-  .aci-price-root .desktop-fuel-transmission svg {
-    width: 12px !important;
-    height: 12px !important;
-  }
 }
 
 .price-car-art {
