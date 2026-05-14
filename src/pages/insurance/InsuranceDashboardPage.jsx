@@ -46,6 +46,8 @@ const FONT_VARS = {
 // UTILITY FUNCTIONS (PRESERVED FROM ORIGINAL)
 // ============================================
 
+const cx = (...classes) => classes.filter(Boolean).join(" ");
+
 const getCaseId = (item) => item?._id || item?.id || item?.caseId || "";
 
 const hasDisplayValue = (value) => {
