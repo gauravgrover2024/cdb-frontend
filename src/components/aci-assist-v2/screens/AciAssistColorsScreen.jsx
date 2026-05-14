@@ -6,7 +6,6 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
-  Heart,
   Info,
   Palette,
   Sparkles,
@@ -77,14 +76,8 @@ const getVehicleImage = (vehicle, color) =>
   color?.cleanImageUrl ||
   color?.imageUrl ||
   color?.carImageUrl ||
-  vehicle?.colorImages?.[color?.id] ||
-  vehicle?.images?.side ||
-  vehicle?.images?.hero ||
-  vehicle?.normalizedImageUrl ||
-  vehicle?.cleanImageUrl ||
-  vehicle?.imageUrl ||
-  vehicle?.heroImageUrl ||
-  vehicle?.carImageUrl ||
+  vehicle?.selectedColor?.normalizedImageUrl ||
+  vehicle?.selectedColor?.imageUrl ||
   "";
 
 const getColorDisplayLabel = (name = "") => {
@@ -104,52 +97,172 @@ const getColorDisplayLabel = (name = "") => {
     .trim();
 };
 
+const pickImageFrame = (raw = {}) =>
+  raw.imageFrame ||
+  raw.image_frame ||
+  raw.carImageFrame ||
+  raw.car_image_frame ||
+  raw.frame ||
+  null;
+
+const normalizeColorImage = (raw = {}) =>
+  raw.normalizedImageUrl ||
+  raw.cleanImageUrl ||
+  raw.stagedImageUrl ||
+  raw.imageUrl ||
+  raw.carImageUrl ||
+  raw.sourceImageUrl ||
+  "";
+
 const normalizeColors = (vehicle, widget) => {
   const source =
     widget?.colors ||
-    widget?.exteriorColors ||
-    widget?.availableColors ||
-    vehicle?.exteriorColors ||
-    vehicle?.availableColors ||
+    widget?.rows ||
+    widget?.records ||
+    widget?.items ||
+    widget?.data?.colors ||
     vehicle?.colors ||
+    vehicle?.availableColors ||
     [];
 
-  if (widget?.__fromBackend && (!Array.isArray(source) || !source.length)) {
-    return [];
+  if (!Array.isArray(source) || !source.length) return [];
+
+  const seen = new Set();
+
+  return source
+    .map((raw, index) => {
+      const name =
+        raw.colorName ||
+        raw.name ||
+        raw.desktopName ||
+        raw.mobileName ||
+        raw.label ||
+        `Color ${index + 1}`;
+
+      const normalizedImageUrl = normalizeColorImage(raw);
+
+      if (!normalizedImageUrl) return null;
+
+      const id =
+        raw.id ||
+        raw._id ||
+        makeSlug(`${name}-${normalizedImageUrl}`, `color-${index + 1}`);
+
+      const dedupeKey = `${String(name).toLowerCase()}|${normalizedImageUrl}`;
+      if (seen.has(dedupeKey)) return null;
+      seen.add(dedupeKey);
+
+      const hasPopularity =
+        raw.hasPopularity === true ||
+        raw.votes !== undefined ||
+        raw.popularity !== undefined ||
+        raw.popularityScore !== undefined;
+
+      return {
+        ...raw,
+        id,
+        name,
+        colorName: name,
+        mobileName: raw.mobileName || raw.name || raw.colorName || name,
+        desktopName: raw.desktopName || raw.name || raw.colorName || name,
+        hex: raw.hex || raw.hexCode || raw.colorHex || "#E5E7EB",
+        deep:
+          raw.deep ||
+          raw.darkHex ||
+          raw.deepHex ||
+          raw.hex ||
+          raw.hexCode ||
+          raw.colorHex ||
+          "#94A3B8",
+
+        imageUrl: normalizedImageUrl,
+        normalizedImageUrl,
+        cleanImageUrl: raw.cleanImageUrl || normalizedImageUrl,
+        sourceImageUrl: raw.sourceImageUrl || raw.source_image_url || "",
+        imageFrame: pickImageFrame(raw),
+
+        hasPopularity,
+        votes: hasPopularity
+          ? Number(raw.votes ?? raw.popularity ?? raw.popularityScore ?? 0) || 0
+          : 0,
+
+        description:
+          raw.description ||
+          raw.note ||
+          raw.summary ||
+          "Color availability may vary by variant and city.",
+      };
+    })
+    .filter(Boolean);
+};
+
+const getStageFrame = (imageFrame, stageKey = "colorStudio") => {
+  if (!imageFrame || typeof imageFrame !== "object") return null;
+
+  return (
+    imageFrame.stageFrames?.[stageKey] ||
+    imageFrame.stages?.[stageKey] ||
+    imageFrame[stageKey] ||
+    imageFrame.stageFrames?.colorStudio ||
+    imageFrame.stageFrames?.overviewHero ||
+    imageFrame.stageFrames?.priceSide ||
+    imageFrame.stageFrames?.mobileHero ||
+    imageFrame.stageFrames?.chatCard ||
+    imageFrame.stageFrames?.default ||
+    imageFrame
+  );
+};
+
+const frameNumber = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const cssPercent = (value, fallback = 0) => {
+  if (typeof value === "string" && value.trim().endsWith("%")) {
+    return value.trim();
   }
 
-  const finalSource = Array.isArray(source) && source.length ? source : [];
+  return `${frameNumber(value, fallback)}%`;
+};
 
-  if (!finalSource.length) return [];
+const buildImageFrameStyle = (imageFrame, stageKey = "colorStudio") => {
+  const frame = getStageFrame(imageFrame, stageKey);
 
-  return finalSource.map((raw, index) => {
-    const name =
-      raw.desktopName ||
-      raw.mobileName ||
-      raw.name ||
-      raw.colorName ||
-      raw.label ||
-      `Color ${index + 1}`;
+  if (!frame || typeof frame !== "object") return undefined;
 
-    return {
-      id: raw.id || makeSlug(name, `color-${index + 1}`),
-      name,
-      mobileName: raw.mobileName || raw.name || raw.colorName || name,
-      desktopName: raw.desktopName || raw.name || raw.colorName || name,
-      hex: raw.hex || raw.hexCode || raw.colorHex || "#2563EB",
-      deep: raw.deep || raw.darkHex || raw.deepHex || "#1E3A8A",
-      filter: raw.filter || raw.cssFilter || "",
-      votes: Number(raw.votes ?? raw.popularity ?? 0),
-      description:
-        raw.description ||
-        raw.note ||
-        raw.summary ||
-        "A premium exterior color available for this model.",
-      imageUrl: raw.imageUrl || raw.carImageUrl || "",
-      normalizedImageUrl: raw.normalizedImageUrl || raw.cleanImageUrl || "",
-      raw,
-    };
-  });
+  const cssVars = {
+    ...(imageFrame?.cssVars || {}),
+    ...(frame?.cssVars || {}),
+  };
+
+  const scale = cssVars["--car-frame-scale"] || frame.scale || frame.zoom || 1;
+
+  const x =
+    cssVars["--car-frame-x"] ||
+    (frame.translateXPct ??
+      frame.translateXPercent ??
+      frame.translateX ??
+      frame.x ??
+      0);
+
+  const y =
+    cssVars["--car-frame-y"] ||
+    (frame.translateYPct ??
+      frame.translateYPercent ??
+      frame.translateY ??
+      frame.y ??
+      (stageKey === "mobileHero" ? 5 : 7));
+
+  const origin =
+    cssVars["--car-frame-origin"] || frame.transformOrigin || "center bottom";
+
+  return {
+    "--car-frame-scale": String(scale),
+    "--car-frame-x": cssPercent(x, 0),
+    "--car-frame-y": cssPercent(y, stageKey === "mobileHero" ? 5 : 7),
+    "--car-frame-origin": origin,
+  };
 };
 
 function fireAction(label, payload = {}, onAction) {
@@ -228,7 +341,15 @@ function ColorOrb({ color, selected, large = false }) {
 
 function VehicleArtwork({ color, vehicle, size = "desktop" }) {
   const imageUrl = getVehicleImage(vehicle, color);
-  const hasColorSpecificImage = Boolean(color?.imageUrl || color?.carImageUrl);
+
+  const stageKey =
+    size === "mobile"
+      ? "mobileHero"
+      : size === "compact"
+        ? "chatCard"
+        : "colorStudio";
+
+  const frameStyle = buildImageFrameStyle(color?.imageFrame, stageKey);
 
   return (
     <div
@@ -236,33 +357,22 @@ function VehicleArtwork({ color, vehicle, size = "desktop" }) {
       style={{
         "--paint": color.hex,
         "--deep": color.deep,
-        "--car-filter": hasColorSpecificImage ? "none" : color.filter,
+        "--car-frame-scale": "1",
+        "--car-frame-x": "0%",
+        "--car-frame-y": stageKey === "mobileHero" ? "5%" : "7%",
+        "--car-frame-origin": "center bottom",
+        ...(frameStyle || {}),
       }}
     >
       <div className="safari-vehicle-inner">
         <CarImageStage
           src={imageUrl}
-          alt={`${getVehicleTitle(vehicle)} in ${color.mobileName}`}
-          stageVariant={size === "mood" ? "compact" : "hero"}
+          alt={`${getVehicleTitle(vehicle)} in ${color.mobileName || color.colorName || color.name}`}
+          stageVariant="hero"
           className={`safari-stage ${size}`}
-          imageClassName={`safari-stage-image ${hasColorSpecificImage ? "" : "tintable"}`}
+          imageClassName="safari-stage-image"
           fallbackLabel={getVehicleModel(vehicle)}
         />
-        {!hasColorSpecificImage ? (
-          <motion.span
-            className="paint-layer"
-            animate={{
-              backgroundColor: color.hex,
-              opacity:
-                color.id === "white"
-                  ? 0.08
-                  : color.id === "black"
-                    ? 0.12
-                    : 0.18,
-            }}
-            transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
-          />
-        ) : null}
       </div>
     </div>
   );
@@ -333,45 +443,109 @@ function DesktopGallery({ selectedColor, vehicle }) {
 }
 
 function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
-  const topChoices = [...colors].sort((a, b) => b.votes - a.votes).slice(0, 3);
+  const hasPopularity = colors.some(
+    (item) => item.hasPopularity && Number(item.votes || 0) > 0,
+  );
+
+  const topChoices = hasPopularity
+    ? [...colors]
+        .filter((item) => item.hasPopularity && Number(item.votes || 0) > 0)
+        .sort((a, b) => Number(b.votes || 0) - Number(a.votes || 0))
+        .slice(0, 3)
+    : [];
 
   return (
     <aside className="colors-rail">
-      <motion.article className="rail-card popular-card" variants={fadeUp}>
-        <div className="rail-title-row">
-          <h3>Popular choice</h3>
-          <Info size={16} />
+      <motion.article
+        className="rail-card selected-color-card"
+        variants={fadeUp}
+      >
+        <h3>Selected color</h3>
+
+        <div className="selected-color-summary">
+          <ColorOrb color={selectedColor} selected={false} />
+
+          <div>
+            <strong>{selectedColor.desktopName}</strong>
+            <span>{getVehicleTitle(vehicle)}</span>
+          </div>
         </div>
 
-        <div className="popular-choice-list">
-          {topChoices.map((item, index) => (
-            <div key={item.id}>
-              <span>{index + 1}</span>
-              <strong>{item.desktopName}</strong>
-              <em>{item.votes}%</em>
-              <i style={{ width: `${Math.max(48, item.votes * 2.1)}px` }} />
-            </div>
-          ))}
-        </div>
+        <p>{selectedColor.description}</p>
 
         <button
           type="button"
-          className="rail-link"
+          className="primary-rail-button"
           onClick={() =>
             fireAction(
-              "View insights",
+              "Use this color",
               {
-                vehicle,
-                type: "color_insights",
-                query: `Color insights for ${getVehicleTitle(vehicle)}`,
+                vehicle: {
+                  ...vehicle,
+                  selectedColor,
+                  colorName: selectedColor.desktopName,
+                  imageUrl: selectedColor.imageUrl,
+                  normalizedImageUrl: selectedColor.normalizedImageUrl,
+                  imageFrame: selectedColor.imageFrame,
+                },
+                selectedColor,
+                color: selectedColor,
+                type: "select_color",
+                contextPatch: {
+                  selectedColor,
+                  selectedVehicle: {
+                    ...vehicle,
+                    selectedColor,
+                    colorName: selectedColor.desktopName,
+                    imageUrl: selectedColor.imageUrl,
+                    normalizedImageUrl: selectedColor.normalizedImageUrl,
+                    imageFrame: selectedColor.imageFrame,
+                  },
+                },
               },
               onAction,
             )
           }
         >
-          View all insights <ChevronRight size={15} />
+          Use this color <ChevronRight size={15} />
         </button>
       </motion.article>
+
+      <motion.article
+        className="rail-card available-shades-card"
+        variants={fadeUp}
+      >
+        <div className="rail-title-row">
+          <h3>Available shades</h3>
+          <Palette size={16} />
+        </div>
+
+        <strong>{colors.length}</strong>
+        <p>
+          Exterior colors found for {getVehicleTitle(vehicle)}. Availability may
+          vary by variant and city.
+        </p>
+      </motion.article>
+
+      {hasPopularity ? (
+        <motion.article className="rail-card popular-card" variants={fadeUp}>
+          <div className="rail-title-row">
+            <h3>Popular choice</h3>
+            <Info size={16} />
+          </div>
+
+          <div className="popular-choice-list">
+            {topChoices.map((item, index) => (
+              <div key={item.id}>
+                <span>{index + 1}</span>
+                <strong>{item.desktopName}</strong>
+                <em>{item.votes}%</em>
+                <i style={{ width: `${Math.max(48, item.votes * 2.1)}px` }} />
+              </div>
+            ))}
+          </div>
+        </motion.article>
+      ) : null}
     </aside>
   );
 }
@@ -1198,16 +1372,7 @@ export default function AciAssistColorsScreen({
           transition: filter .34s ease, opacity .34s ease;
         }
 
-        .paint-layer {
-          position: absolute;
-          inset: 6% 7% 8%;
-          background: var(--paint);
-          opacity: .18;
-          mix-blend-mode: color;
-          pointer-events: none;
-          border-radius: 38%;
-          transition: background-color .34s ease, opacity .34s ease;
-        }
+        
 
         .safari-vehicle.desktop {
           width: 100%;
@@ -2396,6 +2561,119 @@ export default function AciAssistColorsScreen({
             font-size: 14px !important;
           }
         }
+
+        /* ACI_COLORS_BACKEND_IMAGE_FRAME_START */
+
+.safari-vehicle {
+  --car-frame-scale: 1;
+  --car-frame-x: 0%;
+  --car-frame-y: 7%;
+  --car-frame-origin: center bottom;
+}
+
+.safari-vehicle-inner,
+.safari-stage {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+.safari-stage-image {
+  display: block;
+  width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  object-position: center bottom;
+  user-select: none;
+  mix-blend-mode: normal;
+  filter: drop-shadow(0 24px 24px rgba(15,23,42,.2));
+  transform-origin: var(--car-frame-origin);
+  transform: translate(var(--car-frame-x), var(--car-frame-y)) scale(var(--car-frame-scale));
+}
+
+.safari-vehicle.desktop .safari-stage-image {
+  max-height: 340px;
+}
+
+.safari-vehicle.mobile .safari-stage-image {
+  max-height: 232px;
+}
+
+.selected-color-summary {
+  margin-top: 16px;
+  min-height: 86px;
+  border-radius: 18px;
+  padding: 14px;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,.78), transparent 28%),
+    linear-gradient(135deg, var(--paint), var(--deep));
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  color: #fff;
+}
+
+.selected-color-summary .color-orb {
+  width: 52px;
+  height: 52px;
+  border: 2px solid rgba(255,255,255,.72);
+}
+
+.selected-color-summary .color-orb b {
+  display: none;
+}
+
+.selected-color-summary strong {
+  display: block;
+  font-size: 15px;
+  line-height: 1.1;
+  font-weight: 760;
+}
+
+.selected-color-summary span {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  opacity: .9;
+}
+
+.selected-color-card p,
+.available-shades-card p {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.52;
+}
+
+.primary-rail-button {
+  width: 100%;
+  height: 40px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.available-shades-card > strong {
+  display: block;
+  margin-top: 14px;
+  color: var(--blue);
+  font-size: 42px;
+  line-height: .9;
+  letter-spacing: -.06em;
+  font-weight: 850;
+}
+
+/* ACI_COLORS_BACKEND_IMAGE_FRAME_END */
 
       `}</style>
 

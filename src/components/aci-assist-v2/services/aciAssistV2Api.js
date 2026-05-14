@@ -1044,6 +1044,161 @@ export const normalizeAciBackendResponse = (raw) => {
   };
 };
 
+const compactText = (value = "", max = 180) =>
+  String(value || "")
+    .trim()
+    .slice(0, max);
+
+const compactColorForChat = (color = {}) => {
+  if (!isObject(color)) return null;
+
+  const name =
+    color.colorName ||
+    color.name ||
+    color.desktopName ||
+    color.mobileName ||
+    color.label ||
+    "";
+
+  if (!name && !color.hex && !color.id && !color._id) return null;
+
+  return {
+    id: compactText(color.id || color._id, 80),
+    colorName: compactText(name, 80),
+    name: compactText(name, 80),
+    hex: compactText(color.hex || color.hexCode || color.colorHex, 20),
+  };
+};
+
+const compactVehicleForChat = (vehicle = {}) => {
+  if (!isObject(vehicle)) return null;
+
+  const make = vehicle.make || vehicle.brand || "";
+  const brand = vehicle.brand || vehicle.make || "";
+  const model = vehicle.model || vehicle.modelName || "";
+  const displayName =
+    vehicle.displayName ||
+    vehicle.name ||
+    [make, model].filter(Boolean).join(" ");
+
+  if (
+    !make &&
+    !brand &&
+    !model &&
+    !displayName &&
+    !vehicle.id &&
+    !vehicle._id
+  ) {
+    return null;
+  }
+
+  const selectedColor = compactColorForChat(vehicle.selectedColor || {});
+
+  return {
+    id: compactText(
+      vehicle.id || vehicle._id || vehicle.vehicleId || vehicle.modelId,
+      100,
+    ),
+    make: compactText(make, 80),
+    brand: compactText(brand, 80),
+    model: compactText(model, 100),
+    modelName: compactText(vehicle.modelName || model, 100),
+    displayName: compactText(displayName, 140),
+    variant: compactText(vehicle.variant || vehicle.variantName, 120),
+    variantName: compactText(vehicle.variantName || vehicle.variant, 120),
+    city: compactText(vehicle.city || vehicle.cityName, 80),
+    citySlug: compactText(vehicle.citySlug, 80),
+    colorName: compactText(
+      vehicle.colorName ||
+        selectedColor?.colorName ||
+        vehicle.selectedColor?.colorName ||
+        vehicle.selectedColor?.name,
+      80,
+    ),
+    selectedColor,
+  };
+};
+
+const compactActionForChat = (action = {}) => {
+  if (!isObject(action)) return null;
+
+  return {
+    id: compactText(action.id, 80),
+    label: compactText(action.label || action.title, 120),
+    query: compactText(action.query || action.message || action.text, 240),
+    intent: compactText(action.intent, 80),
+    canvasType: compactText(action.canvasType, 80),
+    type: compactText(action.type, 80),
+  };
+};
+
+const compactAciChatContext = (context = {}) => {
+  if (!isObject(context)) return {};
+
+  const selectedVehicle = compactVehicleForChat(
+    context.selectedVehicle ||
+      context.vehicle ||
+      context.activeVehicle ||
+      context.contextPatch?.selectedVehicle ||
+      {},
+  );
+
+  const selectedColor = compactColorForChat(
+    context.selectedColor ||
+      context.contextPatch?.selectedColor ||
+      selectedVehicle?.selectedColor ||
+      {},
+  );
+
+  const lastAction = compactActionForChat(
+    context.lastAction || context.action || context.activeAction || {},
+  );
+
+  return {
+    selectedVehicle,
+    selectedColor,
+
+    anchorMake: compactText(
+      context.anchorMake || selectedVehicle?.make || selectedVehicle?.brand,
+      80,
+    ),
+    anchorModel: compactText(
+      context.anchorModel || selectedVehicle?.model,
+      100,
+    ),
+    anchorVariant: compactText(
+      context.anchorVariant ||
+        selectedVehicle?.variant ||
+        selectedVehicle?.variantName,
+      120,
+    ),
+    anchorCity: compactText(
+      context.anchorCity ||
+        selectedVehicle?.citySlug ||
+        selectedVehicle?.city ||
+        "new-delhi",
+      80,
+    ),
+
+    activeScreen: compactText(context.activeScreen || context.screen, 80),
+    activeCanvasType: compactText(
+      context.activeCanvasType ||
+        context.lastCanvasType ||
+        context.activeCanvasPayload?.canvasType ||
+        context.activeCanvasPayload?.__rawCanvasType,
+      80,
+    ),
+
+    lastIntent: compactText(
+      context.lastIntent ||
+        lastAction?.intent ||
+        context.activeCanvasPayload?.intent,
+      80,
+    ),
+    lastAction,
+  };
+};
+
 export async function askAciAssistV2({ message, context = {}, signal } = {}) {
   const token = getAuthToken();
   const apiBase = process.env.REACT_APP_API_BASE_URL || API_BASE_URL || "";
@@ -1059,6 +1214,25 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
 
   const url = cleanJoin(apiBase, endpoint);
 
+  const compactContext = compactAciChatContext(context);
+
+  const payload = {
+    message,
+    text: message,
+    query: message,
+    context: compactContext,
+    source: "aci_assist_v2_frontend",
+  };
+
+  const payloadText = JSON.stringify(payload);
+
+  if (process.env.NODE_ENV === "development") {
+    console.log("[ACI REQUEST PAYLOAD SIZE]", payloadText.length, {
+      message,
+      context: compactContext,
+    });
+  }
+
   const response = await fetch(url, {
     method: "POST",
     signal,
@@ -1067,13 +1241,7 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     credentials: "include",
-    body: JSON.stringify({
-      message,
-      text: message,
-      query: message,
-      context,
-      source: "aci_assist_v2_frontend",
-    }),
+    body: payloadText,
   });
 
   const contentType = response.headers.get("content-type") || "";
@@ -1082,13 +1250,16 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
     : await response.text();
 
   if (!response.ok) {
-    const error = new Error(
-      typeof body === "string"
-        ? body
-        : body?.message ||
+    const message =
+      response.status === 413
+        ? "Request was too large. I trimmed the chat context, please try again."
+        : typeof body === "string"
+          ? body
+          : body?.message ||
             body?.error ||
-            `ACI backend failed with ${response.status}`,
-    );
+            `ACI backend failed with ${response.status}`;
+
+    const error = new Error(message);
     error.status = response.status;
     error.body = body;
     throw error;

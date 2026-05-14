@@ -1103,6 +1103,107 @@ function AciV2FullCanvasShell({
   );
 }
 
+const compactColorForBackend = (color = {}) => {
+  if (!isObject(color)) return null;
+
+  const name = firstValue(
+    color.colorName,
+    color.name,
+    color.desktopName,
+    color.mobileName,
+  );
+
+  if (!name && !color.hex) return null;
+
+  return {
+    id: firstValue(color.id, color._id),
+    colorName: name,
+    name,
+    hex: color.hex || "",
+  };
+};
+
+const compactVehicleForBackend = (vehicle = {}) => {
+  const normalized = normalizeVehicle(vehicle);
+  if (!normalized) return null;
+
+  const selectedColor = compactColorForBackend(
+    normalized.selectedColor || vehicle.selectedColor,
+  );
+
+  return {
+    id: firstValue(
+      normalized.id,
+      normalized._id,
+      normalized.vehicleId,
+      normalized.modelId,
+    ),
+    make: firstValue(normalized.make, normalized.brand),
+    brand: firstValue(normalized.brand, normalized.make),
+    model: normalized.model || "",
+    displayName: normalized.displayName || "",
+    variant: firstValue(normalized.variant, normalized.variantName),
+    variantName: firstValue(normalized.variantName, normalized.variant),
+    city: firstValue(normalized.city, normalized.cityName),
+    citySlug: normalized.citySlug || "",
+    colorName: firstValue(normalized.colorName, selectedColor?.colorName),
+    selectedColor,
+  };
+};
+
+const compactContextForBackend = ({
+  effectiveContext = {},
+  action = {},
+  screen = "",
+  activeCanvasPayload = null,
+  lastAction = null,
+} = {}) => {
+  const selectedVehicle = compactVehicleForBackend(
+    effectiveContext.selectedVehicle,
+  );
+
+  const selectedColor = compactColorForBackend(
+    effectiveContext.selectedColor ||
+      selectedVehicle?.selectedColor ||
+      action.selectedColor ||
+      action.contextPatch?.selectedColor,
+  );
+
+  return {
+    selectedVehicle,
+    anchorMake: firstValue(
+      effectiveContext.anchorMake,
+      selectedVehicle?.make,
+      selectedVehicle?.brand,
+    ),
+    anchorModel: firstValue(
+      effectiveContext.anchorModel,
+      selectedVehicle?.model,
+    ),
+    anchorVariant: firstValue(
+      effectiveContext.anchorVariant,
+      selectedVehicle?.variant,
+      selectedVehicle?.variantName,
+    ),
+    anchorCity: firstValue(
+      effectiveContext.anchorCity,
+      selectedVehicle?.citySlug,
+      selectedVehicle?.city,
+      "new-delhi",
+    ),
+    selectedColor,
+    activeScreen: screen,
+    activeCanvasType: firstValue(
+      activeCanvasPayload?.canvasType,
+      activeCanvasPayload?.__rawCanvasType,
+      effectiveContext.lastCanvasType,
+    ),
+    lastIntent: firstValue(action.intent, lastAction?.intent),
+    lastActionLabel: firstValue(action.label, lastAction?.label),
+    lastActionQuery: firstValue(action.query, lastAction?.query),
+  };
+};
+
 export default function AciAssistV2() {
   const requestSeqRef = useRef(0);
   const requestAbortRef = useRef(null);
@@ -1205,18 +1306,20 @@ export default function AciAssistV2() {
           sessionContext.selectedVehicle,
       });
 
-      return {
-        ...effectiveContext,
-        activeScreen: screen,
-        activeCanvasType:
-          activeCanvasPayload?.canvasType ||
-          activeCanvasPayload?.__rawCanvasType ||
-          sessionContext.lastCanvasType ||
-          "",
-        activeCanvasPayload:
-          sanitizeWidgetForBackendContext(activeCanvasPayload),
-        lastAction: sanitizeActionForBackendContext(lastAction),
-      };
+      const compactContext = compactContextForBackend({
+        effectiveContext,
+        action,
+        screen,
+        activeCanvasPayload,
+        lastAction,
+      });
+
+      if (process.env.NODE_ENV === "development") {
+        const size = JSON.stringify(compactContext).length;
+        console.log("[ACI COMPACT CONTEXT SIZE]", size, compactContext);
+      }
+
+      return compactContext;
     },
     [activeCanvasPayload, lastAction, screen, sessionContext],
   );
