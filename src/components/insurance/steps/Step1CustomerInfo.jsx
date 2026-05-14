@@ -14,6 +14,8 @@ import {
 } from "antd";
 import { UserOutlined, TeamOutlined, IdcardOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
+import useChannelPartnerAutoSuggest from "../../../hooks/useChannelPartnerAutoSuggest";
+import useShowroomAutoSuggest from "../../../hooks/useShowroomAutoSuggest";
 
 const { Text } = Typography;
 
@@ -154,6 +156,24 @@ const Step1CustomerInfo = ({
   applyCustomerToForm,
   getCustomerId,
 }) => {
+  const {
+    options: partnerOptions,
+    search: searchPartners,
+    loading: partnersLoading,
+  } = useChannelPartnerAutoSuggest();
+
+  const {
+    options: brokerOptions,
+    search: searchBrokers,
+    loading: brokersLoading,
+  } = useChannelPartnerAutoSuggest({ type: "Broker" });
+
+  const {
+    options: showroomOptions,
+    search: searchShowrooms,
+    loading: showroomsLoading,
+  } = useShowroomAutoSuggest();
+
   const primaryName = isCompany
     ? formData.companyName || "Company details"
     : formData.customerName || "Customer details";
@@ -336,11 +356,13 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Broker Name" required>
-                    <Input
+                    <AutoComplete
                       size="large"
                       allowClear
                       value={formData.brokerName}
-                      onChange={handleChange("brokerName")}
+                      options={brokerOptions}
+                      onSearch={searchBrokers}
+                      onChange={(val) => setField("brokerName", val)}
                       placeholder="Broker Name"
                       status={
                         showErrors && step1Errors.brokerName ? "error" : ""
@@ -358,11 +380,13 @@ const Step1CustomerInfo = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Showroom Name" required>
-                    <Input
+                    <AutoComplete
                       size="large"
                       allowClear
                       value={formData.showroomName}
-                      onChange={handleChange("showroomName")}
+                      options={showroomOptions}
+                      onSearch={searchShowrooms}
+                      onChange={(val) => setField("showroomName", val)}
                       placeholder="Showroom Name"
                       status={
                         showErrors && step1Errors.showroomName ? "error" : ""
@@ -426,17 +450,30 @@ const Step1CustomerInfo = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel" required>
-                      <Input size="large" allowClear
-                        value={formData.dealerChannelName}
-                        onChange={handleChange("dealerChannelName")}
-                        placeholder="Dealer / Channel"
-                       
-                        status={
-                          showErrors && step1Errors.dealerChannelName
-                            ? "error"
-                            : ""
+                    <AutoComplete
+                      size="large"
+                      allowClear
+                      value={formData.dealerChannelName}
+                      options={partnerOptions}
+                      onSearch={searchPartners}
+                      onSelect={(val, option) => {
+                        const p = option.partner;
+                        if (p) {
+                          setField("dealerChannelName", p.name || "");
+                          setField("channelDealerNo", p.channelId || "");
+                          if (p.address) setField("dealerChannelAddress", p.address);
+                          setField("payoutApplicable", "Yes");
+                          if (p.commissionRate) setField("payoutPercent", String(p.commissionRate));
                         }
-                      />
+                      }}
+                      onChange={(val) => setField("dealerChannelName", val)}
+                      placeholder="Dealer / Channel name or phone"
+                      status={
+                        showErrors && step1Errors.dealerChannelName
+                          ? "error"
+                          : ""
+                      }
+                    />
                     </CleanField>
                   </div>
                   {showErrors && step1Errors.dealerChannelName ? (

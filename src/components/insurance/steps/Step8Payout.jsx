@@ -42,13 +42,7 @@ const Step8Payout = ({
   const odAmount = Number(acceptedQuoteBreakup?.odAmt || 0);
   const addOnsAmount = Number(acceptedQuoteBreakup?.addOnsTotal || 0);
   
-  // TATA AIG RSA Exclusion: Exclude Rs 116 from payout base as per requirements
-  let adjustedAddOnsAmount = addOnsAmount;
-  if (String(formData.newInsuranceCompany || "").toUpperCase().includes("TATA AIG")) {
-    adjustedAddOnsAmount = Math.max(0, addOnsAmount - 116);
-  }
-  
-  const payoutBaseAmount = odAmount + adjustedAddOnsAmount;
+  const payoutBaseAmount = odAmount + addOnsAmount;
   const payoutPercentage = Number(
     formData.payoutPercent ?? formData.payoutPercentage ?? 10,
   );
