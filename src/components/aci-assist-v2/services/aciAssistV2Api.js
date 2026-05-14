@@ -7,6 +7,7 @@ const VEHICLE_MEDIA_ENDPOINT = "/api/vehicles/media";
 const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
 const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
 const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
+const LIVE_SNAPSHOT_CACHE_VERSION = "model-exact-v3";
 const liveSnapshotMemory = new Map();
 
 const createAbortError = () => {
@@ -306,9 +307,290 @@ const normalizeHex = (value = "") => {
 };
 
 const canonicalVehicleKey = ({ make = "", model = "", city = "" } = {}) =>
-  `${String(make || "").trim().toLowerCase()}|${String(model || "")
+  `${LIVE_SNAPSHOT_CACHE_VERSION}|${String(make || "").trim().toLowerCase()}|${String(model || "")
     .trim()
     .toLowerCase()}|${String(city || "").trim().toLowerCase()}`;
+
+const normalizeModelLookupText = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const stripMakePrefix = (value = "", make = "") => {
+  const text = normalizeModelLookupText(value);
+  const makeText = normalizeModelLookupText(make);
+
+  if (!makeText) return text;
+  if (text === makeText) return "";
+  if (text.startsWith(`${makeText} `)) return text.slice(makeText.length + 1);
+  return text;
+};
+
+const MODEL_MATCH_KEYS = [
+  "model",
+  "modelName",
+  "model_name",
+  "rawModel",
+  "raw_model",
+  "displayName",
+  "display_name",
+  "modelDisplayName",
+  "model_display_name",
+  "vehicleModel",
+  "vehicle_model",
+];
+
+const IMAGE_MODEL_KEYS = [
+  "normalizedImageUrl",
+  "cleanImageUrl",
+  "normalized_image_url",
+  "clean_image_url",
+  "heroImageUrl",
+  "hero_image_url",
+  "imageUrl",
+  "image_url",
+  "carImageUrl",
+  "car_image_url",
+  "sourceImageUrl",
+  "source_image_url",
+];
+
+const SOURCE_IMAGE_MODEL_KEYS = [
+  "image_url",
+  "sourceImageUrl",
+  "source_image_url",
+  "originalImageUrl",
+  "original_image_url",
+  "rawImageUrl",
+  "raw_image_url",
+  "car_image_url",
+];
+
+const imageModelCandidatesFromUrl = (value = "", make = "") => {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  const path = text.split(/[?#]/)[0] || text;
+  return [
+    ...new Set(
+      path
+        .split(/[/:]+/)
+        .flatMap((part) => part.split(/[._]+/))
+        .map((part) => part.replace(/\.(png|jpe?g|webp|avif|gif|svg)$/i, ""))
+        .map((part) => stripMakePrefix(part, make))
+        .filter((part) => part && part.length > 1),
+    ),
+  ];
+};
+
+const sourceImageModelCandidatesFromUrl = (value = "", make = "") => {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  const makeText = normalizeModelLookupText(make);
+  const path = text.split(/[?#]/)[0] || text;
+  const segments = path
+    .split(/[/:]+/)
+    .flatMap((part) => part.split(/[._]+/))
+    .map((part) => part.replace(/\.(png|jpe?g|webp|avif|gif|svg)$/i, ""))
+    .filter(Boolean);
+
+  if (!makeText) return imageModelCandidatesFromUrl(value, make);
+
+  const directoryModelCandidates = segments
+    .map((part, index) => {
+      const normalized = normalizeModelLookupText(part);
+      if (normalized !== makeText) return "";
+      return stripMakePrefix(segments[index + 1], make);
+    })
+    .filter((part) => part && part.length > 1);
+
+  return [...new Set(directoryModelCandidates)];
+};
+
+const tokensStartWith = (tokens = [], prefix = []) =>
+  prefix.length > 0 &&
+  prefix.every((token, index) => tokens[index] === token);
+
+const findTokenSequence = (tokens = [], sequence = [], fromIndex = 0) => {
+  if (!sequence.length) return -1;
+  for (let index = fromIndex; index <= tokens.length - sequence.length; index += 1) {
+    if (sequence.every((token, offset) => tokens[index + offset] === token)) {
+      return index;
+    }
+  }
+  return -1;
+};
+
+const modelCandidateFromNormalizedAssetUrl = (value = "", make = "") => {
+  const text = String(value || "").trim();
+  const makeText = normalizeModelLookupText(make);
+  if (!text || !makeText) return "";
+
+  const makeTokens = makeText.split(" ").filter(Boolean);
+  const path = text.split(/[?#]/)[0] || text;
+  const parts = path
+    .split(/[/:]+/)
+    .flatMap((part) => part.split(/[._]+/))
+    .map((part) => part.replace(/\.(png|jpe?g|webp|avif|gif|svg)$/i, ""))
+    .filter(Boolean);
+
+  for (const part of parts) {
+    const tokens = normalizeModelLookupText(part).split(" ").filter(Boolean);
+    if (!tokensStartWith(tokens, makeTokens)) continue;
+
+    const afterMake = tokens.slice(makeTokens.length);
+    const nextMakeIndex = findTokenSequence(afterMake, makeTokens);
+    const modelTokens =
+      nextMakeIndex > 0 ? afterMake.slice(0, nextMakeIndex) : [];
+
+    if (modelTokens.length) return modelTokens.join(" ");
+  }
+
+  return "";
+};
+
+const imageUrlModelScope = (value = "", requestedModel = "", make = "") => {
+  const modelKey = stripMakePrefix(requestedModel, make);
+  if (!value || !modelKey) return "unknown";
+
+  const normalizedAssetModel = modelCandidateFromNormalizedAssetUrl(value, make);
+  if (normalizedAssetModel) {
+    return normalizedAssetModel === modelKey ? "exact" : "mismatch";
+  }
+
+  const sourceCandidates = sourceImageModelCandidatesFromUrl(value, make);
+  if (sourceCandidates.some((candidate) => candidate === modelKey)) return "exact";
+  if (
+    sourceCandidates.some(
+      (candidate) =>
+        candidate.startsWith(`${modelKey} `) ||
+        modelKey.startsWith(`${candidate} `),
+    )
+  ) {
+    return "mismatch";
+  }
+
+  const text = normalizeModelLookupText(value);
+  const makeText = normalizeModelLookupText(make);
+  if (makeText && text.includes(`${makeText} ${modelKey}`)) return "exact";
+
+  return "unknown";
+};
+
+const selectImageForRequestedModel = (row = {}, requestedModel = "", make = "") => {
+  const candidates = [
+    row.normalizedImageUrl,
+    row.cleanImageUrl,
+    row.normalized_image_url,
+    row.clean_image_url,
+    row.normalizedImagePngUrl,
+    row.imageUrl,
+    row.image_url,
+    row.car_image_url,
+    row.sourceImageUrl,
+    row.source_image_url,
+  ]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  const exact = candidates.find(
+    (value) => imageUrlModelScope(value, requestedModel, make) === "exact",
+  );
+  if (exact) return exact;
+
+  const nonMismatch = candidates.find(
+    (value) => imageUrlModelScope(value, requestedModel, make) !== "mismatch",
+  );
+  return nonMismatch || candidates[0] || "";
+};
+
+const collectSourceImageModelCandidates = (row = {}, make = "") => {
+  const candidates = [];
+  const push = (value) => {
+    sourceImageModelCandidatesFromUrl(value, make).forEach((candidate) => {
+      if (candidate) candidates.push(candidate);
+    });
+  };
+
+  SOURCE_IMAGE_MODEL_KEYS.forEach((key) => push(row?.[key]));
+  SOURCE_IMAGE_MODEL_KEYS.forEach((key) => push(row?.vehicle?.[key]));
+  SOURCE_IMAGE_MODEL_KEYS.forEach((key) => push(row?.car?.[key]));
+
+  return [...new Set(candidates)];
+};
+
+const isSpecificModelSlugConflict = (candidate = "", requestedModel = "") => {
+  if (!candidate || !requestedModel) return false;
+  return candidate.startsWith(`${requestedModel} `);
+};
+
+const collectModelCandidates = (row = {}, make = "") => {
+  const candidates = [];
+  const push = (value) => {
+    const normalized = stripMakePrefix(value, make);
+    if (normalized) candidates.push(normalized);
+  };
+
+  MODEL_MATCH_KEYS.forEach((key) => push(row?.[key]));
+  MODEL_MATCH_KEYS.forEach((key) => push(row?.vehicle?.[key]));
+  MODEL_MATCH_KEYS.forEach((key) => push(row?.car?.[key]));
+  IMAGE_MODEL_KEYS.forEach((key) => {
+    imageModelCandidatesFromUrl(row?.[key], make).forEach(push);
+  });
+
+  return [...new Set(candidates)];
+};
+
+const rowMatchesRequestedModel = (
+  row = {},
+  requestedModel = "",
+  make = "",
+  { strict = false } = {},
+) => {
+  const candidates = collectModelCandidates(row, make);
+  if (candidates.some((candidate) => candidate === requestedModel)) return true;
+
+  if (strict) {
+    const sourceImageModels = collectSourceImageModelCandidates(row, make);
+    if (sourceImageModels.some((candidate) => candidate === requestedModel)) return true;
+    if (
+      sourceImageModels.some((candidate) =>
+        isSpecificModelSlugConflict(candidate, requestedModel),
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return false;
+};
+
+const filterRowsByExactModel = (
+  rows = [],
+  requestedModel = "",
+  make = "",
+  { strict = false } = {},
+) => {
+  if (!Array.isArray(rows) || !rows.length) return [];
+
+  const modelKey = stripMakePrefix(requestedModel, make);
+  if (!modelKey) return rows;
+
+  const rowsWithModelInfo = rows.filter(
+    (row) => collectModelCandidates(row, make).length,
+  );
+  if (!rowsWithModelInfo.length) return rows;
+
+  const exactMatches = rows.filter((row) => {
+    return rowMatchesRequestedModel(row, modelKey, make, { strict });
+  });
+
+  if (exactMatches.length) return exactMatches;
+  return strict ? [] : rows;
+};
 
 const normalizeLiveVariant = (row = {}, index = 0, city = "Delhi") => {
   const name =
@@ -335,6 +617,8 @@ const normalizeLiveVariant = (row = {}, index = 0, city = "Delhi") => {
   return {
     ...row,
     id: row._id || row.id || `${name}-${index}`,
+    model: row.model || row.modelName || row.model_name || "",
+    rawModel: row.rawModel || row.raw_model || row.model || row.modelName || row.model_name || "",
     name,
     variant: name,
     fuel,
@@ -347,7 +631,11 @@ const normalizeLiveVariant = (row = {}, index = 0, city = "Delhi") => {
   };
 };
 
-const normalizeLiveColor = (row = {}, index = 0) => {
+const normalizeLiveColor = (
+  row = {},
+  index = 0,
+  { requestedModel = "", make = "" } = {},
+) => {
   const name =
     row.color_name ||
     row.colorName ||
@@ -365,10 +653,12 @@ const normalizeLiveColor = (row = {}, index = 0) => {
     "";
   const rawImageUrl =
     row.image_url || row.imageUrl || row.car_image_url || "";
-  const displayImage = getDisplayCarImage({
-    normalizedImageUrl,
-    imageUrl: rawImageUrl,
-  });
+  const displayImage =
+    selectImageForRequestedModel(row, requestedModel, make) ||
+    getDisplayCarImage({
+      normalizedImageUrl,
+      imageUrl: rawImageUrl,
+    });
 
   return {
     ...row,
@@ -896,12 +1186,29 @@ export async function fetchAciVehicleLiveSnapshot({
     }
   }
 
-  const variantRows = variantRowsRaw
+  const scopedMediaRows = filterRowsByExactModel(
+    mediaRows,
+    normalizedModel,
+    normalizedMake,
+    { strict: true },
+  );
+  const scopedVariantRowsRaw = filterRowsByExactModel(
+    variantRowsRaw,
+    normalizedModel,
+    normalizedMake,
+  );
+
+  const variantRows = scopedVariantRowsRaw
     .map((item, index) => normalizeLiveVariant(item, index, normalizedCity))
     .filter((item) => item.variant && (item.exShowroomPrice || item.onRoadPrice));
 
-  const colors = mediaRows
-    .map((item, index) => normalizeLiveColor(item, index))
+  const colors = scopedMediaRows
+    .map((item, index) =>
+      normalizeLiveColor(item, index, {
+        requestedModel: normalizedModel,
+        make: normalizedMake,
+      }),
+    )
     .filter((item) => item.name)
     .filter((item, index, list) => {
       const keyName = `${String(item.name || "")
@@ -924,13 +1231,19 @@ export async function fetchAciVehicleLiveSnapshot({
   const minOnRoad = onRoadValues.length ? Math.min(...onRoadValues) : 0;
   const maxOnRoad = onRoadValues.length ? Math.max(...onRoadValues) : 0;
   const minEx = exValues.length ? Math.min(...exValues) : 0;
+  const imageScopedVariantRows = filterRowsByExactModel(
+    variantRows,
+    normalizedModel,
+    normalizedMake,
+    { strict: true },
+  );
   const heroImage = getDisplayCarImage({
     colors,
     imageUrl: colors.find((item) => item.imageUrl)?.imageUrl || "",
   }) ||
   getDisplayCarImage({
-    variants: variantRows,
-    imageUrl: variantRows.find((item) => item.imageUrl)?.imageUrl || "",
+    variants: imageScopedVariantRows,
+    imageUrl: imageScopedVariantRows.find((item) => item.imageUrl)?.imageUrl || "",
   }) ||
   "";
 

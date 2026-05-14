@@ -44,6 +44,8 @@ const IMAGE_KEYS = [
   "src",
 ];
 
+const EMPTY_ROW = {};
+
 const fadeUp = {
   hidden: { opacity: 0, y: 14, filter: "blur(5px)" },
   visible: {
@@ -169,6 +171,315 @@ const getVehicleImage = (vehicle, widget, rows) => {
   return searchValue(vehicle) || searchValue(widget) || searchValue(rows) || "";
 };
 
+const imageUrlCandidatesFromText = (value = "", make = "") => {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  const withoutQuery = text.split(/[?#]/)[0] || text;
+  const parts = withoutQuery
+    .split(/[/:]+/)
+    .flatMap((part) => part.split(/[._]+/))
+    .map((part) => part.replace(/\.(png|jpe?g|webp|avif|gif|svg)$/i, ""))
+    .map((part) => stripMakePrefix(part, make))
+    .filter((part) => part && part.length > 1);
+
+  return [...new Set(parts)];
+};
+
+const sourceImageModelCandidatesFromText = (value = "", make = "") => {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  const makeText = normalizeModelLookupText(make);
+  const withoutQuery = text.split(/[?#]/)[0] || text;
+  const segments = withoutQuery
+    .split(/[/:]+/)
+    .flatMap((part) => part.split(/[._]+/))
+    .map((part) => part.replace(/\.(png|jpe?g|webp|avif|gif|svg)$/i, ""))
+    .filter(Boolean);
+
+  if (!makeText) return imageUrlCandidatesFromText(value, make);
+
+  const directoryModelCandidates = segments
+    .map((part, index) => {
+      const normalized = normalizeModelLookupText(part);
+      if (normalized !== makeText) return "";
+      return stripMakePrefix(segments[index + 1], make);
+    })
+    .filter((part) => part && part.length > 1);
+
+  return [...new Set(directoryModelCandidates)];
+};
+
+const tokensStartWith = (tokens = [], prefix = []) =>
+  prefix.length > 0 &&
+  prefix.every((token, index) => tokens[index] === token);
+
+const findTokenSequence = (tokens = [], sequence = [], fromIndex = 0) => {
+  if (!sequence.length) return -1;
+  for (let index = fromIndex; index <= tokens.length - sequence.length; index += 1) {
+    if (sequence.every((token, offset) => tokens[index + offset] === token)) {
+      return index;
+    }
+  }
+  return -1;
+};
+
+const modelCandidateFromNormalizedAssetUrl = (value = "", make = "") => {
+  const text = String(value || "").trim();
+  const makeText = normalizeModelLookupText(make);
+  if (!text || !makeText) return "";
+
+  const makeTokens = makeText.split(" ").filter(Boolean);
+  const withoutQuery = text.split(/[?#]/)[0] || text;
+  const parts = withoutQuery
+    .split(/[/:]+/)
+    .flatMap((part) => part.split(/[._]+/))
+    .map((part) => part.replace(/\.(png|jpe?g|webp|avif|gif|svg)$/i, ""))
+    .filter(Boolean);
+
+  for (const part of parts) {
+    const tokens = normalizeModelLookupText(part).split(" ").filter(Boolean);
+    if (!tokensStartWith(tokens, makeTokens)) continue;
+
+    const afterMake = tokens.slice(makeTokens.length);
+    const nextMakeIndex = findTokenSequence(afterMake, makeTokens);
+    const modelTokens =
+      nextMakeIndex > 0 ? afterMake.slice(0, nextMakeIndex) : [];
+
+    if (modelTokens.length) return modelTokens.join(" ");
+  }
+
+  return "";
+};
+
+const imageUrlModelScope = (value = "", requestedModel = "", make = "") => {
+  const modelKey = stripMakePrefix(requestedModel, make);
+  if (!value || !modelKey) return "unknown";
+
+  const normalizedAssetModel = modelCandidateFromNormalizedAssetUrl(value, make);
+  if (normalizedAssetModel) {
+    return normalizedAssetModel === modelKey ? "exact" : "mismatch";
+  }
+
+  const sourceCandidates = sourceImageModelCandidatesFromText(value, make);
+  if (sourceCandidates.some((candidate) => candidate === modelKey)) return "exact";
+  if (
+    sourceCandidates.some(
+      (candidate) =>
+        candidate.startsWith(`${modelKey} `) ||
+        modelKey.startsWith(`${candidate} `),
+    )
+  ) {
+    return "mismatch";
+  }
+
+  const text = normalizeModelLookupText(value);
+  const makeText = normalizeModelLookupText(make);
+  if (makeText && text.includes(`${makeText} ${modelKey}`)) return "exact";
+
+  return "unknown";
+};
+
+const SOURCE_IMAGE_MODEL_KEYS = [
+  "image_url",
+  "sourceImageUrl",
+  "source_image_url",
+  "originalImageUrl",
+  "original_image_url",
+  "rawImageUrl",
+  "raw_image_url",
+  "car_image_url",
+];
+
+const collectSourceImageModelCandidates = (owner = {}, make = "") => {
+  if (!owner || typeof owner !== "object") return [];
+
+  const candidates = [];
+  const push = (value) => {
+    sourceImageModelCandidatesFromText(value, make).forEach((candidate) => {
+      if (candidate) candidates.push(candidate);
+    });
+  };
+
+  SOURCE_IMAGE_MODEL_KEYS.forEach((key) => push(owner?.[key]));
+  SOURCE_IMAGE_MODEL_KEYS.forEach((key) => push(owner?.vehicle?.[key]));
+  SOURCE_IMAGE_MODEL_KEYS.forEach((key) => push(owner?.car?.[key]));
+
+  return [...new Set(candidates)];
+};
+
+const isSpecificModelSlugConflict = (candidate = "", requestedModel = "") =>
+  Boolean(candidate && requestedModel && candidate.startsWith(`${requestedModel} `));
+
+const collectImageCandidates = (value, depth = 0, owner = null) => {
+  if (!value || depth > 6) return [];
+
+  if (typeof value === "string") {
+    const imageUrl = getVehicleImage(value, null, null);
+    return imageUrl ? [{ imageUrl, owner }] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => collectImageCandidates(item, depth + 1, item));
+  }
+
+  if (typeof value !== "object") return [];
+
+  const candidates = [];
+  for (const key of IMAGE_KEYS) {
+    const imageUrl = getVehicleImage(value[key], null, null);
+    if (imageUrl) candidates.push({ imageUrl, owner: value });
+  }
+
+  Object.values(value).forEach((nested) => {
+    candidates.push(...collectImageCandidates(nested, depth + 1, value));
+  });
+
+  return candidates;
+};
+
+const classifyImageCandidate = (candidate, requestedModel, make = "") => {
+  if (!candidate?.imageUrl || !requestedModel) return "unknown";
+
+  const urlScope = imageUrlModelScope(candidate.imageUrl, requestedModel, make);
+  if (urlScope !== "unknown") return urlScope;
+
+  const sourceModels = collectSourceImageModelCandidates(candidate.owner, make);
+  if (sourceModels.some((model) => isSpecificModelSlugConflict(model, requestedModel))) {
+    return "mismatch";
+  }
+
+  const plausibleSourceModels = sourceModels.filter((model) =>
+    model.includes(requestedModel) || requestedModel.includes(model),
+  );
+  if (plausibleSourceModels.length) {
+    return plausibleSourceModels.some((model) => model === requestedModel)
+      ? "exact"
+      : "mismatch";
+  }
+
+  const explicitModels = collectModelCandidates(candidate.owner, make);
+  if (explicitModels.length) {
+    return explicitModels.some((model) => model === requestedModel)
+      ? "exact"
+      : "mismatch";
+  }
+
+  const urlModels = imageUrlCandidatesFromText(candidate.imageUrl, make);
+  const plausibleUrlModels = urlModels.filter((model) =>
+    model.includes(requestedModel) || requestedModel.includes(model),
+  );
+
+  if (!plausibleUrlModels.length) return "unknown";
+  return plausibleUrlModels.some((model) => model === requestedModel)
+    ? "exact"
+    : "mismatch";
+};
+
+const getRequestedVehicleModelKey = (vehicle = {}, widget = {}) => {
+  const make =
+    vehicle?.make ||
+    vehicle?.brand ||
+    widget?.vehicle?.make ||
+    widget?.vehicle?.brand ||
+    widget?.make ||
+    widget?.brand ||
+    "";
+  const values = [
+    vehicle?.model,
+    vehicle?.modelName,
+    vehicle?.displayName,
+    vehicle?.name,
+    widget?.vehicle?.model,
+    widget?.vehicle?.displayName,
+    widget?.model,
+    widget?.title,
+    widget?.headline,
+  ]
+    .map((value) =>
+      stripMakePrefix(String(value || "").replace(/\bprice\s*list\b/i, ""), make),
+    )
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length);
+
+  return {
+    make,
+    model: values[0] || "",
+  };
+};
+
+const getScopedVehicleImage = ({ vehicle, widget, rows, selectedRow, stableVisual }) => {
+  const { make, model } = getRequestedVehicleModelKey(vehicle, widget);
+  const sources = [
+    selectedRow,
+    widget?.selectedColor,
+    vehicle?.selectedColor,
+    stableVisual,
+    vehicle,
+    widget,
+    rows,
+  ];
+  const candidates = [];
+  const seen = new Set();
+
+  sources.forEach((source) => {
+    collectImageCandidates(source).forEach((candidate) => {
+      if (!candidate.imageUrl || seen.has(candidate.imageUrl)) return;
+      seen.add(candidate.imageUrl);
+      candidates.push(candidate);
+    });
+  });
+
+  if (!candidates.length) return "";
+  if (!model) return candidates[0].imageUrl;
+
+    const exact = candidates.find(
+      (candidate) => classifyImageCandidate(candidate, model, make) === "exact",
+    );
+    if (exact) return exact.imageUrl;
+
+    const safeModelText = String(model || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+    const safeMakeText = String(make || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+
+    const filenameExact = candidates.find((candidate) => {
+      const url = String(candidate.imageUrl || "").toLowerCase();
+
+      if (!url) return false;
+
+      // Thar should not accept Thar Roxx, but exact mahindra-thar files are safe.
+      if (
+        safeModelText === "thar" &&
+        /\bthar-roxx\b|thar%20roxx|thar_roxx/i.test(url)
+      ) {
+        return false;
+      }
+
+      return (
+        safeMakeText &&
+        safeModelText &&
+        (url.includes(
+          `${safeMakeText}-${safeModelText}-${safeMakeText}-${safeModelText}`,
+        ) ||
+          url.includes(`/${safeMakeText}/${safeModelText}/`) ||
+          url.includes(`/${safeMakeText}/${safeModelText}-`))
+      );
+    });
+
+    if (filenameExact) return filenameExact.imageUrl;
+
+    const unknown = candidates.find(
+      (candidate) =>
+        classifyImageCandidate(candidate, model, make) === "unknown",
+    );
+
+    return unknown?.imageUrl || "";
+};
+
 const getVehicleVisualGallery = (vehicle, widget, rows = []) => {
   const candidates = [
     widget?.selectedColor,
@@ -214,6 +525,126 @@ const getVehicleVisualGallery = (vehicle, widget, rows = []) => {
       seen.add(key);
       return true;
     });
+};
+
+
+const FRAME_KEYS = [
+  "imageFrame",
+  "image_frame",
+  "carImageFrame",
+  "car_image_frame",
+  "frame",
+];
+
+const getVehicleImageFrame = (...sources) => {
+  const searchValue = (value, depth = 0) => {
+    if (!value || depth > 7) return null;
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = searchValue(item, depth + 1);
+        if (found) return found;
+      }
+      return null;
+    }
+
+    if (typeof value === "object") {
+      for (const key of FRAME_KEYS) {
+        if (value[key] && typeof value[key] === "object") return value[key];
+      }
+
+      if (value.stageFrames || value.cssVars || value.bounds || value.normalizedBounds) {
+        return value;
+      }
+
+      for (const nested of Object.values(value)) {
+        const found = searchValue(nested, depth + 1);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  };
+
+  for (const source of sources) {
+    const found = searchValue(source);
+    if (found) return found;
+  }
+
+  return null;
+};
+
+const getStageFrame = (imageFrame, stageKey = "priceSide") => {
+  if (!imageFrame || typeof imageFrame !== "object") return null;
+
+  return (
+    imageFrame.stageFrames?.[stageKey] ||
+    imageFrame.stages?.[stageKey] ||
+    imageFrame[stageKey] ||
+    imageFrame.stageFrames?.priceSide ||
+    imageFrame.stageFrames?.default ||
+    imageFrame
+  );
+};
+
+const frameNumber = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const cssPercent = (value, fallback = 0, min = -8, max = 10) => {
+  const raw = typeof value === "string" && value.trim().endsWith("%")
+    ? Number(value.trim().slice(0, -1))
+    : frameNumber(value, fallback);
+
+  if (!Number.isFinite(raw)) return `${fallback}%`;
+  return `${clampNumber(raw, min, max)}%`;
+};
+
+const buildImageFrameStyle = (imageFrame, stageKey = "priceSide") => {
+  const frame = getStageFrame(imageFrame, stageKey);
+
+  if (!frame || typeof frame !== "object") return undefined;
+
+  const cssVars = {
+    ...(imageFrame?.cssVars || {}),
+    ...(frame?.cssVars || {}),
+  };
+
+  const scaleMax = stageKey === "mobileHero" ? 1.06 : 1.1;
+  const scale = clampNumber(
+    frameNumber(cssVars["--car-frame-scale"] || frame.scale || frame.zoom, 1),
+    0.82,
+    scaleMax,
+  );
+
+  const x =
+    cssVars["--car-frame-x"] ||
+    (frame.translateXPct ??
+      frame.translateXPercent ??
+      frame.translateX ??
+      frame.x ??
+      0);
+
+  const y =
+    cssVars["--car-frame-y"] ||
+    (frame.translateYPct ??
+      frame.translateYPercent ??
+      frame.translateY ??
+      frame.y ??
+      (stageKey === "mobileHero" ? 6 : 8));
+
+  const origin =
+    cssVars["--car-frame-origin"] || frame.transformOrigin || "center bottom";
+
+  return {
+    "--car-frame-scale": String(scale),
+    "--car-frame-x": cssPercent(x, 0, -9, 9),
+    "--car-frame-y": cssPercent(y, stageKey === "mobileHero" ? 4 : 6, -4, 10),
+    "--car-frame-origin": origin,
+  };
 };
 
 const getRawRows = ({ vehicle, widget, message }) => {
@@ -328,6 +759,250 @@ const getFuelTransmission = (row) => {
   );
 };
 
+const normalizeModelLookupText = (value = "") =>
+  compactText(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const stripMakePrefix = (value = "", make = "") => {
+  const text = normalizeModelLookupText(value);
+  const makeText = normalizeModelLookupText(make);
+
+  if (!makeText) return text;
+  if (text === makeText) return "";
+  if (text.startsWith(`${makeText} `)) return text.slice(makeText.length + 1);
+  return text;
+};
+
+const MODEL_MATCH_KEYS = [
+  "model",
+  "modelName",
+  "model_name",
+  "rawModel",
+  "raw_model",
+  "displayName",
+  "display_name",
+  "modelDisplayName",
+  "model_display_name",
+  "vehicleModel",
+  "vehicle_model",
+];
+
+const collectModelCandidates = (row = {}, make = "") => {
+  const candidates = [];
+  const push = (value) => {
+    const normalized = stripMakePrefix(value, make);
+    if (normalized) candidates.push(normalized);
+  };
+
+  MODEL_MATCH_KEYS.forEach((key) => push(row?.[key]));
+  MODEL_MATCH_KEYS.forEach((key) => push(row?.vehicle?.[key]));
+  MODEL_MATCH_KEYS.forEach((key) => push(row?.car?.[key]));
+
+  return [...new Set(candidates)];
+};
+
+const filterRowsByRequestedModel = ({
+  rows = [],
+  vehicle,
+  widget,
+  message,
+} = {}) => {
+  const requestedText = compactText(
+    vehicle?.displayName ||
+      vehicle?.model ||
+      widget?.vehicle?.displayName ||
+      widget?.vehicle?.model ||
+      widget?.title ||
+      widget?.headline ||
+      message?.title ||
+      "",
+  )
+    .replace(/\bprice\s*list\b/i, "")
+    .trim();
+
+  if (!requestedText || !Array.isArray(rows) || !rows.length) return rows;
+
+  const make = vehicle?.make || vehicle?.brand || widget?.vehicle?.make || widget?.vehicle?.brand || "";
+  const requestedModel = stripMakePrefix(requestedText, make);
+  const rowsWithModelInfo = rows.filter((row) =>
+    collectModelCandidates(row, make).length,
+  );
+  if (!requestedModel || !rowsWithModelInfo.length) return rows;
+
+  const filtered = rows.filter((row) => {
+    const candidates = collectModelCandidates(row, make);
+    if (!candidates.length) return true;
+    return candidates.some((candidate) => candidate === requestedModel);
+  });
+
+  return filtered.length ? filtered : rows;
+};
+
+const buildOtherChargeItems = (row = {}) => {
+  const items = [];
+  const seen = new Set();
+  const amountKeys = [
+    "amount",
+    "value",
+    "price",
+    "cost",
+    "charge",
+    "charges",
+    "total",
+    "totalAmount",
+    "total_amount",
+  ];
+  const labelKeys = [
+    "label",
+    "name",
+    "title",
+    "key",
+    "type",
+    "description",
+    "displayName",
+    "display_name",
+  ];
+  const ignoredLabels =
+    /^(total|subtotal|grand total|on road|on-road|ex showroom|ex-showroom|rto|road tax|insurance)$/i;
+
+  const pushItem = (label, amount) => {
+    const cleanLabel = humanize(label || "");
+    const parsedAmount = parseMoney(amount);
+
+    if (!cleanLabel || ignoredLabels.test(cleanLabel) || !parsedAmount) return;
+
+    const key = `${cleanLabel.toLowerCase()}|${parsedAmount}`;
+    if (seen.has(key)) return;
+
+    seen.add(key);
+    items.push({
+      label: cleanLabel,
+      amount: parsedAmount,
+    });
+  };
+
+  const firstValueForKeys = (source, keys) => {
+    if (!source || typeof source !== "object") return undefined;
+    for (const key of keys) {
+      if (source[key] !== undefined && source[key] !== null && source[key] !== "") {
+        return source[key];
+      }
+    }
+    return undefined;
+  };
+
+  const consumeObject = (value = {}, fallbackLabel = "Other charge", depth = 0) => {
+    if (!value || typeof value !== "object" || depth > 5) return;
+
+    const directAmount = firstValueForKeys(value, amountKeys);
+    const directLabel = firstValueForKeys(value, labelKeys);
+    if (directAmount !== undefined) {
+      pushItem(directLabel || fallbackLabel, directAmount);
+    }
+
+    Object.entries(value).forEach(([key, nested]) => {
+      if (amountKeys.includes(key) || labelKeys.includes(key)) return;
+      if (/^(exShowroom|ex_showroom|onRoad|on_road|insurance|rto|roadTax|road_tax)$/i.test(key)) return;
+
+      if (Array.isArray(nested)) {
+        consumeArray(nested, humanize(key), depth + 1);
+        return;
+      }
+
+      if (nested && typeof nested === "object") {
+        consumeObject(nested, humanize(key), depth + 1);
+        return;
+      }
+
+      if (typeof nested === "number" || typeof nested === "string") {
+        pushItem(key, nested);
+      }
+    });
+  };
+
+  const consumeArray = (list = []) => {
+    if (!Array.isArray(list)) return;
+
+    list.forEach((item, index) => {
+      if (typeof item === "number" || typeof item === "string") {
+        pushItem(`Charge ${index + 1}`, item);
+        return;
+      }
+
+      if (item && typeof item === "object") {
+        const amount = firstValueForKeys(item, amountKeys);
+        pushItem(
+          firstValueForKeys(item, labelKeys) || `Charge ${index + 1}`,
+          amount,
+        );
+        if (amount === undefined) consumeObject(item, `Charge ${index + 1}`);
+      }
+    });
+  };
+
+  const consumeSections = (sections = []) => {
+    if (!Array.isArray(sections)) return;
+
+    sections.forEach((section, sectionIndex) => {
+      if (Array.isArray(section?.items) && section.items.length) {
+        consumeArray(section.items);
+        return;
+      }
+
+      pushItem(
+        section?.label || section?.name || `Charge ${sectionIndex + 1}`,
+        section?.amount ?? section?.total ?? section?.value,
+      );
+    });
+  };
+
+  [
+    row.otherChargeItems,
+    row.other_charge_items,
+    row.otherChargesItems,
+    row.otherChargesList,
+    row.other_charges_list,
+    row.otherChargesBreakup,
+    row.other_charges_breakup,
+    row.optionalChargeItems,
+    row.optional_charge_items,
+    row.optionalItems,
+    row.optional_items,
+    row.optionalCharges,
+    row.optional_charges,
+    row.accessoryItems,
+    row.accessory_items,
+    row.accessories,
+    row.addOns,
+    row.addons,
+    row.add_ons,
+    row.additionalCharges,
+    row.additional_charges,
+    row.otherListItems,
+    row.otherItems,
+    row.other_items,
+    row.otherChargesTooltip?.items,
+    row.priceBreakup?.otherChargeItems,
+    row.priceBreakup?.other,
+    row.priceBreakup?.optional,
+    row.price_breakup?.otherChargeItems,
+    row.price_breakup?.other,
+    row.price_breakup?.optional,
+  ].forEach((source) => {
+    if (Array.isArray(source)) consumeArray(source);
+    else if (source && typeof source === "object") consumeObject(source);
+  });
+
+  consumeSections(row.otherChargesTooltip?.sections);
+  consumeSections(row.priceBreakup?.detailSections);
+  consumeSections(row.price_breakup?.detailSections);
+
+  return items;
+};
+
 const pricePartsFromRow = (row = {}) => {
   const exShowroom =
     parseMoney(
@@ -356,6 +1031,8 @@ const pricePartsFromRow = (row = {}) => {
         row.insuranceAmount,
     ) || 0;
 
+  const detailedItems = buildOtherChargeItems(row);
+
   const otherRaw =
     row.otherCharges ||
     row.other_charges ||
@@ -366,10 +1043,10 @@ const pricePartsFromRow = (row = {}) => {
     row.breakup ||
     [];
 
-  let listItems = [];
+  let fallbackItems = [];
 
   if (Array.isArray(otherRaw)) {
-    listItems = otherRaw
+    fallbackItems = otherRaw
       .map((item, index) => {
         if (typeof item === "number" || typeof item === "string") {
           return {
@@ -377,6 +1054,7 @@ const pricePartsFromRow = (row = {}) => {
             amount: parseMoney(item),
           };
         }
+
         return {
           label:
             item.label ||
@@ -390,7 +1068,7 @@ const pricePartsFromRow = (row = {}) => {
       })
       .filter((item) => item.amount);
   } else if (otherRaw && typeof otherRaw === "object") {
-    listItems = Object.entries(otherRaw)
+    fallbackItems = Object.entries(otherRaw)
       .map(([label, amount]) => ({
         label: humanize(label),
         amount: parseMoney(amount),
@@ -398,10 +1076,17 @@ const pricePartsFromRow = (row = {}) => {
       .filter((item) => item.amount);
   }
 
+  const otherBreakupItems = detailedItems.length ? detailedItems : fallbackItems;
+
   const listTotal =
     parseMoney(
-      row.other ?? row.otherAmount ?? row.otherChargesTotal ?? row.miscCharges,
-    ) || listItems.reduce((sum, item) => sum + item.amount, 0);
+      row.other ??
+        row.otherAmount ??
+        row.otherChargesTotal ??
+        row.miscCharges ??
+        row.priceBreakup?.otherCharges ??
+        row.otherChargesTooltip?.amount,
+    ) || otherBreakupItems.reduce((sum, item) => sum + item.amount, 0);
 
   const onRoad =
     parseMoney(
@@ -415,12 +1100,25 @@ const pricePartsFromRow = (row = {}) => {
     exShowroom + rto + insurance + listTotal ||
     0;
 
-  return { exShowroom, rto, insurance, listItems, listTotal, onRoad };
+  return {
+    exShowroom,
+    rto,
+    insurance,
+    listItems: otherBreakupItems,
+    otherBreakupItems,
+    listTotal,
+    onRoad,
+  };
 };
 
 const normalizeRows = ({ vehicle, widget, message }) => {
   const rawRows = getRawRows({ vehicle, widget, message });
-  const sourceRows = rawRows.length ? rawRows : [];
+  const sourceRows = filterRowsByRequestedModel({
+    rows: rawRows.length ? rawRows : [],
+    vehicle,
+    widget,
+    message,
+  });
 
   const normalizedRows = sourceRows.map((row, index) => {
     const parts = pricePartsFromRow(row);
@@ -628,13 +1326,22 @@ function DesktopHeader({ data, onAction }) {
   );
 }
 
-function VehicleArtwork({ image, imageFailed, vehicle, className = "" }) {
+function VehicleArtwork({
+  image,
+  imageFailed,
+  vehicle,
+  imageFrame = null,
+  className = "",
+}) {
   const hasImage = Boolean(image) && !imageFailed;
   const modelLabel = getVehicleModel(vehicle);
+  const stageKey = className.includes("mobile") ? "mobileHero" : "priceSide";
+  const frameStyle = buildImageFrameStyle(imageFrame, stageKey);
 
   return (
     <div
       className={`price-car-art ${className} ${hasImage ? "has-image" : "no-image"}`}
+      style={frameStyle}
     >
       {hasImage ? (
         <CarImageStage
@@ -809,8 +1516,59 @@ function DesktopPriceTable({
   setActiveFilters,
   onRowSelect,
 }) {
+  const tableCardRef = useRef(null);
+  const closeBreakup = () => setOpenBreakupKey(null);
+  const showBreakup = (event, rowKey, parts, index) => {
+    event.stopPropagation();
+
+    const rect = event.currentTarget.getBoundingClientRect();
+    const cardRect = tableCardRef.current?.getBoundingClientRect();
+    const containerWidth = cardRect?.width || window.innerWidth;
+    const panelWidth = Math.min(300, Math.max(240, containerWidth - 24));
+    const panelHeight = Math.min(
+      250,
+      58 + Math.max(parts.listItems.length, 1) * 31,
+    );
+    const gap = 10;
+    const left = Math.min(
+      Math.max(12, rect.left - (cardRect?.left || 0) + rect.width / 2 - panelWidth / 2),
+      Math.max(12, containerWidth - panelWidth - 12),
+    );
+    const hasRoomBelow =
+      (cardRect?.bottom || window.innerHeight) - rect.bottom > panelHeight + gap;
+    const placement = hasRoomBelow || rect.top < panelHeight + gap ? "bottom" : "top";
+    const top =
+      placement === "bottom"
+        ? rect.bottom - (cardRect?.top || 0) + gap
+        : rect.top - (cardRect?.top || 0) - gap;
+
+    setOpenBreakupKey({
+      key: rowKey,
+      index,
+      placement,
+      style: {
+        "--breakup-left": `${left}px`,
+        "--breakup-top": `${top}px`,
+        "--breakup-width": `${panelWidth}px`,
+      },
+      total: parts.listTotal,
+      items: parts.listItems.length
+        ? parts.listItems
+        : [
+            {
+              label: "Other charges",
+              amount: parts.listTotal,
+            },
+          ],
+    });
+  };
+
   return (
-    <motion.section className="price-table-card" variants={fadeUp}>
+    <motion.section
+      className="price-table-card"
+      variants={fadeUp}
+      ref={tableCardRef}
+    >
       <div className="table-head">
         <FilterPills
           rows={allRows}
@@ -898,42 +1656,26 @@ function DesktopPriceTable({
                           <button
                             type="button"
                             aria-label="Show other charge breakup"
-                            onMouseEnter={() => setOpenBreakupKey(rowKey)}
-                            onFocus={() => setOpenBreakupKey(rowKey)}
+                            aria-expanded={openBreakupKey?.key === rowKey}
+                            onMouseEnter={(event) =>
+                              showBreakup(event, rowKey, parts, index)
+                            }
+                            onFocus={(event) =>
+                              showBreakup(event, rowKey, parts, index)
+                            }
                             onClick={(event) => {
-                              event.stopPropagation();
-                              setOpenBreakupKey(
-                                openBreakupKey === rowKey ? null : rowKey,
-                              );
+                              if (openBreakupKey?.key === rowKey) {
+                                event.stopPropagation();
+                                closeBreakup();
+                                return;
+                              }
+
+                              showBreakup(event, rowKey, parts, index);
                             }}
+                            onBlur={closeBreakup}
                           >
                             <Info size={13} />
                           </button>
-                          {openBreakupKey === rowKey ? (
-                            <div
-                              className={`breakup-popover ${index >= rows.length - 3 ? "top" : ""}`}
-                              onMouseLeave={() => setOpenBreakupKey(null)}
-                            >
-                              <div>
-                                <strong>Breakup</strong>
-                                <b>{formatAmount(parts.listTotal)}</b>
-                              </div>
-                              {(parts.listItems.length
-                                ? parts.listItems
-                                : [
-                                    {
-                                      label: "Other charges",
-                                      amount: parts.listTotal,
-                                    },
-                                  ]
-                              ).map((item, itemIndex) => (
-                                <p key={`${item.label}-${itemIndex}`}>
-                                  <span>{item.label}</span>
-                                  <b>{formatAmount(item.amount)}</b>
-                                </p>
-                              ))}
-                            </div>
-                          ) : null}
                         </div>
                       ) : (
                         <span className="muted">—</span>
@@ -956,6 +1698,25 @@ function DesktopPriceTable({
           </tbody>
         </table>
       </div>
+      {openBreakupKey ? (
+        <div
+          className={`breakup-popover floating ${openBreakupKey.placement || "bottom"}`}
+          style={openBreakupKey.style}
+          onMouseLeave={closeBreakup}
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div>
+            <strong>Breakup</strong>
+            <b>{formatAmount(openBreakupKey.total)}</b>
+          </div>
+          {openBreakupKey.items.map((item, itemIndex) => (
+            <p key={`${item.label}-${itemIndex}`}>
+              <span>{item.label}</span>
+              <b>{formatAmount(item.amount)}</b>
+            </p>
+          ))}
+        </div>
+      ) : null}
       <small>
         *On-road price includes RTO, insurance and other applicable charges.
       </small>
@@ -969,6 +1730,7 @@ function SideSummary({
   selectedParts,
   city,
   image,
+  imageFrame,
   imageFailed,
   onAction,
   onSelectRow,
@@ -991,6 +1753,7 @@ function SideSummary({
 
         <VehicleArtwork
           image={image}
+          imageFrame={imageFrame}
           imageFailed={imageFailed}
           vehicle={vehicle}
           className="side-art"
@@ -1132,6 +1895,7 @@ function MobileHero({
   city,
   count,
   image,
+  imageFrame,
   imageFailed,
 }) {
   return (
@@ -1147,6 +1911,7 @@ function MobileHero({
       </div>
       <VehicleArtwork
         image={image}
+        imageFrame={imageFrame}
         imageFailed={imageFailed}
         vehicle={vehicle}
         className="mobile-hero-art"
@@ -1183,18 +1948,21 @@ function MobileVariantRow({ row, index, active, expanded = false, onClick }) {
 }
 
 function MobileInlinePriceBreakup({ open, row, city, vehicle, onAction }) {
+  const [showOtherBreakup, setShowOtherBreakup] = useState(false);
+
+  useEffect(() => {
+    if (!open) setShowOtherBreakup(false);
+  }, [open, row?.id, row?.variant]);
+
   if (!open || !row) return null;
 
   const parts = pricePartsFromRow(row);
+  const hasOtherBreakup = parts.listItems?.length > 0;
   const items = [
     ["Ex-showroom price", parts.exShowroom],
     ["RTO charges", parts.rto],
     ["Insurance", parts.insurance],
-    ...(parts.listItems?.length
-      ? parts.listItems.map((item) => [item.label, item.amount])
-      : parts.listTotal
-        ? [["Other charges", parts.listTotal]]
-        : []),
+    ...(parts.listTotal ? [["Other charges", parts.listTotal]] : []),
   ].filter(([, value]) => Number(value || 0));
 
   return (
@@ -1217,10 +1985,41 @@ function MobileInlinePriceBreakup({ open, row, city, vehicle, onAction }) {
 
           <div className="mobile-inline-breakup-lines">
             {items.map(([label, value]) => (
-              <div key={label}>
-                <span>{label}</span>
-                <b>{formatAmount(value)}</b>
+              <React.Fragment key={label}>
+              <div className={label === "Other charges" ? "other-summary-line" : ""}>
+                <span className="mobile-line-label">
+                  {label}
+                  {label === "Other charges" && hasOtherBreakup ? (
+                    <button
+                      type="button"
+                      className="mobile-other-breakup-toggle"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setShowOtherBreakup((previous) => !previous);
+                      }}
+                    >
+                      {showOtherBreakup ? "Hide" : "View breakup"}
+                    </button>
+                  ) : null}
+                </span>
+                <span className="mobile-line-value">
+                  <b>{formatAmount(value)}</b>
+                </span>
               </div>
+              {label === "Other charges" && hasOtherBreakup ? (
+                <div
+                  className={`mobile-other-breakup-list ${showOtherBreakup ? "open" : ""}`}
+                  aria-hidden={!showOtherBreakup}
+                >
+                  {parts.listItems.map((item, itemIndex) => (
+                    <p key={`${item.label}-${itemIndex}`}>
+                      <span>{item.label}</span>
+                      <b>{formatAmount(item.amount)}</b>
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+              </React.Fragment>
             ))}
             <footer>
               <span>Est. on-road price</span>
@@ -1290,6 +2089,7 @@ function MobilePage({
   maxPrice,
   city,
   image,
+  imageFrame,
   imageFailed,
   onAction,
   onSelectRow,
@@ -1374,6 +2174,7 @@ function MobilePage({
         city={city}
         count={allRows.length}
         image={image}
+        imageFrame={imageFrame}
         imageFailed={imageFailed}
       />
 
@@ -1487,6 +2288,7 @@ function DesktopPage({
   maxPrice,
   city,
   image,
+  imageFrame,
   imageFailed,
   onAction,
   onSelectRow,
@@ -1535,6 +2337,7 @@ function DesktopPage({
           selectedParts={selectedParts}
           city={city}
           image={image}
+          imageFrame={imageFrame}
           imageFailed={imageFailed}
           onAction={onAction}
         />
@@ -1592,7 +2395,6 @@ export default function AciAssistPriceListScreen({
     transmission: "all",
   });
   const [mobileBudgetMax, setMobileBudgetMax] = useState(0);
-  const [visualIndex, setVisualIndex] = useState(0);
 
   useEffect(() => {
     if (!rows.length) return;
@@ -1606,41 +2408,45 @@ export default function AciAssistPriceListScreen({
     0,
     rows.findIndex((row, index) => rowKeyOf(row, index) === selectedRowKey),
   );
-  const selectedRow = rows[selectedIndex] || rows[0] || {};
+  const selectedRow = rows[selectedIndex] || rows[0] || EMPTY_ROW;
   const selectedParts = pricePartsFromRow(selectedRow);
   const city = getVehicleCity(activeVehicle, widget);
   const visualGallery = useMemo(
     () => getVehicleVisualGallery(activeVehicle, widget, rows),
     [activeVehicle, widget, rows],
   );
-  const activeVisual = visualGallery.length
-    ? visualGallery[visualIndex % visualGallery.length]
-    : null;
+  const stableVisual = visualGallery[0] || null;
   const fallbackImage = useMemo(
     () =>
-      getVehicleImage(selectedRow, widget, rows) ||
-      getVehicleImage(activeVehicle, widget, rows),
-    [selectedRow, activeVehicle, widget, rows],
+      getScopedVehicleImage({
+        vehicle: activeVehicle,
+        widget,
+        rows,
+        selectedRow,
+        stableVisual,
+      }) || "",
+    [selectedRow, activeVehicle, widget, rows, stableVisual],
   );
-  const image =
-    activeVisual?.imageUrl || activeVisual?.normalizedImageUrl || fallbackImage;
-
-  const rotateVisual = () => {
-    setVisualIndex((previous) =>
-      visualGallery.length ? (previous + 1) % visualGallery.length : previous,
-    );
-  };
+  const image = fallbackImage;
+  const imageFrame = useMemo(
+    () =>
+      getVehicleImageFrame(
+        selectedRow,
+        activeVehicle,
+        widget?.selectedColor,
+        activeVehicle?.selectedColor,
+        stableVisual,
+        widget,
+        rows,
+      ),
+    [selectedRow, activeVehicle, widget, stableVisual, rows],
+  );
 
   const handleSelectRow = (rowKey) => {
     setSelectedRowKey(rowKey);
-    rotateVisual();
   };
 
   useEffect(() => setImageFailed(false), [image]);
-  useEffect(
-    () => setVisualIndex(0),
-    [visualGallery.length, activeVehicle?.model, widget?.title],
-  );
 
   const mobileBudgetValues = useMemo(
     () => rows.map(rowExShowroomValue).filter(Boolean),
@@ -1755,6 +2561,7 @@ export default function AciAssistPriceListScreen({
         maxPrice={maxPrice}
         city={city}
         image={image}
+        imageFrame={imageFrame}
         imageFailed={imageFailed}
         onAction={onAction}
         onSelectRow={handleSelectRow}
@@ -1777,6 +2584,7 @@ export default function AciAssistPriceListScreen({
         maxPrice={maxPrice}
         city={city}
         image={image}
+        imageFrame={imageFrame}
         imageFailed={imageFailed}
         onAction={onAction}
         onSelectRow={handleSelectRow}
@@ -1979,12 +2787,14 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 }
 .table-head {
   flex: 0 0 auto;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
+  padding-top: 2px;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
+  overflow: visible;
 }
 .table-head p { margin: 0; color: #94a3b8; font-size: 11px; font-weight: 750; }
 .price-filter-pills {
@@ -1992,6 +2802,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   flex-wrap: wrap;
   align-items: center;
   gap: 8px 12px;
+  padding: 1px 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
@@ -2018,13 +2829,13 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   min-width: 0;
 }
 .price-filter-pills button {
-  min-height: 34px;
+  min-height: 29px;
   height: auto;
   border-radius: 999px;
   border: 1px solid #dbe3ef;
   background: #fff;
   color: #475569;
-  padding: 7px 13px;
+  padding: 4px 11px;
   font-size: 11.5px;
   line-height: 1.2;
   font-weight: 780;
@@ -2081,12 +2892,6 @@ td .on-road { color: var(--blue); }
 .other-cell { position: relative; display: inline-flex; align-items: center; gap: 3px; }
 .other-cell button { width: 24px; height: 24px; border: 0; background: transparent; color: #94a3b8; display: grid; place-items: center; border-radius: 999px; }
 .other-cell button:hover { background: #eff6ff; color: var(--blue); }
-.breakup-popover { position: absolute; left: 0; top: 30px; z-index: 999; width: 280px; border-radius: 18px; border: 1px solid #dbe3ef; background: white; padding: 12px; box-shadow: 0 18px 50px -20px rgba(15,23,42,.35); }
-.breakup-popover.top { top: auto; bottom: 30px; }
-.breakup-popover div, .breakup-popover p { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0; }
-.breakup-popover div { border-bottom: 1px solid #e2e8f0; padding-bottom: 9px; margin-bottom: 9px; }
-.breakup-popover strong, .breakup-popover span { color: #64748b; font-size: 12px; font-weight: 800; }
-.breakup-popover b { color: #0f172a; font-size: 12px; font-weight: 900; }
 .empty-row { text-align: center; padding: 48px 16px; color: #64748b; }
 .price-table-card > small { display: block; margin-top: 9px; color: #94a3b8; font-size: 11px; font-weight: 650; }
 
@@ -2102,6 +2907,13 @@ td .on-road { color: var(--blue); }
   padding-bottom: 4px;
 }
 .side-card { border-radius: 20px; padding: 14px; }
+.selected-summary {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 76% 28%, rgba(37,99,235,.13), transparent 34%),
+    radial-gradient(ellipse at 48% 70%, rgba(15,23,42,.055), transparent 48%),
+    linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #eef6ff 100%) !important;
+}
 .side-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
 .side-head h3, .side-card h3 { margin: 0; color: #0f172a; font-size: 13px; font-weight: 900; }
 .side-head > span:not(.icon-box) { color: #059669; display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 900; }
@@ -2113,12 +2925,9 @@ td .on-road { color: var(--blue); }
   margin-top: 12px;
   border-radius: 26px;
   overflow: hidden;
-  border: 1px solid rgba(203,213,225,.96);
-  background:
-    radial-gradient(circle at 78% 20%, rgba(37,99,235,.18), transparent 32%),
-    radial-gradient(circle at 22% 92%, rgba(15,23,42,.10), transparent 28%),
-    linear-gradient(135deg, #ffffff 0%, #f7fbff 44%, #eaf3ff 100%);
-  box-shadow: 0 22px 52px -42px rgba(15,23,42,.48), inset 0 1px 0 #fff;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
 }
 .side-art::after {
   content: "";
@@ -2188,28 +2997,30 @@ td .on-road { color: var(--blue); }
   .mobile-price-title p { margin: 4px 0 0; color: #64748b; font-size: 12.5px; line-height: 1.3; font-weight: 520; }
   .mobile-back-link { border: 0; background: transparent; color: var(--blue); display: inline-flex; align-items: center; gap: 7px; padding: 0; font-size: 11.5px; font-weight: 800; }
   .mobile-price-hero {
-    min-height: 118px;
+    min-height: 134px;
     padding: 12px;
     border-radius: 22px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 150px;
+    grid-template-columns: minmax(0, .86fr) minmax(150px, 1.14fr);
     align-items: center;
     gap: 10px;
-    background: #fff;
+    background:
+      radial-gradient(circle at 74% 26%, rgba(37,99,235,.14), transparent 34%),
+      radial-gradient(ellipse at 62% 82%, rgba(15,23,42,.08), transparent 44%),
+      linear-gradient(135deg, #ffffff 0%, #f8fbff 48%, #eef6ff 100%);
+    overflow: hidden;
   }
   .mobile-price-hero h2 { margin: 0; color: #07102b; font-size: 20px; line-height: 1.02; letter-spacing: -.04em; font-weight: 780; }
   .mobile-price-hero strong { display: block; margin-top: 6px; color: var(--blue); font-size: 20px; line-height: 1; letter-spacing: -.04em; }
   .mobile-price-hero p { margin: 5px 0 0; color: #64748b; font-size: 10.8px; font-weight: 680; }
   .mobile-hero-art {
     position: relative;
-    width: 150px;
-    height: 112px;
+    width: 100%;
+    height: 126px;
     border-radius: 22px;
     overflow: hidden;
-    border: 1px solid rgba(203,213,225,.9);
-    background:
-      radial-gradient(circle at 72% 22%, rgba(37,99,235,.18), transparent 34%),
-      linear-gradient(135deg, #fff 0%, #f7fbff 44%, #eaf3ff 100%);
+    border: 0;
+    background: transparent;
   }
   .mobile-hero-art::after {
     content: "";
@@ -2224,12 +3035,12 @@ td .on-road { color: var(--blue); }
     pointer-events: none;
   }
   .mobile-hero-art .price-car-stage-image {
-    width: 132%;
-    height: 96%;
+    width: 118%;
+    height: 104%;
     max-width: none;
     object-fit: contain;
     object-position: center bottom;
-    transform: translateY(6px) scale(1.04);
+    transform: translateY(6px) scale(1.08);
   }
   .mobile-filter-sticky-wrap {
     position: sticky;
@@ -2277,6 +3088,13 @@ td .on-road { color: var(--blue); }
   .mobile-inline-breakup-lines span, .mobile-inline-breakup-lines b { font-size: 11.5px; }
   .mobile-inline-breakup-lines span { color: #64748b; font-weight: 700; }
   .mobile-inline-breakup-lines b { color: #0f172a; font-weight: 900; }
+  .mobile-line-value { display: inline-flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  .mobile-other-breakup-toggle { min-height: 26px; border-radius: 999px; border: 1px solid rgba(37,99,235,.18); background: #eff6ff; color: var(--blue); padding: 0 10px; font-size: 10.2px; line-height: 1; font-weight: 900; }
+  .mobile-other-breakup-list { display: flex !important; flex-direction: column; align-items: stretch !important; gap: 6px !important; margin: -2px 0 2px; padding: 8px 10px; border-radius: 14px; background: #f8fbff; border: 1px solid rgba(191,219,254,.75); overflow: hidden; }
+  .mobile-other-breakup-list p { margin: 0; display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .mobile-other-breakup-list span, .mobile-other-breakup-list b { font-size: 10.8px; }
+  .mobile-other-breakup-list span { color: #64748b; font-weight: 720; }
+  .mobile-other-breakup-list b { color: #0f172a; font-weight: 900; }
   .mobile-inline-breakup-lines footer { border-top: 1px solid #e2e8f0; padding-top: 10px; }
   .mobile-inline-breakup-lines footer strong { color: var(--blue); font-size: 15.5px; }
   .mobile-inline-breakup-actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 10px; }
@@ -2287,8 +3105,8 @@ td .on-road { color: var(--blue); }
 
 @media (max-width: 390px) {
   .mobile-price-title h1 { font-size: 24px; }
-  .mobile-price-hero { grid-template-columns: minmax(0, 1fr) 96px; }
-  .mobile-hero-art { width: 96px; }
+  .mobile-price-hero { grid-template-columns: minmax(0, .9fr) minmax(112px, 1.1fr); }
+  .mobile-hero-art { width: 100%; }
   .mobile-variant-row { grid-template-columns: minmax(0, .85fr) minmax(100px, 1fr) auto 14px; padding: 9px 10px; }
   .mobile-variant-main h3 { font-size: 12.2px; }
   .fuel-transmission-label.compact { font-size: 10px; gap: 3px; }
@@ -2321,8 +3139,13 @@ td .on-road { color: var(--blue); }
 @media (max-width: 1180px) {
   .price-desktop-header, .price-desktop-page { display: none !important; }
   .price-mobile-page { display: flex; }
-  .mobile-price-hero { min-height: 156px; grid-template-columns: minmax(0, 1fr) 136px; padding: 15px; border-radius: 28px; }
-  .mobile-hero-art { width: 136px; height: 118px; }
+  .mobile-price-hero {
+    min-height: 164px;
+    grid-template-columns: minmax(0, .82fr) minmax(150px, 1.18fr);
+    padding: 15px;
+    border-radius: 28px;
+  }
+  .mobile-hero-art { width: 100%; height: 136px; }
   .mobile-hero-art .price-fallback-stage { min-height: 118px; border-radius: 24px; }
   .mobile-filter-sticky-wrap { position: relative; z-index: 140; min-height: var(--mobile-controls-height, auto); background: transparent; box-shadow: none; padding: 0; }
   .mobile-filter-sticky-inner { display: flex; flex-direction: column; gap: 8px; padding: 9px 0 10px; background: linear-gradient(180deg, rgba(255,255,255,1), rgba(255,255,255,.94)); backdrop-filter: blur(18px); border-bottom: 1px solid rgba(219,227,239,.72); }
@@ -2335,8 +3158,8 @@ td .on-road { color: var(--blue); }
 }
 
 @media (max-width: 390px) {
-  .mobile-price-hero { grid-template-columns: minmax(0, 1fr) 110px; }
-  .mobile-hero-art { width: 110px; height: 96px; }
+  .mobile-price-hero { grid-template-columns: minmax(0, .9fr) minmax(118px, 1.1fr); }
+  .mobile-hero-art { width: 100%; height: 112px; }
 }
 
 /* ACI_PRICE_MOBILE_SHELL_LOCK_START */
@@ -2408,7 +3231,7 @@ td .on-road { color: var(--blue); }
 
 /* ACI_PRICE_MOBILE_SHELL_LOCK_END */
 
-/* ACI_PRICE_SPACING_TABLE_FIX_START */
+/* ACI_PRICE_CANONICAL_IMAGE_BREAKUP_FIX_START */
 
 /* Mobile/tablet shell: remove dead-looking white gap above chatbar */
 @media (max-width: 1180px) {
@@ -2431,36 +3254,69 @@ td .on-road { color: var(--blue); }
   .aci-price-root .aci-v2-chatdock {
     bottom: calc(8px + env(safe-area-inset-bottom)) !important;
   }
-
-  .mobile-variant-list::after {
-    content: "";
-    display: block;
-    height: 4px;
-  }
 }
 
-/* True phone width: keep enough safe bottom space, but not a huge blank band */
-@media (max-width: 460px) {
-  .price-mobile-page {
-    padding-bottom: calc(38px + env(safe-area-inset-bottom)) !important;
-  }
-
-  .mobile-variant-list {
-    padding-bottom: calc(34px + env(safe-area-inset-bottom)) !important;
-  }
-}
-
-/* Small laptop / tablet desktop breakpoint: make table breathe */
-@media (min-width: 1181px) and (max-width: 1360px) {
+@media (min-width: 1181px) {
   .aci-price-root .price-desktop-page {
-    grid-template-columns: minmax(0, 1fr) 320px !important;
+    grid-template-columns: minmax(0, 1fr) 300px !important;
     gap: 12px !important;
-    padding-left: 28px !important;
-    padding-right: 28px !important;
+  }
+
+  .aci-price-root .price-side {
+    max-width: 300px !important;
   }
 
   .aci-price-root .price-table-card {
     padding: 12px !important;
+    position: relative !important;
+    overflow: visible !important;
+  }
+
+  .aci-price-root .price-filter-pills {
+    min-height: 34px !important;
+    align-items: center !important;
+  }
+
+  .aci-price-root .price-filter-pills button,
+  .aci-price-root .location-pill {
+    min-height: 30px !important;
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    line-height: 1.05 !important;
+  }
+
+  .aci-price-root .price-table-wrap table,
+  .aci-price-root .price-table-wrap tbody,
+  .aci-price-root .price-table-wrap tr,
+  .aci-price-root .price-table-wrap td {
+    overflow: visible !important;
+  }
+
+  .aci-price-root .price-table-wrap tbody tr {
+    height: 68px !important;
+  }
+
+  .aci-price-root .price-table-wrap td {
+    padding-top: 15px !important;
+    padding-bottom: 15px !important;
+    vertical-align: middle !important;
+  }
+
+  .aci-price-root .side-card {
+    padding: 13px !important;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1360px) {
+  .aci-price-root .price-desktop-page {
+    grid-template-columns: minmax(0, 1fr) 280px !important;
+    gap: 10px !important;
+    padding-left: 22px !important;
+    padding-right: 22px !important;
+  }
+
+  .aci-price-root .price-side {
+    max-width: 280px !important;
   }
 
   .aci-price-root .price-table-wrap table {
@@ -2474,12 +3330,7 @@ td .on-road { color: var(--blue); }
   }
 
   .aci-price-root .price-table-wrap td {
-    padding: 12px 7px !important;
-    vertical-align: middle !important;
-  }
-
-  .aci-price-root .price-table-wrap tbody tr {
-    height: 58px !important;
+    padding: 15px 6px !important;
   }
 
   .aci-price-root .desktop-fuel-transmission {
@@ -2490,9 +3341,9 @@ td .on-road { color: var(--blue); }
     row-gap: 4px !important;
     column-gap: 5px !important;
     white-space: normal !important;
-    line-height: 1.05 !important;
-    font-size: 11px !important;
-    max-width: 94px !important;
+    line-height: 1.08 !important;
+    font-size: 10.5px !important;
+    max-width: 82px !important;
   }
 
   .aci-price-root .desktop-fuel-transmission em {
@@ -2503,121 +3354,354 @@ td .on-road { color: var(--blue); }
     width: 12px !important;
     height: 12px !important;
   }
-
-  .aci-price-root .price-table-wrap td:nth-child(4) b,
-  .aci-price-root .price-table-wrap td:nth-child(8) b {
-    font-size: 11.2px !important;
-    letter-spacing: -0.02em !important;
-  }
-
-  .aci-price-root .price-table-wrap td strong {
-    font-size: 11.5px !important;
-    line-height: 1.15 !important;
-  }
-
-  .aci-price-root .side-card {
-    padding: 13px !important;
-  }
-
-  .aci-price-root .selected-summary h4 {
-    font-size: 16px !important;
-  }
-
-  .aci-price-root .side-price strong,
-  .aci-price-root .emi-card > strong {
-    font-size: 22px !important;
-  }
 }
 
-/* Even tighter laptop: prioritize neatness over density */
-@media (min-width: 1181px) and (max-width: 1260px) {
-  .aci-price-root .price-desktop-page {
-    grid-template-columns: minmax(0, 1fr) 300px !important;
-    padding-left: 22px !important;
-    padding-right: 22px !important;
+.price-car-art {
+  --car-frame-scale: 1;
+  --car-frame-x: 0%;
+  --car-frame-y: 4%;
+  --car-frame-origin: center bottom;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.price-car-art.has-image::before {
+  content: "";
+  position: absolute;
+  left: 13%;
+  right: 9%;
+  bottom: 7%;
+  height: 22%;
+  border-radius: 999px;
+  background: radial-gradient(ellipse, rgba(15, 23, 42, .20), transparent 72%);
+  filter: blur(14px);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.price-car-art.has-image::after,
+.selected-summary .aci-car-stage-glow,
+.mobile-price-hero .aci-car-stage-glow {
+  display: none !important;
+}
+
+.aci-car-image-stage,
+.price-car-stage,
+.price-car-art picture,
+.price-car-art figure {
+  position: relative !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: grid !important;
+  place-items: center !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.price-car-stage-image {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center bottom !important;
+  transform-origin: var(--car-frame-origin) !important;
+  transform: translate(var(--car-frame-x), var(--car-frame-y)) scale(var(--car-frame-scale)) !important;
+  filter: drop-shadow(0 24px 20px rgba(15, 23, 42, .20)) !important;
+  mix-blend-mode: multiply;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+.selected-summary {
+  background:
+    radial-gradient(circle at 78% 22%, rgba(37, 99, 235, .13), transparent 30%),
+    radial-gradient(ellipse at 58% 78%, rgba(37, 99, 235, .12), transparent 46%),
+    linear-gradient(135deg, #ffffff 0%, #f7fbff 45%, #eaf3ff 100%) !important;
+  padding-bottom: 18px !important;
+  overflow: hidden !important;
+}
+
+.selected-summary .side-art {
+  margin: 8px 0 0 !important;
+  height: 176px !important;
+  width: 100% !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.selected-summary .side-price {
+  margin-top: 10px !important;
+  padding-top: 10px !important;
+}
+
+.other-cell {
+  position: relative !important;
+  min-width: 0;
+  isolation: isolate;
+  z-index: 5;
+}
+
+.breakup-popover {
+  position: absolute !important;
+  left: var(--breakup-left, 12px) !important;
+  right: auto !important;
+  top: var(--breakup-top, 12px) !important;
+  bottom: auto !important;
+  z-index: 2200 !important;
+  width: var(--breakup-width, min(300px, calc(100vw - 24px))) !important;
+  max-width: 300px !important;
+  border-radius: 18px !important;
+  border: 1px solid rgba(203, 213, 225, .98) !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
+  background-image: none !important;
+  background-clip: padding-box !important;
+  padding: 12px 14px !important;
+  box-shadow: 0 24px 64px -30px rgba(15, 23, 42, .38), inset 0 1px 0 #ffffff !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  overflow: hidden !important;
+  pointer-events: auto !important;
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.breakup-popover.top {
+  transform: translate3d(0, -100%, 0) !important;
+}
+
+.breakup-popover.bottom {
+  transform: translate3d(0, 0, 0) !important;
+}
+
+.breakup-popover::before {
+  content: "";
+  position: absolute;
+  right: 16px;
+  width: 12px;
+  height: 12px;
+  background: #ffffff !important;
+  border-left: 1px solid rgba(203, 213, 225, .98);
+  border-top: 1px solid rgba(203, 213, 225, .98);
+  transform: rotate(45deg);
+  z-index: 0;
+}
+
+.breakup-popover.bottom::before {
+  top: -7px;
+}
+
+.breakup-popover.top::before {
+  bottom: -7px;
+  transform: rotate(225deg);
+}
+
+.breakup-popover div,
+.breakup-popover p,
+.breakup-popover strong,
+.breakup-popover span,
+.breakup-popover b {
+  position: relative;
+  z-index: 1;
+  background: #ffffff !important;
+}
+
+.breakup-popover div,
+.breakup-popover p {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0;
+}
+
+.breakup-popover div {
+  border-bottom: 1px solid rgba(226, 232, 240, .9);
+  padding-bottom: 9px;
+  margin-bottom: 9px;
+}
+
+.breakup-popover strong,
+.breakup-popover span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.breakup-popover b {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.breakup-popover p {
+  padding: 6px 0 !important;
+  border-bottom: 1px solid rgba(226, 232, 240, .75);
+}
+
+.breakup-popover p:last-child {
+  border-bottom: 0;
+}
+
+@media (max-width: 1180px) {
+  .mobile-price-hero {
+    min-height: 154px !important;
+    grid-template-columns: minmax(0, .82fr) minmax(150px, 1.18fr) !important;
+    border: 0 !important;
+    background:
+      radial-gradient(circle at 79% 24%, rgba(37, 99, 235, .16), transparent 31%),
+      radial-gradient(ellipse at 74% 82%, rgba(15, 23, 42, .10), transparent 42%),
+      linear-gradient(135deg, #ffffff 0%, #f6fbff 43%, #e8f2ff 100%) !important;
+    box-shadow:
+      0 28px 80px -58px rgba(15, 23, 42, .42),
+      inset 0 1px 0 rgba(255, 255, 255, .98) !important;
+    overflow: hidden !important;
   }
 
-  .aci-price-root .price-table-wrap tbody tr {
-    height: 64px !important;
+  .mobile-price-hero h2 {
+    font-size: 18.5px !important;
+    line-height: 1.03 !important;
   }
 
-  .aci-price-root .desktop-fuel-transmission {
-    max-width: 82px !important;
+  .mobile-price-hero strong {
+    font-size: 19px !important;
+  }
+
+  .mobile-price-hero p {
+    font-size: 10.2px !important;
+    line-height: 1.35 !important;
+  }
+
+  .mobile-hero-art {
+    --car-frame-y: 3%;
+    width: 100% !important;
+    height: 136px !important;
+    min-width: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    overflow: visible !important;
+  }
+
+  .mobile-price-hero .price-car-stage-image {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .mobile-filter-sticky-inner {
+    gap: 5px !important;
+    padding: 5px 0 6px !important;
+  }
+
+  .mobile-city-pill {
+    height: 27px !important;
+    padding: 0 9px !important;
     font-size: 10.5px !important;
   }
 
-  .aci-price-root .price-table-wrap td {
-    padding: 13px 6px !important;
+  .mobile-filters {
+    gap: 5px 8px !important;
+  }
+
+  .mobile-filters .price-filter-group {
+    gap: 4px !important;
+  }
+
+  .mobile-filters .price-filter-options {
+    min-height: 27px !important;
+    align-items: center !important;
+  }
+
+  .mobile-filters .price-filter-group > span {
+    font-size: 8.4px !important;
+    letter-spacing: .065em !important;
+  }
+
+  .mobile-filters button {
+    min-height: 25px !important;
+    padding: 3px 9px !important;
+    font-size: 9.8px !important;
+    line-height: 1.1 !important;
+    border-radius: 999px !important;
+  }
+
+  .mobile-budget-slider {
+    border-radius: 15px !important;
+    padding: 6px 9px 5px !important;
+  }
+
+  .mobile-budget-slider-head span {
+    font-size: 8.8px !important;
+  }
+
+  .mobile-budget-slider-head strong {
+    font-size: 11px !important;
+  }
+
+  .mobile-budget-slider input[type="range"] {
+    height: 18px !important;
+    margin: 2px 0 0 !important;
+  }
+
+  .mobile-line-label {
+    display: inline-flex !important;
+    align-items: baseline !important;
+    gap: 7px !important;
+    min-width: 0;
+  }
+
+  .mobile-other-breakup-toggle {
+    min-height: auto !important;
+    border: 0 !important;
+    background: transparent !important;
+    color: var(--blue) !important;
+    padding: 0 !important;
+    font-size: 9.8px !important;
+    line-height: 1 !important;
+    font-weight: 850 !important;
+    opacity: .72;
+  }
+
+  .mobile-other-breakup-list {
+    max-height: 0 !important;
+    opacity: 0 !important;
+    margin: 0 !important;
+    padding: 0 10px !important;
+    border-width: 0 !important;
+    transition: max-height .16s ease, opacity .12s ease, padding .16s ease, margin .16s ease !important;
+    will-change: max-height, opacity;
+  }
+
+  .mobile-other-breakup-list.open {
+    max-height: 220px !important;
+    opacity: 1 !important;
+    margin: 1px 0 2px !important;
+    padding: 7px 10px !important;
+    border-width: 1px !important;
   }
 }
 
-/* ACI_PRICE_SPACING_TABLE_FIX_END */
-
-/* ACI_PRICE_LAPTOP_ROW_RAIL_FIX_START */
-
-/* Laptop: give table more width and make rows breathe */
-@media (min-width: 1181px) {
-  .aci-price-root .price-desktop-page {
-    grid-template-columns: minmax(0, 1fr) 300px !important;
-    gap: 12px !important;
+@media (max-width: 390px) {
+  .mobile-price-hero {
+    grid-template-columns: minmax(0, .86fr) minmax(132px, 1.14fr) !important;
   }
 
-  .aci-price-root .price-side {
-    max-width: 300px !important;
-  }
-
-  .aci-price-root .price-table-wrap tbody tr {
-    height: 68px !important;
-  }
-
-  .aci-price-root .price-table-wrap td {
-    padding-top: 15px !important;
-    padding-bottom: 15px !important;
-    vertical-align: middle !important;
-  }
-
-  .aci-price-root .price-table-wrap td strong {
-    line-height: 1.2 !important;
-  }
-
-  .aci-price-root .desktop-fuel-transmission {
-    line-height: 1.18 !important;
-  }
-
-  .aci-price-root .side-card {
-    padding: 13px !important;
-  }
-
-  .aci-price-root .side-price strong,
-  .aci-price-root .emi-card > strong {
-    font-size: 22px !important;
+  .mobile-hero-art {
+    height: 120px !important;
   }
 }
 
-/* Smaller laptop: reduce right rail further and keep rows clean */
-@media (min-width: 1181px) and (max-width: 1360px) {
-  .aci-price-root .price-desktop-page {
-    grid-template-columns: minmax(0, 1fr) 280px !important;
-    gap: 10px !important;
-    padding-left: 22px !important;
-    padding-right: 22px !important;
-  }
-
-  .aci-price-root .price-side {
-    max-width: 280px !important;
-  }
-
-  .aci-price-root .price-table-wrap tbody tr {
-    height: 72px !important;
-  }
-
-  .aci-price-root .price-table-wrap td {
-    padding-top: 16px !important;
-    padding-bottom: 16px !important;
-  }
-}
-
-/* ACI_PRICE_LAPTOP_ROW_RAIL_FIX_END */
+/* ACI_PRICE_CANONICAL_IMAGE_BREAKUP_FIX_END */
 
 `}</style>
   );

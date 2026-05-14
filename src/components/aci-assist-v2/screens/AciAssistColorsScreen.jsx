@@ -3,7 +3,6 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Bell,
-  Building2,
   Check,
   ChevronDown,
   ChevronRight,
@@ -11,8 +10,6 @@ import {
   Info,
   Palette,
   Sparkles,
-  Sun,
-  Trees,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
@@ -21,38 +18,12 @@ import CarImageStage from "../shared/CarImageStage";
 
 const FALLBACK_COLORS = [];
 
-const MOODS = [
-  {
-    id: "daylight",
-    name: "Daylight",
-    icon: Sun,
-    note: "Looks clean and balanced under natural light.",
-    desktopBg:
-      "radial-gradient(circle at 16% 18%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 82% 30%, rgba(191,219,254,.72), transparent 26%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
-    mobileBg:
-      "radial-gradient(circle at 18% 24%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 83% 34%, rgba(191,219,254,.7), transparent 28%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
-  },
-  {
-    id: "showroom",
-    name: "Showroom",
-    icon: Building2,
-    note: "Looks premium in city lighting.",
-    desktopBg:
-      "radial-gradient(circle at 54% 5%, rgba(251,191,36,.18), transparent 32%), radial-gradient(circle at 18% 18%, rgba(255,255,255,.96), transparent 28%), linear-gradient(135deg,#fbf5eb 0%,#ffffff 48%,#eee6dc 100%)",
-    mobileBg:
-      "radial-gradient(circle at 54% 5%, rgba(251,191,36,.18), transparent 32%), radial-gradient(circle at 18% 18%, rgba(255,255,255,.96), transparent 28%), linear-gradient(135deg,#fbf5eb 0%,#ffffff 48%,#eee6dc 100%)",
-  },
-  {
-    id: "outdoors",
-    name: "Outdoors",
-    icon: Trees,
-    note: "Shows strong road presence outdoors.",
-    desktopBg:
-      "radial-gradient(circle at 82% 22%, rgba(100,116,139,.22), transparent 26%), radial-gradient(circle at 15% 72%, rgba(34,197,94,.18), transparent 28%), linear-gradient(135deg,#ecfdf5 0%,#ffffff 46%,#e0ecff 100%)",
-    mobileBg:
-      "radial-gradient(circle at 82% 22%, rgba(100,116,139,.22), transparent 26%), radial-gradient(circle at 15% 72%, rgba(34,197,94,.18), transparent 28%), linear-gradient(135deg,#ecfdf5 0%,#ffffff 46%,#e0ecff 100%)",
-  },
-];
+const COLOR_STAGE_BG = {
+  desktop:
+    "radial-gradient(circle at 16% 18%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 82% 30%, rgba(191,219,254,.72), transparent 26%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
+  mobile:
+    "radial-gradient(circle at 18% 24%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 83% 34%, rgba(191,219,254,.7), transparent 28%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
+};
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16, filter: "blur(7px)" },
@@ -163,10 +134,8 @@ const normalizeColors = (vehicle, widget) => {
     return {
       id: raw.id || makeSlug(name, `color-${index + 1}`),
       name,
-      mobileName:
-        raw.mobileName || raw.name || raw.colorName || name,
-      desktopName:
-        raw.desktopName || raw.name || raw.colorName || name,
+      mobileName: raw.mobileName || raw.name || raw.colorName || name,
+      desktopName: raw.desktopName || raw.name || raw.colorName || name,
       hex: raw.hex || raw.hexCode || raw.colorHex || "#2563EB",
       deep: raw.deep || raw.darkHex || raw.deepHex || "#1E3A8A",
       filter: raw.filter || raw.cssFilter || "",
@@ -334,12 +303,12 @@ function DesktopHeader({ data, onAction }) {
   );
 }
 
-function DesktopGallery({ selectedColor, selectedMood, vehicle }) {
+function DesktopGallery({ selectedColor, vehicle }) {
   return (
     <motion.section className="desktop-gallery-card" variants={fadeUp}>
       <div
         className="desktop-stage"
-        style={{ background: selectedMood.desktopBg }}
+        style={{ background: COLOR_STAGE_BG.desktop }}
       >
         <span className="stage-pill">
           <ColorOrb color={selectedColor} selected={false} />
@@ -363,61 +332,11 @@ function DesktopGallery({ selectedColor, selectedMood, vehicle }) {
   );
 }
 
-function DesktopRail({
-  colors,
-  selectedColor,
-  selectedMood,
-  setSelectedMood,
-  vehicle,
-  onAction,
-}) {
+function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
   const topChoices = [...colors].sort((a, b) => b.votes - a.votes).slice(0, 3);
 
   return (
     <aside className="colors-rail">
-      <motion.article
-        className="rail-card selected-color-card"
-        variants={fadeUp}
-      >
-        <h3>Selected color</h3>
-
-        <div
-          className="selected-color-banner"
-          style={{
-            background: `linear-gradient(135deg, ${selectedColor.hex}, ${selectedColor.deep})`,
-          }}
-        >
-          <ColorOrb color={selectedColor} selected={false} />
-
-          <div>
-            <strong>{selectedColor.desktopName}</strong>
-            <span>{selectedColor.description.split(".")[0]}.</span>
-          </div>
-        </div>
-
-        <p>{selectedColor.description}</p>
-
-        <button
-          type="button"
-          className="primary-rail-button"
-          onClick={() =>
-            fireAction(
-              "Save color",
-              {
-                vehicle,
-                selectedColor,
-                color: selectedColor,
-                type: "save_color",
-              },
-              onAction,
-            )
-          }
-        >
-          <Heart size={17} />
-          Save color
-        </button>
-      </motion.article>
-
       <motion.article className="rail-card popular-card" variants={fadeUp}>
         <div className="rail-title-row">
           <h3>Popular choice</h3>
@@ -453,56 +372,6 @@ function DesktopRail({
           View all insights <ChevronRight size={15} />
         </button>
       </motion.article>
-
-      <motion.article className="rail-card rail-moods" variants={fadeUp}>
-        <div className="rail-title-row">
-          <h3>See it in different moods</h3>
-          <Info size={16} />
-        </div>
-
-        <div className="rail-mood-list">
-          {MOODS.map((mood) => {
-            const Icon = mood.icon;
-            const active = mood.id === selectedMood.id;
-
-            return (
-              <button
-                type="button"
-                key={mood.id}
-                className={active ? "active" : ""}
-                onClick={() => {
-                  setSelectedMood(mood);
-                  fireAction(
-                    "Mood selected",
-                    {
-                      vehicle,
-                      selectedColor,
-                      color: selectedColor,
-                      mood,
-                      type: "select_color_mood",
-                    },
-                    onAction,
-                  );
-                }}
-              >
-                <span style={{ background: mood.desktopBg }}>
-                  <Icon size={18} />
-                </span>
-
-                <div>
-                  <strong>{mood.name}</strong>
-                  <em>{mood.note}</em>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      </motion.article>
-
-      <p className="rail-note">
-        Colors may vary slightly based on lighting conditions and screen
-        settings.
-      </p>
     </aside>
   );
 }
@@ -511,8 +380,7 @@ function DesktopColorsPage({
   colors,
   selectedColor,
   setSelectedColor,
-  selectedMood,
-  setSelectedMood,
+
   vehicle,
   data,
   onAction,
@@ -581,11 +449,7 @@ function DesktopColorsPage({
             </button>
           </motion.div>
 
-          <DesktopGallery
-            selectedColor={selectedColor}
-            selectedMood={selectedMood}
-            vehicle={vehicle}
-          />
+          <DesktopGallery selectedColor={selectedColor} vehicle={vehicle} />
 
           <motion.section className="available-colors" variants={fadeUp}>
             <h2>Available colors</h2>
@@ -634,8 +498,6 @@ function DesktopColorsPage({
         <DesktopRail
           colors={colors}
           selectedColor={selectedColor}
-          selectedMood={selectedMood}
-          setSelectedMood={setSelectedMood}
           vehicle={vehicle}
           onAction={onAction}
         />
@@ -692,7 +554,7 @@ function MobileHeader({ data, vehicle, onAction }) {
 
 function MobileHero({
   selectedColor,
-  selectedMood,
+
   vehicle,
   colors,
   onNextColor,
@@ -711,7 +573,7 @@ function MobileHero({
 
       <motion.div
         className="mobile-car-card"
-        style={{ background: selectedMood.mobileBg }}
+        style={{ background: COLOR_STAGE_BG.mobile }}
         drag="x"
         dragConstraints={{ left: 0, right: 0 }}
         dragElastic={0.14}
@@ -804,71 +666,11 @@ function MobileSelectedColorInfo({ selectedColor }) {
   );
 }
 
-function MobileMoods({
-  selectedColor,
-  selectedMood,
-  setSelectedMood,
-  vehicle,
-  onAction,
-}) {
-  return (
-    <motion.section className="mobile-moods" variants={fadeUp}>
-      <h2>See it in different moods</h2>
-
-      <div className="mood-row">
-        {MOODS.map((mood) => {
-          const Icon = mood.icon;
-          const active = mood.id === selectedMood.id;
-
-          return (
-            <motion.button
-              type="button"
-              key={mood.id}
-              className={active ? "active" : ""}
-              onClick={() => {
-                setSelectedMood(mood);
-                fireAction(
-                  "Mood selected",
-                  {
-                    vehicle,
-                    selectedColor,
-                    color: selectedColor,
-                    mood,
-                    type: "select_color_mood",
-                  },
-                  onAction,
-                );
-              }}
-              whileHover={{ y: -3 }}
-              whileTap={{ scale: 0.98 }}
-            >
-              <div style={{ background: mood.mobileBg }}>
-                <span>
-                  <Icon size={18} />
-                </span>
-
-                <VehicleArtwork
-                  color={selectedColor}
-                  vehicle={vehicle}
-                  size="mood"
-                />
-              </div>
-
-              <strong>{mood.name}</strong>
-            </motion.button>
-          );
-        })}
-      </div>
-    </motion.section>
-  );
-}
-
 function MobileColorsPage({
   colors,
   selectedColor,
   setSelectedColor,
-  selectedMood,
-  setSelectedMood,
+
   vehicle,
   data,
   onAction,
@@ -907,7 +709,6 @@ function MobileColorsPage({
         colors={colors}
         vehicle={vehicle}
         selectedColor={selectedColor}
-        selectedMood={selectedMood}
         onNextColor={() => setByIndex(currentIndex + 1)}
         onPrevColor={() => setByIndex(currentIndex - 1)}
       />
@@ -923,14 +724,6 @@ function MobileColorsPage({
       />
 
       <MobileSelectedColorInfo selectedColor={selectedColor} />
-
-      <MobileMoods
-        selectedColor={selectedColor}
-        selectedMood={selectedMood}
-        setSelectedMood={setSelectedMood}
-        vehicle={vehicle}
-        onAction={onAction}
-      />
 
       <AciComposer
         mobile
@@ -957,7 +750,6 @@ export default function AciAssistColorsScreen({
     [activeVehicle, widget],
   );
   const [selectedColorId, setSelectedColorId] = useState(colors[0]?.id || "");
-  const [selectedMood, setSelectedMood] = useState(MOODS[0]);
 
   useEffect(() => {
     if (!colors.some((item) => item.id === selectedColorId)) {
@@ -1052,15 +844,10 @@ export default function AciAssistColorsScreen({
 
   const meta = {
     color: selectedColor.mobileName,
-    mood: selectedMood.name,
   };
 
   return (
-    <div
-      className="aci-colors-root"
-      data-color={meta.color}
-      data-mood={meta.mood}
-    >
+    <div className="aci-colors-root" data-color={meta.color}>
       <style>{`
         :root {
           --blue: #2563eb;
@@ -1174,7 +961,7 @@ export default function AciAssistColorsScreen({
         .rail-card,
         .colors-composer,
         .mobile-car-card,
-        .mobile-moods,
+        
         .mobile-back,
         .mobile-color-picker .color-orb {
           border: 1px solid var(--line);
@@ -1425,13 +1212,6 @@ export default function AciAssistColorsScreen({
         .safari-vehicle.desktop {
           width: 100%;
           transform: translateY(24px);
-        }
-
-        .safari-vehicle.mood {
-          position: absolute;
-          width: 138%;
-          left: -20%;
-          bottom: -15px;
         }
 
         .safari-stage {
@@ -1701,53 +1481,7 @@ export default function AciAssistColorsScreen({
           font-weight: 650;
         }
 
-        .rail-mood-list {
-          margin-top: 15px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-
-        .rail-mood-list button {
-          border: 1px solid #dfe7f2;
-          background: #fff;
-          border-radius: 14px;
-          padding: 8px;
-          display: grid;
-          grid-template-columns: 58px 1fr;
-          gap: 10px;
-          align-items: center;
-          text-align: left;
-        }
-
-        .rail-mood-list button.active {
-          border-color: var(--blue);
-          box-shadow: 0 0 0 3px rgba(37,99,235,.09);
-        }
-
-        .rail-mood-list button > span {
-          height: 46px;
-          border-radius: 12px;
-          color: var(--blue);
-          display: grid;
-          place-items: center;
-        }
-
-        .rail-mood-list strong {
-          display: block;
-          color: #0f172a;
-          font-size: 12px;
-          font-weight: 650;
-        }
-
-        .rail-mood-list em {
-          display: block;
-          margin-top: 3px;
-          color: #64748b;
-          font-size: 10px;
-          line-height: 1.25;
-          font-style: normal;
-        }
+        
 
         .rail-note {
           margin: 0;
@@ -2112,80 +1846,6 @@ export default function AciAssistColorsScreen({
             line-height: 1.3;
           }
 
-          .mobile-moods {
-            border-radius: 22px;
-            padding: 11px;
-          }
-
-          .mobile-moods h2 {
-            margin: 0 0 10px;
-            color: #07102b;
-            font-family: var(--serif);
-            font-size: 21px;
-            line-height: 1;
-            letter-spacing: -.045em;
-            font-weight: 560;
-          }
-
-          .mood-row {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-          }
-
-          .mood-row button {
-            border: 0;
-            background: transparent;
-            padding: 0;
-            color: #475569;
-          }
-
-          .mood-row button > div {
-            position: relative;
-            height: 78px;
-            border-radius: 14px;
-            overflow: hidden;
-            border: 2px solid transparent;
-          }
-
-          .mood-row button.active > div {
-            border-color: var(--blue);
-            box-shadow: 0 0 0 4px rgba(37,99,235,.09);
-          }
-
-          .mood-row button > div > span {
-            position: absolute;
-            z-index: 6;
-            left: 8px;
-            top: 8px;
-            width: 30px;
-            height: 30px;
-            border-radius: 999px;
-            background: rgba(255,255,255,.9);
-            color: #475569;
-            display: grid;
-            place-items: center;
-          }
-
-          .mood-row strong {
-            display: block;
-            margin-top: 6px;
-            color: #475569;
-            font-size: 11.5px;
-            font-weight: 430;
-            text-align: center;
-          }
-
-          .mood-row button.active strong {
-            color: var(--blue);
-            font-weight: 560;
-          }
-
-          .safari-vehicle.mood {
-            width: 136%;
-            left: -18%;
-            bottom: -15px;
-          }
 
           .mobile-chat-dock {
             position: fixed;
@@ -2469,28 +2129,6 @@ export default function AciAssistColorsScreen({
             line-height: 1.12 !important;
           }
 
-          .mobile-moods {
-            padding: 10px !important;
-          }
-
-          .mobile-moods h2 {
-            margin-bottom: 9px !important;
-            font-size: 21px !important;
-          }
-
-          .mood-row {
-            gap: 7px !important;
-          }
-
-          .mood-row button > div {
-            height: 72px !important;
-          }
-
-          .safari-vehicle.mood {
-            width: 116% !important;
-            left: -8% !important;
-            bottom: -10px !important;
-          }
 
           /* Mobile chatbar: center it and remove blue glow/blur */
           .mobile-chat-dock {
@@ -2651,21 +2289,7 @@ export default function AciAssistColorsScreen({
             max-height: 220px !important;
           }
 
-          /* Mood thumbnails also should not crop aggressively */
-          .safari-vehicle.mood {
-            width: 92% !important;
-            left: 4% !important;
-            bottom: -6px !important;
-          }
-
-          .safari-vehicle.mood img {
-            max-height: 64px !important;
-            object-fit: contain !important;
-          }
-
-          .mood-row button > div {
-            height: 68px !important;
-          }
+          
 
           /* Chatbar: no big gradient/blur area above it */
           .mobile-chat-dock {
@@ -2779,8 +2403,6 @@ export default function AciAssistColorsScreen({
         colors={colors}
         selectedColor={selectedColor}
         setSelectedColor={setSelectedColor}
-        selectedMood={selectedMood}
-        setSelectedMood={setSelectedMood}
         vehicle={activeVehicle}
         data={data}
         onAction={onAction}
@@ -2790,8 +2412,6 @@ export default function AciAssistColorsScreen({
         colors={colors}
         selectedColor={selectedColor}
         setSelectedColor={setSelectedColor}
-        selectedMood={selectedMood}
-        setSelectedMood={setSelectedMood}
         vehicle={activeVehicle}
         data={data}
         onAction={onAction}
