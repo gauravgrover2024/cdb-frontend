@@ -780,7 +780,7 @@ function AciV2CanvasPreviewCard({
                     />
                   </div>
 
-                  <div>
+                  <div className="aci-chat-row-copy">
                     <strong>{rowTitle}</strong>
                     {rowSub ? <span>{rowSub}</span> : null}
                     {rowPrice ? <b>{formatIndianPrice(rowPrice)}</b> : null}
@@ -2157,7 +2157,7 @@ export default function AciAssistV2() {
   max-width: 100%;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  gap: 14px;
   padding: 0;
   margin: 0;
   overflow: visible;
@@ -2166,18 +2166,21 @@ export default function AciAssistV2() {
 .aci-chat-result-rows > button {
   appearance: none;
   min-width: 0;
+  min-height: 250px;
   position: relative;
   overflow: hidden;
-  padding: 14px;
-  border: 1px solid rgba(216, 226, 240, 0.96);
+  isolation: isolate;
+  padding: 0;
+  border: 1px solid rgba(203, 216, 234, 0.92);
   border-radius: 28px;
   text-align: left;
   box-sizing: border-box;
   background:
-    radial-gradient(circle at 50% -16%, rgba(7, 88, 248, 0.055), transparent 42%),
-    rgba(255, 255, 255, 0.97);
+    radial-gradient(circle at 78% 18%, rgba(37, 99, 235, 0.18), transparent 34%),
+    radial-gradient(ellipse at 60% 62%, rgba(15, 23, 42, 0.075), transparent 47%),
+    linear-gradient(145deg, #ffffff 0%, #f7fbff 46%, #edf5ff 100%);
   box-shadow:
-    0 24px 58px -44px rgba(15, 23, 42, 0.44),
+    0 28px 70px -50px rgba(15, 23, 42, 0.48),
     inset 0 1px 0 rgba(255, 255, 255, 1);
   opacity: 0;
   transform-origin: center bottom;
@@ -2186,6 +2189,26 @@ export default function AciAssistV2() {
     transform 180ms cubic-bezier(0.19, 1, 0.22, 1),
     border-color 180ms ease,
     box-shadow 180ms ease;
+}
+
+.aci-chat-result-rows > button::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 38%),
+    radial-gradient(ellipse at 50% 78%, rgba(37, 99, 235, 0.1), transparent 44%);
+}
+
+.aci-chat-result-rows > button:hover {
+  border-color: rgba(37, 99, 235, 0.28);
+  box-shadow:
+    0 34px 78px -48px rgba(37, 99, 235, 0.36),
+    0 18px 44px -42px rgba(15, 23, 42, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transform: translateY(-2px);
 }
 
 .aci-chat-result-rows > button:nth-child(1) {
@@ -2203,16 +2226,15 @@ export default function AciAssistV2() {
 .aci-chat-row-visual {
   position: relative;
   z-index: 1;
-  height: 142px;
-  margin-bottom: 13px;
+  height: 150px;
+  margin: 0;
+  padding: 10px 6px 0;
   border: 0;
-  border-radius: 24px;
-  overflow: hidden;
+  border-radius: 0;
+  overflow: visible;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(ellipse at 50% 80%, rgba(15, 23, 42, 0.12), transparent 45%),
-    linear-gradient(145deg, #ffffff 0%, #f5f8fd 56%, #edf3fb 100%);
+  background: transparent;
 }
 
 .aci-chat-row-visual::after {
@@ -2220,21 +2242,52 @@ export default function AciAssistV2() {
   position: absolute;
   left: 18%;
   right: 18%;
-  bottom: 12px;
-  height: 10px;
+  bottom: 15px;
+  height: 13px;
   border-radius: 999px;
-  background: rgba(15, 23, 42, 0.13);
-  filter: blur(8px);
+  background: radial-gradient(ellipse, rgba(15, 23, 42, 0.24), transparent 72%);
+  filter: blur(9px);
+  pointer-events: none;
+}
+
+.aci-chat-row-visual .aci-car-image-stage {
+  min-height: 0;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+  transform: translateY(10px);
+}
+
+.aci-chat-row-visual .aci-car-stage-glow,
+.aci-chat-row-visual .aci-car-stage-ground {
+  display: none !important;
 }
 
 .aci-chat-row-visual img,
 .aci-chat-row-visual svg {
   position: relative;
-  z-index: 1;
-  max-width: 132%;
-  max-height: 104%;
+  z-index: 2;
+  width: 118%;
+  max-width: none;
+  height: 106%;
+  max-height: none;
   object-fit: contain;
+  object-position: center bottom;
+  mix-blend-mode: multiply;
+  filter: drop-shadow(0 24px 18px rgba(15, 23, 42, 0.2));
   animation: aciVehicleSettle 680ms cubic-bezier(0.19, 1, 0.22, 1) both;
+}
+
+.aci-chat-row-copy {
+  position: relative;
+  z-index: 1;
+  min-height: 96px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 4px 16px 16px;
 }
 
 .aci-chat-result-rows strong,
@@ -2246,44 +2299,38 @@ export default function AciAssistV2() {
 }
 
 .aci-chat-result-rows strong {
-  width: fit-content;
+  width: 100%;
   max-width: 100%;
-  min-height: 23px;
-  display: inline-flex;
-  align-items: center;
-  padding: 0 9px;
-  border-radius: 999px;
-  background: rgba(7, 88, 248, 0.075);
-  color: var(--aci-blue);
-  border: 1px solid rgba(148, 183, 244, 0.36);
-  font-size: 10.8px;
-  line-height: 1;
-  font-weight: 820;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
+  min-height: 0;
+  padding: 0;
+  color: #07102b;
+  font-size: 16px;
+  line-height: 1.05;
+  font-weight: 880;
+  letter-spacing: -0.035em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .aci-chat-result-rows span {
-  margin-top: 8px;
-  color: #6b7280;
-  font-size: 12px;
+  margin-top: 7px;
+  color: #64748b;
+  font-size: 11.7px;
   line-height: 1.28;
-  font-weight: 540;
+  font-weight: 720;
   letter-spacing: -0.012em;
 }
 
 .aci-chat-result-rows b {
-  margin-top: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(225, 233, 244, 0.92);
-  color: #111827;
-  font-size: 13px;
-  line-height: 1.1;
-  letter-spacing: -0.018em;
-  font-weight: 620;
+  margin-top: 9px;
+  padding-top: 0;
+  border-top: 0;
+  color: var(--aci-blue);
+  font-size: 18px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 900;
 }
 
 .aci-chat-result-rows b::before {
@@ -2651,11 +2698,12 @@ export default function AciAssistV2() {
   }
 
   .aci-chat-result-rows > button {
-    flex: 0 0 calc((100% - 11px) / 2);
-    max-width: calc((100% - 11px) / 2);
+    flex: 0 0 min(330px, calc((100% - 58px) / 2));
+    max-width: min(330px, calc((100% - 58px) / 2));
+    min-height: 220px;
     scroll-snap-align: start;
-    padding: 10px;
-    border-radius: 23px;
+    padding: 0;
+    border-radius: 24px;
     box-sizing: border-box;
   }
 
@@ -2664,29 +2712,33 @@ export default function AciAssistV2() {
   }
 
   .aci-chat-row-visual {
-    height: clamp(106px, 28vw, 122px);
-    border-radius: 19px;
-    margin-bottom: 10px;
+    height: clamp(118px, 30vw, 132px);
+    padding: 6px 4px 0;
+  }
+
+  .aci-chat-row-copy {
+    min-height: 88px;
+    padding: 1px 12px 13px;
   }
 
   .aci-chat-result-rows strong {
-    min-height: 22px;
-    padding: 0 8px;
-    font-size: 10.2px;
-    letter-spacing: 0.026em;
+    min-height: 0;
+    padding: 0;
+    font-size: 13.3px;
+    letter-spacing: -0.03em;
   }
 
   .aci-chat-result-rows span {
-    margin-top: 7px;
-    font-size: 11px;
+    margin-top: 5px;
+    font-size: 10.5px;
     line-height: 1.24;
   }
 
   .aci-chat-result-rows b {
-    margin-top: 9px;
-    padding-top: 9px;
-    font-size: 12px;
-    font-weight: 620;
+    margin-top: 7px;
+    padding-top: 0;
+    font-size: 14.7px;
+    font-weight: 900;
   }
 
   .aci-chat-carousel-indicator {
@@ -2762,13 +2814,13 @@ export default function AciAssistV2() {
   }
 
   .aci-chat-result-rows > button {
-    flex-basis: calc((100% - 9px) / 2);
-    max-width: calc((100% - 9px) / 2);
-    padding: 9px;
+    flex-basis: calc((100% - 38px) / 2);
+    max-width: calc((100% - 38px) / 2);
+    padding: 0;
   }
 
   .aci-chat-row-visual {
-    height: 98px;
+    height: 112px;
   }
 }
 
