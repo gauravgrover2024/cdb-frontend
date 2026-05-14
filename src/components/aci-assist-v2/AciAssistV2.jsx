@@ -785,6 +785,7 @@ function AciV2CanvasPreviewCard({
                   aria-label={`View ${rowTitle}`}
                   initial={{ opacity: 0, y: 12, scale: 0.985 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
+                  whileHover={{ y: -3, scale: 1.012 }}
                   whileTap={{ scale: 0.985 }}
                   transition={{
                     duration: 0.38,
@@ -3106,10 +3107,30 @@ export default function AciAssistV2() {
 
 
 
-/* ACI_CHAT_ONROAD_FRAMER_POLISH_START */
+
+/* ACI_CHAT_ULTRA_PREMIUM_PASS_1_START */
+
+/* =========================================================
+   ACI Assist V2 — Ultra Premium Pass 1
+   Includes:
+   1) final consolidated chat/card CSS
+   2) premium carousel polish
+   3) glass card highlight + refined shadows
+   4) centered car presentation
+   5) premium follow-up chips
+   No live-data trust line added.
+   ========================================================= */
+
+/* ---------- Card + car animation polish ---------- */
 
 .aci-chat-preview-card {
   will-change: transform, opacity;
+  transform-origin: center bottom;
+}
+
+.aci-chat-preview-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 .aci-chat-row-car-motion {
@@ -3117,8 +3138,10 @@ export default function AciAssistV2() {
   height: 100%;
   display: grid;
   place-items: center;
+  pointer-events: none;
 }
 
+/* Price line: keeps existing On-road / Ex-showroom markup */
 .aci-chat-row-price {
   display: inline-flex !important;
   align-items: baseline !important;
@@ -3147,21 +3170,217 @@ export default function AciAssistV2() {
   letter-spacing: inherit !important;
 }
 
-.aci-chat-carousel-indicator {
-  margin-left: auto !important;
-  margin-right: auto !important;
+/* ---------- Apple-level card surface ---------- */
+
+.aci-chat-result-rows > .aci-chat-preview-card {
+  background:
+    radial-gradient(circle at 82% 14%, rgba(7, 88, 248, 0.16), transparent 34%),
+    radial-gradient(ellipse at 54% 63%, rgba(15, 23, 42, 0.055), transparent 48%),
+    linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, #f8fbff 47%, #eef6ff 100%) !important;
+  box-shadow:
+    0 30px 72px -56px rgba(7, 22, 52, 0.62),
+    0 18px 40px -36px rgba(7, 88, 248, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
 }
 
-/* Mobile card/car/indicator polish */
+.aci-chat-result-rows > .aci-chat-preview-card::before {
+  content: "" !important;
+  position: absolute !important;
+  inset: 0 !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 40%),
+    linear-gradient(125deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0) 28%),
+    radial-gradient(ellipse at 50% 78%, rgba(7, 88, 248, 0.08), transparent 48%) !important;
+}
+
+.aci-chat-result-rows > .aci-chat-preview-card::after {
+  content: "" !important;
+  position: absolute !important;
+  inset: 1px !important;
+  z-index: 0 !important;
+  pointer-events: none !important;
+  border-radius: inherit !important;
+  border: 1px solid rgba(255, 255, 255, 0.78) !important;
+  box-shadow:
+    inset 0 0 0 1px rgba(7, 88, 248, 0.025),
+    inset 0 -24px 54px rgba(7, 88, 248, 0.045) !important;
+}
+
+@media (hover: hover) and (min-width: 761px) {
+  .aci-chat-result-rows > .aci-chat-preview-card:hover {
+    border-color: rgba(7, 88, 248, 0.32) !important;
+    box-shadow:
+      0 36px 86px -58px rgba(7, 88, 248, 0.46),
+      0 24px 52px -44px rgba(15, 23, 42, 0.58),
+      inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  }
+}
+
+/* ---------- Premium follow-up chips ---------- */
+
+.aci-chat-result-card footer,
+.aci-chat-followups {
+  gap: 9px !important;
+}
+
+.aci-chat-result-card footer button,
+.aci-chat-followups button {
+  min-height: 38px !important;
+  border-radius: 999px !important;
+  border: 1.2px solid rgba(7, 88, 248, 0.42) !important;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96)) !important;
+  color: #101827 !important;
+  box-shadow:
+    0 16px 34px -31px rgba(7, 88, 248, 0.36),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  transition:
+    transform 180ms cubic-bezier(0.19, 1, 0.22, 1),
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease !important;
+}
+
+.aci-chat-result-card footer button:hover,
+.aci-chat-followups button:hover {
+  border-color: rgba(7, 88, 248, 0.66) !important;
+  transform: translateY(-1px);
+  box-shadow:
+    0 20px 42px -34px rgba(7, 88, 248, 0.46),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+.aci-chat-open-canvas-pill {
+  border-color: rgba(7, 88, 248, 0.78) !important;
+  background:
+    linear-gradient(180deg, #ffffff 0%, #f3f7ff 100%) !important;
+  box-shadow:
+    0 18px 38px -28px rgba(7, 88, 248, 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+
+.aci-chat-open-canvas-pill .aci-chat-chip-icon {
+  background:
+    linear-gradient(135deg, #0758f8 0%, #2f74ff 100%) !important;
+  color: #fff !important;
+  border-color: rgba(7, 88, 248, 0.28) !important;
+  box-shadow:
+    0 10px 22px -14px rgba(7, 88, 248, 0.72),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+}
+
+.aci-chat-chip-icon {
+  width: 23px !important;
+  height: 23px !important;
+  flex-basis: 23px !important;
+}
+
+/* ---------- Mobile final shell + carousel ---------- */
+
 @media (max-width: 760px) {
+  .aci-chat-shell {
+    height: 100svh !important;
+    min-height: 100svh !important;
+    max-height: 100svh !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+  }
+
+  .aci-chat-app-frame {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding-bottom: 0 !important;
+  }
+
+  .aci-chat-header,
+  .aci-chat-context-pill {
+    flex: 0 0 auto !important;
+  }
+
+  .aci-chat-thread {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    overscroll-behavior: contain !important;
+    scroll-behavior: smooth !important;
+    padding-left: 2px !important;
+    padding-right: 2px !important;
+    padding-bottom: 0 !important;
+  }
+
+  .aci-chat-scroll-anchor {
+    width: 100% !important;
+    height: 112px !important;
+    min-height: 112px !important;
+    flex: 0 0 112px !important;
+    pointer-events: none !important;
+  }
+
+  .aci-chat-message.is-assistant {
+    padding-left: 6px !important;
+  }
+
+  .aci-chat-orb {
+    width: 38px !important;
+    height: 38px !important;
+    flex: 0 0 38px !important;
+    margin-left: 0 !important;
+    overflow: visible !important;
+  }
+
+  .aci-chat-orb::before {
+    inset: -4px !important;
+  }
+
+  .aci-chat-assistant-stack {
+    max-width: calc(100% - 48px) !important;
+  }
+
+  .aci-chat-result-card {
+    width: calc(100% + 42px) !important;
+    max-width: none !important;
+    margin-left: -42px !important;
+    overflow: visible !important;
+  }
+
   .aci-chat-result-rows {
     display: flex !important;
     grid-template-columns: none !important;
+    width: 100% !important;
+    max-width: 100% !important;
     gap: 12px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
     scroll-snap-type: x mandatory !important;
+    scroll-snap-stop: always !important;
+    scroll-padding-left: 0 !important;
     scroll-behavior: smooth !important;
     -webkit-overflow-scrolling: touch !important;
+    overscroll-behavior-x: contain !important;
     scrollbar-width: none !important;
+    -webkit-mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 93%,
+      rgba(0, 0, 0, 0.88) 100%
+    );
+    mask-image: linear-gradient(
+      90deg,
+      #000 0%,
+      #000 93%,
+      rgba(0, 0, 0, 0.88) 100%
+    );
   }
 
   .aci-chat-result-rows::-webkit-scrollbar {
@@ -3174,34 +3393,61 @@ export default function AciAssistV2() {
     width: calc((100% - 12px) / 2) !important;
     min-width: calc((100% - 12px) / 2) !important;
     max-width: calc((100% - 12px) / 2) !important;
+
+    height: 226px !important;
+    min-height: 226px !important;
+    max-height: 226px !important;
+
+    padding: 0 !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
     scroll-snap-align: start !important;
     scroll-snap-stop: always !important;
   }
 
   .aci-chat-row-visual {
+    height: 122px !important;
+    min-height: 122px !important;
+    padding: 0 8px !important;
+    margin: 0 !important;
     display: grid !important;
     place-items: center !important;
-    padding: 2px 8px 0 !important;
     overflow: visible !important;
   }
 
   .aci-chat-row-car-motion {
+    width: 100% !important;
+    height: 122px !important;
+    display: grid !important;
     place-items: center !important;
+    overflow: visible !important;
   }
 
   .aci-chat-row-visual .aci-car-image-stage,
   .aci-chat-row-car-motion .aci-car-image-stage {
-    width: 96% !important;
-    max-width: 96% !important;
-    height: 126px !important;
-    min-height: 126px !important;
-    max-height: 126px !important;
+    width: 94% !important;
+    max-width: 94% !important;
+    min-width: 0 !important;
+
+    height: 118px !important;
+    min-height: 118px !important;
+    max-height: 118px !important;
+
     margin: 0 auto !important;
-    transform: translateY(-2px) !important;
-    overflow: visible !important;
-    background: transparent !important;
+    padding: 0 !important;
     border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
     box-shadow: none !important;
+    overflow: visible !important;
+    transform: translateY(-3px) !important;
+  }
+
+  .aci-chat-row-visual .aci-car-stage-glow,
+  .aci-chat-row-visual .aci-car-stage-ground,
+  .aci-chat-row-car-motion .aci-car-stage-glow,
+  .aci-chat-row-car-motion .aci-car-stage-ground {
+    display: none !important;
   }
 
   .aci-chat-row-visual img,
@@ -3210,39 +3456,85 @@ export default function AciAssistV2() {
   .aci-chat-row-car-motion svg {
     width: 100% !important;
     max-width: 100% !important;
+    min-width: 0 !important;
+
     height: 100% !important;
     max-height: 100% !important;
+
     object-fit: contain !important;
     object-position: center center !important;
+
     transform: none !important;
+    mix-blend-mode: multiply !important;
+    filter: drop-shadow(0 14px 12px rgba(15, 23, 42, 0.15)) !important;
+  }
+
+  .aci-chat-row-visual::after {
+    left: 18% !important;
+    right: 18% !important;
+    bottom: 5px !important;
+    height: 9px !important;
+    filter: blur(7px) !important;
+    opacity: 0.9 !important;
   }
 
   .aci-chat-row-copy {
+    height: 104px !important;
+    min-height: 104px !important;
+    padding: 0 10px 12px !important;
+    margin: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important;
     overflow: visible !important;
   }
 
-  .aci-chat-row-price {
+  .aci-chat-result-rows strong {
+    font-size: 13px !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.034em !important;
+  }
+
+  .aci-chat-result-rows span {
+    margin-top: 4px !important;
+    font-size: 10.2px !important;
+    line-height: 1.16 !important;
+  }
+
+  .aci-chat-row-price,
+  .aci-chat-result-rows b {
     margin-top: 6px !important;
-    gap: 4px !important;
+    font-size: 14.1px !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
   }
 
   .aci-chat-price-context {
     font-size: 8.2px !important;
   }
 
+  /* Dot + line indicator, centered under carousel */
   .aci-chat-carousel-indicator {
-    display: inline-flex !important;
+    position: relative !important;
+    left: auto !important;
+    transform: none !important;
+
+    display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     gap: 8px !important;
+
     width: 68px !important;
+    min-width: 68px !important;
     height: 18px !important;
+
     margin: 10px auto 0 !important;
     padding: 0 !important;
+
     border: 0 !important;
     background: transparent !important;
     box-shadow: none !important;
-    transform: none !important;
   }
 
   .aci-chat-carousel-indicator span {
@@ -3278,129 +3570,104 @@ export default function AciAssistV2() {
   }
 }
 
-/* ACI_CHAT_ONROAD_FRAMER_POLISH_END */
+/* ---------- Reduced motion support ---------- */
 
-
-
-/* ACI_CHAT_SCROLL_INDICATOR_REPAIR_START */
-
-/*
-  Repair only:
-  1) centered dot + line swipe indicator
-  2) messenger-style scroll to latest answer above chatbar
-*/
-@media (max-width: 760px) {
-  .aci-chat-shell {
-    height: 100svh !important;
-    min-height: 100svh !important;
-    max-height: 100svh !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
+@media (prefers-reduced-motion: reduce) {
+  .aci-chat-preview-card,
+  .aci-chat-row-car-motion,
+  .aci-chat-message,
+  .aci-chat-message.is-user .aci-chat-bubble,
+  .aci-chat-message.is-assistant .aci-chat-bubble,
+  .aci-chat-result-rows > button,
+  .aci-chat-row-visual img,
+  .aci-chat-row-visual svg,
+  .aci-chat-followups button,
+  .aci-chat-result-card footer button,
+  .aci-chat-thinking span,
+  .aci-chat-result-skeleton i {
+    opacity: 1 !important;
+    transform: none !important;
+    filter: none !important;
+    animation: none !important;
+    transition: none !important;
   }
 
-  .aci-chat-app-frame {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    height: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    padding-bottom: 0 !important;
-  }
-
-  .aci-chat-header,
-  .aci-chat-context-pill {
-    flex: 0 0 auto !important;
-  }
-
+  .aci-chat-result-rows,
   .aci-chat-thread {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    overscroll-behavior: contain !important;
-    scroll-behavior: smooth !important;
-    padding-bottom: 0 !important;
-  }
-
-  /*
-    This anchor creates safe scroll space equal to the composer area,
-    so the last answer/question lands above the chat bar instead of
-    getting hidden behind it.
-  */
-  .aci-chat-scroll-anchor {
-    width: 100% !important;
-    height: 112px !important;
-    min-height: 112px !important;
-    flex: 0 0 112px !important;
-    pointer-events: none !important;
-  }
-
-  .aci-chat-result-card {
-    overflow: visible !important;
-  }
-
-  /*
-    Force the swipe indicator to the exact visual center of the result card.
-    This overrides all previous margin/inline-flex conflicts.
-  */
-  .aci-chat-carousel-indicator {
-    position: relative !important;
-    left: 50% !important;
-    transform: translateX(-50%) !important;
-
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 8px !important;
-
-    width: 68px !important;
-    height: 18px !important;
-    min-width: 68px !important;
-
-    margin: 10px 0 0 !important;
-    padding: 0 !important;
-
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .aci-chat-carousel-indicator span {
-    display: block !important;
-    width: 7px !important;
-    height: 7px !important;
-    min-width: 7px !important;
-    border-radius: 999px !important;
-    background: #0758f8 !important;
-    box-shadow: 0 0 0 3px rgba(7, 88, 248, 0.08) !important;
-  }
-
-  .aci-chat-carousel-indicator i {
-    position: relative !important;
-    display: block !important;
-    width: 34px !important;
-    height: 4px !important;
-    min-width: 34px !important;
-    border-radius: 999px !important;
-    background: rgba(7, 88, 248, 0.16) !important;
-    overflow: hidden !important;
+    scroll-behavior: auto !important;
   }
 
   .aci-chat-carousel-indicator i::after {
-    content: "" !important;
-    position: absolute !important;
-    inset: 0 auto 0 0 !important;
-    width: calc(var(--aci-carousel-progress, 0.5) * 100%) !important;
-    min-width: 12px !important;
-    border-radius: inherit !important;
-    background: linear-gradient(90deg, #0758f8 0%, #72a3ff 100%) !important;
-    transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    transition: none !important;
   }
 }
 
-/* ACI_CHAT_SCROLL_INDICATOR_REPAIR_END */
+/* ACI_CHAT_ULTRA_PREMIUM_PASS_1_END */
+
+
+
+/* ACI_CHAT_CAR_CENTER_SIZE_ONLY_START */
+
+/*
+  Only fixes car image center + size after Ultra Premium Pass 1.
+  No JSX change.
+  No price change.
+  No scroll change.
+  No carousel/indicator/card-width change.
+*/
+@media (max-width: 760px) {
+  .aci-chat-row-visual {
+    place-items: center !important;
+    height: 128px !important;
+    min-height: 128px !important;
+    padding: 0 6px !important;
+  }
+
+  .aci-chat-row-car-motion {
+    width: 100% !important;
+    height: 128px !important;
+    min-height: 128px !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .aci-chat-row-visual .aci-car-image-stage,
+  .aci-chat-row-car-motion .aci-car-image-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+
+    height: 128px !important;
+    min-height: 128px !important;
+    max-height: 128px !important;
+
+    margin: 0 auto !important;
+    transform: translateY(30px) !important;
+    overflow: visible !important;
+  }
+
+  .aci-chat-row-visual img,
+  .aci-chat-row-visual svg,
+  .aci-chat-row-car-motion img,
+  .aci-chat-row-car-motion svg {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+
+    height: 100% !important;
+    max-height: 100% !important;
+
+    object-fit: contain !important;
+    object-position: center center !important;
+    transform: none !important;
+  }
+
+  .aci-chat-row-visual::after {
+    bottom: 4px !important;
+  }
+}
+
+/* ACI_CHAT_CAR_CENTER_SIZE_ONLY_END */
 
 
 /* ACI_CHAT_REFERENCE_SHELL_END */`}</style>
