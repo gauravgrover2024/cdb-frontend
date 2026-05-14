@@ -208,19 +208,53 @@ const buildContextPatchFromBackend = (backend = {}, widget = {}) => ({
     null,
 });
 
-const isCanvasInteractionOnly = (action = {}) =>
-  Boolean(
+const CROSS_CANVAS_INTENTS = new Set([
+  "vehicle_pricelist",
+  "vehicle_price",
+  "vehicle_variant_price",
+  "vehicle_price_breakup",
+
+  "vehicle_emi",
+  "vehicle_emi_calculator",
+
+  "aci_lead_capture",
+  "aci_new_car_quotation",
+  "quotation_lead",
+
+  "vehicle_overview",
+  "open_vehicle",
+]);
+
+const CROSS_CANVAS_TYPES = new Set([
+  "pricelist_canvas",
+  "price_breakup_canvas",
+  "emi_calculator_canvas",
+  "aci_quotation_canvas",
+  "lead_capture_canvas",
+  "car_overview_canvas",
+  "vehicle_overview_canvas",
+]);
+
+const isCanvasInteractionOnly = (action = {}) => {
+  const intent = action.intent || action.payload?.intent || "";
+  const canvasType = normalizeV2CanvasType(
+    action.canvasType || action.payload?.canvasType || "",
+  );
+
+  if (CROSS_CANVAS_INTENTS.has(intent) || CROSS_CANVAS_TYPES.has(canvasType)) {
+    return false;
+  }
+
+  return Boolean(
     action.payload?.color ||
     action.payload?.selectedColor ||
     action.selectedColor ||
     action.type === "color_selected" ||
     action.type === "select_color_mood" ||
     action.type === "save_color" ||
-    action.type === "save_color_insight" ||
-    action.type === "tab_change" ||
-    action.type === "accordion_toggle" ||
-    action.type === "sort_change",
+    action.type === "save_color_insight",
   );
+};
 
 const getActionMessage = (action = {}, targetVehicle = null) => {
   const direct = firstValue(

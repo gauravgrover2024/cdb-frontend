@@ -59,6 +59,18 @@ const getVehicleTitle = (vehicle) =>
 
 const getVehicleModel = (vehicle) => vehicle?.model || getVehicleTitle(vehicle);
 
+const getColorName = (color = {}) =>
+  String(
+    color?.desktopName ||
+      color?.mobileName ||
+      color?.colorName ||
+      color?.name ||
+      color?.label ||
+      "Selected color",
+  )
+    .replace(/\s+/g, " ")
+    .trim();
+
 const getVehicleVariant = (vehicle) =>
   vehicle?.selectedVariant ||
   vehicle?.variant ||
@@ -442,6 +454,25 @@ function DesktopGallery({ selectedColor, vehicle }) {
   );
 }
 
+function ColorJourneyCard({ icon = "✦", title, sub, onClick }) {
+  return (
+    <motion.button
+      type="button"
+      className="color-journey-card"
+      onClick={onClick}
+      whileHover={{ y: -2 }}
+      whileTap={{ scale: 0.985 }}
+    >
+      <span>{icon}</span>
+      <div>
+        <strong>{title}</strong>
+        {sub ? <em>{sub}</em> : null}
+      </div>
+      <ChevronRight size={15} />
+    </motion.button>
+  );
+}
+
 function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
   const hasPopularity = colors.some(
     (item) => item.hasPopularity && Number(item.votes || 0) > 0,
@@ -454,24 +485,44 @@ function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
         .slice(0, 3)
     : [];
 
+  const vehicleTitle = getVehicleTitle(vehicle);
+  const colorName =
+    selectedColor.desktopName ||
+    selectedColor.mobileName ||
+    selectedColor.colorName ||
+    selectedColor.name;
+
   return (
     <aside className="colors-rail">
       <motion.article
-        className="rail-card selected-color-card"
+        className="rail-card selected-color-card elegant"
         variants={fadeUp}
       >
-        <h3>Selected color</h3>
+        <div className="rail-title-row">
+          <h3>Selected color</h3>
+          <Sparkles size={16} />
+        </div>
 
-        <div className="selected-color-summary">
+        <div
+          className="selected-color-premium"
+          style={{
+            "--paint": selectedColor.hex || "#e5e7eb",
+            "--deep": selectedColor.deep || selectedColor.hex || "#94a3b8",
+          }}
+        >
           <ColorOrb color={selectedColor} selected={false} />
 
           <div>
-            <strong>{selectedColor.desktopName}</strong>
-            <span>{getVehicleTitle(vehicle)}</span>
+            <span>{vehicleTitle}</span>
+            <strong>{colorName}</strong>
+            <em>Exterior shade selected</em>
           </div>
         </div>
 
-        <p>{selectedColor.description}</p>
+        <p>
+          Color availability may vary by variant and city. ACI can confirm final
+          color availability while preparing the quotation.
+        </p>
 
         <button
           type="button"
@@ -483,7 +534,7 @@ function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
                 vehicle: {
                   ...vehicle,
                   selectedColor,
-                  colorName: selectedColor.desktopName,
+                  colorName,
                   imageUrl: selectedColor.imageUrl,
                   normalizedImageUrl: selectedColor.normalizedImageUrl,
                   imageFrame: selectedColor.imageFrame,
@@ -491,12 +542,13 @@ function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
                 selectedColor,
                 color: selectedColor,
                 type: "select_color",
+                query: `Use ${colorName} for ${vehicleTitle}`,
                 contextPatch: {
                   selectedColor,
                   selectedVehicle: {
                     ...vehicle,
                     selectedColor,
-                    colorName: selectedColor.desktopName,
+                    colorName,
                     imageUrl: selectedColor.imageUrl,
                     normalizedImageUrl: selectedColor.normalizedImageUrl,
                     imageFrame: selectedColor.imageFrame,
@@ -512,7 +564,7 @@ function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
       </motion.article>
 
       <motion.article
-        className="rail-card available-shades-card"
+        className="rail-card available-shades-card elegant"
         variants={fadeUp}
       >
         <div className="rail-title-row">
@@ -522,13 +574,124 @@ function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
 
         <strong>{colors.length}</strong>
         <p>
-          Exterior colors found for {getVehicleTitle(vehicle)}. Availability may
-          vary by variant and city.
+          Real exterior color images available for {vehicleTitle}. No simulated
+          paint tinting is being used.
         </p>
       </motion.article>
 
+      <motion.article
+        className="rail-card color-journey-rail elegant"
+        variants={fadeUp}
+      >
+        <div className="rail-title-row">
+          <h3>Ask next</h3>
+          <Info size={16} />
+        </div>
+
+        <div className="color-journey-list">
+          <ColorJourneyCard
+            icon="✨"
+            title="Which color looks best?"
+            sub="Get an ACI recommendation"
+            onClick={() =>
+              fireAction(
+                "Which color looks best?",
+                {
+                  vehicle,
+                  selectedColor,
+                  color: selectedColor,
+                  type: "color_advice",
+                  query: `Which color looks best for ${vehicleTitle}?`,
+                  intent: ACI_INTENTS.COLORS,
+                  canvasType: ACI_CANVAS_TYPES.COLORS,
+                },
+                onAction,
+              )
+            }
+          />
+
+          <ColorJourneyCard
+            icon="🧼"
+            title="Easiest to maintain?"
+            sub="Dust, scratches and resale"
+            onClick={() =>
+              fireAction(
+                "Which color is easiest to maintain?",
+                {
+                  vehicle,
+                  selectedColor,
+                  color: selectedColor,
+                  type: "color_maintenance",
+                  query: `Which ${vehicleTitle} color is easiest to maintain?`,
+                  intent: ACI_INTENTS.COLORS,
+                  canvasType: ACI_CANVAS_TYPES.COLORS,
+                },
+                onAction,
+              )
+            }
+          />
+
+          <ColorJourneyCard
+            icon="₹"
+            title="Open pricelist"
+            sub="See variants and on-road price"
+            onClick={() =>
+              fireAction(
+                "Open pricelist",
+                {
+                  vehicle,
+                  type: "open_pricelist",
+                  query: `Show ${vehicleTitle} price list`,
+                  intent: "vehicle_pricelist",
+                  canvasType: "pricelist_canvas",
+                  contextPatch: {
+                    selectedColor,
+                    selectedVehicle: {
+                      ...vehicle,
+                      selectedColor,
+                      colorName,
+                    },
+                  },
+                },
+                onAction,
+              )
+            }
+          />
+
+          <ColorJourneyCard
+            icon="▣"
+            title="Get quotation"
+            sub={`Quote in ${colorName}`}
+            onClick={() =>
+              fireAction(
+                "Get quotation",
+                {
+                  vehicle,
+                  type: "get_quotation",
+                  query: `Get quotation for ${vehicleTitle} in ${colorName}`,
+                  intent: "aci_new_car_quotation",
+                  canvasType: "aci_quotation_canvas",
+                  contextPatch: {
+                    selectedColor,
+                    selectedVehicle: {
+                      ...vehicle,
+                      selectedColor,
+                      colorName,
+                    },
+                  },
+                },
+                onAction,
+              )
+            }
+          />
+        </div>
+      </motion.article>
+
       {hasPopularity ? (
-        <motion.article className="rail-card popular-card" variants={fadeUp}>
+        <motion.article
+          className="rail-card popular-card elegant"
+          variants={fadeUp}
+        >
           <div className="rail-title-row">
             <h3>Popular choice</h3>
             <Info size={16} />
@@ -758,9 +921,13 @@ function MobileHero({
       >
         <div className="mobile-card-lines" />
 
-        <div className="mobile-price">
-          <strong>{getVehiclePrice(vehicle)}</strong>
-          <Info size={15} />
+        <div className="mobile-price color-mode">
+          <strong>
+            {selectedColor.mobileName ||
+              selectedColor.desktopName ||
+              selectedColor.name}
+          </strong>
+          <span>{colors.length} exterior colors</span>
         </div>
 
         <span className="mobile-count">
@@ -830,12 +997,47 @@ function MobileColorPicker({
   );
 }
 
-function MobileSelectedColorInfo({ selectedColor }) {
+function MobileSelectedColorInfo({ selectedColor, vehicle, onAction }) {
+  const vehicleTitle = getVehicleTitle(vehicle);
+  const colorName =
+    selectedColor.mobileName ||
+    selectedColor.desktopName ||
+    selectedColor.colorName ||
+    selectedColor.name;
+
   return (
-    <motion.section className="mobile-selected-color-info" variants={fadeUp}>
-      <p>Selected color</p>
-      <strong>{selectedColor.name}</strong>
-      <small>Color availability may vary by variant and city.</small>
+    <motion.section
+      className="mobile-selected-color-info premium"
+      variants={fadeUp}
+    >
+      <div>
+        <p>Selected color</p>
+        <strong>{colorName}</strong>
+        <small>
+          Available for {vehicleTitle}. Final availability may vary by variant.
+        </small>
+      </div>
+
+      <button
+        type="button"
+        onClick={() =>
+          fireAction(
+            "Get quotation",
+            {
+              vehicle,
+              selectedColor,
+              color: selectedColor,
+              query: `Get quotation for ${vehicleTitle} in ${colorName}`,
+              intent: ACI_INTENTS.QUOTATION,
+              canvasType: ACI_CANVAS_TYPES.QUOTATION,
+              type: "get_quotation",
+            },
+            onAction,
+          )
+        }
+      >
+        Get quote
+      </button>
     </motion.section>
   );
 }
@@ -844,7 +1046,6 @@ function MobileColorsPage({
   colors,
   selectedColor,
   setSelectedColor,
-
   vehicle,
   data,
   onAction,
@@ -897,7 +1098,11 @@ function MobileColorsPage({
         setShowAll={setShowAllColors}
       />
 
-      <MobileSelectedColorInfo selectedColor={selectedColor} />
+      <MobileSelectedColorInfo
+        selectedColor={selectedColor}
+        vehicle={vehicle}
+        onAction={onAction}
+      />
 
       <AciComposer
         mobile
@@ -2674,6 +2879,490 @@ export default function AciAssistColorsScreen({
 }
 
 /* ACI_COLORS_BACKEND_IMAGE_FRAME_END */
+
+/* ACI_COLORS_ELEGANT_STUDIO_V2_START */
+
+.desktop-gallery-card {
+  border-radius: 30px !important;
+  border: 1px solid rgba(202, 213, 229, .92) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.92)) !important;
+  box-shadow:
+    0 30px 90px -68px rgba(15,23,42,.7),
+    inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+
+.desktop-stage {
+  min-height: 470px !important;
+  border-radius: 30px !important;
+  background:
+    radial-gradient(circle at 16% 18%, rgba(255,255,255,.98), transparent 30%),
+    radial-gradient(circle at 78% 28%, rgba(191,219,254,.82), transparent 28%),
+    linear-gradient(135deg,#f7fbff 0%,#eef6ff 45%,#ffffff 100%) !important;
+}
+
+.desktop-stage::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 48px;
+  height: 58px;
+  border-radius: 999px;
+  background:
+    radial-gradient(ellipse at center, rgba(15,23,42,.22), transparent 66%);
+  filter: blur(18px);
+  opacity: .72;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.desktop-stage::after {
+  background:
+    linear-gradient(150deg, rgba(255,255,255,.34), transparent 38%),
+    radial-gradient(circle at 50% 90%, rgba(37,99,235,.08), transparent 34%) !important;
+}
+
+.stage-lines,
+.mobile-card-lines {
+  opacity: .5 !important;
+  background:
+    repeating-radial-gradient(
+      ellipse at 78% 36%,
+      rgba(255,255,255,.44) 0,
+      rgba(255,255,255,.44) 1px,
+      transparent 2px,
+      transparent 26px
+    ) !important;
+}
+
+.stage-pill {
+  top: 24px !important;
+  left: 24px !important;
+  min-width: 172px;
+  height: 42px !important;
+  padding: 0 15px 0 10px !important;
+  border: 1px solid rgba(219,227,239,.95);
+  border-radius: 999px !important;
+  background: rgba(255,255,255,.88) !important;
+  backdrop-filter: blur(16px);
+  font-weight: 760 !important;
+  letter-spacing: -.01em;
+}
+
+.desktop-gallery-angle {
+  width: min(900px, 96%) !important;
+  transform: translateY(20px);
+}
+
+.safari-stage-image {
+  filter: drop-shadow(0 28px 26px rgba(15,23,42,.2)) !important;
+  mix-blend-mode: normal !important;
+}
+
+.available-colors {
+  margin-top: 2px;
+}
+
+.available-colors h2 {
+  font-size: 14px !important;
+  letter-spacing: .01em;
+}
+
+.available-grid {
+  gap: 14px !important;
+}
+
+.available-grid button {
+  min-height: 128px !important;
+  border-radius: 22px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.9)) !important;
+  box-shadow:
+    0 22px 64px -54px rgba(15,23,42,.55),
+    inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+
+.available-grid button span {
+  max-width: 110px;
+  line-height: 1.18;
+  text-align: center;
+  color: #334155;
+  font-weight: 680;
+}
+
+.available-grid button.active {
+  border-color: rgba(37,99,235,.72) !important;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(37,99,235,.08), transparent 40%),
+    linear-gradient(180deg, #ffffff, #f7fbff) !important;
+  box-shadow:
+    0 0 0 4px rgba(37,99,235,.08),
+    0 26px 70px -54px rgba(37,99,235,.75),
+    inset 0 1px 0 #fff !important;
+}
+
+.rail-card.elegant,
+.rail-card {
+  border-radius: 24px !important;
+  border: 1px solid rgba(219,227,239,.95) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.93)) !important;
+  box-shadow:
+    0 28px 78px -62px rgba(15,23,42,.58),
+    inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+
+.selected-color-premium {
+  margin-top: 16px;
+  min-height: 92px;
+  border-radius: 22px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 58px 1fr;
+  align-items: center;
+  gap: 13px;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(255,255,255,.82), transparent 26%),
+    linear-gradient(135deg, var(--paint), var(--deep));
+  color: #fff;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.4),
+    0 22px 52px -42px rgba(15,23,42,.8);
+}
+
+.selected-color-premium .color-orb {
+  width: 54px;
+  height: 54px;
+  border: 2px solid rgba(255,255,255,.74);
+}
+
+.selected-color-premium .color-orb b,
+.selected-color-premium .color-orb i {
+  display: none;
+}
+
+.selected-color-premium span {
+  display: block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  opacity: .84;
+  font-weight: 760;
+}
+
+.selected-color-premium strong {
+  display: block;
+  margin-top: 5px;
+  font-size: 17px;
+  line-height: 1.05;
+  font-weight: 850;
+  letter-spacing: -.03em;
+}
+
+.selected-color-premium em {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  opacity: .86;
+  font-style: normal;
+}
+
+.selected-color-card p,
+.available-shades-card p {
+  margin: 14px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.52;
+}
+
+.primary-rail-button {
+  width: 100%;
+  height: 42px;
+  margin-top: 16px;
+  border: 0;
+  border-radius: 14px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 18px 42px -30px rgba(37,99,235,.85);
+}
+
+.available-shades-card > strong {
+  display: block;
+  margin-top: 13px;
+  color: var(--blue);
+  font-size: 44px;
+  line-height: .9;
+  letter-spacing: -.06em;
+  font-weight: 900;
+}
+
+.color-journey-rail {
+  padding-bottom: 16px;
+}
+
+.color-journey-list {
+  margin-top: 14px;
+  display: grid;
+  gap: 9px;
+}
+
+.color-journey-card {
+  width: 100%;
+  min-height: 58px;
+  border: 1px solid rgba(219,227,239,.95);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.92));
+  display: grid;
+  grid-template-columns: 34px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  color: #0f172a;
+  text-align: left;
+  box-shadow: 0 18px 42px -36px rgba(15,23,42,.42);
+}
+
+.color-journey-card > span {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background:
+    radial-gradient(circle at 30% 20%, #fff, rgba(219,234,254,.9));
+  color: var(--blue);
+  font-size: 15px;
+  font-weight: 850;
+  box-shadow: inset 0 0 0 1px rgba(37,99,235,.12);
+}
+
+.color-journey-card strong {
+  display: block;
+  font-size: 12.5px;
+  line-height: 1.1;
+  font-weight: 780;
+  color: #0f172a;
+}
+
+.color-journey-card em {
+  display: block;
+  margin-top: 3px;
+  font-size: 10.5px;
+  line-height: 1.2;
+  color: #64748b;
+  font-style: normal;
+}
+
+.color-journey-card svg {
+  color: #94a3b8;
+}
+
+/* Mobile polish */
+
+.mobile-price.color-mode {
+  align-items: flex-start !important;
+  flex-direction: column;
+  gap: 2px !important;
+}
+
+.mobile-price.color-mode strong {
+  font-size: 20px !important;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+  color: #0f172a;
+}
+
+.mobile-price.color-mode span {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.mobile-car-card {
+  border-radius: 30px !important;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 18% 24%, rgba(255,255,255,.98), transparent 30%),
+    radial-gradient(circle at 82% 32%, rgba(191,219,254,.78), transparent 28%),
+    linear-gradient(135deg,#f7fbff 0%,#edf6ff 48%,#ffffff 100%) !important;
+}
+
+.mobile-car-card::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 58px;
+  height: 42px;
+  border-radius: 999px;
+  background: radial-gradient(ellipse at center, rgba(15,23,42,.22), transparent 66%);
+  filter: blur(15px);
+  opacity: .68;
+  pointer-events: none;
+}
+
+.mobile-selected-color-info.premium {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 14px;
+  border-radius: 24px !important;
+  padding: 17px 17px !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.94)) !important;
+  box-shadow:
+    0 24px 70px -58px rgba(15,23,42,.6),
+    inset 0 1px 0 #fff !important;
+}
+
+.mobile-selected-color-info.premium button {
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 16px;
+  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+  color: white;
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 18px 42px -30px rgba(37,99,235,.86);
+}
+
+/* ACI_COLORS_ELEGANT_STUDIO_V2_END */
+
+/* ACI_COLORS_FINAL_POLISH_FIX_START */
+
+/* Remove the visible CarImageStage box. Let the car sit directly on the hero stage. */
+.safari-vehicle,
+.safari-vehicle-inner,
+.safari-stage,
+.safari-stage.aci-car-stage,
+.safari-vehicle .aci-car-stage,
+.safari-vehicle .aci-car-stage-inner,
+.safari-vehicle .aci-car-stage-shell {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+.desktop-gallery-card {
+  border: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.desktop-stage {
+  position: relative !important;
+  overflow: hidden !important;
+  border: 1px solid rgba(219, 227, 239, 0.95) !important;
+  box-shadow:
+    0 30px 90px -68px rgba(15, 23, 42, 0.68),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
+}
+
+.desktop-gallery-angle {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 20px !important;
+  z-index: 2 !important;
+  width: 100% !important;
+  height: 74% !important;
+  display: grid !important;
+  place-items: end center !important;
+  pointer-events: none !important;
+}
+
+.safari-stage-image {
+  width: min(92%, 860px) !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center bottom !important;
+  filter: drop-shadow(0 30px 26px rgba(15, 23, 42, 0.22)) !important;
+  transform-origin: var(--car-frame-origin, center bottom) !important;
+  transform:
+    translate(var(--car-frame-x, 0%), var(--car-frame-y, 7%))
+    scale(var(--car-frame-scale, 1)) !important;
+}
+
+/* Make laptop color choices float like mobile, no card borders. */
+.available-colors {
+  margin-top: 20px !important;
+}
+
+.available-grid {
+  gap: 16px !important;
+  align-items: start !important;
+}
+
+.available-grid button {
+  min-height: auto !important;
+  padding: 6px 8px 8px !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.available-grid button:hover {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.available-grid button.active {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.available-grid button .color-orb {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.66),
+    0 14px 30px -24px rgba(15,23,42,.7) !important;
+}
+
+.available-grid button.active .color-orb {
+  box-shadow:
+    0 0 0 5px rgba(37,99,235,.12),
+    0 0 0 1px rgba(37,99,235,.28),
+    0 18px 38px -24px rgba(37,99,235,.9) !important;
+}
+
+.available-grid button span {
+  margin-top: 9px !important;
+  max-width: 112px !important;
+  text-align: center !important;
+  color: #334155 !important;
+  font-size: 11.5px !important;
+  line-height: 1.18 !important;
+  font-weight: 720 !important;
+}
+
+/* Selected color card text visibility */
+.selected-color-premium strong {
+  color: #fff !important;
+  text-shadow: 0 1px 16px rgba(15,23,42,.24);
+}
+
+.selected-color-premium span,
+.selected-color-premium em {
+  color: rgba(255,255,255,.88) !important;
+}
+
+/* ACI_COLORS_FINAL_POLISH_FIX_END */
 
       `}</style>
 
