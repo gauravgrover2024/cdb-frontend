@@ -554,13 +554,19 @@ const computeQuoteBreakupFromRow = (q) => {
     flatAddOnsAmount > 0 &&
     hasAnySelectedAddOn &&
     Math.round(flatAddOnsAmount) !== Math.round(selectedAddOnsTotal);
-  const addOnsTotal = allowsAddOns
+  const rawAddOnsTotal = allowsAddOns
     ? hasAnySelectedAddOn
       ? hasFlatOverride
         ? flatAddOnsAmount
         : selectedAddOnsTotal
       : flatAddOnsAmount
     : 0;
+
+  // TATA AIG RSA Exclusion: Exclude Rs 116 from payout and premium base as per business rules
+  const addOnsTotal =
+    String(q.insuranceCompany || "").toUpperCase().includes("TATA AIG")
+      ? Math.max(0, rawAddOnsTotal - 116)
+      : rawAddOnsTotal;
   const addOnsSource = !allowsAddOns
     ? "none"
     : hasAnySelectedAddOn
@@ -2602,13 +2608,18 @@ const NewInsuranceCaseForm = ({
       flatAddOnsAmount > 0 &&
       hasAnySelectedAddOn &&
       Math.round(flatAddOnsAmount) !== Math.round(selectedAddOnsTotal);
-    const addOnsTotal = allowsAddOns
+    const rawAddOnsTotal = allowsAddOns
       ? hasAnySelectedAddOn
         ? hasFlatOverride
           ? flatAddOnsAmount
           : selectedAddOnsTotal
         : flatAddOnsAmount
       : 0;
+
+    const addOnsTotal =
+      String(quoteDraft.insuranceCompany || "").toUpperCase().includes("TATA AIG")
+        ? Math.max(0, rawAddOnsTotal - 116)
+        : rawAddOnsTotal;
     const addOnsSource = !allowsAddOns
       ? "none"
       : hasAnySelectedAddOn
@@ -3341,17 +3352,7 @@ const NewInsuranceCaseForm = ({
           const odAmount = Number(breakup?.odAmt || 0);
           const addOnsAmount = Number(breakup?.addOnsTotal || 0);
 
-          // TATA AIG RSA Exclusion: Exclude Rs 116 from payout base as per requirements
-          let adjustedAddOnsAmount = addOnsAmount;
-          if (
-            String(q.insuranceCompany || "")
-              .toUpperCase()
-              .includes("TATA AIG")
-          ) {
-            adjustedAddOnsAmount = Math.max(0, addOnsAmount - 116);
-          }
-
-          const payoutBaseAmount = odAmount + adjustedAddOnsAmount;
+          const payoutBaseAmount = odAmount + addOnsAmount;
           const payoutAmount =
             (payoutBaseAmount * Number(selectedPayoutPercentage || 0)) / 100;
           const nextReceivable = buildAutoReceivableRow(

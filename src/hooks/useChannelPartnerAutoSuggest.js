@@ -20,7 +20,10 @@ const containsTerm = (row, term) => {
   return hay.includes(q);
 };
 
-export default function useChannelPartnerAutoSuggest({ limit = 25 } = {}) {
+export default function useChannelPartnerAutoSuggest({
+  limit = 25,
+  type = "Dealer",
+} = {}) {
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(false);
   const timerRef = useRef(null);
@@ -37,7 +40,7 @@ export default function useChannelPartnerAutoSuggest({ limit = 25 } = {}) {
     const data = response?.data || response?.channels || [];
     allRef.current = Array.isArray(data) ? data : [];
     return allRef.current;
-  }, []);
+  }, [type]);
 
   const fetchTop = useCallback(async () => {
     setLoading(true);
@@ -72,7 +75,7 @@ export default function useChannelPartnerAutoSuggest({ limit = 25 } = {}) {
 
         setLoading(true);
         try {
-          const response = await channelsApi.search(q, "Dealer");
+          const response = await channelsApi.search(q, type);
           let rows = response?.data || [];
           if (!Array.isArray(rows) || rows.length === 0) {
             const all = await fetchAll();
@@ -86,7 +89,7 @@ export default function useChannelPartnerAutoSuggest({ limit = 25 } = {}) {
         }
       }, 240);
     },
-    [fetchAll, fetchTop],
+    [fetchAll, fetchTop, type],
   );
 
   const options = useMemo(

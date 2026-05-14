@@ -1186,9 +1186,14 @@ const PolicyCard = ({
                       <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
                       <span
                         className="text-[10px] font-bold text-indigo-700 truncate"
-                        title={policy.sourceDetailsName}
+                        title={`${policy.sourceDetailsName}${policy.channelDealerNo ? ` (${policy.channelDealerNo})` : ""}`}
                       >
                         {policy.sourceDetailsName}
+                        {policy.channelDealerNo && (
+                          <span className="ml-1 opacity-60">
+                            #{policy.channelDealerNo}
+                          </span>
+                        )}
                       </span>
                     </div>
                   )}
@@ -1317,12 +1322,35 @@ const PolicyCard = ({
                       : ` · ${Number(policy.expiryDays)}d left`
                     : ""}
                 </p>
-                <p
-                  className="text-[11px] text-slate-500 truncate"
-                  title={policy.policyIssuedByDetail}
-                >
-                  Issued by: {policy.policyIssuedByDetail || "—"}
-                </p>
+                {policy.policyIssuedByDetail &&
+                policy.policyIssuedByDetail !== "—" ? (
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                      Issued via:
+                    </span>
+                    <span
+                      className={cx(
+                        "px-1.5 py-0.5 rounded text-[10px] font-bold truncate max-w-[120px]",
+                        String(policy.policyIssuedByDetail)
+                          .toLowerCase()
+                          .includes("broker")
+                          ? "bg-amber-100 text-amber-700 border border-amber-200"
+                          : String(policy.policyIssuedByDetail)
+                                .toLowerCase()
+                                .includes("showroom")
+                            ? "bg-blue-100 text-blue-700 border border-blue-200"
+                            : "bg-slate-100 text-slate-600 border border-slate-200",
+                      )}
+                      title={policy.policyIssuedByDetail}
+                    >
+                      {policy.policyIssuedByDetail}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 truncate mt-1">
+                    Issued by: —
+                  </p>
+                )}
                 {policy.renewalFollowUpStatus ? (
                   <p className="text-[11px] text-slate-500 truncate">
                     Follow-up: {policy.renewalFollowUpStatus}
@@ -2004,8 +2032,10 @@ const InsuranceDashboardPage = () => {
             : policyIssuedBy;
       const channelDealerNo =
         record.channelDealerNo ||
+        record.channel_dealer_no ||
         record.channelDealerNumber ||
         record.dealerChannelNumber ||
+        record.dealer_channel_number ||
         "";
 
       // Payment
