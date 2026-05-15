@@ -32,6 +32,10 @@ import { insuranceApi } from "../../api/insurance";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
 import InsuranceDocumentsModal from "../../components/insurance/InsuranceDocumentsModal";
 import PremiumBreakupCard from "../../components/insurance/PremiumBreakupCard";
+import {
+  resolveInsuranceReference,
+  shouldShowInsuranceChannelBadge,
+} from "../../utils/insurancePolicyDisplay";
 
 dayjs.extend(customParseFormat);
 
@@ -56,7 +60,6 @@ const hasDisplayValue = (value) => {
   return text.length > 0 && text.toLowerCase() !== "n/a";
 };
 
-/** Drop stale channel/company suffixes like "PRIYANK TAYAL (HT CAR)" after rename. */
 const resolveInsuranceCustomerDisplay = ({
   customerName = "",
   companyName = "",
@@ -1220,29 +1223,77 @@ const PolicyCard = ({
                       {policy.source || "Direct"}
                     </span>
                   </div>
-                  {policy.isIndirectSource && policy.sourceDetailsName && (
+                  {policy.referenceName || policy.referencePhone ? (
+                    <div className="space-y-1">
+                      {policy.referenceName ? (
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                          <span className="font-bold uppercase tracking-wider text-slate-400">
+                            Reference:
+                          </span>
+                          <span className="truncate font-semibold text-slate-700">
+                            {policy.referenceName}
+                          </span>
+                        </div>
+                      ) : null}
+                      {policy.referencePhone ? (
+                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                          <span className="font-bold uppercase tracking-wider text-slate-400">
+                            Ref No:
+                          </span>
+                          <span
+                            className="truncate font-semibold text-slate-700"
+                            style={{
+                              fontFamily: "var(--default-mono-font-family)",
+                            }}
+                          >
+                            {policy.referencePhone}
+                          </span>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {shouldShowInsuranceChannelBadge(policy) &&
+                  policy.isIndirectSource &&
+                  policy.sourceDetailsName ? (
                     <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-fit max-w-full">
                       <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
                       <span
                         className="text-[10px] font-bold text-indigo-700 truncate"
-                        title={`${policy.sourceDetailsName}${policy.channelDealerNo ? ` (${policy.channelDealerNo})` : ""}`}
+                        title={`${policy.sourceDetailsName}${policy.channelDealerNo ? ` (#${policy.channelDealerNo})` : ""}`}
                       >
-                        {policy.sourceDetailsName}
-                        {policy.channelDealerNo && (
+                        Dealer: {policy.sourceDetailsName}
+                        {policy.channelDealerNo ? (
                           <span className="ml-1 opacity-60">
                             #{policy.channelDealerNo}
                           </span>
-                        )}
+                        ) : null}
                       </span>
                     </div>
-                  )}
-                  {policy.referenceName ? (
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                      <span className="font-bold uppercase tracking-wider text-slate-400">
-                        Reference:
-                      </span>
-                      <span className="truncate font-semibold text-slate-700">
-                        {policy.referenceName}
+                  ) : null}
+                  {shouldShowInsuranceChannelBadge(policy) &&
+                  !policy.isIndirectSource &&
+                  policy.channelPartnerName ? (
+                    <div
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${
+                        policy.policyDoneByLabel?.toLowerCase() === "broker"
+                          ? "bg-amber-50 border-amber-100"
+                          : "bg-blue-50 border-blue-100"
+                      }`}
+                    >
+                      <span
+                        className={`text-[10px] font-bold truncate ${
+                          policy.policyDoneByLabel?.toLowerCase() === "broker"
+                            ? "text-amber-700"
+                            : "text-blue-700"
+                        }`}
+                        title={`${policy.policyDoneByLabel}: ${policy.channelPartnerName}${policy.channelDealerNo ? ` (#${policy.channelDealerNo})` : ""}`}
+                      >
+                        {policy.policyDoneByLabel}: {policy.channelPartnerName}
+                        {policy.channelDealerNo ? (
+                          <span className="ml-1 opacity-60">
+                            #{policy.channelDealerNo}
+                          </span>
+                        ) : null}
                       </span>
                     </div>
                   ) : null}
@@ -1393,11 +1444,6 @@ const PolicyCard = ({
                 {policy.renewalFollowUpStatus ? (
                   <p className="text-[11px] text-slate-500 truncate">
                     Follow-up: {policy.renewalFollowUpStatus}
-                  </p>
-                ) : null}
-                {policy.referenceContact ? (
-                  <p className="text-[11px] text-slate-500 truncate">
-                    Ref Contact: {policy.referenceContact}
                   </p>
                 ) : null}
               </div>
@@ -2024,26 +2070,15 @@ const InsuranceDashboardPage = () => {
         record.source || record.sourceOrigin || "",
       ).trim();
       const source = sourceRaw || (record.sourceName ? "Indirect" : "Direct");
-      const isIndirectSource =
-        /indirect|dealer|broker|agency|channel|dsa|pos|partner|reference|referral/i.test(
-          source,
-        );
-      const referenceName =
-        record.referenceName ||
-        record.sourceName ||
-        record.dealerChannelName ||
-        record.reference_name ||
-        "";
-      const referenceContact =
-        record.referenceContactNumber ||
-        record.referencePhone ||
-        record.referenceMobile ||
-        record.referenceContact ||
-        record.sourceContactNumber ||
-        record.sourceMobile ||
-        record.dealerChannelMobile ||
-        record.dealerChannelContact ||
-        "";
+      const isIndirectSource = source.toLowerCase() === "indirect";
+      const policyDoneByRaw = String(
+        record.policyDoneBy || record.policy_done_by || "",
+      ).trim();
+      const policyDoneByLower = policyDoneByRaw.toLowerCase();
+      const brokerName = String(record.brokerName || "").trim();
+      const showroomName = String(record.showroomName || "").trim();
+      const dealerChannelName = String(record.dealerChannelName || "").trim();
+      const { referenceName, referencePhone } = resolveInsuranceReference(record);
 
       const regKey = normalizeVehicleRegKey(reg || "—");
       const vehicleYear = getVehicleDisplayYear(record);
@@ -2069,16 +2104,24 @@ const InsuranceDashboardPage = () => {
         record.insuranceIssuedBy ||
         record.sourceOrigin ||
         "—";
+      const channelPartnerName =
+        policyDoneByLower === "broker"
+          ? brokerName
+          : policyDoneByLower === "showroom"
+            ? showroomName
+            : isIndirectSource
+              ? dealerChannelName
+              : "";
       const policyIssuedByDetail =
-        String(record.policyDoneBy || "")
-          .trim()
-          .toLowerCase() === "broker"
-          ? record.brokerName || "Broker"
-          : String(record.policyDoneBy || "")
-                .trim()
-                .toLowerCase() === "showroom"
-            ? record.showroomName || "Showroom"
-            : policyIssuedBy;
+        channelPartnerName ||
+        (policyDoneByLower === "broker"
+          ? "Broker"
+          : policyDoneByLower === "showroom"
+            ? "Showroom"
+            : policyIssuedBy);
+      const sourceDetailsName = isIndirectSource
+        ? dealerChannelName || referenceName
+        : "";
       const channelDealerNo =
         record.channelDealerNo ||
         record.channel_dealer_no ||
@@ -2298,10 +2341,20 @@ const InsuranceDashboardPage = () => {
         mobile,
         source,
         isIndirectSource,
-        sourceDetailsName: isIndirectSource ? referenceName : "",
-        sourceDetailsContact: isIndirectSource ? referenceContact : "",
+        policyDoneByLabel: policyDoneByRaw || "—",
+        channelPartnerName,
+        sourceDetailsName: isIndirectSource ? dealerChannelName || referenceName : "",
+        sourceDetailsContact: isIndirectSource
+          ? String(
+              record.dealerChannelMobile ||
+                record.dealerChannelContact ||
+                record.sourceContactNumber ||
+                "",
+            ).trim()
+          : "",
         referenceName,
-        referenceContact,
+        referencePhone,
+        referenceContact: referencePhone,
         channelDealerNo,
         vehicle: vehicleLabel,
         vehicleYear,

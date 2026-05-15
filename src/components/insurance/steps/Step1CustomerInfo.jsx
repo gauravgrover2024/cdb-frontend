@@ -15,6 +15,7 @@ import {
 import { UserOutlined, TeamOutlined, IdcardOutlined } from "@ant-design/icons";
 import dayjs from "dayjs";
 import useChannelPartnerAutoSuggest from "../../../hooks/useChannelPartnerAutoSuggest";
+import useChannelsMasterSearch from "../../../hooks/useChannelsMasterSearch";
 import useShowroomAutoSuggest from "../../../hooks/useShowroomAutoSuggest";
 
 const { Text } = Typography;
@@ -154,25 +155,98 @@ const Step1CustomerInfo = ({
   customerSearchLoading,
   searchCustomers,
   applyCustomerToForm,
+  applyReferenceFromCustomer,
   getCustomerId,
 }) => {
   const {
     options: partnerOptions,
     search: searchPartners,
-    loading: partnersLoading,
+    getByName: getPartnerByName,
   } = useChannelPartnerAutoSuggest();
 
   const {
     options: brokerOptions,
     search: searchBrokers,
-    loading: brokersLoading,
+    getByName: getBrokerByName,
   } = useChannelPartnerAutoSuggest({ type: "Broker" });
 
   const {
     options: showroomOptions,
     search: searchShowrooms,
-    loading: showroomsLoading,
+    getByName: getShowroomByName,
   } = useShowroomAutoSuggest();
+
+  const {
+    options: channelMasterOptions,
+    search: searchChannelMaster,
+    loading: channelMasterLoading,
+    notFoundContent: channelMasterNotFound,
+  } = useChannelsMasterSearch();
+
+  const sourceMode = String(formData.source || formData.sourceOrigin || "Direct");
+
+  const applyChannelDealerNo = (value) => {
+    setField("channelDealerNo", String(value || "").trim());
+  };
+
+  const applyChannelFromMaster = (channel) => {
+    if (!channel) return;
+    const channelId = String(channel.channelId || "").trim();
+    const channelName = String(channel.name || "").trim();
+    const channelType = String(channel.type || "").trim().toLowerCase();
+
+    applyChannelDealerNo(channelId);
+
+    if (channelType.includes("broker")) {
+      setField("brokerName", channelName);
+      if (onPolicyDoneByChange) onPolicyDoneByChange("Broker");
+      else setField("policyDoneBy", "Broker");
+      return;
+    }
+
+    if (channelType.includes("dealer") || sourceMode === "Indirect") {
+      setField("dealerChannelName", channelName);
+      if (channel.address) setField("dealerChannelAddress", channel.address);
+      if (channel.commissionRate != null && channel.commissionRate !== "") {
+        setField("payoutApplicable", "Yes");
+        setField("payoutPercent", String(channel.commissionRate));
+      }
+      if (onSourceChange) onSourceChange("Indirect");
+      else {
+        setField("source", "Indirect");
+        setField("sourceOrigin", "Indirect");
+      }
+    }
+  };
+
+  const syncChannelDealerNoFromSelection = () => {
+    const doneBy = String(formData.policyDoneBy || "").trim().toLowerCase();
+    if (doneBy === "broker") {
+      const broker = getBrokerByName(formData.brokerName);
+      if (broker?.channelId) applyChannelDealerNo(broker.channelId);
+      return;
+    }
+    if (doneBy === "showroom") {
+      const showroom = getShowroomByName(formData.showroomName);
+      if (showroom?.showroomId) applyChannelDealerNo(showroom.showroomId);
+      return;
+    }
+    if (sourceMode === "Indirect") {
+      const partner = getPartnerByName(formData.dealerChannelName);
+      if (partner?.channelId) applyChannelDealerNo(partner.channelId);
+    }
+  };
+
+  React.useEffect(() => {
+    syncChannelDealerNoFromSelection();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    formData.policyDoneBy,
+    formData.brokerName,
+    formData.showroomName,
+    formData.dealerChannelName,
+    sourceMode,
+  ]);
 
   const primaryName = isCompany
     ? formData.companyName || "Company details"
@@ -188,7 +262,6 @@ const Step1CustomerInfo = ({
     .slice(0, 12)
     .map((c) => buildCustomerOption(c, getCustomerId))
     .filter(Boolean);
-  const sourceMode = String(formData.source || formData.sourceOrigin || "Direct");
   const policyDoneBy = String(formData.policyDoneBy || "Autocredits India LLP");
   const nomineeDobLabel = (() => {
     if (!formData.nomineeDob) return "DOB";
@@ -274,19 +347,6 @@ const Step1CustomerInfo = ({
               </div>
             </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Channel / Dealer Number">
-                  <Input
-                    size="large"
-                    value={formData.channelDealerNo}
-                    onChange={(e) => setField("channelDealerNo", e.target.value)}
-                    placeholder="Dealer Number"
-                    allowClear
-                  />
-                </CleanField>
-              </div>
-            </Col>
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -362,8 +422,13 @@ const Step1CustomerInfo = ({
                       value={formData.brokerName}
                       options={brokerOptions}
                       onSearch={searchBrokers}
+                      onSelect={(val, option) => {
+                        const p = option?.partner;
+                        setField("brokerName", p?.name || val || "");
+                        applyChannelDealerNo(p?.channelId || "");
+                      }}
                       onChange={(val) => setField("brokerName", val)}
-                      placeholder="Broker Name"
+                      placeholder="Type 3+ chars — broker name"
                       status={
                         showErrors && step1Errors.brokerName ? "error" : ""
                       }
@@ -386,8 +451,13 @@ const Step1CustomerInfo = ({
                       value={formData.showroomName}
                       options={showroomOptions}
                       onSearch={searchShowrooms}
+                      onSelect={(val, option) => {
+                        const s = option?.showroom;
+                        setField("showroomName", s?.name || val || "");
+                        applyChannelDealerNo(s?.showroomId || "");
+                      }}
                       onChange={(val) => setField("showroomName", val)}
-                      placeholder="Showroom Name"
+                      placeholder="Type 3+ chars — showroom name"
                       status={
                         showErrors && step1Errors.showroomName ? "error" : ""
                       }
@@ -399,6 +469,25 @@ const Step1CustomerInfo = ({
                 ) : null}
               </Col>
             ) : null}
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Channel / Dealer Number">
+                  <AutoComplete
+                    size="large"
+                    allowClear
+                    value={formData.channelDealerNo}
+                    options={channelMasterOptions}
+                    onSearch={searchChannelMaster}
+                    onSelect={(_, option) => applyChannelFromMaster(option?.channel)}
+                    onChange={(val) => setField("channelDealerNo", val)}
+                    placeholder="Type 3+ chars — ID, name, mobile"
+                    notFoundContent={channelMasterNotFound}
+                    style={{ width: "100%" }}
+                  />
+                </CleanField>
+              </div>
+            </Col>
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -467,7 +556,7 @@ const Step1CustomerInfo = ({
                         }
                       }}
                       onChange={(val) => setField("dealerChannelName", val)}
-                      placeholder="Dealer / Channel name or phone"
+                      placeholder="Type 3+ chars — dealer name or mobile"
                       status={
                         showErrors && step1Errors.dealerChannelName
                           ? "error"
@@ -1084,8 +1173,9 @@ const Step1CustomerInfo = ({
                 <div className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
                   Reference
                 </div>
-                <div className="mt-1 text-sm font-bold text-slate-800">
-                  Optional contact
+                <div className="mt-1 text-sm text-slate-500">
+                  Search CRM — auto-fills from customer profile; blanks stay
+                  editable
                 </div>
               </div>
 
@@ -1093,11 +1183,35 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Name">
-                      <Input size="large" allowClear
+                      <AutoComplete
+                        size="large"
+                        allowClear
                         value={formData.referenceName}
-                        onChange={handleChange("referenceName")}
-                        placeholder="Reference Name"
-                        style={inputControlStyle}
+                        options={customerOptions}
+                        onSearch={(val) => {
+                          setField("referenceName", val);
+                          searchCustomers(val);
+                        }}
+                        onChange={(val) => {
+                          const v = String(val ?? "");
+                          if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
+                          setField("referenceName", v);
+                        }}
+                        onSelect={(customerId) => {
+                          const selected = resolveSelectedCustomer(
+                            customerId,
+                            customerSearchResults,
+                            getCustomerId,
+                          );
+                          if (selected && applyReferenceFromCustomer) {
+                            applyReferenceFromCustomer(selected);
+                          }
+                        }}
+                        placeholder="Search reference name (CRM)"
+                        style={{ width: "100%" }}
+                        notFoundContent={
+                          customerSearchLoading ? "Searching…" : "No match"
+                        }
                       />
                     </CleanField>
                   </div>
@@ -1106,11 +1220,41 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Phone">
-                      <Input size="large" allowClear
+                      <AutoComplete
+                        size="large"
+                        allowClear
                         value={formData.referencePhone}
-                        onChange={handleChange("referencePhone")}
-                        placeholder="Reference Phone"
-                        style={inputControlStyle}
+                        options={customerOptions.slice(0, 10)}
+                        onSearch={(raw) => {
+                          const digits = String(raw || "")
+                            .replace(/\D/g, "")
+                            .slice(0, 10);
+                          setField("referencePhone", digits);
+                          if (digits.length >= 3) searchCustomers(digits);
+                        }}
+                        onChange={(val) => {
+                          const v = String(val ?? "");
+                          if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
+                          setField(
+                            "referencePhone",
+                            v.replace(/\D/g, "").slice(0, 10),
+                          );
+                        }}
+                        onSelect={(customerId) => {
+                          const selected = resolveSelectedCustomer(
+                            customerId,
+                            customerSearchResults,
+                            getCustomerId,
+                          );
+                          if (selected && applyReferenceFromCustomer) {
+                            applyReferenceFromCustomer(selected);
+                          }
+                        }}
+                        placeholder="Reference mobile (10 digits)"
+                        style={{ width: "100%" }}
+                        notFoundContent={
+                          customerSearchLoading ? "Searching…" : null
+                        }
                       />
                     </CleanField>
                   </div>
@@ -1257,6 +1401,12 @@ const Step1CustomerInfo = ({
                   label="Policy Done By"
                   value={formData.policyDoneBy}
                 />
+                {formData.channelDealerNo ? (
+                  <SummaryRow
+                    label="Channel / Dealer No."
+                    value={formData.channelDealerNo}
+                  />
+                ) : null}
                 {formData.policyDoneBy === "Broker" ? (
                   <SummaryRow label="Broker Name" value={formData.brokerName} />
                 ) : null}

@@ -53,99 +53,15 @@ import {
   mergeLinkedIntoExistingDocuments,
 } from "../../utils/insuranceLinkedDocuments";
 import { useNavigate } from "react-router-dom";
+import {
+  digits10,
+  mergeInsuranceCustomerFields,
+  mergeInsuranceReferenceFields,
+  normalizeCustomerSearchPayload,
+  mapCustomerToInsuranceFields,
+} from "../../utils/customerFormMapping";
+
 const { Text, Title } = Typography;
-
-/** Same response normalization as loan EMI customer search (EMICustomerDetails). */
-const normalizeCustomerSearchPayload = (payload) => {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.data?.data)) return payload.data.data;
-  if (Array.isArray(payload?.items)) return payload.items;
-  if (Array.isArray(payload?.results)) return payload.results;
-  return [];
-};
-
-const digits10 = (v) =>
-  String(v ?? "")
-    .replace(/\D/g, "")
-    .slice(0, 10);
-
-/**
- * Map search / getById customer payloads to fields the insurance form expects.
- * APIs may use mobile vs primaryMobile, name vs customerName, etc.
- */
-const normalizeCustomerForInsurance = (raw) => {
-  if (!raw || typeof raw !== "object") return raw;
-  const primaryMobile = digits10(
-    raw.primaryMobile ??
-      raw.mobile ??
-      raw.phone ??
-      raw.primary_mobile ??
-      raw.contactNumber,
-  );
-  const customerName = String(
-    raw.customerName || raw.name || raw.fullName || "",
-  ).trim();
-  const companyName = String(
-    raw.companyName || raw.company || raw.businessName || "",
-  ).trim();
-  const contactPersonName = String(
-    raw.contactPersonName || raw.contactName || "",
-  ).trim();
-  const email = String(
-    raw.email || raw.emailAddress || raw.primaryEmail || "",
-  ).trim();
-  const panNumber = String(raw.panNumber || raw.pan || "").trim();
-  const aadhaarNumber = String(
-    raw.aadhaarNumber || raw.aadharNumber || raw.aadhaar || "",
-  ).trim();
-  const gstNumber = String(raw.gstNumber || raw.gstin || raw.gst || "").trim();
-  const residenceAddress = String(
-    raw.residenceAddress ||
-      raw.currentAddress ||
-      raw.address ||
-      raw.permanentAddress ||
-      raw.officeAddress ||
-      "",
-  ).trim();
-  const pincode = String(raw.pincode || raw.permanentPincode || raw.zip || "")
-    .replace(/\D/g, "")
-    .slice(0, 6);
-  const city = String(
-    raw.city || raw.permanentCity || raw.district || "",
-  ).trim();
-  const gender = String(raw.gender || "").trim();
-  const nomineeName = String(raw.nomineeName || raw.nominee || "").trim();
-  const nomineeRelation = String(
-    raw.nomineeRelation || raw.nomineeRelationship || "",
-  ).trim();
-  const nomineeDob = raw.nomineeDob || raw.nomineeDateOfBirth || "";
-  const extraMobiles = Array.isArray(raw.extraMobiles)
-    ? raw.extraMobiles
-    : Array.isArray(raw.alternateMobiles)
-      ? raw.alternateMobiles
-      : [];
-
-  return {
-    ...raw,
-    customerName: customerName || raw.customerName,
-    companyName: companyName || raw.companyName,
-    contactPersonName: contactPersonName || raw.contactPersonName,
-    primaryMobile: primaryMobile || undefined,
-    email: email || raw.email,
-    panNumber: panNumber || raw.panNumber,
-    aadhaarNumber: aadhaarNumber || raw.aadhaarNumber,
-    gstNumber: gstNumber || raw.gstNumber,
-    residenceAddress: residenceAddress || raw.residenceAddress,
-    pincode: pincode || raw.pincode,
-    city: city || raw.city,
-    gender: gender || raw.gender,
-    nomineeName: nomineeName || raw.nomineeName,
-    nomineeRelation: nomineeRelation || raw.nomineeRelation,
-    nomineeDob: nomineeDob || raw.nomineeDob,
-    extraMobiles: extraMobiles.length ? extraMobiles : raw.extraMobiles,
-  };
-};
 
 const initialFormState = {
   buyerType: "Individual",
@@ -991,48 +907,13 @@ const NewInsuranceCaseForm = ({
   const applyCustomerToForm = useCallback((customer) => {
     if (!customer) return;
 
-    const mergeCustomerRow = (prev, row) => {
-      if (!row || typeof row !== "object") return prev;
-      const id = getCustomerId(row);
-      const mob = digits10(row.primaryMobile);
-      const firstAlt =
-        Array.isArray(row.extraMobiles) && row.extraMobiles.length
-          ? digits10(row.extraMobiles[0])
-          : "";
-
-      return {
-        ...prev,
-        customerId: id || prev.customerId,
-        customerName:
-          String(row.customerName || "").trim() || prev.customerName,
-        companyName:
-          String(row.companyName || "").trim() ||
-          String(row.customerName || "").trim() ||
-          prev.companyName,
-        contactPersonName: row.contactPersonName || prev.contactPersonName,
-        mobile: mob || prev.mobile,
-        alternatePhone: firstAlt || prev.alternatePhone,
-        email: row.email || row.emailAddress || prev.email,
-        panNumber: row.panNumber || prev.panNumber,
-        gstNumber: row.gstNumber || prev.gstNumber,
-        aadhaarNumber:
-          row.aadhaarNumber || row.aadharNumber || prev.aadhaarNumber,
-        gender: row.gender || prev.gender,
-        residenceAddress: row.residenceAddress || prev.residenceAddress,
-        pincode: row.pincode || prev.pincode,
-        city: row.city || prev.city,
-        nomineeName: row.nomineeName || prev.nomineeName,
-        nomineeRelationship:
-          row.nomineeRelation ||
-          row.nomineeRelationship ||
-          prev.nomineeRelationship,
-        nomineeDob: row.nomineeDob || prev.nomineeDob,
-        nomineeAge: getAgeFromDob(row.nomineeDob) || prev.nomineeAge,
-      };
+    const normalized = {
+      ...customer,
+      ...mapCustomerToInsuranceFields(customer),
     };
-
-    const normalized = normalizeCustomerForInsurance(customer);
-    setFormData((prev) => mergeCustomerRow(prev, normalized));
+    setFormData((prev) =>
+      mergeInsuranceCustomerFields(prev, normalized, { fillEmptyOnly: true }),
+    );
 
     const customerId = getCustomerId(normalized);
     if (customerId) {
@@ -1041,11 +922,42 @@ const NewInsuranceCaseForm = ({
         .then((res) => {
           const raw = res?.data?.data ?? res?.data ?? res;
           if (!raw || typeof raw !== "object") return;
-          const full = normalizeCustomerForInsurance(raw);
-          setFormData((prev) => mergeCustomerRow(prev, full));
+          const full = { ...raw, ...mapCustomerToInsuranceFields(raw) };
+          setFormData((prev) =>
+            mergeInsuranceCustomerFields(prev, full, { fillEmptyOnly: true }),
+          );
         })
         .catch((err) => {
           console.error("[Insurance][CustomerById] fetch failed:", err);
+        });
+    }
+  }, []);
+
+  const applyReferenceFromCustomer = useCallback((customer) => {
+    if (!customer) return;
+
+    const normalized = {
+      ...customer,
+      ...mapCustomerToInsuranceFields(customer),
+    };
+    setFormData((prev) =>
+      mergeInsuranceReferenceFields(prev, normalized, { fillEmptyOnly: true }),
+    );
+
+    const customerId = getCustomerId(normalized);
+    if (customerId) {
+      customersApi
+        .getById(customerId)
+        .then((res) => {
+          const raw = res?.data?.data ?? res?.data ?? res;
+          if (!raw || typeof raw !== "object") return;
+          const full = { ...raw, ...mapCustomerToInsuranceFields(raw) };
+          setFormData((prev) =>
+            mergeInsuranceReferenceFields(prev, full, { fillEmptyOnly: true }),
+          );
+        })
+        .catch((err) => {
+          console.error("[Insurance][ReferenceById] fetch failed:", err);
         });
     }
   }, []);
@@ -1103,9 +1015,10 @@ const NewInsuranceCaseForm = ({
         setCustomerSearchLoading(true);
         try {
           const res = await customersApi.search(query);
-          const rows = normalizeCustomerSearchPayload(res).map(
-            (row) => normalizeCustomerForInsurance(row) || row,
-          );
+          const rows = normalizeCustomerSearchPayload(res).map((row) => ({
+            ...row,
+            ...mapCustomerToInsuranceFields(row),
+          }));
           setCustomerSearchResults(rows);
         } catch (err) {
           console.error("[Insurance][CustomerSearch] error:", err);
@@ -3011,6 +2924,7 @@ const NewInsuranceCaseForm = ({
       if (value === "Autocredits India LLP" || value === "Customer") {
         next.brokerName = "";
         next.showroomName = "";
+        next.channelDealerNo = "";
       }
       return next;
     });
@@ -3028,6 +2942,12 @@ const NewInsuranceCaseForm = ({
         next.dealerChannelAddress = "";
         next.payoutApplicable = "No";
         next.payoutPercent = "";
+        if (
+          String(next.policyDoneBy || "").trim().toLowerCase() !== "broker" &&
+          String(next.policyDoneBy || "").trim().toLowerCase() !== "showroom"
+        ) {
+          next.channelDealerNo = "";
+        }
       } else if (value === "Indirect") {
         next.sourceName = "";
         if (!next.payoutApplicable) next.payoutApplicable = "No";
@@ -3671,6 +3591,7 @@ const NewInsuranceCaseForm = ({
             cityLookupLoading={cityLookupLoading}
             searchCustomers={searchCustomers}
             applyCustomerToForm={applyCustomerToForm}
+            applyReferenceFromCustomer={applyReferenceFromCustomer}
             getCustomerId={getCustomerId}
             onPolicyDoneByChange={handlePolicyDoneByChange}
             onSourceChange={handleSourceChange}

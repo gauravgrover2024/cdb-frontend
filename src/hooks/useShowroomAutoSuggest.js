@@ -105,13 +105,13 @@ export default function useShowroomAutoSuggest({
   );
 
   useEffect(() => {
-    runSearch(queryRef.current);
+    setShowrooms([]);
     return () => {
       if (timerRef.current) {
         clearTimeout(timerRef.current);
       }
     };
-  }, [brand, runSearch]);
+  }, [brand]);
 
   const search = useCallback(
     (term) => {
@@ -119,7 +119,7 @@ export default function useShowroomAutoSuggest({
 
       setQuery(q);
 
-      if (q.length < 2) {
+      if (q.length < 3) {
         setShowrooms([]);
         return;
       }

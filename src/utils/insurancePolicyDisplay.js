@@ -721,3 +721,88 @@ export const buildInsurancePaymentTimeline = (record) => {
     ...subventionRows,
   ].filter(Boolean);
 };
+
+/** Nominee/reference contact from Step 1 — not source/dealer aliases. */
+export const resolveInsuranceReference = (record) => {
+  const r = coerceInsuranceRecord(record);
+  const snap = coerceInsuranceRecord(r.customerSnapshot);
+  const refFromSnap = extractReferenceFromCustomer(snap);
+  const refFromRow = extractReferenceFromCustomer(r);
+
+  return {
+    referenceName: pickPolicyValue(
+      r.referenceName,
+      r.reference_name,
+      refFromRow.referenceName,
+      refFromSnap.referenceName,
+    ),
+    referencePhone: pickPolicyValue(
+      r.referencePhone,
+      r.referenceContactNumber,
+      r.referenceMobile,
+      r.referenceContact,
+      refFromRow.referencePhone,
+      refFromSnap.referencePhone,
+    ),
+  };
+};
+
+/** Re-export for dashboard — reference fields from customer-shaped rows */
+export const extractReferenceFromCustomer = (raw = {}) => {
+  const ref1 =
+    raw.reference1 && typeof raw.reference1 === "object" ? raw.reference1 : {};
+  const referenceName = String(
+    ref1.name || raw.reference1_name || raw.referenceName || "",
+  ).trim();
+  const referencePhone = String(
+    ref1.mobile || raw.reference1_mobile || raw.referencePhone || "",
+  )
+    .replace(/\D/g, "")
+    .slice(0, 10);
+  return { referenceName, referencePhone };
+};
+
+export const shouldShowInsuranceChannelBadge = (ctx = {}) => {
+  const partner = String(ctx.channelPartnerName || "").trim();
+  const channelNo = String(ctx.channelDealerNo || "").trim();
+  if (!partner) return false;
+  if (ctx.isIndirectSource) return Boolean(String(ctx.sourceDetailsName || "").trim());
+  return Boolean(channelNo);
+};
+
+export const resolveInsuranceChannelContext = (record) => {
+  const r = coerceInsuranceRecord(record);
+  const sourceRaw = String(r.source || r.sourceOrigin || "").trim();
+  const source =
+    sourceRaw || (hasDisplayValue(r.sourceName) ? "Indirect" : "Direct");
+  const isIndirectSource = source.toLowerCase() === "indirect";
+  const policyDoneByRaw = String(r.policyDoneBy || r.policy_done_by || "").trim();
+  const policyDoneByLower = policyDoneByRaw.toLowerCase();
+  const brokerName = String(r.brokerName || "").trim();
+  const showroomName = String(r.showroomName || "").trim();
+  const dealerChannelName = String(r.dealerChannelName || "").trim();
+  const channelDealerNo = pickPolicyValue(
+    r.channelDealerNo,
+    r.channel_dealer_no,
+    r.channelDealerNumber,
+    r.dealerChannelNumber,
+    r.dealer_channel_number,
+  );
+  const channelPartnerName =
+    policyDoneByLower === "broker"
+      ? brokerName
+      : policyDoneByLower === "showroom"
+        ? showroomName
+        : isIndirectSource
+          ? dealerChannelName
+          : "";
+
+  return {
+    source,
+    isIndirectSource,
+    policyDoneByLabel: policyDoneByRaw || "—",
+    channelPartnerName,
+    sourceDetailsName: isIndirectSource ? dealerChannelName : "",
+    channelDealerNo,
+  };
+};
