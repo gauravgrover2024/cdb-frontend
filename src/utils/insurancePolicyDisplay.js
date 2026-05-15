@@ -459,10 +459,10 @@ export const resolveActivePolicySnapshot = (record) => {
     safe.previousTotalPremium,
   );
 
-  const expiryDate = getPolicyPulseExpiryDate(record);
+  const expiryDate = getPolicyPulseExpiryDate(safe);
   const parsedExpiry = parseInsuranceDate(expiryDate);
   const expiryLabel = parsedExpiry ? parsedExpiry.format("DD MMM YYYY") : "—";
-  const expiryDays = daysUntilExpiry(record);
+  const expiryDays = daysUntilExpiry(safe);
 
   const ncbAmount =
     Number(acceptedBreakup?.ncbAmount || 0) ||
