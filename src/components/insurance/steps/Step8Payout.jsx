@@ -15,6 +15,7 @@ import {
   Tag,
 } from "antd";
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import { computePayoutBaseAmount } from "./payoutRates";
 
 const { Text, Title } = Typography;
 const sectionHeaderLabel =
@@ -41,8 +42,13 @@ const Step8Payout = ({
   );
   const odAmount = Number(acceptedQuoteBreakup?.odAmt || 0);
   const addOnsAmount = Number(acceptedQuoteBreakup?.addOnsTotal || 0);
-  
-  const payoutBaseAmount = odAmount + addOnsAmount;
+  const insurer =
+    acceptedQuote?.insuranceCompany || formData.newInsuranceCompany || "";
+  const payoutBaseAmount = computePayoutBaseAmount(
+    odAmount,
+    addOnsAmount,
+    insurer,
+  );
   const payoutPercentage = Number(
     formData.payoutPercent ?? formData.payoutPercentage ?? 10,
   );

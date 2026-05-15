@@ -6,6 +6,7 @@ import LoanDocumentViewerModal from "../../../modules/loans/components/shared/Lo
 import { uploadMultipleFiles } from "../../../api/uploads";
 import API_BASE_URL from "../../../config/apiBaseUrl";
 import { scheduleWindowPrint } from "../../../utils/scheduleWindowPrint";
+import { getSuggestedDocsForForm } from "../insuranceDocumentRules";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -460,6 +461,31 @@ const StatTile = ({ label, value, tone = "slate", helper }) => {
   );
 };
 
+const SuggestedDocumentsHint = ({ scenarioLabel, suggestedDocs }) => {
+  if (!suggestedDocs.length) return null;
+
+  return (
+    <div className="mt-3 rounded-xl border border-sky-100/90 bg-gradient-to-br from-sky-50/70 to-white px-4 py-3 shadow-sm">
+      <p className="m-0 text-[10px] font-black uppercase tracking-[0.18em] text-sky-800">
+        Often needed for {scenarioLabel}
+      </p>
+      <p className="m-0 mt-1 text-[11px] leading-relaxed text-slate-600">
+        Suggestions only — upload and tag what you have. Not required to submit the case.
+      </p>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {suggestedDocs.map((tag) => (
+          <span
+            key={tag}
+            className="rounded-full border border-sky-200/90 bg-white px-2.5 py-1 text-[11px] font-semibold text-sky-900"
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const QuickTag = ({ label, active, onClick }) => (
   <button
     type="button"
@@ -749,6 +775,7 @@ const Step6Documents = ({
 
   const activeRequirement = DOCUMENT_MATRIX[ui.scenario] || DOCUMENT_MATRIX["used-car-renewal"];
   const policyTagLabel = useMemo(() => getPolicyTagLabel(formData), [formData]);
+  const suggestedDocs = useMemo(() => getSuggestedDocsForForm(formData), [formData]);
 
   const normalizedDocuments = useMemo(
     () =>
@@ -813,7 +840,8 @@ const Step6Documents = ({
   useEffect(() => {
     const sourceDocs = Array.isArray(documents) ? documents : [];
     const nextDocs = sourceDocs.map((doc, index) => {
-      if (String(doc?.tag || "").trim()) return doc;
+      const existingTag = String(doc?.tag || "").trim();
+      if (existingTag) return doc;
       const inferredTag = inferDocumentTag({
         docName:
           doc?.originalName ||
@@ -1258,7 +1286,6 @@ const Step6Documents = ({
         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
         onChange={handlePickedFiles}
       />
-
       <div className="-mt-2 flex flex-col gap-3">
         <section className="overflow-hidden rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 shadow-sm">
           <div className="px-5 py-3.5 md:px-6 md:py-4">
@@ -1275,7 +1302,7 @@ const Step6Documents = ({
                 <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
                   <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Policy flow</div>
                   <div className="mt-1 text-sm font-bold text-slate-800">{activeRequirement.label}</div>
-                  <div className="mt-1 text-xs text-slate-500">Documents are suggested, not mandatory.</div>
+                  <div className="mt-1 text-xs text-slate-500">Upload any documents you have — nothing is mandatory to submit.</div>
                   {policyTagLabel ? (
                     <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-slate-700">
                       {policyTagLabel}
@@ -1356,6 +1383,11 @@ const Step6Documents = ({
                 })}
               </div>
             </div>
+
+            <SuggestedDocumentsHint
+              scenarioLabel={activeRequirement.label}
+              suggestedDocs={suggestedDocs}
+            />
           </div>
         </section>
 

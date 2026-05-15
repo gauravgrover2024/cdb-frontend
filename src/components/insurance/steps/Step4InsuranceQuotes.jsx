@@ -443,6 +443,7 @@ const QuoteCard = ({
   const breakup = computeQuoteBreakupFromRow(row);
   const palette = addonPalette[idx % addonPalette.length];
   const ncbPct = Number(row.ncbDiscount || 0);
+  const isStandAloneRow = String(row.coverageType || "") === "Stand Alone OD";
   const odBeforeNcb = Number(breakup?.odAmt || 0);
   const allPremiums = quoteRows.map(
     (r) => computeQuoteBreakupFromRow(r)?.totalPremium ?? 0,
@@ -557,22 +558,25 @@ const QuoteCard = ({
           </div>
 
           <div className="flex flex-col items-end gap-1 shrink-0">
-            <div>
-              <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                IDV
-              </p>
-              <p className="m-0 text-sm font-black tabular-nums text-slate-800">
-                {formatStoredOrComputedIdv(row)}
-              </p>
-            </div>
-            {row.payoutPercentage > 0 && (
+            {!isStandAloneRow ? (
+              <div>
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  IDV
+                </p>
+                <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                  {formatStoredOrComputedIdv(row)}
+                </p>
+              </div>
+            ) : null}
+            {!isStandAloneRow && row.payoutPercentage > 0 && (
               <div className="mt-1 text-right">
                 <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
                   Est. Payout
                 </p>
                 <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
                   {toINR(
-                    (row.payoutBaseAmount || 0) * (row.payoutPercentage / 100),
+                    (breakup?.payoutBaseAmount ?? row.payoutBaseAmount ?? 0) *
+                      (row.payoutPercentage / 100),
                   )}
                 </p>
               </div>
@@ -864,11 +868,11 @@ const Step4InsuranceQuotes = ({
     setQuoteDraft((p) => ({ ...p, policyDuration: fallback }));
   }, [durationSelectOptions, quoteDraft?.policyDuration, setQuoteDraft]);
 
+  const isStandAloneOd = coverageType === "Stand Alone OD";
   const includesOd = coverageType !== "Third Party";
   const includesTp =
     coverageType !== "Stand Alone OD" && coverageType !== "Own Damage";
   const allowsAddOns = includesOd;
-  const ncbReferenceAmount = Number(quoteComputed?.ncbReferenceAmount ?? 0);
   const addOnsSource = quoteComputed?.addOnsSource ?? "flat";
   const addOnsSourceHint = React.useMemo(() => {
     switch (addOnsSource) {
@@ -882,6 +886,27 @@ const Step4InsuranceQuotes = ({
         return "Uses aggregate add-ons when pills are off or sum is zero.";
     }
   }, [addOnsSource]);
+
+  React.useEffect(() => {
+    if (!isStandAloneOd) return;
+    setQuoteDraft((p) => {
+      const needsReset =
+        Number(p.thirdPartyAmount || 0) !== 0 ||
+        Number(p.vehicleIdv || 0) !== 0 ||
+        Number(p.cngIdv || 0) !== 0 ||
+        Number(p.accessoriesIdv || 0) !== 0 ||
+        Number(p.payoutPercentage || 0) !== 0;
+      if (!needsReset) return p;
+      return {
+        ...p,
+        thirdPartyAmount: 0,
+        vehicleIdv: 0,
+        cngIdv: 0,
+        accessoriesIdv: 0,
+        payoutPercentage: 0,
+      };
+    });
+  }, [isStandAloneOd, setQuoteDraft]);
   const acceptedQuoteBreakup = React.useMemo(
     () => (acceptedQuote ? computeQuoteBreakupFromRow(acceptedQuote) : null),
     [acceptedQuote, computeQuoteBreakupFromRow],
@@ -1099,23 +1124,25 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              <FieldBlock label="Payout Percentage (%)">
-                <InputNumber
-                  size="large"
-                  min={0}
-                  max={100}
-                  value={quoteDraft.payoutPercentage || 0}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      payoutPercentage: Number(v || 0),
-                    }))
-                  }
-                  addonAfter="%"
-                  className="w-full quote-control"
-                  placeholder="0"
-                />
-              </FieldBlock>
+              {!isStandAloneOd ? (
+                <FieldBlock label="Payout Percentage (%)">
+                  <InputNumber
+                    size="large"
+                    min={0}
+                    max={100}
+                    value={quoteDraft.payoutPercentage || 0}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        payoutPercentage: Number(v || 0),
+                      }))
+                    }
+                    addonAfter="%"
+                    className="w-full quote-control"
+                    placeholder="0"
+                  />
+                </FieldBlock>
+              ) : null}
 
               <FieldBlock
                 label="Hypothecation"
@@ -1147,77 +1174,84 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              <FieldBlock
-                label="Vehicle IDV (₹)"
-                className="sm:col-start-1 lg:col-start-1"
-                helper={
-                  <>
-                    Suggested IDV:{" "}
-                    <b className="text-slate-700">
-                      {toINR(Number(suggestedIdv || 0))}
-                    </b>
-                    {Number(suggestedIdv || 0) > 0 &&
-                    Number(quoteDraft.vehicleIdv || 0) !==
-                      Number(suggestedIdv || 0) ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setQuoteDraft((p) => ({
-                            ...p,
-                            vehicleIdv: Number(suggestedIdv || 0),
-                          }))
-                        }
-                        className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
-                      >
-                        Use suggested IDV
-                      </button>
-                    ) : null}
-                  </>
-                }
-              >
-                <InputNumber
-                  size="large"
-                  min={0}
-                  value={Number(quoteDraft.vehicleIdv || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      vehicleIdv: Number(v || 0),
-                    }))
-                  }
-                  className="w-full quote-control"
-                  {...inrInputProps}
-                />
-              </FieldBlock>
+              {!isStandAloneOd ? (
+                <>
+                  <FieldBlock
+                    label="Vehicle IDV (₹)"
+                    className="sm:col-start-1 lg:col-start-1"
+                    helper={
+                      <>
+                        Suggested IDV:{" "}
+                        <b className="text-slate-700">
+                          {toINR(Number(suggestedIdv || 0))}
+                        </b>
+                        {Number(suggestedIdv || 0) > 0 &&
+                        Number(quoteDraft.vehicleIdv || 0) !==
+                          Number(suggestedIdv || 0) ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setQuoteDraft((p) => ({
+                                ...p,
+                                vehicleIdv: Number(suggestedIdv || 0),
+                              }))
+                            }
+                            className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-0.5 text-[11px] font-semibold text-slate-700"
+                          >
+                            Use suggested IDV
+                          </button>
+                        ) : null}
+                      </>
+                    }
+                  >
+                    <InputNumber
+                      size="large"
+                      min={0}
+                      value={Number(quoteDraft.vehicleIdv || 0)}
+                      onChange={(v) =>
+                        setQuoteDraft((p) => ({
+                          ...p,
+                          vehicleIdv: Number(v || 0),
+                        }))
+                      }
+                      className="w-full quote-control"
+                      {...inrInputProps}
+                    />
+                  </FieldBlock>
 
-              <FieldBlock label="CNG IDV (₹)">
-                <InputNumber
-                  size="large"
-                  min={0}
-                  value={Number(quoteDraft.cngIdv || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({ ...p, cngIdv: Number(v || 0) }))
-                  }
-                  className="w-full quote-control"
-                  {...inrInputProps}
-                />
-              </FieldBlock>
+                  <FieldBlock label="CNG IDV (₹)">
+                    <InputNumber
+                      size="large"
+                      min={0}
+                      value={Number(quoteDraft.cngIdv || 0)}
+                      onChange={(v) =>
+                        setQuoteDraft((p) => ({
+                          ...p,
+                          cngIdv: Number(v || 0),
+                        }))
+                      }
+                      className="w-full quote-control"
+                      {...inrInputProps}
+                    />
+                  </FieldBlock>
 
-              <FieldBlock label="Accessories IDV (₹)">
-                <InputNumber
-                  size="large"
-                  min={0}
-                  value={Number(quoteDraft.accessoriesIdv || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      accessoriesIdv: Number(v || 0),
-                    }))
-                  }
-                  className="w-full quote-control"
-                  {...inrInputProps}
-                />
-              </FieldBlock>
+                  <FieldBlock label="Accessories IDV (₹)">
+                    <InputNumber
+                      size="large"
+                      min={0}
+                      value={Number(quoteDraft.accessoriesIdv || 0)}
+                      onChange={(v) =>
+                        setQuoteDraft((p) => ({
+                          ...p,
+                          accessoriesIdv: Number(v || 0),
+                        }))
+                      }
+                      className="w-full quote-control"
+                      {...inrInputProps}
+                    />
+                  </FieldBlock>
+                </>
+              ) : null}
 
               <FieldBlock label="OD Amount (₹)">
                 <InputNumber
@@ -1235,21 +1269,23 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              <FieldBlock label="3rd Party Amount (₹)">
-                <InputNumber
-                  size="large"
-                  min={0}
-                  value={Number(quoteDraft.thirdPartyAmount || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      thirdPartyAmount: Number(v || 0),
-                    }))
-                  }
-                  className="w-full quote-control"
-                  {...inrInputProps}
-                />
-              </FieldBlock>
+              {!isStandAloneOd ? (
+                <FieldBlock label="3rd Party Amount (₹)">
+                  <InputNumber
+                    size="large"
+                    min={0}
+                    value={Number(quoteDraft.thirdPartyAmount || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        thirdPartyAmount: Number(v || 0),
+                      }))
+                    }
+                    className="w-full quote-control"
+                    {...inrInputProps}
+                  />
+                </FieldBlock>
+              ) : null}
 
               <FieldBlock label="Add-ons Amount (₹)">
                 <InputNumber
@@ -1517,35 +1553,24 @@ const Step4InsuranceQuotes = ({
 
         {/* RIGHT column — sticky ticker */}
         <div className="flex flex-col gap-5">
-          <div className="sticky top-5 flex flex-col gap-4 rounded-2xl border border-slate-200/90 bg-white px-4 pb-5 pt-4 shadow-sm shadow-slate-900/5 sm:px-5">
-            <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3">
-              <div className="min-w-0">
-                <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                  Live Premium Estimate
-                </p>
-                <p className="m-0 mt-1.5 text-[11px] leading-relaxed text-slate-500">
-                  OD + TP + add-ons = taxable premium. GST 18% is on that
-                  taxable amount. NCB is{" "}
-                  <span className="font-semibold text-slate-600">
-                    not subtracted
-                  </span>{" "}
-                  in this calculator (reference only).
-                </p>
-              </div>
+          <div className="sticky top-5 flex flex-col gap-3 rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/50 px-4 pb-4 pt-4 shadow-md shadow-indigo-900/5 sm:px-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-indigo-700">
+                Live Premium Estimate
+              </p>
               <span
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-200/80"
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-300/70"
                 title="Recalculates on every field change"
               >
                 <span
-                  className="h-1.5 w-1.5 rounded-full bg-emerald-500"
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
                   aria-hidden
                 />
                 Live
               </span>
             </div>
 
-            {/* Total payable — matches quoteComputed: total = taxable + round(taxable×0.18) */}
-            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-b from-slate-50/90 to-white px-3.5 py-3.5 sm:px-4">
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-b from-indigo-50/40 via-slate-50/90 to-white px-3.5 py-3.5 sm:px-4">
               <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 Total payable (incl. GST)
               </p>
@@ -1568,12 +1593,11 @@ const Step4InsuranceQuotes = ({
               </div>
             </div>
 
-            {/* Premium components — same math as computeQuoteBreakupFromRow */}
             <div>
               <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
                 Premium components
               </p>
-              <div className="rounded-xl border border-slate-100 bg-slate-50/90 px-3 py-2">
+              <div className="rounded-xl border border-sky-100/90 bg-gradient-to-br from-sky-50/70 to-slate-50/90 px-3 py-2">
                 {includesOd ? (
                   <BreakupRow
                     label="Own damage (OD)"
@@ -1609,57 +1633,61 @@ const Step4InsuranceQuotes = ({
               </div>
             </div>
 
-            {/* NCB — reference amount only; matches ncbReferenceAmount in parent */}
             <div
-              className={`rounded-xl border px-3 py-2.5 ${
+              className={`rounded-xl border px-4 py-3.5 ${
                 ncbPct > 0
-                  ? "border-amber-200/90 bg-amber-50/60"
-                  : "border-slate-100 bg-slate-50/80"
+                  ? "border-amber-300/90 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm shadow-amber-200/40"
+                  : "border-slate-200 bg-slate-50/90"
               }`}
             >
-              <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-slate-600">
+              <p
+                className={`m-0 text-[10px] font-bold uppercase tracking-widest ${
+                  ncbPct > 0 ? "text-amber-800" : "text-slate-500"
+                }`}
+              >
                 NCB (reference)
               </p>
-              <div className="mt-1.5 flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-[12px] text-slate-600">
-                  {ncbPct}% on OD premium
-                </span>
-                <span className="text-sm font-bold tabular-nums text-slate-900">
-                  {toINR(ncbReferenceAmount)}
-                </span>
-              </div>
-              <p className="m-0 mt-1.5 text-[10px] leading-relaxed text-slate-500">
-                {ncbPct > 0
-                  ? "Not deducted from taxable or GST in this workspace — for comparison only."
-                  : "Set NCB on the left to see reference value on OD."}
+              <p
+                className={`m-0 mt-2 text-2xl font-black tabular-nums tracking-tight ${
+                  ncbPct > 0 ? "text-amber-900" : "text-slate-400"
+                }`}
+              >
+                {ncbPct}%
               </p>
             </div>
 
-            <Divider className="!my-0 !border-slate-100" />
+            {!isStandAloneOd ? (
+              <>
+                <Divider className="!my-0 !border-slate-100" />
 
-            {/* IDV — vehicle context; independent of GST base */}
-            <div>
-              <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                IDV breakdown
-              </p>
-              <div className="rounded-xl border border-slate-100 bg-white px-2.5 py-1">
-                <TickerRow
-                  label="Vehicle"
-                  value={toINR(quoteDraft.vehicleIdv || 0)}
-                />
-                <TickerRow label="CNG" value={toINR(quoteDraft.cngIdv || 0)} />
-                <TickerRow
-                  label="Accessories"
-                  value={toINR(quoteDraft.accessoriesIdv || 0)}
-                />
-                <TickerRow
-                  label="Total IDV"
-                  value={toINR(quoteComputed.totalIdv)}
-                  bold
-                  valueClass="text-slate-900"
-                />
-              </div>
-            </div>
+                <div>
+                  <p className="m-0 mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                    IDV breakdown
+                  </p>
+                  <div className="rounded-xl border border-violet-100/90 bg-gradient-to-br from-violet-50/50 to-white px-2.5 py-1">
+                    <TickerRow
+                      label="Vehicle"
+                      value={toINR(quoteDraft.vehicleIdv || 0)}
+                    />
+                    <TickerRow
+                      label="CNG"
+                      value={toINR(quoteDraft.cngIdv || 0)}
+                    />
+                    <TickerRow
+                      label="Accessories"
+                      value={toINR(quoteDraft.accessoriesIdv || 0)}
+                    />
+                    <TickerRow
+                      label="Total IDV"
+                      value={toINR(quoteComputed.totalIdv)}
+                      bold
+                      valueClass="text-slate-900"
+                    />
+                  </div>
+                </div>
+              </>
+            ) : null}
+
           </div>
         </div>
         {/* end RIGHT column */}

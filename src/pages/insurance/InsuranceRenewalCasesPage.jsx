@@ -18,6 +18,8 @@ import { motion } from "framer-motion";
 import {
   Activity,
   CarFront,
+  CheckCircle,
+  Clock3,
   DollarSign,
   Eye,
   RefreshCw,
@@ -25,6 +27,14 @@ import {
   Shield,
   Trash2,
 } from "lucide-react";
+import {
+  buildInsurancePaymentTimeline,
+  daysUntilExpiry,
+  getPolicyPulseExpiryDate,
+  getPolicyPulseMeta,
+  parsePolicyIncludedAddons,
+  resolveActivePolicySnapshot,
+} from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
 import { getEmployees } from "../../api/employees";
 import { useAuth } from "../../context/AuthContext";
@@ -75,76 +85,36 @@ const parseDate = (value) => {
   return parsed.isValid() ? parsed : null;
 };
 
-const getExpiryDate = (row = {}) =>
-  row.newOdExpiryDate ||
-  row.previousOdExpiryDate ||
-  row.newTpExpiryDate ||
-  row.policyExpiry ||
-  "";
-
-const getDaysFromToday = (value) => {
-  const date = parseDate(value);
-  if (!date) return null;
-  return date.startOf("day").diff(dayjs().startOf("day"), "day");
-};
-
 const getCaseId = (row) => row?._id || row?.id || row?.caseId || "";
 
-const parseRenewalIncludedAddons = (row = {}) => {
-  const candidates = [
-    row?.previousIncludedAddons,
-    row?.previousIncludedAddOns,
-    row?.includedAddons,
-    row?.includedAddOns,
-    row?.previousAddOns,
-    row?.previousAddonDetails,
-    row?.previousAddOnsDetails,
-    row?.previousAddOnsBreakup,
-  ];
+const formatInr = (n) =>
+  Number(n || 0).toLocaleString("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: 0,
+  });
 
-  const normalizeArray = (value) => {
-    if (!Array.isArray(value)) return [];
-    return value
-      .map((item) => {
-        if (typeof item === "string") return { name: item, amt: 0 };
-        if (!item || typeof item !== "object") return null;
-        return {
-          name: String(item.name || item.label || item.addOn || "").trim(),
-          amt: Number(item.amt ?? item.amount ?? item.value ?? 0),
-        };
-      })
-      .filter((item) => item?.name);
-  };
-
-  for (const candidate of candidates) {
-    if (!candidate) continue;
-    if (Array.isArray(candidate)) return normalizeArray(candidate);
-    if (typeof candidate === "object") {
-      const list = Object.entries(candidate)
-        .filter(([, val]) => Boolean(val))
-        .map(([name, amt]) => ({
-          name,
-          amt: Number(amt || 0),
-        }));
-      if (list.length > 0) return list;
-    }
-    if (typeof candidate === "string") {
-      try {
-        const parsed = JSON.parse(candidate);
-        const list = normalizeArray(parsed);
-        if (list.length > 0) return list;
-      } catch (_) {
-        const list = candidate
-          .split(",")
-          .map((name) => name.trim())
-          .filter(Boolean)
-          .map((name) => ({ name, amt: 0 }));
-        if (list.length > 0) return list;
-      }
-    }
-  }
-
-  return [];
+const paymentSignalMeta = {
+  neutral: {
+    color: "#64748b",
+    soft: "rgba(148, 163, 184, 0.10)",
+    icon: DollarSign,
+  },
+  good: {
+    color: "#16a34a",
+    soft: "rgba(22, 163, 74, 0.10)",
+    icon: CheckCircle,
+  },
+  warning: {
+    color: "#d97706",
+    soft: "rgba(217, 119, 6, 0.10)",
+    icon: Activity,
+  },
+  accent: {
+    color: "#0ea5e9",
+    soft: "rgba(14, 165, 233, 0.10)",
+    icon: DollarSign,
+  },
 };
 
 const InsuranceRenewalCasesPage = () => {
@@ -262,7 +232,7 @@ const InsuranceRenewalCasesPage = () => {
 
     if (policyStatusFilter !== "all") {
       rows = rows.filter((row) => {
-        const days = getDaysFromToday(getExpiryDate(row));
+        const days = daysUntilExpiry(row);
         if (!Number.isFinite(days)) return false;
         return policyStatusFilter === "expired" ? days < 0 : days >= 0;
       });
@@ -287,9 +257,7 @@ const InsuranceRenewalCasesPage = () => {
     }
     if (odAmountRange !== "all") {
       rows = rows.filter((row) => {
-        const value = Number(
-          row?.previousOwnDamageAmount || row?.odAmount || 0,
-        );
+        const value = Number(resolveActivePolicySnapshot(row).ownDamage || 0);
         if (!Number.isFinite(value) || value < 0) return false;
         if (odAmountRange === "lt10k") return value < 10000;
         if (odAmountRange === "10k-20k")
@@ -334,13 +302,13 @@ const InsuranceRenewalCasesPage = () => {
       if (aFollow && !bFollow) return -1;
       if (!aFollow && bFollow) return 1;
 
-      const aDays = getDaysFromToday(getExpiryDate(a));
-      const bDays = getDaysFromToday(getExpiryDate(b));
+      const aDays = daysUntilExpiry(a);
+      const bDays = daysUntilExpiry(b);
       const aNum = Number.isFinite(aDays) ? aDays : Number.POSITIVE_INFINITY;
       const bNum = Number.isFinite(bDays) ? bDays : Number.POSITIVE_INFINITY;
       if (aNum !== bNum) return aNum - bNum;
-      const aDate = parseDate(getExpiryDate(a));
-      const bDate = parseDate(getExpiryDate(b));
+      const aDate = parseDate(getPolicyPulseExpiryDate(a));
+      const bDate = parseDate(getPolicyPulseExpiryDate(b));
       if (!aDate && !bDate) return 0;
       if (!aDate) return 1;
       if (!bDate) return -1;
@@ -851,59 +819,25 @@ const InsuranceRenewalCasesPage = () => {
               const status =
                 draft.renewalLeadStatus ?? row.renewalLeadStatus ?? "New";
               const assignedTo = row.renewalAssignedToName || "Not Assigned";
-              const days = getDaysFromToday(getExpiryDate(row));
-              const comment = draft.renewalComment ?? row.renewalComment ?? "";
-              const totalPremium = Number(
-                row?.newTotalPremium || row?.previousTotalPremium || 0,
+              const activePolicy = resolveActivePolicySnapshot(row);
+              const days = activePolicy.expiryDays;
+              const policyPulseTone = getPolicyPulseMeta(
+                days,
+                viewTab === "renewed",
               );
-              const paymentRows = Array.isArray(row?.paymentHistory)
-                ? row.paymentHistory
-                : [];
-              const customerPaid = paymentRows
-                .filter(
-                  (item) =>
-                    String(item?.entryType || "").toUpperCase() ===
-                      "CUSTOMER_RECEIPT" ||
-                    String(item?.paymentType || "").toLowerCase() ===
-                      "customer",
-                )
-                .reduce((sum, item) => sum + Number(item?.amount || 0), 0);
-              const subventionPaid = paymentRows
-                .filter((item) =>
-                  String(item?.entryType || "")
-                    .toUpperCase()
-                    .includes("SUBVENTION"),
-                )
-                .reduce((sum, item) => sum + Number(item?.amount || 0), 0);
-              const customerPaidPct =
-                totalPremium > 0
-                  ? Math.min(100, (customerPaid / totalPremium) * 100)
-                  : 0;
-              const subventionPct =
-                totalPremium > 0
-                  ? Math.min(100, (subventionPaid / totalPremium) * 100)
-                  : 0;
-              const paymentRowsForCard = [
-                {
-                  key: "customer",
-                  label: "Customer paid insurer",
-                  amount: Number(customerPaid || 0),
-                  pct: customerPaidPct,
-                  color: "#10b981",
-                  soft: "#ecfdf5",
-                  border: "#10b98133",
-                },
-                {
-                  key: "subvention",
-                  label: "Subvention",
-                  amount: Number(subventionPaid || 0),
-                  pct: subventionPct,
-                  color: "#0ea5e9",
-                  soft: "#dbeafe",
-                  border: "#0ea5e933",
-                },
-              ];
-              const hasPaymentActivity = paymentRowsForCard.some(
+              const comment = draft.renewalComment ?? row.renewalComment ?? "";
+              const paymentTimeline = buildInsurancePaymentTimeline(row);
+              const primaryPaymentRow = paymentTimeline[0] || {
+                label: "Total Premium",
+                amount: 0,
+                type: "neutral",
+              };
+              const secondaryPaymentRows = paymentTimeline.slice(1);
+              const paymentBaseAmount = Math.max(
+                1,
+                Number(primaryPaymentRow.amount || 0),
+              );
+              const hasPaymentActivity = secondaryPaymentRows.some(
                 (item) => Number(item.amount || 0) > 0,
               );
               const sourceLabel = String(
@@ -984,8 +918,18 @@ const InsuranceRenewalCasesPage = () => {
                             ? `Assigned: ${assignedTo}`
                             : "Not Assigned"}
                         </span>
-                        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
-                          {Number.isFinite(days) ? `${days} days` : "No expiry"}
+                        <span
+                          className="rounded-md px-2 py-0.5 text-xs font-semibold"
+                          style={{
+                            background: policyPulseTone.bg,
+                            color: policyPulseTone.color,
+                          }}
+                        >
+                          {Number.isFinite(days)
+                            ? days < 0
+                              ? `Expired ${Math.abs(days)}d ago`
+                              : `${days}d left`
+                            : "No expiry"}
                         </span>
                         <Select
                           size="small"
@@ -1277,10 +1221,10 @@ const InsuranceRenewalCasesPage = () => {
                                 </p>
                               </div>
                               <p className="text-[13px] font-semibold text-slate-900 mt-1 truncate">
-                                {row.previousInsuranceCompany || "—"}
+                                {activePolicy.insuranceCompany || "—"}
                               </p>
                               <p className="text-[11px] text-slate-500 truncate">
-                                {row.previousPolicyNumber || "—"}
+                                {activePolicy.policyNumber || "Not issued"}
                               </p>
                             </div>
                           </div>
@@ -1288,38 +1232,43 @@ const InsuranceRenewalCasesPage = () => {
                         <div className="p-3 space-y-3">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                              Type {row.previousPolicyType || "—"}
+                              Type {activePolicy.policyType || "—"}
                             </span>
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
-                              NCB {Number(row.previousNcbDiscount || 0)}%
+                              NCB {Number(activePolicy.ncbDiscount || 0)}%
                             </span>
                           </div>
                           <div className="space-y-1">
                             <p className="text-[11px] text-slate-500 truncate">
-                              OD Expiry:{" "}
-                              {row.previousOdExpiryDate
-                                ? dayjs(row.previousOdExpiryDate).format(
-                                    "DD MMM YYYY",
-                                  )
-                                : "—"}
+                              Expiry: {activePolicy.expiryLabel || "—"}
+                              {Number.isFinite(days)
+                                ? days < 0
+                                  ? ` · Expired ${Math.abs(days)}d ago`
+                                  : ` · ${days}d left`
+                                : ""}
                             </p>
+                            {activePolicy.odExpiryDate &&
+                            activePolicy.odExpiryDate !==
+                              activePolicy.expiryDate ? (
+                              <p className="text-[11px] text-slate-500 truncate">
+                                OD Expiry:{" "}
+                                {dayjs(activePolicy.odExpiryDate).format(
+                                  "DD MMM YYYY",
+                                )}
+                              </p>
+                            ) : null}
+                            {activePolicy.tpExpiryDate &&
+                            activePolicy.tpExpiryDate !==
+                              activePolicy.expiryDate ? (
+                              <p className="text-[11px] text-slate-500 truncate">
+                                TP Expiry:{" "}
+                                {dayjs(activePolicy.tpExpiryDate).format(
+                                  "DD MMM YYYY",
+                                )}
+                              </p>
+                            ) : null}
                             <p className="text-[11px] text-slate-500 truncate">
-                              TP Expiry:{" "}
-                              {row.previousTpExpiryDate
-                                ? dayjs(row.previousTpExpiryDate).format(
-                                    "DD MMM YYYY",
-                                  )
-                                : "—"}
-                            </p>
-                            <p className="text-[11px] text-slate-500 truncate">
-                              Premium:{" "}
-                              {Number(
-                                row.previousTotalPremium || 0,
-                              ).toLocaleString("en-IN", {
-                                style: "currency",
-                                currency: "INR",
-                                minimumFractionDigits: 0,
-                              })}
+                              Premium: {formatInr(activePolicy.totalPremium)}
                             </p>
                           </div>
                         </div>
@@ -1348,8 +1297,8 @@ const InsuranceRenewalCasesPage = () => {
                               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
                                 Payment Engine
                               </p>
-                              <p className="text-[11px] text-slate-500 mt-1">
-                                Previous Premium
+                              <p className="text-[11px] text-slate-500 mt-1 truncate">
+                                {primaryPaymentRow.label}
                               </p>
                             </div>
                             <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
@@ -1358,14 +1307,7 @@ const InsuranceRenewalCasesPage = () => {
                           </div>
                           <div className="mt-3 flex items-end justify-between gap-3">
                             <p className="text-[22px] leading-6 font-black text-slate-900">
-                              {Number(totalPremium || 0).toLocaleString(
-                                "en-IN",
-                                {
-                                  style: "currency",
-                                  currency: "INR",
-                                  minimumFractionDigits: 2,
-                                },
-                              )}
+                              {formatInr(primaryPaymentRow.amount)}
                             </p>
                           </div>
                           <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
@@ -1381,9 +1323,31 @@ const InsuranceRenewalCasesPage = () => {
                         </div>
                         <div className="p-3 space-y-3">
                           {hasPaymentActivity ? (
-                            paymentRowsForCard.map((item) => (
+                            secondaryPaymentRows.map((item, idx) => {
+                              const meta =
+                                paymentSignalMeta[item.type] ||
+                                paymentSignalMeta.neutral;
+                              const Icon = meta.icon;
+                              const isSubventionRow = String(item.label || "")
+                                .toLowerCase()
+                                .includes("subvention");
+                              const rowBase = Number(
+                                item.progressBase || paymentBaseAmount || 0,
+                              );
+                              const rawRatio =
+                                rowBase > 0
+                                  ? (Number(item.amount || 0) / rowBase) * 100
+                                  : 0;
+                              const ratio =
+                                isSubventionRow && Number(item.amount || 0) > 0
+                                  ? 100
+                                  : Math.max(
+                                      0,
+                                      Math.min(100, Math.round(rawRatio)),
+                                    );
+                              return (
                               <motion.div
-                                key={`${id}-${item.key}`}
+                                key={`${id}-pay-${idx}`}
                                 whileHover={{ x: 2, y: -1 }}
                                 transition={{ duration: 0.16 }}
                                 className="relative"
@@ -1393,12 +1357,12 @@ const InsuranceRenewalCasesPage = () => {
                                     <div
                                       className="w-8 h-8 rounded-xl flex items-center justify-center border"
                                       style={{
-                                        background: item.soft,
-                                        borderColor: item.border,
-                                        color: item.color,
+                                        background: meta.soft,
+                                        borderColor: `${meta.color}33`,
+                                        color: meta.color,
                                       }}
                                     >
-                                      <DollarSign size={13} />
+                                      <Icon size={13} />
                                     </div>
                                   </div>
                                   <div className="min-w-0 flex-1">
@@ -1411,16 +1375,9 @@ const InsuranceRenewalCasesPage = () => {
                                       <div className="shrink-0">
                                         <span
                                           className="text-[12px] font-black whitespace-nowrap"
-                                          style={{ color: item.color }}
+                                          style={{ color: meta.color }}
                                         >
-                                          {Number(item.amount || 0).toLocaleString(
-                                            "en-IN",
-                                            {
-                                              style: "currency",
-                                              currency: "INR",
-                                              minimumFractionDigits: 0,
-                                            },
-                                          )}
+                                          {formatInr(item.amount)}
                                         </span>
                                       </div>
                                     </div>
@@ -1428,14 +1385,14 @@ const InsuranceRenewalCasesPage = () => {
                                       <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                                         <motion.div
                                           initial={{ width: 0 }}
-                                          animate={{ width: `${item.pct}%` }}
+                                          animate={{ width: `${ratio}%` }}
                                           transition={{
                                             duration: 0.45,
                                             ease: "easeOut",
                                           }}
                                           className="h-full rounded-full"
                                           style={{
-                                            background: `linear-gradient(90deg, ${item.color} 0%, ${item.color}cc 100%)`,
+                                            background: `linear-gradient(90deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
                                           }}
                                         />
                                       </div>
@@ -1443,7 +1400,8 @@ const InsuranceRenewalCasesPage = () => {
                                   </div>
                                 </div>
                               </motion.div>
-                            ))
+                              );
+                            })
                           ) : (
                             <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-4 text-center">
                               <p className="text-[12px] font-medium text-slate-500">
@@ -1462,39 +1420,62 @@ const InsuranceRenewalCasesPage = () => {
                             Workflow
                           </p>
                         </div>
-                        <span className="rounded-full bg-blue-100 px-2 py-1 text-[9px] font-black uppercase text-blue-700">
-                          {status === "Closed" ? "Closed" : "Active"}
+                        <span
+                          className="px-3 py-1.5 rounded-full text-[11px] font-black uppercase shadow-sm"
+                          style={{
+                            background: policyPulseTone.bg,
+                            color: policyPulseTone.color,
+                            border: `1px solid ${policyPulseTone.color}44`,
+                          }}
+                        >
+                          {policyPulseTone.label}
                         </span>
                       </div>
                       <div className="space-y-1 text-[10px]">
-                        <div className="flex justify-between">
+                        <motion.div className="flex justify-between">
                           <span className="text-slate-600">Created</span>
                           <span className="font-semibold text-slate-900">
                             {row.createdAt
                               ? dayjs(row.createdAt).format("DD MMM YYYY")
                               : "—"}
                           </span>
-                        </div>
+                        </motion.div>
                         <div className="flex justify-between">
                           <span className="text-slate-600">Expiry</span>
                           <span className="font-semibold text-slate-900">
-                            {getExpiryDate(row)
-                              ? dayjs(getExpiryDate(row)).format("DD MMM YYYY")
-                              : "—"}
+                            {activePolicy.expiryLabel || "—"}
                           </span>
                         </div>
                       </div>
-                      <div className="mt-3 rounded-lg border border-blue-100 bg-blue-50 px-2 py-1.5 text-[10px]">
-                        <p className="font-bold uppercase tracking-wide text-blue-700">
-                          Policy Pulse
-                        </p>
-                        <p className="font-semibold text-blue-700">
-                          {days < 0
-                            ? "Policy expired"
-                            : days <= 30
-                              ? "Renewal due soon"
-                              : "Renewal case created"}
-                        </p>
+                      <div
+                        className="mt-3 rounded-xl border px-2.5 py-2"
+                        style={{
+                          borderColor: `${policyPulseTone.color}33`,
+                          background: policyPulseTone.bg,
+                        }}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span
+                            className="h-7 w-7 rounded-full inline-flex items-center justify-center shrink-0"
+                            style={{
+                              background: "#ffffff",
+                              color: policyPulseTone.color,
+                            }}
+                          >
+                            <Clock3 size={13} />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
+                              Policy Pulse
+                            </p>
+                            <p
+                              className="text-[11px] font-semibold truncate"
+                              style={{ color: policyPulseTone.color }}
+                            >
+                              {policyPulseTone.detail}
+                            </p>
+                          </div>
+                        </div>
                       </div>
                       <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
                         <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
@@ -1673,7 +1654,10 @@ const InsuranceRenewalCasesPage = () => {
               Premium Breakup
             </p>
             <p className="text-sm font-semibold text-slate-800">
-              {policyModal.row?.previousInsuranceCompany || "Insurance Company"}
+              {policyModal.row
+                ? resolveActivePolicySnapshot(policyModal.row).insuranceCompany ||
+                  "Insurance Company"
+                : "Insurance Company"}
             </p>
           </div>
         }
@@ -1681,38 +1665,26 @@ const InsuranceRenewalCasesPage = () => {
         {policyModal.row ? (
           <div className="rounded-xl border border-slate-200 bg-white">
             {(() => {
-              const ownDamage = Number(
-                policyModal.row?.previousOwnDamageAmount ||
-                  policyModal.row?.previousOdAmount ||
-                  0,
+              const modalPolicy = resolveActivePolicySnapshot(policyModal.row);
+              const ownDamage = Number(modalPolicy.ownDamage || 0);
+              const ncbPercent = Number(modalPolicy.ncbDiscount || 0);
+              const ncbAmount = Number(modalPolicy.ncbAmount || 0);
+              const includedAddons = parsePolicyIncludedAddons(
+                policyModal.row,
+                modalPolicy,
               );
-              const ncbPercent = Number(policyModal.row?.previousNcbDiscount || 0);
-              const ncbAmount = Number((ownDamage * ncbPercent) / 100);
-              const includedAddons = parseRenewalIncludedAddons(policyModal.row);
               return (
             <PremiumBreakupCard
               breakup={{
                 ownDamage,
-                ownDamageBeforeNcb: Number(
-                  policyModal.row?.previousOwnDamageBeforeNcb ||
-                    ownDamage + ncbAmount,
-                ),
+                ownDamageBeforeNcb: Number(modalPolicy.ownDamageBeforeNcb || 0),
                 basicOwnDamage: ownDamage,
                 ncbPercent,
                 ncbAmount,
-                thirdParty: Number(
-                  policyModal.row?.previousThirdPartyAmount ||
-                    policyModal.row?.previousTpAmount ||
-                    0,
-                ),
-                basicThirdParty: Number(
-                  policyModal.row?.previousBasicThirdPartyAmount ||
-                    policyModal.row?.previousThirdPartyAmount ||
-                    policyModal.row?.previousTpAmount ||
-                    0,
-                ),
-                addOnsTotal: Number(policyModal.row?.previousAddOnsTotal || 0),
-                totalAmount: Number(policyModal.row?.previousTotalPremium || 0),
+                thirdParty: Number(modalPolicy.thirdParty || 0),
+                basicThirdParty: Number(modalPolicy.basicThirdParty || 0),
+                addOnsTotal: Number(modalPolicy.addOnsTotal || 0),
+                totalAmount: Number(modalPolicy.totalPremium || 0),
               }}
               formatCurrency={(n) =>
                 Number(n || 0).toLocaleString("en-IN", {
@@ -1726,7 +1698,7 @@ const InsuranceRenewalCasesPage = () => {
               onToggleAddons={() =>
                 setShowAllPolicyAddons((prev) => !prev)
               }
-              totalAmount={Number(policyModal.row?.previousTotalPremium || 0)}
+              totalAmount={Number(modalPolicy.totalPremium || 0)}
               title="Premium Breakup"
             />
               );
