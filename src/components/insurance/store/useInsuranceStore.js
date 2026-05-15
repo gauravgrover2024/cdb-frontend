@@ -25,6 +25,7 @@ export const initialFormData = {
   usedCarFlowType: "Renewal",
   policyJourneyClassification: "",
   dealerChannelName: "",
+  channelDealerNo: "",
   dealerChannelAddress: "",
   payoutApplicable: "No",
   payoutPercent: "",

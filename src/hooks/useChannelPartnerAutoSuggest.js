@@ -32,7 +32,7 @@ export default function useChannelPartnerAutoSuggest({
   const fetchAll = useCallback(async () => {
     if (Array.isArray(allRef.current)) return allRef.current;
     const response = await channelsApi.getAll({
-      type: "Dealer",
+      type,
       status: "Active",
       limit: 10000,
       skip: 0,
@@ -42,37 +42,25 @@ export default function useChannelPartnerAutoSuggest({
     return allRef.current;
   }, [type]);
 
-  const fetchTop = useCallback(async () => {
-    setLoading(true);
-    try {
-      const all = await fetchAll();
-      setPartners((all || []).slice(0, 1000));
-    } catch {
-      setPartners([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [fetchAll]);
-
   useEffect(() => {
-    fetchTop();
+    fetchAll().catch(() => {});
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [fetchTop]);
+  }, [fetchAll]);
 
   const search = useCallback(
     (term) => {
       const q = String(term || "").trim();
       if (timerRef.current) clearTimeout(timerRef.current);
 
-      timerRef.current = setTimeout(async () => {
-        if (!q) {
-          await fetchTop();
-          return;
-        }
-        if (q.length < 2) return;
+      if (!q || q.length < 3) {
+        setPartners([]);
+        setLoading(false);
+        return;
+      }
 
+      timerRef.current = setTimeout(async () => {
         setLoading(true);
         try {
           const response = await channelsApi.search(q, type);
@@ -89,14 +77,21 @@ export default function useChannelPartnerAutoSuggest({
         }
       }, 240);
     },
-    [fetchAll, fetchTop, type],
+    [fetchAll, type],
   );
 
   const options = useMemo(
     () =>
       (partners || []).map((p) => ({
         value: p?.name || "",
-        label: `${p?.name || "Unknown"}${p?.mobile ? ` • ${p.mobile}` : ""}`,
+        label: [
+          p?.name || "Unknown",
+          p?.channelId,
+          p?.mobile,
+          p?.type,
+        ]
+          .filter(Boolean)
+          .join(" · "),
         partner: p,
       })),
     [partners],
@@ -105,7 +100,11 @@ export default function useChannelPartnerAutoSuggest({
   const getByName = useCallback(
     (name) => {
       const n = normalize(name);
-      return (partners || []).find((p) => normalize(p?.name) === n) || null;
+      const pool = [
+        ...(Array.isArray(partners) ? partners : []),
+        ...(Array.isArray(allRef.current) ? allRef.current : []),
+      ];
+      return pool.find((p) => normalize(p?.name) === n) || null;
     },
     [partners],
   );

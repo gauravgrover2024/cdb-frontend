@@ -433,6 +433,8 @@ const QuoteCard = ({
   acceptQuote,
   onStartEditQuote,
   onDelete,
+  onShareQuote,
+  onDownloadQuote,
   previousPolicyContext,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
@@ -687,9 +689,26 @@ const QuoteCard = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="px-5 pb-5">
+      <div className="px-5 pb-5 space-y-2">
         <div className="flex items-center gap-2">
           <button
+            type="button"
+            onClick={() => onShareQuote?.(row)}
+            className="flex-1 rounded-xl border-0 bg-slate-50 py-2 text-[12px] font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100 cursor-pointer"
+          >
+            Share Quote
+          </button>
+          <button
+            type="button"
+            onClick={() => onDownloadQuote?.(row)}
+            className="flex-1 rounded-xl border-0 bg-indigo-50 py-2 text-[12px] font-bold text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 cursor-pointer"
+          >
+            Download PDF
+          </button>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
             onClick={() => acceptQuote(rid)}
             className={`
                 flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide
@@ -705,6 +724,7 @@ const QuoteCard = ({
           </button>
 
           <button
+            type="button"
             onClick={() => onStartEditQuote?.(row)}
             title="Edit quote"
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
@@ -933,42 +953,75 @@ const Step4InsuranceQuotes = ({
     [acceptedQuote, acceptedQuoteBreakup, previousPolicyContext],
   );
 
+  const buildQuoteShareContext = React.useCallback(
+    (quote) => {
+      const breakup = computeQuoteBreakupFromRow(quote);
+      const summary = buildQuoteSummaryText({
+        quote,
+        breakup,
+        customerName: previousPolicyContext?.customerName || "",
+        vehicleLabel: [
+          previousPolicyContext?.registrationNumber,
+          previousPolicyContext?.vehicleMake,
+          previousPolicyContext?.vehicleModel,
+          previousPolicyContext?.vehicleVariant,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      });
+      return {
+        title: `${quote?.insuranceCompany || "Insurance"} Quote`,
+        summary,
+      };
+    },
+    [computeQuoteBreakupFromRow, previousPolicyContext],
+  );
+
+  const handleShareQuote = React.useCallback(
+    async (quote) => {
+      if (!quote) return;
+      const { title, summary } = buildQuoteShareContext(quote);
+      if (navigator.share) {
+        await navigator.share({ title, text: summary });
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(summary);
+        Modal.success({
+          title: "Quote copied",
+          content: "Quote summary copied to clipboard.",
+        });
+        return;
+      }
+      Modal.info({ title: "Share quote", content: summary });
+    },
+    [buildQuoteShareContext],
+  );
+
+  const handleDownloadQuote = React.useCallback(
+    (quote) => {
+      if (!quote) return;
+      const { title, summary } = buildQuoteShareContext(quote);
+      const opened = openQuotePrintWindow({ title, content: summary });
+      if (!opened) {
+        Modal.warning({
+          title: "Popup blocked",
+          content: "Allow popups to print or save this quote as PDF.",
+        });
+      }
+    },
+    [buildQuoteShareContext],
+  );
+
   const handleShareAcceptedQuote = React.useCallback(async () => {
     if (!acceptedQuote) return;
-    if (navigator.share) {
-      await navigator.share({
-        title: `${acceptedQuote.insuranceCompany || "Insurance"} quote`,
-        text: acceptedQuoteSummary,
-      });
-      return;
-    }
-    if (navigator.clipboard?.writeText) {
-      await navigator.clipboard.writeText(acceptedQuoteSummary);
-      Modal.success({
-        title: "Quote copied",
-        content: "Accepted quote summary copied to clipboard.",
-      });
-      return;
-    }
-    Modal.info({
-      title: "Share quote",
-      content: acceptedQuoteSummary,
-    });
-  }, [acceptedQuote, acceptedQuoteSummary]);
+    await handleShareQuote(acceptedQuote);
+  }, [acceptedQuote, handleShareQuote]);
 
   const handleDownloadAcceptedQuote = React.useCallback(() => {
     if (!acceptedQuote) return;
-    const opened = openQuotePrintWindow({
-      title: `${acceptedQuote.insuranceCompany || "Insurance"} Quote`,
-      content: acceptedQuoteSummary,
-    });
-    if (!opened) {
-      Modal.warning({
-        title: "Popup blocked",
-        content: "Allow popups to print or save this quote as PDF.",
-      });
-    }
-  }, [acceptedQuote, acceptedQuoteSummary]);
+    handleDownloadQuote(acceptedQuote);
+  }, [acceptedQuote, handleDownloadQuote]);
 
   return (
     <div className="insurance-step4 min-h-screen bg-slate-100/60 px-4 pb-4 pt-3 md:px-6 md:pb-6 md:pt-4 font-sans">
@@ -1750,6 +1803,8 @@ const Step4InsuranceQuotes = ({
                 acceptQuote={acceptQuote}
                 onStartEditQuote={onStartEditQuote}
                 onDelete={deleteQuote}
+                onShareQuote={handleShareQuote}
+                onDownloadQuote={handleDownloadQuote}
                 previousPolicyContext={previousPolicyContext}
               />
             ))}

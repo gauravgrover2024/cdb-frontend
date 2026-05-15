@@ -22,10 +22,15 @@ import {
   Clock3,
   DollarSign,
   Eye,
+  ListChecks,
   RefreshCw,
+  Save,
   Search,
+  Share2,
   Shield,
   Trash2,
+  X,
+  XCircle,
 } from "lucide-react";
 import {
   buildInsurancePaymentTimeline,
@@ -34,6 +39,9 @@ import {
   getPolicyPulseMeta,
   parsePolicyIncludedAddons,
   resolveActivePolicySnapshot,
+  resolveInsuranceChannelContext,
+  resolveInsuranceReference,
+  shouldShowInsuranceChannelBadge,
 } from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
 import { getEmployees } from "../../api/employees";
@@ -58,26 +66,196 @@ const VIEW_TABS = [
   { key: "renewed", label: "Renewed" },
   { key: "external", label: "External" },
 ];
-const ACTION_CHIPS = [
-  { key: "SAVE", label: "Save", tone: "save" },
-  { key: "SHARE_QUOTES", label: "Share Quotes", tone: "share" },
-  { key: "VIEW_QUOTES", label: "View Quotes", tone: "view" },
+const RENEWAL_STATUS_ACTION_GROUPS = [
   {
-    key: "MARK_PAYMENT_PENDING",
-    label: "Mark Payment Pending",
-    tone: "payment",
+    id: "workflow",
+    label: "Workflow",
+    actions: [
+      {
+        key: "SAVE",
+        label: "Save changes",
+        desc: "Status, notes & assignment",
+        tone: "save",
+        icon: Save,
+      },
+      {
+        key: "RENEW",
+        label: "Start renewal",
+        desc: "Open new renewal case",
+        tone: "renew",
+        icon: RefreshCw,
+      },
+    ],
   },
-  { key: "RENEW", label: "Renew", tone: "renew" },
-  { key: "CLOSE_LEAD", label: "Close Lead", tone: "close" },
-  { key: "ALREADY_RENEWED", label: "Already Renewed", tone: "renewed" },
-  { key: "CAR_SOLD", label: "Car Sold", tone: "sold" },
-  { key: "CAR_EXPIRED", label: "Car Expired", tone: "expired" },
   {
-    key: "POLICY_FROM_ELSEWHERE",
-    label: "Policy from Elsewhere",
-    tone: "view",
+    id: "quotes",
+    label: "Quotes & payment",
+    actions: [
+      {
+        key: "SHARE_QUOTES",
+        label: "Share quotes",
+        desc: "Mark shared & open quotes",
+        tone: "share",
+        icon: Share2,
+      },
+      {
+        key: "VIEW_QUOTES",
+        label: "View quotes",
+        desc: "Open quote comparison",
+        tone: "view",
+        icon: Eye,
+      },
+      {
+        key: "MARK_PAYMENT_PENDING",
+        label: "Payment pending",
+        desc: "Customer payment awaited",
+        tone: "payment",
+        icon: DollarSign,
+      },
+    ],
+  },
+  {
+    id: "outcome",
+    label: "Close & outcomes",
+    actions: [
+      {
+        key: "CLOSE_LEAD",
+        label: "Close lead",
+        desc: "Set closed — then save",
+        tone: "close",
+        icon: XCircle,
+      },
+      {
+        key: "ALREADY_RENEWED",
+        label: "Already renewed",
+        desc: "Moved to renewed list",
+        tone: "renewed",
+        icon: CheckCircle,
+      },
+      {
+        key: "POLICY_FROM_ELSEWHERE",
+        label: "Policy elsewhere",
+        desc: "Renewed outside Autocredits",
+        tone: "view",
+        icon: Shield,
+      },
+      {
+        key: "CAR_SOLD",
+        label: "Car sold",
+        desc: "Vehicle no longer with customer",
+        tone: "sold",
+        icon: CarFront,
+      },
+      {
+        key: "CAR_EXPIRED",
+        label: "Car expired",
+        desc: "Policy lapsed / not renewing",
+        tone: "expired",
+        icon: Clock3,
+      },
+    ],
   },
 ];
+
+const renewalLeadStatusTone = (status) => {
+  const s = String(status || "").trim();
+  if (s === "Closed") return { bg: "#fff1f2", color: "#be123c", ring: "#fecdd3" };
+  if (s === "Payment Pending") {
+    return { bg: "#fffbeb", color: "#b45309", ring: "#fde68a" };
+  }
+  if (s === "Quotes Shared") {
+    return { bg: "#eff6ff", color: "#1d4ed8", ring: "#bfdbfe" };
+  }
+  if (s === "Follow Up") {
+    return { bg: "#f5f3ff", color: "#6d28d9", ring: "#ddd6fe" };
+  }
+  return { bg: "#ecfdf5", color: "#047857", ring: "#a7f3d0" };
+};
+
+const RenewalStatusActionPanel = ({ row, draft, onAction, onClose }) => {
+  const status =
+    draft?.renewalLeadStatus ?? row?.renewalLeadStatus ?? "New";
+  const tone = renewalLeadStatusTone(status);
+  const customer =
+    row?.customerName || row?.companyName || row?.contactPersonName || "—";
+  const reg = row?.registrationNumber || "—";
+  const activePolicy = resolveActivePolicySnapshot(row);
+  const expiryLabel = activePolicy.expiryLabel || "—";
+
+  return (
+    <div className="renewal-status-panel">
+      <div className="renewal-status-panel__head">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-slate-400">
+            Update status
+          </p>
+          <p className="mt-0.5 truncate text-[15px] font-bold text-slate-900">
+            {row?.caseId || "Case"}
+          </p>
+          <p className="truncate text-[12px] text-slate-500">{customer}</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={onClose}
+          className="renewal-status-panel__close"
+        >
+          <X size={14} />
+        </button>
+      </div>
+
+      <div className="renewal-status-panel__meta">
+        <span
+          className="renewal-status-panel__badge"
+          style={{
+            background: tone.bg,
+            color: tone.color,
+            boxShadow: `inset 0 0 0 1px ${tone.ring}`,
+          }}
+        >
+          {status}
+        </span>
+        <span className="renewal-status-panel__meta-item">{reg}</span>
+        <span className="renewal-status-panel__meta-item">Exp {expiryLabel}</span>
+      </div>
+
+      <div className="renewal-status-panel__body">
+        {RENEWAL_STATUS_ACTION_GROUPS.map((group) => (
+          <section key={group.id} className="renewal-status-panel__section">
+            <p className="renewal-status-panel__section-label">{group.label}</p>
+            <div className="renewal-status-panel__actions">
+              {group.actions.map((action) => {
+                const Icon = action.icon;
+                return (
+                  <button
+                    key={action.key}
+                    type="button"
+                    className={`renewal-status-action chip-${action.tone}`}
+                    onClick={() => onAction(action.key)}
+                  >
+                    <span className={`renewal-status-action__icon tone-${action.tone}`}>
+                      <Icon size={15} strokeWidth={2.25} />
+                    </span>
+                    <span className="renewal-status-action__text">
+                      <span className="renewal-status-action__label">
+                        {action.label}
+                      </span>
+                      {action.desc ? (
+                        <span className="renewal-status-action__desc">
+                          {action.desc}
+                        </span>
+                      ) : null}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 const parseDate = (value) => {
   if (!value) return null;
@@ -547,39 +725,162 @@ const InsuranceRenewalCasesPage = () => {
     >
       <div className="mx-auto max-w-[1920px] space-y-4">
         <style>{`
-          .renewal-action-chip {
+          .renewal-status-panel {
+            width: min(100vw - 2rem, 340px);
+            overflow: hidden;
+          }
+          .renewal-status-panel__head {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.5rem;
+            padding: 0.875rem 1rem 0.625rem;
+            border-bottom: 1px solid #e2e8f0;
+            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+          }
+          .renewal-status-panel__close {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
             border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            padding: 0.5rem 0.75rem;
-            font-size: 12px;
+            background: #fff;
+            color: #64748b;
+            flex-shrink: 0;
+            transition: background 0.15s ease, color 0.15s ease;
+          }
+          .renewal-status-panel__close:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+          }
+          .renewal-status-panel__meta {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.375rem;
+            padding: 0.5rem 1rem 0.75rem;
+            border-bottom: 1px solid #f1f5f9;
+          }
+          .renewal-status-panel__badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.2rem 0.5rem;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+          }
+          .renewal-status-panel__meta-item {
+            font-size: 10px;
             font-weight: 600;
-            line-height: 1.2;
-            transition: all 0.15s ease;
+            color: #64748b;
+            padding: 0.15rem 0.45rem;
+            border-radius: 6px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+          }
+          .renewal-status-panel__body {
+            max-height: min(70vh, 420px);
+            overflow-y: auto;
+            padding: 0.5rem;
+          }
+          .renewal-status-panel__section {
+            padding: 0.35rem 0.25rem 0.5rem;
+          }
+          .renewal-status-panel__section + .renewal-status-panel__section {
+            margin-top: 0.25rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid #f1f5f9;
+          }
+          .renewal-status-panel__section-label {
+            margin: 0 0 0.4rem 0.35rem;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: #94a3b8;
+          }
+          .renewal-status-panel__actions {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+          }
+          .renewal-status-action {
+            display: flex;
+            align-items: flex-start;
+            gap: 0.625rem;
             width: 100%;
             text-align: left;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 0.55rem 0.65rem;
+            background: #fff;
+            transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
           }
-          .renewal-action-chip:hover { transform: translateY(-1px); filter: brightness(0.99); }
-          .renewal-action-chip.active { box-shadow: inset 0 0 0 1px rgba(15,23,42,0.35); }
-          .renewal-row-action-btn {
-            border: 0;
-            border-radius: 9999px;
-            padding: 0.32rem 0.7rem;
-            font-size: 11px;
+          .renewal-status-action:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+            border-color: #cbd5e1;
+          }
+          .renewal-status-action:active {
+            transform: translateY(0);
+          }
+          .renewal-status-action__icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            flex-shrink: 0;
+          }
+          .renewal-status-action__text {
+            display: flex;
+            flex-direction: column;
+            gap: 0.1rem;
+            min-width: 0;
+          }
+          .renewal-status-action__label {
+            font-size: 12px;
             font-weight: 700;
-            line-height: 1;
-            transition: all 0.15s ease;
-            white-space: nowrap;
+            color: #0f172a;
+            line-height: 1.25;
           }
-          .renewal-row-action-btn:hover { transform: translateY(-1px); filter: brightness(0.98); }
-          .chip-save { background: #f8fafc; color: #334155; }
-          .chip-share { background: #eff6ff; color: #1d4ed8; }
-          .chip-view { background: #f5f3ff; color: #6d28d9; }
-          .chip-payment { background: #fffbeb; color: #b45309; }
-          .chip-renew { background: #f0fdf4; color: #15803d; }
-          .chip-close { background: #fff1f2; color: #b91c1c; }
-          .chip-renewed { background: #ecfeff; color: #0e7490; }
-          .chip-sold { background: #fff7ed; color: #c2410c; }
-          .chip-expired { background: #fef2f2; color: #b91c1c; }
+          .renewal-status-action__desc {
+            font-size: 10px;
+            font-weight: 500;
+            color: #64748b;
+            line-height: 1.3;
+          }
+          .tone-save { background: #f1f5f9; color: #334155; }
+          .tone-share { background: #dbeafe; color: #1d4ed8; }
+          .tone-view { background: #ede9fe; color: #6d28d9; }
+          .tone-payment { background: #fef3c7; color: #b45309; }
+          .tone-renew { background: #dcfce7; color: #15803d; }
+          .tone-close { background: #ffe4e6; color: #be123c; }
+          .tone-renewed { background: #cffafe; color: #0e7490; }
+          .tone-sold { background: #ffedd5; color: #c2410c; }
+          .tone-expired { background: #fee2e2; color: #b91c1c; }
+          .chip-save { border-color: #e2e8f0; }
+          .chip-share { border-color: #bfdbfe; }
+          .chip-view { border-color: #ddd6fe; }
+          .chip-payment { border-color: #fde68a; }
+          .chip-renew { border-color: #bbf7d0; }
+          .chip-close { border-color: #fecdd3; }
+          .chip-renewed { border-color: #a5f3fc; }
+          .chip-sold { border-color: #fed7aa; }
+          .chip-expired { border-color: #fecaca; }
+          .renewal-status-popover .ant-popover-inner {
+            padding: 0 !important;
+            border-radius: 14px !important;
+            overflow: hidden;
+            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14) !important;
+          }
+          .renewal-status-popover .ant-popover-inner-content {
+            padding: 0 !important;
+          }
         `}</style>
         <div className="rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -843,12 +1144,9 @@ const InsuranceRenewalCasesPage = () => {
               const sourceLabel = String(
                 row?.source || row?.sourceOrigin || "",
               ).trim();
-              const referenceName =
-                row?.referenceName ||
-                row?.sourceName ||
-                row?.dealerChannelName ||
-                row?.reference_name ||
-                "";
+              const { referenceName, referencePhone } =
+                resolveInsuranceReference(row);
+              const channelCtx = resolveInsuranceChannelContext(row);
               const contactPersonName = row?.contactPersonName || "";
               const lifecycleBadge =
                 viewTab === "renewed" ? "Completed" : status || "Active";
@@ -978,10 +1276,12 @@ const InsuranceRenewalCasesPage = () => {
                             <RefreshCw size={14} />
                           </motion.button>
                         </Tooltip>
-                        <Tooltip title="Update Status">
+                        <Tooltip title="Update status">
                           <Popover
                             trigger="click"
                             placement="rightTop"
+                            getPopupContainer={popupContainer}
+                            overlayClassName="renewal-status-popover"
                             open={
                               String(statusActionRow?._id || "") === String(id)
                             }
@@ -989,28 +1289,15 @@ const InsuranceRenewalCasesPage = () => {
                               setStatusActionRow(open ? row : null)
                             }
                             content={
-                              <div className="w-[250px] space-y-2">
-                                <div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[11px] text-slate-600">
-                                  {row?.caseId
-                                    ? `Case: ${row.caseId}`
-                                    : "Select action"}
-                                </div>
-                                <div className="flex flex-col gap-2">
-                                  {ACTION_CHIPS.map((item) => (
-                                    <button
-                                      key={`status-action-${id}-${item.key}`}
-                                      type="button"
-                                      className={`renewal-action-chip chip-${item.tone} text-left`}
-                                      onClick={async () => {
-                                        await runStatusAction(row, item.key);
-                                        setStatusActionRow(null);
-                                      }}
-                                    >
-                                      {item.label}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
+                              <RenewalStatusActionPanel
+                                row={row}
+                                draft={draft}
+                                onClose={() => setStatusActionRow(null)}
+                                onAction={async (actionKey) => {
+                                  await runStatusAction(row, actionKey);
+                                  setStatusActionRow(null);
+                                }}
+                              />
                             }
                           >
                             <motion.button
@@ -1019,11 +1306,11 @@ const InsuranceRenewalCasesPage = () => {
                               type="button"
                               className="h-8 w-8 rounded-full inline-flex items-center justify-center shadow-sm ring-1 ring-black/5"
                               style={{
-                                background: "#fef3c7",
-                                color: "#b45309",
+                                background: "#eef2ff",
+                                color: "#4f46e5",
                               }}
                             >
-                              <Activity size={14} />
+                              <ListChecks size={14} strokeWidth={2.25} />
                             </motion.button>
                           </Popover>
                         </Tooltip>
@@ -1153,16 +1440,78 @@ const InsuranceRenewalCasesPage = () => {
                                   Source:
                                 </span>
                                 <span className="text-slate-700 font-bold">
-                                  {sourceLabel || "Direct"}
+                                  {sourceLabel || channelCtx.source || "Direct"}
                                 </span>
                               </div>
-                              {referenceName ? (
-                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                                  <span className="font-bold uppercase tracking-wider text-slate-400">
-                                    Reference:
+                              {referenceName || referencePhone ? (
+                                <div className="space-y-1">
+                                  {referenceName ? (
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                                      <span className="font-bold uppercase tracking-wider text-slate-400">
+                                        Reference:
+                                      </span>
+                                      <span className="truncate font-semibold text-slate-700">
+                                        {referenceName}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                  {referencePhone ? (
+                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                                      <span className="font-bold uppercase tracking-wider text-slate-400">
+                                        Ref No:
+                                      </span>
+                                      <span className="truncate font-semibold text-slate-700 font-mono">
+                                        {referencePhone}
+                                      </span>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                              {shouldShowInsuranceChannelBadge(channelCtx) &&
+                              channelCtx.isIndirectSource &&
+                              channelCtx.sourceDetailsName ? (
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-fit max-w-full">
+                                  <span
+                                    className="text-[10px] font-bold text-indigo-700 truncate"
+                                    title={`${channelCtx.sourceDetailsName}${channelCtx.channelDealerNo ? ` (#${channelCtx.channelDealerNo})` : ""}`}
+                                  >
+                                    Dealer: {channelCtx.sourceDetailsName}
+                                    {channelCtx.channelDealerNo ? (
+                                      <span className="ml-1 opacity-60">
+                                        #{channelCtx.channelDealerNo}
+                                      </span>
+                                    ) : null}
                                   </span>
-                                  <span className="truncate font-semibold text-slate-700">
-                                    {referenceName}
+                                </div>
+                              ) : null}
+                              {shouldShowInsuranceChannelBadge(channelCtx) &&
+                              !channelCtx.isIndirectSource &&
+                              channelCtx.channelPartnerName ? (
+                                <div
+                                  className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${
+                                    channelCtx.policyDoneByLabel
+                                      ?.toLowerCase()
+                                      .includes("broker")
+                                      ? "bg-amber-50 border-amber-100"
+                                      : "bg-blue-50 border-blue-100"
+                                  }`}
+                                >
+                                  <span
+                                    className={`text-[10px] font-bold truncate ${
+                                      channelCtx.policyDoneByLabel
+                                        ?.toLowerCase()
+                                        .includes("broker")
+                                        ? "text-amber-700"
+                                        : "text-blue-700"
+                                    }`}
+                                  >
+                                    {channelCtx.policyDoneByLabel}:{" "}
+                                    {channelCtx.channelPartnerName}
+                                    {channelCtx.channelDealerNo ? (
+                                      <span className="ml-1 opacity-60">
+                                        #{channelCtx.channelDealerNo}
+                                      </span>
+                                    ) : null}
                                   </span>
                                 </div>
                               ) : null}
