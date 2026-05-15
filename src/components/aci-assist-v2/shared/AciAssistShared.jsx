@@ -123,6 +123,8 @@ export function AciVehiclePhoto({
   imageUrl,
   className = "",
   alt = "Vehicle",
+  loading = "lazy",
+  fetchPriority = "auto",
   onError,
   onLoad,
 }) {
@@ -135,6 +137,9 @@ export function AciVehiclePhoto({
       onLoad={onLoad}
       onError={onError}
       className={`creta-photo vehicle-photo ${className}`}
+      loading={loading}
+      fetchPriority={fetchPriority}
+      decoding="async"
       draggable="false"
     />
   );
@@ -225,6 +230,8 @@ export function AciVehicleVisual({
   className = "",
   stage = false,
   stageVariant = "default",
+  loading = "lazy",
+  fetchPriority = "auto",
   onImageReady,
 }) {
   const imageUrl = getDisplayCarImage(vehicle);
@@ -243,6 +250,8 @@ export function AciVehicleVisual({
           className={className}
           stageVariant={stageVariant}
           fallbackLabel={vehicle?.label || vehicle?.model || vehicle?.name || "CAR"}
+          loading={loading}
+          fetchPriority={fetchPriority}
           onImageReady={onImageReady}
         />
       );
@@ -253,6 +262,8 @@ export function AciVehicleVisual({
         imageUrl={imageUrl}
         alt={vehicle.name || vehicle.displayName || vehicle.label || "Vehicle"}
         className={className}
+        loading={loading}
+        fetchPriority={fetchPriority}
         onLoad={() => onImageReady?.(true)}
         onError={() => {
           setImageFailed(true);

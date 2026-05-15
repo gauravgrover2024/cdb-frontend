@@ -837,6 +837,8 @@ function ContinueExploring({ cars = [], onAction }) {
                 height={158}
                 stage
                 stageVariant="compact"
+                loading={index < 2 ? "eager" : "lazy"}
+                fetchPriority={index < 2 ? "high" : "auto"}
               />
             </div>
           </motion.button>
@@ -920,6 +922,8 @@ function LivePopularCarCard({
           height={compact ? 150 : 196}
           stage
           stageVariant="compact"
+          loading={index < (compact ? 2 : 5) ? "eager" : "lazy"}
+          fetchPriority={index < (compact ? 2 : 5) ? "high" : "auto"}
         />
       </button>
 

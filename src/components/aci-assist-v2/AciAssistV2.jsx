@@ -38,8 +38,258 @@ const firstValue = (...values) => {
   return "";
 };
 
+const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
+
+const frameNumber = (value, fallback) => {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+};
+
+const cssPercent = (value, fallback = 0, min = -18, max = 18) => {
+  const raw = typeof value === "string" && value.trim().endsWith("%")
+    ? Number(value.trim().slice(0, -1))
+    : frameNumber(value, fallback);
+
+  if (!Number.isFinite(raw)) return `${fallback}%`;
+  return `${clampNumber(raw, min, max)}%`;
+};
+
+const getStageFrame = (imageFrame, stageKey = "chatCard") => {
+  if (!imageFrame || typeof imageFrame !== "object") return null;
+
+  return (
+    imageFrame.stageFrames?.[stageKey] ||
+    imageFrame.stages?.[stageKey] ||
+    imageFrame[stageKey] ||
+    imageFrame.stageFrames?.chatCard ||
+    imageFrame.stageFrames?.homeCard ||
+    imageFrame.stageFrames?.priceSide ||
+    imageFrame.stageFrames?.mobileHero ||
+    imageFrame.stageFrames?.default ||
+    imageFrame
+  );
+};
+
+const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
+  const frame = getStageFrame(imageFrame, stageKey);
+  const pickFirst = (...values) =>
+    values.find((value) => value !== undefined && value !== null && value !== "");
+
+  const readNumber = (...values) => {
+    const value = pickFirst(...values);
+    if (typeof value === "string" && value.trim().endsWith("%")) {
+      const parsed = Number(value.trim().slice(0, -1));
+      return Number.isFinite(parsed) ? parsed / 100 : null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const normalizeFocus = (value) => {
+    const number = readNumber(value);
+    if (!Number.isFinite(number)) return null;
+    return number > 1 ? number / 100 : number;
+  };
+
+  const getBounds = () => {
+    const source =
+      frame?.visibleBounds ||
+      frame?.visibleBox ||
+      frame?.contentBounds ||
+      frame?.contentBox ||
+      frame?.normalizedBounds ||
+      frame?.normalizedBox ||
+      frame?.subjectBounds ||
+      frame?.subjectBox ||
+      frame?.carBounds ||
+      frame?.carBox ||
+      frame?.trimBounds ||
+      frame?.trimBox ||
+      frame?.bbox ||
+      frame?.bounds ||
+      imageFrame?.visibleBounds ||
+      imageFrame?.visibleBox ||
+      imageFrame?.contentBounds ||
+      imageFrame?.contentBox ||
+      imageFrame?.normalizedBounds ||
+      imageFrame?.normalizedBox ||
+      imageFrame?.subjectBounds ||
+      imageFrame?.subjectBox ||
+      imageFrame?.carBounds ||
+      imageFrame?.carBox ||
+      imageFrame?.trimBounds ||
+      imageFrame?.trimBox ||
+      imageFrame?.bbox ||
+      imageFrame?.bounds;
+
+    if (!source || typeof source !== "object") return null;
+
+    const naturalWidth = readNumber(
+      frame?.naturalWidth,
+      frame?.imageWidth,
+      frame?.sourceWidth,
+      imageFrame?.naturalWidth,
+      imageFrame?.imageWidth,
+      imageFrame?.sourceWidth,
+      imageFrame?.width,
+    );
+    const naturalHeight = readNumber(
+      frame?.naturalHeight,
+      frame?.imageHeight,
+      frame?.sourceHeight,
+      imageFrame?.naturalHeight,
+      imageFrame?.imageHeight,
+      imageFrame?.sourceHeight,
+      imageFrame?.height,
+    );
+
+    const left = readNumber(source.left, source.x, source.minX);
+    const top = readNumber(source.top, source.y, source.minY);
+    const width = readNumber(
+      source.width,
+      source.w,
+      source.right && left != null ? source.right - left : null,
+    );
+    const height = readNumber(
+      source.height,
+      source.h,
+      source.bottom && top != null ? source.bottom - top : null,
+    );
+
+    const looksNormalized =
+      [left, top, width, height].every((value) => Number.isFinite(value)) &&
+      left >= 0 &&
+      top >= 0 &&
+      width > 0 &&
+      height > 0 &&
+      left <= 1 &&
+      top <= 1 &&
+      width <= 1 &&
+      height <= 1;
+
+    if (looksNormalized) {
+      return {
+        centerX: left + width / 2,
+        centerY: top + height / 2,
+        widthRatio: width,
+        heightRatio: height,
+      };
+    }
+
+    if (
+      !Number.isFinite(naturalWidth) ||
+      !Number.isFinite(naturalHeight) ||
+      naturalWidth <= 0 ||
+      naturalHeight <= 0 ||
+      !Number.isFinite(left) ||
+      !Number.isFinite(top) ||
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      return null;
+    }
+
+    return {
+      centerX: (left + width / 2) / naturalWidth,
+      centerY: (top + height / 2) / naturalHeight,
+      widthRatio: width / naturalWidth,
+      heightRatio: height / naturalHeight,
+    };
+  };
+
+  const cssVars = {
+    ...(imageFrame?.cssVars || {}),
+    ...(frame?.cssVars || {}),
+  };
+
+  const bounds = frame && typeof frame === "object" ? getBounds() : null;
+  const explicitScale = readNumber(
+    cssVars["--car-frame-scale"],
+    frame?.scale,
+    frame?.zoom,
+  );
+
+  const fittedScale = bounds
+    ? Math.min(
+        1.34,
+        Math.max(
+          1,
+          Math.max(
+            0.84 / Math.max(bounds.widthRatio, 0.01),
+            0.54 / Math.max(bounds.heightRatio, 0.01),
+          ),
+        ),
+      )
+    : 1;
+
+  const explicitX = pickFirst(
+    cssVars["--car-frame-x"],
+    frame?.translateXPct,
+    frame?.translateXPercent,
+    frame?.translateX,
+    frame?.xOffset,
+    frame?.x,
+  );
+
+  const explicitY = pickFirst(
+    cssVars["--car-frame-y"],
+    frame?.translateYPct,
+    frame?.translateYPercent,
+    frame?.translateY,
+    frame?.yOffset,
+    frame?.y,
+  );
+
+  const focusX = normalizeFocus(
+    frame?.focusX ??
+      frame?.focalX ??
+      frame?.centerX ??
+      imageFrame?.focusX ??
+      imageFrame?.focalX,
+  );
+  const focusY = normalizeFocus(
+    frame?.focusY ??
+      frame?.focalY ??
+      frame?.centerY ??
+      imageFrame?.focusY ??
+      imageFrame?.focalY,
+  );
+
+  const computedX = bounds
+    ? (0.5 - bounds.centerX) * 100
+    : Number.isFinite(focusX)
+      ? (0.5 - focusX) * 100
+      : 0;
+  const computedY = bounds
+    ? (0.5 - bounds.centerY) * 100
+    : Number.isFinite(focusY)
+      ? (0.5 - focusY) * 100
+      : 0;
+
+  const origin =
+    cssVars["--car-frame-origin"] || frame?.transformOrigin || "center center";
+
+  return {
+    "--chat-car-frame-scale": String(clampNumber(explicitScale ?? fittedScale, 0.92, 1.34)),
+    "--chat-car-frame-x": cssPercent(explicitX ?? computedX, 0, -22, 22),
+    "--chat-car-frame-y": cssPercent(explicitY ?? computedY, 0, -18, 18),
+    "--chat-car-frame-origin": origin,
+  };
+};
+
 const getVehicleId = (vehicle = {}) =>
   firstValue(vehicle?.id, vehicle?._id, vehicle?.vehicleId, vehicle?.modelId);
+
+const getVehicleModelKey = (vehicle = {}) =>
+  String(firstValue(vehicle?.model, vehicle?.modelName) || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const getVehicleTitle = (vehicle = {}) =>
   firstValue(
@@ -85,8 +335,8 @@ const mergeVehicle = (base, incoming) => {
 
   const baseId = getVehicleId(normalizedBase);
   const incomingId = getVehicleId(normalizedIncoming);
-  const baseModel = String(normalizedBase.model || "").toLowerCase();
-  const incomingModel = String(normalizedIncoming.model || "").toLowerCase();
+  const baseModel = getVehicleModelKey(normalizedBase);
+  const incomingModel = getVehicleModelKey(normalizedIncoming);
 
   const isSameVehicle =
     (baseId && incomingId && String(baseId) === String(incomingId)) ||
@@ -98,24 +348,27 @@ const mergeVehicle = (base, incoming) => {
     id: firstValue(
       normalizedIncoming.id,
       normalizedIncoming._id,
-      normalizedBase.id,
+      isSameVehicle ? normalizedBase.id : "",
     ),
     make: firstValue(
       normalizedIncoming.make,
       normalizedIncoming.brand,
-      normalizedBase.make,
+      isSameVehicle ? normalizedBase.make : "",
     ),
     brand: firstValue(
       normalizedIncoming.brand,
       normalizedIncoming.make,
-      normalizedBase.brand,
+      isSameVehicle ? normalizedBase.brand : "",
     ),
-    model: firstValue(normalizedIncoming.model, normalizedBase.model),
+    model: firstValue(
+      normalizedIncoming.model,
+      isSameVehicle ? normalizedBase.model : "",
+    ),
     displayName: firstValue(
       normalizedIncoming.displayName,
       normalizedIncoming.name,
-      normalizedBase.displayName,
-      normalizedBase.name,
+      isSameVehicle ? normalizedBase.displayName : "",
+      isSameVehicle ? normalizedBase.name : "",
     ),
     imageUrl: firstValue(
       normalizedIncoming.imageUrl,
@@ -134,10 +387,22 @@ const mergeVehicle = (base, incoming) => {
 };
 
 const mergeSessionContext = (previous = {}, patch = {}) => {
+  const incomingVehicle =
+    patch.selectedVehicle || patch.vehicle || patch.activeVehicle;
   const selectedVehicle = mergeVehicle(
     previous.selectedVehicle,
-    patch.selectedVehicle || patch.vehicle || patch.activeVehicle,
+    incomingVehicle,
   );
+  const previousVehicleKey = getVehicleModelKey(
+    previous.selectedVehicle || { model: previous.anchorModel },
+  );
+  const selectedVehicleKey = getVehicleModelKey(selectedVehicle);
+  const vehicleChanged =
+    Boolean(incomingVehicle) &&
+    previousVehicleKey &&
+    selectedVehicleKey &&
+    previousVehicleKey !== selectedVehicleKey;
+  const canReusePreviousVehicleAnchors = !vehicleChanged;
 
   return {
     ...previous,
@@ -147,7 +412,7 @@ const mergeSessionContext = (previous = {}, patch = {}) => {
       patch.anchorMake,
       selectedVehicle?.make,
       selectedVehicle?.brand,
-      previous.anchorMake,
+      canReusePreviousVehicleAnchors ? previous.anchorMake : "",
     ),
     anchorModel: firstValue(
       patch.anchorModel,
@@ -158,7 +423,7 @@ const mergeSessionContext = (previous = {}, patch = {}) => {
       patch.anchorVariant,
       selectedVehicle?.variant,
       selectedVehicle?.variantName,
-      previous.anchorVariant,
+      canReusePreviousVehicleAnchors ? previous.anchorVariant : "",
     ),
     anchorCity: firstValue(
       patch.anchorCity,
@@ -767,6 +1032,11 @@ function AciV2CanvasPreviewCard({
                 row.exShowroomPrice ||
                 row.value ||
                 "";
+              const rowImageFrame =
+                row.vehicle?.imageFrame ||
+                row.imageFrame ||
+                selectedVehicle?.imageFrame ||
+                null;
 
               const priceContext =
                 row.exShowroomPrice &&
@@ -818,7 +1088,10 @@ function AciV2CanvasPreviewCard({
                     });
                   }}
                 >
-                  <div className="aci-chat-row-visual">
+                  <div
+                    className="aci-chat-row-visual"
+                    style={buildChatImageFrameStyle(rowImageFrame)}
+                  >
                     <motion.div
                       className="aci-chat-row-car-motion"
                       initial={{ opacity: 0, y: 10, scale: 0.94 }}
@@ -2401,6 +2674,10 @@ export default function AciAssistV2() {
   object-fit: contain;
   object-position: center bottom;
   mix-blend-mode: multiply;
+  transform:
+    translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+    scale(var(--chat-car-frame-scale, 1));
+  transform-origin: var(--chat-car-frame-origin, center center);
   filter: drop-shadow(0 24px 18px rgba(15, 23, 42, 0.2));
   animation: aciVehicleSettle 680ms cubic-bezier(0.19, 1, 0.22, 1) both;
 }
@@ -3012,7 +3289,6 @@ export default function AciAssistV2() {
 @keyframes aciVehicleSettle {
   from {
     opacity: 0;
-    transform: translateY(9px) scale(0.92);
     filter:
       blur(3px)
       drop-shadow(0 10px 8px rgba(15, 23, 42, 0.1));
@@ -3020,7 +3296,6 @@ export default function AciAssistV2() {
 
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
     filter:
       blur(0)
       drop-shadow(0 16px 14px rgba(15, 23, 42, 0.16));
@@ -3464,7 +3739,10 @@ export default function AciAssistV2() {
     object-fit: contain !important;
     object-position: center center !important;
 
-    transform: none !important;
+    transform:
+      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+      scale(var(--chat-car-frame-scale, 1)) !important;
+    transform-origin: var(--chat-car-frame-origin, center center) !important;
     mix-blend-mode: multiply !important;
     filter: drop-shadow(0 14px 12px rgba(15, 23, 42, 0.15)) !important;
   }
@@ -3481,12 +3759,13 @@ export default function AciAssistV2() {
   .aci-chat-row-copy {
     height: 104px !important;
     min-height: 104px !important;
-    padding: 0 10px 12px !important;
+    padding: 0 10px 20px !important;
     margin: 0 !important;
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-end !important;
     overflow: visible !important;
+    transform: translateY(-4px) !important;
   }
 
   .aci-chat-result-rows strong {
@@ -3659,7 +3938,10 @@ export default function AciAssistV2() {
 
     object-fit: contain !important;
     object-position: center center !important;
-    transform: none !important;
+    transform:
+      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+      scale(var(--chat-car-frame-scale, 1)) !important;
+    transform-origin: var(--chat-car-frame-origin, center center) !important;
   }
 
   .aci-chat-row-visual::after {

@@ -9,6 +9,8 @@ export default function CarImageStage({
   stageVariant = "default",
   fallbackLabel = "CAR",
   showGroundShadow = true,
+  loading: imageLoading = "lazy",
+  fetchPriority = "auto",
   onImageReady,
 }) {
   const [failed, setFailed] = React.useState(false);
@@ -45,6 +47,9 @@ export default function CarImageStage({
               setLoading(false);
               onImageReady?.(false);
             }}
+            loading={imageLoading}
+            fetchPriority={fetchPriority}
+            decoding="async"
             draggable="false"
           />
         </>
