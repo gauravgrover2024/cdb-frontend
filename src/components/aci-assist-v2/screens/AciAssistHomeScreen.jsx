@@ -4457,6 +4457,163 @@ export default function AciAssistHomeScreen({
     height: 236px !important;
   }
 }
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE HERO SPACING TIGHTENING                                             */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 334px !important;
+    margin: 4px 0 0 !important;
+    padding: 16px 16px 0 !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy {
+    z-index: 5 !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy h1 {
+    max-width: 410px !important;
+    font-size: 32px !important;
+    line-height: 0.96 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy h1 span {
+    display: block !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p {
+    margin-top: 9px !important;
+    font-size: 14.7px !important;
+    line-height: 1.22 !important;
+  }
+
+  /* Move orb up. Top rings now sit behind the heading/subtitle area. */
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 104px !important;
+    width: 326px !important;
+    height: 246px !important;
+    z-index: 2 !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 326px !important;
+    height: 246px !important;
+  }
+
+  /* Make background rings line up with the higher orb */
+  .aci-home-root .hero-bg-orbit {
+    top: 48% !important;
+    width: 326px !important;
+    height: 80px !important;
+  }
+
+  .aci-home-root .hero-bg-orbit.orbit-2 {
+    top: 48% !important;
+    width: 356px !important;
+    height: 98px !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-1 {
+    top: 38% !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-2 {
+    top: 37% !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-3,
+  .aci-home-root .hero-bg-dot.dot-4 {
+    top: 51% !important;
+  }
+
+  /* Start pills almost immediately after orb area */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    margin: -4px 0 18px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px 12px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button {
+    min-height: 54px !important;
+    height: 54px !important;
+    padding: 10px 15px !important;
+    gap: 9px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px !important;
+    color: #0b5cff !important;
+    stroke-width: 2 !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button span {
+    font-size: 13.8px !important;
+    font-weight: 700 !important;
+    line-height: 1.05 !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-1 svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-2 svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-3 svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-4 svg {
+    color: #0b5cff !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 318px !important;
+    padding-top: 14px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy h1 {
+    max-width: 350px !important;
+    font-size: 29px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p {
+    font-size: 13.4px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 100px !important;
+    width: 300px !important;
+    height: 226px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 300px !important;
+    height: 226px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    margin-top: -2px !important;
+    gap: 8px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button {
+    min-height: 50px !important;
+    height: 50px !important;
+    padding: 9px 11px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button span {
+    font-size: 12.5px !important;
+    font-weight: 680 !important;
+  }
+}
  /* -------------------------------------------------------------------------- */
 /* MOBILE SHORTCUT PILLS FINAL TUNING                                         */
 /* -------------------------------------------------------------------------- */
