@@ -19,14 +19,19 @@ import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 
 const IMAGE_KEYS = [
+  "heroImageNormalizedUrl",
+  "normalizedHeroImageUrl",
+  "heroNormalizedImageUrl",
+  "displayNormalizedImageUrl",
+  "heroImageUrl",
+  "heroImage",
+  "defaultNormalizedImageUrl",
   "normalizedImageUrl",
   "cleanImageUrl",
   "normalized_image_url",
   "clean_image_url",
   "normalizedImagePngUrl",
   "sourceImageUrl",
-  "heroImage",
-  "heroImageUrl",
   "vehicleImage",
   "vehicleImageUrl",
   "image",
@@ -529,6 +534,9 @@ const getVehicleVisualGallery = (vehicle, widget, rows = []) => {
 
 
 const FRAME_KEYS = [
+  "heroFrameMeta",
+  "displayFrameMeta",
+  "defaultFrameMeta",
   "imageFrame",
   "image_frame",
   "carImageFrame",

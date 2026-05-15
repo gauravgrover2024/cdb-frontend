@@ -8,9 +8,10 @@ const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
 const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
 const POPULAR_CARS_ENDPOINT = "/api/vehicles/popular-cars";
 const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
-const LIVE_SNAPSHOT_CACHE_VERSION = "model-exact-v3";
+const LIVE_SNAPSHOT_CACHE_VERSION = "model-hero-v4";
 const liveSnapshotMemory = new Map();
 const POPULAR_CARS_TTL_MS = 1000 * 60 * 10;
+const POPULAR_CARS_CACHE_VERSION = "hero-v2";
 const popularCarsMemory = new Map();
 
 const createAbortError = () => {
@@ -346,12 +347,18 @@ const MODEL_MATCH_KEYS = [
 ];
 
 const IMAGE_MODEL_KEYS = [
+  "heroImageNormalizedUrl",
+  "normalizedHeroImageUrl",
+  "heroNormalizedImageUrl",
+  "displayNormalizedImageUrl",
+  "heroImageUrl",
+  "hero_image_url",
+  "heroImage",
+  "defaultNormalizedImageUrl",
   "normalizedImageUrl",
   "cleanImageUrl",
   "normalized_image_url",
   "clean_image_url",
-  "heroImageUrl",
-  "hero_image_url",
   "imageUrl",
   "image_url",
   "carImageUrl",
@@ -1432,15 +1439,22 @@ export async function fetchAciVehicleLiveSnapshot({
     normalizedMake,
     { strict: true },
   );
-  const heroImage = getDisplayCarImage({
-    colors,
-    imageUrl: colors.find((item) => item.imageUrl)?.imageUrl || "",
-  }) ||
-  getDisplayCarImage({
-    variants: imageScopedVariantRows,
-    imageUrl: imageScopedVariantRows.find((item) => item.imageUrl)?.imageUrl || "",
-  }) ||
-  "";
+  const heroImage =
+    getDisplayCarImage(
+      scopedMediaRows.find(
+        (item) =>
+          item?.heroImageUrl ||
+          item?.displayNormalizedImageUrl ||
+          item?.defaultNormalizedImageUrl,
+      ) ||
+        scopedMediaRows[0] ||
+        {},
+    ) ||
+    getDisplayCarImage({
+      variants: imageScopedVariantRows,
+      imageUrl: imageScopedVariantRows.find((item) => item.imageUrl)?.imageUrl || "",
+    }) ||
+    "";
 
   const payload = {
     ok: true,
@@ -1492,7 +1506,7 @@ export async function fetchAciPopularCars({
 } = {}) {
   const normalizedCity = String(city || "new-delhi").trim() || "new-delhi";
   const normalizedLimit = Math.min(Math.max(Number(limit) || 25, 1), 25);
-  const key = `${normalizedCity}|${normalizedLimit}`;
+  const key = `${POPULAR_CARS_CACHE_VERSION}|${normalizedCity}|${normalizedLimit}`;
   const now = Date.now();
 
   const memoryHit = popularCarsMemory.get(key);

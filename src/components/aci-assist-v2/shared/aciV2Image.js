@@ -23,6 +23,29 @@ export const isUsableImageUrl = (value = "") => {
 export const getDisplayCarImage = (record = {}) => {
   if (!record || typeof record !== "object") return "";
 
+  const heroImage =
+    record.heroImageNormalizedUrl ||
+    record.normalizedHeroImageUrl ||
+    record.heroNormalizedImageUrl ||
+    record.displayNormalizedImageUrl ||
+    record.heroImageUrl ||
+    record.heroImage ||
+    record.defaultNormalizedImageUrl ||
+    record.displayStagedImageUrl ||
+    "";
+
+  const topLevel =
+    heroImage ||
+    record.normalizedImageUrl ||
+    record.cleanImageUrl ||
+    record.normalizedImagePngUrl ||
+    record.imageUrl ||
+    record.originalImageUrl ||
+    record.sourceImageUrl ||
+    record.image ||
+    record.carImageUrl ||
+    "";
+
   const colorImage =
     record.selectedColor?.normalizedImageUrl ||
     record.selectedColor?.cleanImageUrl ||
@@ -42,20 +65,7 @@ export const getDisplayCarImage = (record = {}) => {
     colorCandidate?.carImageUrl ||
     "";
 
-  const topLevel =
-    record.normalizedImageUrl ||
-    record.cleanImageUrl ||
-    record.normalizedImagePngUrl ||
-    record.heroNormalizedImageUrl ||
-    record.heroImageUrl ||
-    record.imageUrl ||
-    record.originalImageUrl ||
-    record.sourceImageUrl ||
-    record.image ||
-    record.carImageUrl ||
-    "";
-
-  const selected = [colorImage, colorCandidateImage, topLevel]
+  const selected = [topLevel, colorImage, colorCandidateImage]
     .map(resolveCarImageUrl)
     .find(Boolean);
 
