@@ -794,7 +794,9 @@ function ContinueExploring({ cars = [], onAction }) {
     <motion.section className="aci-continue-exploring" variants={fadeUp}>
       <div className="section-head">
         <div>
-          <h2 className="aci-lively-section-title is-continue">Continue exploring</h2>
+          <h2 className="aci-lively-section-title is-continue">
+            Continue exploring
+          </h2>
         </div>
       </div>
 
@@ -1472,45 +1474,73 @@ const renderMobileHeroSubtitle = (value = "") => {
   ));
 };
 
+const MOBILE_REFERENCE_SHORTCUTS = [
+  {
+    label: "Find car by budget",
+    query: "Find car by budget",
+    type: "ask",
+  },
+  {
+    label: "Compare cars",
+    query: "Compare cars",
+    type: "ask",
+    intent: "compare_cars",
+  },
+  {
+    label: "Check price",
+    query: "Check car price",
+    type: "ask",
+    intent: "vehicle_pricelist",
+  },
+  {
+    label: "New car offers",
+    query: "Show new car offers",
+    type: "ask",
+  },
+];
+
 function MobileHero({ data, onAction }) {
   return (
-    <motion.section className="mobile-hero" variants={fadeUp}>
+    <motion.section
+      className="mobile-hero reference-mobile-hero"
+      variants={fadeUp}
+    >
+      <div className="mobile-hero-bg" aria-hidden="true">
+        <span className="hero-bg-dot dot-1" />
+        <span className="hero-bg-dot dot-2" />
+        <span className="hero-bg-dot dot-3" />
+        <span className="hero-bg-dot dot-4" />
+        <span className="hero-bg-orbit orbit-1" />
+        <span className="hero-bg-orbit orbit-2" />
+      </div>
+
+      <div className="mobile-hero-copy">
+        <h1>
+          How can I help you find
+          <span>your perfect car?</span>
+        </h1>
+
+        <p>
+          Ask anything about cars and I'll help you
+          <br />
+          with the best recommendations.
+        </p>
+      </div>
+
       <div className="mobile-hero-orb-shell" aria-hidden="true">
         <motion.div
           className="mobile-hero-orb"
           animate={{ y: [0, -4, 0], scale: [1, 1.01, 1] }}
           transition={{ duration: 5.2, repeat: Infinity, ease: "easeInOut" }}
         >
-          <AciAssistantOrb />
+          <AciAssistantOrb
+            size="hero"
+            style={{
+              "--orb-w": "310px",
+              "--orb-h": "236px",
+            }}
+          />
         </motion.div>
-      </div>
-
-      <div className="mobile-hero-copy">
-        <h1>{data.mobile.heroTitle}</h1>
-
-        <p className="mobile-hero-subtitle">
-          {renderMobileHeroSubtitle(data.mobile.heroSubtitle)}
-        </p>
-
-        <button
-          type="button"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: data.mobile.primaryCta,
-                query: data.mobile.primaryCta,
-              },
-              onAction,
-            )
-          }
-        >
-          {data.mobile.primaryCta}
-        </button>
-
-        <small>
-          <Sparkles size={15} />
-          {data.mobile.trustLine}
-        </small>
       </div>
     </motion.section>
   );
@@ -1518,21 +1548,25 @@ function MobileHero({ data, onAction }) {
 
 function MobileShortcuts({ data, onAction }) {
   return (
-    <motion.section className="mobile-shortcuts" variants={fadeUp}>
-      {data.mobile.shortcuts.map((item) => {
+    <motion.section
+      className="mobile-shortcuts reference-mobile-shortcuts"
+      variants={fadeUp}
+    >
+      {MOBILE_REFERENCE_SHORTCUTS.map((item, index) => {
         const Icon =
           getAciV2PremiumIcon(item.label || item.title || item.query) ||
-          item.icon;
+          Sparkles;
 
         return (
           <motion.button
             type="button"
             key={item.label}
+            className={`shortcut-color-${index + 1}`}
             onClick={() => emitAciAction(item, onAction)}
             whileTap={{ scale: 0.98 }}
             transition={{ duration: 0.2 }}
           >
-            <Icon size={30} />
+            <Icon size={18} />
             <span>{item.label}</span>
           </motion.button>
         );
@@ -1666,30 +1700,26 @@ export default function AciAssistHomeScreen({
         car,
       ]),
     );
-    return recentCars.map((car) => ({
-      ...(popularByKey.get(
-        car.id || `${car.make || car.brand}-${car.model}`.toLowerCase(),
-      ) || {}),
-      ...car,
-      priceRange:
-        car.priceRange ||
-        popularByKey.get(
-          car.id || `${car.make || car.brand}-${car.model}`.toLowerCase(),
-        )?.priceRange ||
-        "",
-      bodyStyle:
-        car.bodyStyle ||
-        popularByKey.get(
-          car.id || `${car.make || car.brand}-${car.model}`.toLowerCase(),
-        )?.bodyStyle ||
-        "",
-      segment:
-        car.segment ||
-        popularByKey.get(
-          car.id || `${car.make || car.brand}-${car.model}`.toLowerCase(),
-        )?.segment ||
-        "",
-    }));
+    return recentCars.map((car) => {
+      const key =
+        car.id || `${car.make || car.brand}-${car.model}`.toLowerCase();
+      const popular = popularByKey.get(key) || {};
+      return {
+        ...popular,
+        ...car,
+        imageUrl:
+          popular.imageUrl || popular.normalizedImageUrl || car.imageUrl || "",
+        normalizedImageUrl:
+          popular.normalizedImageUrl ||
+          popular.imageUrl ||
+          car.normalizedImageUrl ||
+          "",
+        imageFrame: popular.imageFrame || car.imageFrame || {},
+        priceRange: car.priceRange || popular.priceRange || "",
+        bodyStyle: car.bodyStyle || popular.bodyStyle || "",
+        segment: car.segment || popular.segment || "",
+      };
+    });
   }, [popularState.rows, recentCars]);
 
   const enhancedData = useMemo(
@@ -4246,6 +4276,278 @@ export default function AciAssistHomeScreen({
 
 /* HERO_ORB_ONLY_POSITION_FIX_END */
 
+/* -------------------------------------------------------------------------- */
+/* MOBILE HERO FINAL TUNING                                                   */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    position: relative !important;
+    min-height: 390px !important;
+    margin: 4px 0 6px !important;
+    padding: 18px 16px 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background:
+      radial-gradient(circle at 50% 43%, rgba(224, 238, 255, 0.74), rgba(255,255,255,0) 46%),
+      radial-gradient(circle at 50% 69%, rgba(48, 136, 255, 0.18), rgba(255,255,255,0) 30%),
+      radial-gradient(circle at 50% 82%, rgba(38, 125, 255, 0.13), rgba(255,255,255,0) 22%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 62%, #ffffff 100%) !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .mobile-hero-bg {
+    position: absolute !important;
+    inset: 0 !important;
+    z-index: 0 !important;
+    pointer-events: none !important;
+  }
+
+  .aci-home-root .hero-bg-orbit {
+    position: absolute !important;
+    left: 50% !important;
+    top: 57% !important;
+    width: 326px !important;
+    height: 82px !important;
+    border-radius: 50% !important;
+    border: 1px solid rgba(88, 148, 255, 0.34) !important;
+    transform: translate(-50%, -50%) rotate(2deg) !important;
+  }
+
+  .aci-home-root .hero-bg-orbit.orbit-2 {
+    width: 360px !important;
+    height: 102px !important;
+    border-color: rgba(100, 160, 255, 0.21) !important;
+    transform: translate(-50%, -50%) rotate(-10deg) !important;
+  }
+
+  .aci-home-root .hero-bg-dot {
+    position: absolute !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 999px !important;
+    background: #77b6ff !important;
+    box-shadow: 0 0 12px rgba(56, 142, 255, 0.5) !important;
+    opacity: 0.8 !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-1 {
+    left: 16% !important;
+    top: 43% !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-2 {
+    right: 17% !important;
+    top: 42% !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-3 {
+    left: 29% !important;
+    top: 56% !important;
+    width: 4px !important;
+    height: 4px !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-4 {
+    right: 25% !important;
+    top: 56% !important;
+    width: 5px !important;
+    height: 5px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy {
+    position: relative !important;
+    z-index: 4 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    text-align: center !important;
+    margin: 0 auto !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy h1 {
+    width: 100% !important;
+    max-width: 390px !important;
+    margin: 0 auto !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 32px !important;
+    line-height: 0.98 !important;
+    letter-spacing: -0.055em !important;
+    color: #07102b !important;
+    font-weight: 900 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy h1 span {
+    display: block !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p {
+    margin: 12px auto 0 !important;
+    color: #536079 !important;
+    font-size: 15px !important;
+    line-height: 1.26 !important;
+    font-weight: 520 !important;
+    letter-spacing: -0.012em !important;
+  }
+
+  /* Orb moved up so the top rings sit behind the heading/subtitle area */
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    position: absolute !important;
+    left: 50% !important;
+    top: 146px !important;
+    width: 336px !important;
+    height: 258px !important;
+    margin: 0 !important;
+    transform: translateX(-50%) !important;
+    display: grid !important;
+    place-items: center !important;
+    z-index: 2 !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb {
+    position: relative !important;
+    width: 330px !important;
+    height: 252px !important;
+    display: grid !important;
+    place-items: center !important;
+    transform-origin: center center !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 330px !important;
+    height: 252px !important;
+  }
+
+  /* Keep the hero chat/search bar removed */
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-search {
+    display: none !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 374px !important;
+    padding-top: 16px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy h1 {
+    font-size: 29px !important;
+    max-width: 345px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p {
+    font-size: 13.8px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 138px !important;
+    width: 306px !important;
+    height: 236px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 306px !important;
+    height: 236px !important;
+  }
+}
+ /* -------------------------------------------------------------------------- */
+/* MOBILE SHORTCUT PILLS FINAL TUNING                                         */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 10px 12px !important;
+    margin: 0 0 18px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button {
+    min-height: 54px !important;
+    height: 54px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 9px !important;
+    padding: 10px 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(203, 213, 225, 0.88) !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.94)) !important;
+    box-shadow: 0 10px 24px rgba(15,23,42,0.05) !important;
+    color: #07102b !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button svg {
+    width: 18px !important;
+    height: 18px !important;
+    flex: 0 0 18px !important;
+    stroke-width: 1.9 !important;
+    filter: none !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button span {
+    display: block !important;
+    min-width: 0 !important;
+    color: #07102b !important;
+    font-size: 13.4px !important;
+    line-height: 1.05 !important;
+    letter-spacing: -0.018em !important;
+    font-weight: 690 !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-1 svg {
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-2 svg {
+    color: #2563eb !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-3 svg {
+    color: #7c3aed !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-4 svg {
+    color: #0ea5e9 !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    gap: 8px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button {
+    min-height: 50px !important;
+    height: 50px !important;
+    gap: 7px !important;
+    padding: 9px 11px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button span {
+    font-size: 12.2px !important;
+    font-weight: 660 !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+}
 
       `}</style>
       <DesktopHomePage
