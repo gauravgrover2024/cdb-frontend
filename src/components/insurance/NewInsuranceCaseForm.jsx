@@ -35,7 +35,10 @@ import Step7Documents from "./steps/Step6Documents";
 import Step8Payment from "./steps/Step7Payment";
 import Step9Payout from "./steps/Step8Payout";
 import { STEP_TITLES, durationOptions, addOnCatalog } from "./steps/allSteps";
-import { DEFAULT_PAYOUT_PERCENTAGE } from "./steps/payoutRates";
+import {
+  DEFAULT_PAYOUT_PERCENTAGE,
+  computePayoutBaseAmount,
+} from "./steps/payoutRates";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
 import "./insurance-header-pills.css";
@@ -50,7 +53,6 @@ import {
   mergeLinkedIntoExistingDocuments,
 } from "../../utils/insuranceLinkedDocuments";
 import { useNavigate } from "react-router-dom";
-
 const { Text, Title } = Typography;
 
 /** Same response normalization as loan EMI customer search (EMICustomerDetails). */
@@ -562,11 +564,7 @@ const computeQuoteBreakupFromRow = (q) => {
       : flatAddOnsAmount
     : 0;
 
-  // TATA AIG RSA Exclusion: Exclude Rs 116 from payout and premium base as per business rules
-  const addOnsTotal =
-    String(q.insuranceCompany || "").toUpperCase().includes("TATA AIG")
-      ? Math.max(0, rawAddOnsTotal - 116)
-      : rawAddOnsTotal;
+  const addOnsTotal = rawAddOnsTotal;
   const addOnsSource = !allowsAddOns
     ? "none"
     : hasAnySelectedAddOn
@@ -593,6 +591,11 @@ const computeQuoteBreakupFromRow = (q) => {
   const totalIdv =
     Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
   const basePremium = odAmt + tpAmt + addOnsTotal;
+  const payoutBaseAmount = computePayoutBaseAmount(
+    odAmt,
+    addOnsTotal,
+    q.insuranceCompany,
+  );
   const ncbPct = normalizedNcbDiscount;
   const ncbReferenceAmount = Math.round((odAmt * ncbPct) / 100);
   const taxableAmount = Math.max(basePremium, 0);
@@ -618,6 +621,7 @@ const computeQuoteBreakupFromRow = (q) => {
     taxableAmount,
     gstAmount,
     totalPremium,
+    payoutBaseAmount,
     addOnLines,
   };
 };
@@ -787,14 +791,20 @@ const validateStep1Strict = (data) => {
     errors.nomineeName = "Nominee name is required";
   if (!(data.nomineeRelationship || "").trim())
     errors.nomineeRelationship = "Nominee relationship is required";
-  if (!(data.referenceName || "").trim())
-    errors.referenceName = "Reference name is required";
   const refDigits = normalizeIndianMobile(data.referencePhone);
-  if (!refDigits) errors.referencePhone = "Reference mobile is required";
-  else if (refDigits.length !== 10)
+  if ((data.referencePhone || "").trim() && refDigits.length !== 10) {
     errors.referencePhone = "Enter a valid 10-digit reference mobile";
+  }
 
   return errors;
+};
+
+const summarizeFieldErrors = (errors = {}, max = 4) => {
+  const messages = Object.values(errors || {}).filter(Boolean);
+  if (!messages.length) return "";
+  const head = messages.slice(0, max).join("; ");
+  const extra = messages.length > max ? ` (+${messages.length - max} more)` : "";
+  return `${head}${extra}`;
 };
 
 const validateStep2 = (data) => {
@@ -825,32 +835,6 @@ const validateStep3 = (data) => {
     errors.claimTakenLastYear = "Claim last year is required";
   }
   return errors;
-};
-
-const FINAL_REQUIRED_DOCS_BY_SCENARIO = {
-  "new-car-insurance": ["Invoice"],
-  "used-car-insurance": [
-    "RC Copy",
-    "Form 29",
-    "Form 30 page 1",
-    "Form 30 page 2",
-  ],
-  "used-car-renewal": ["RC Copy", "Previous Year Policy"],
-  "policy-already-expired": ["RC Copy", "Previous Year Policy"],
-};
-
-const getInsuranceDocScenario = (data = {}) => {
-  const vehicleType = String(data?.vehicleType || "")
-    .trim()
-    .toLowerCase();
-  const usedFlow = String(data?.usedCarFlowType || "")
-    .trim()
-    .toLowerCase();
-  if (vehicleType === "new car") return "new-car-insurance";
-  if (usedFlow.includes("expired")) return "policy-already-expired";
-  if (usedFlow.includes("renew") || usedFlow.includes("rollover"))
-    return "used-car-renewal";
-  return "used-car-insurance";
 };
 
 const NewInsuranceCaseForm = ({
@@ -2514,6 +2498,13 @@ const NewInsuranceCaseForm = ({
     () => validateStep1Strict(formData),
     [formData],
   );
+  const step1DisplayErrors = useMemo(
+    () => ({
+      ...step1Errors,
+      ...(showErrors ? step1StrictErrors : {}),
+    }),
+    [step1Errors, step1StrictErrors, showErrors],
+  );
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
   const step3Errors = useMemo(() => validateStep3(formData), [formData]);
   const acceptedQuote =
@@ -2529,12 +2520,30 @@ const NewInsuranceCaseForm = ({
     documents.length > 0 && docsTaggedCount === documents.length;
   const finalSubmitErrors = useMemo(() => {
     const errors = [];
-    if (Object.keys(step1StrictErrors).length)
-      errors.push("Case details are incomplete.");
-    if (Object.keys(step2Errors).length)
-      errors.push("Vehicle details are incomplete.");
-    if (!shouldSkipStep(3) && Object.keys(step3Errors).length)
-      errors.push("Previous policy details are incomplete.");
+    if (Object.keys(step1StrictErrors).length) {
+      const detail = summarizeFieldErrors(step1StrictErrors);
+      errors.push(
+        detail
+          ? `Step 1 (Customer info) — ${detail}`
+          : "Case details are incomplete.",
+      );
+    }
+    if (Object.keys(step2Errors).length) {
+      const detail = summarizeFieldErrors(step2Errors);
+      errors.push(
+        detail
+          ? `Step 2 (Vehicle) — ${detail}`
+          : "Vehicle details are incomplete.",
+      );
+    }
+    if (!shouldSkipStep(3) && Object.keys(step3Errors).length) {
+      const detail = summarizeFieldErrors(step3Errors);
+      errors.push(
+        detail
+          ? `Step 3 (Previous policy) — ${detail}`
+          : "Previous policy details are incomplete.",
+      );
+    }
     if (!shouldSkipStep(4) && quotes.length === 0)
       errors.push("At least one quote is required.");
     if (!shouldSkipStep(4) && !acceptedQuoteId)
@@ -2550,18 +2559,9 @@ const NewInsuranceCaseForm = ({
     if (!String(formData.newPolicyStartDate || "").trim())
       errors.push("New policy start date is required.");
 
-    const scenario = getInsuranceDocScenario(formData);
-    const requiredDocs = FINAL_REQUIRED_DOCS_BY_SCENARIO[scenario] || [];
-    const tagged = new Set(
-      documents.map((d) => String(d?.tag || "").trim()).filter(Boolean),
-    );
-    requiredDocs.forEach((tag) => {
-      if (!tagged.has(tag)) errors.push(`Missing required document: ${tag}`);
-    });
     return errors;
   }, [
     acceptedQuoteId,
-    documents,
     formData,
     quotes.length,
     shouldSkipStep,
@@ -2616,10 +2616,7 @@ const NewInsuranceCaseForm = ({
         : flatAddOnsAmount
       : 0;
 
-    const addOnsTotal =
-      String(quoteDraft.insuranceCompany || "").toUpperCase().includes("TATA AIG")
-        ? Math.max(0, rawAddOnsTotal - 116)
-        : rawAddOnsTotal;
+    const addOnsTotal = rawAddOnsTotal;
     const addOnsSource = !allowsAddOns
       ? "none"
       : hasAnySelectedAddOn
@@ -2637,6 +2634,11 @@ const NewInsuranceCaseForm = ({
     const ncbPct = Number(quoteDraft.ncbDiscount || 0);
     const ncbReferenceAmount = Math.round((odAmt * ncbPct) / 100);
     const basePremium = odAmt + tpAmt + addOnsTotal;
+    const payoutBaseAmount = computePayoutBaseAmount(
+      odAmt,
+      addOnsTotal,
+      quoteDraft.insuranceCompany,
+    );
     const taxableAmount = Math.max(basePremium, 0);
     const gstAmount = Math.round(taxableAmount * 0.18);
     const totalPremium = taxableAmount + gstAmount;
@@ -2653,6 +2655,7 @@ const NewInsuranceCaseForm = ({
       taxableAmount,
       gstAmount,
       totalPremium,
+      payoutBaseAmount,
     };
   }, [quoteDraft]);
 
@@ -3263,9 +3266,7 @@ const NewInsuranceCaseForm = ({
       gstAmount: quoteComputed.gstAmount,
       totalPremium: quoteComputed.totalPremium,
       payoutPercentage: Number(quoteDraft.payoutPercentage || 0),
-      payoutBaseAmount:
-        Number(quoteComputed.odAmt || 0) +
-        Number(quoteComputed.addOnsTotal || 0),
+      payoutBaseAmount: quoteComputed.payoutBaseAmount,
     };
 
     const nextSignature = buildQuoteSignature(normalizedQuotePayload);
@@ -3349,10 +3350,7 @@ const NewInsuranceCaseForm = ({
       onOk: () => {
         setFormData((prev) => {
           const breakup = computeQuoteBreakupFromRow(q);
-          const odAmount = Number(breakup?.odAmt || 0);
-          const addOnsAmount = Number(breakup?.addOnsTotal || 0);
-
-          const payoutBaseAmount = odAmount + addOnsAmount;
+          const payoutBaseAmount = Number(breakup?.payoutBaseAmount || 0);
           const payoutAmount =
             (payoutBaseAmount * Number(selectedPayoutPercentage || 0)) / 100;
           const nextReceivable = buildAutoReceivableRow(
@@ -3514,7 +3512,16 @@ const NewInsuranceCaseForm = ({
     if (step !== lastStep) return;
     if (finalSubmitErrors.length) {
       setShowErrors(true);
-      message.error(finalSubmitErrors[0]);
+      if (Object.keys(step1StrictErrors).length) setStep(1);
+      else if (Object.keys(step2Errors).length) setStep(2);
+      else if (!shouldSkipStep(3) && Object.keys(step3Errors).length) setStep(3);
+      else if (
+        (!shouldSkipStep(4) && (!quotes.length || !acceptedQuoteId)) ||
+        !String(formData.newInsuranceCompany || "").trim()
+      ) {
+        setStep(shouldSkipStep(4) ? 6 : 4);
+      }
+      message.error(finalSubmitErrors[0], 8);
       return;
     }
     const saved = await persistNow({
@@ -3654,7 +3661,7 @@ const NewInsuranceCaseForm = ({
             setField={setField}
             handleChange={handleChange}
             showErrors={showErrors}
-            step1Errors={step1Errors}
+            step1Errors={step1DisplayErrors}
             isCompany={isCompany}
             employeeOptions={employeeOptions}
             employeesLoading={employeesLoading}

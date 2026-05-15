@@ -56,6 +56,43 @@ const hasDisplayValue = (value) => {
   return text.length > 0 && text.toLowerCase() !== "n/a";
 };
 
+/** Drop stale channel/company suffixes like "PRIYANK TAYAL (HT CAR)" after rename. */
+const resolveInsuranceCustomerDisplay = ({
+  customerName = "",
+  companyName = "",
+  contactPersonName = "",
+  sourceName = "",
+  dealerChannelName = "",
+} = {}) => {
+  const name = String(customerName || "").trim();
+  const company = String(companyName || "").trim();
+  const contact = String(contactPersonName || "").trim();
+  const channel = String(sourceName || dealerChannelName || "").trim();
+
+  if (!name) return contact || company || "";
+
+  const parenMatch = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!parenMatch) return name;
+
+  const [, baseName, parenLabel] = parenMatch;
+  const baseNorm = baseName.trim().toLowerCase();
+  const parenNorm = parenLabel.trim().toLowerCase();
+  const contactNorm = contact.toLowerCase();
+  const companyNorm = company.toLowerCase();
+  const channelNorm = channel.toLowerCase();
+
+  if (contact && contactNorm === baseNorm) {
+    if (!company || companyNorm !== parenNorm) return contact;
+    if (channel && channelNorm !== parenNorm) return contact;
+    return contact;
+  }
+
+  if (company && companyNorm !== parenNorm) return baseName.trim();
+  if (channel && channelNorm !== parenNorm) return baseName.trim();
+
+  return name;
+};
+
 const normalizeStatus = (value) =>
   String(value || "")
     .trim()
@@ -1927,15 +1964,25 @@ const InsuranceDashboardPage = () => {
       const caseRef = record.caseId || id;
 
       // Customer
-      const customerName = snap.customerName || record.customerName || "—";
       const companyName = snap.companyName || record.companyName || "";
+      const contactPerson =
+        snap.contactPersonName || record.contactPersonName || "";
+      const customerName =
+        resolveInsuranceCustomerDisplay({
+          customerName: snap.customerName || record.customerName || "",
+          companyName,
+          contactPersonName: contactPerson,
+          sourceName: record.sourceName,
+          dealerChannelName: record.dealerChannelName,
+        }) ||
+        snap.customerName ||
+        record.customerName ||
+        "—";
       const buyerType = String(
         snap.buyerType || record.buyerType || "Individual",
       )
         .trim()
         .toLowerCase();
-      const contactPerson =
-        snap.contactPersonName || record.contactPersonName || "";
       const sourceIdentity = String(
         record.sourceName ||
           record.dealerChannelName ||

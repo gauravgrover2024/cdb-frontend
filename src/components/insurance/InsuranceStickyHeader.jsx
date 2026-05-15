@@ -5,6 +5,42 @@ import Icon from "../../components/AppIcon";
 const hasValue = (v) =>
   v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "");
 
+const resolveInsuranceCustomerDisplay = ({
+  customerName = "",
+  companyName = "",
+  contactPersonName = "",
+  sourceName = "",
+  dealerChannelName = "",
+} = {}) => {
+  const name = String(customerName || "").trim();
+  const company = String(companyName || "").trim();
+  const contact = String(contactPersonName || "").trim();
+  const channel = String(sourceName || dealerChannelName || "").trim();
+
+  if (!name) return contact || company || "";
+
+  const parenMatch = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!parenMatch) return name;
+
+  const [, baseName, parenLabel] = parenMatch;
+  const baseNorm = baseName.trim().toLowerCase();
+  const parenNorm = parenLabel.trim().toLowerCase();
+  const contactNorm = contact.toLowerCase();
+  const companyNorm = company.toLowerCase();
+  const channelNorm = channel.toLowerCase();
+
+  if (contact && contactNorm === baseNorm) {
+    if (!company || companyNorm !== parenNorm) return contact;
+    if (channel && channelNorm !== parenNorm) return contact;
+    return contact;
+  }
+
+  if (company && companyNorm !== parenNorm) return baseName.trim();
+  if (channel && channelNorm !== parenNorm) return baseName.trim();
+
+  return name;
+};
+
 const asNumber = (v) => {
   const n = Number(String(v ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) ? n : 0;
@@ -22,12 +58,20 @@ const formatMoney = (v) => {
 
 const getPolicyDisplayName = (data = {}) => {
   const customerLabel =
+    resolveInsuranceCustomerDisplay({
+      customerName: data.customerName,
+      companyName: data.companyName,
+      contactPersonName: data.contactPersonName,
+      sourceName: data.sourceName,
+      dealerChannelName: data.dealerChannelName,
+    }) ||
     String(
       data.customerName ||
         data.contactPersonName ||
         data.companyName ||
         "Customer",
-    ).trim() || "Customer";
+    ).trim() ||
+    "Customer";
   const vehicleLabel =
     String(data.registrationNumber || "").trim() ||
     [data.vehicleMake, data.vehicleModel, data.vehicleVariant]
@@ -203,9 +247,23 @@ const InsuranceStickyHeader = ({
                 String(data.buyerType || "").toLowerCase() === "company"
                   ? data.companyName ||
                     data.contactPersonName ||
+                    resolveInsuranceCustomerDisplay({
+                      customerName: data.customerName,
+                      companyName: data.companyName,
+                      contactPersonName: data.contactPersonName,
+                      sourceName: data.sourceName,
+                      dealerChannelName: data.dealerChannelName,
+                    }) ||
                     data.customerName ||
                     "New Case"
-                  : data.customerName ||
+                  : resolveInsuranceCustomerDisplay({
+                      customerName: data.customerName,
+                      companyName: data.companyName,
+                      contactPersonName: data.contactPersonName,
+                      sourceName: data.sourceName,
+                      dealerChannelName: data.dealerChannelName,
+                    }) ||
+                    data.customerName ||
                     data.contactPersonName ||
                     data.companyName ||
                     "New Case"
