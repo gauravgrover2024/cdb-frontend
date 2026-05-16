@@ -3,8 +3,8 @@ import { motion } from "framer-motion";
 import {
   ArrowLeft,
   Bell,
+  Car,
   Check,
-  ChevronDown,
   ChevronRight,
   Info,
   Palette,
@@ -15,22 +15,15 @@ import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
 import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 
-const FALLBACK_COLORS = [];
-
-const COLOR_STAGE_BG = {
-  desktop:
-    "radial-gradient(circle at 16% 18%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 82% 30%, rgba(191,219,254,.72), transparent 26%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
-  mobile:
-    "radial-gradient(circle at 18% 24%, rgba(255,255,255,.96), transparent 32%), radial-gradient(circle at 83% 34%, rgba(191,219,254,.7), transparent 28%), linear-gradient(135deg,#edf6ff 0%,#ffffff 45%,#eaf2fb 100%)",
-};
+const TOOL_NAME = "vehicle_colors";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 16, filter: "blur(7px)" },
+  hidden: { opacity: 0, y: 16, filter: "blur(8px)" },
   visible: {
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.48, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.44, ease: [0.22, 1, 0.36, 1] },
   },
 };
 
@@ -38,68 +31,58 @@ const stagger = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.06,
-      delayChildren: 0.03,
+      staggerChildren: 0.055,
+      delayChildren: 0.02,
     },
   },
 };
 
-const makeSlug = (value = "", fallback = "item") =>
-  String(value || fallback)
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "") || fallback;
-
-const getVehicleTitle = (vehicle) =>
-  vehicle?.displayName ||
-  vehicle?.name ||
-  [vehicle?.brand || vehicle?.make, vehicle?.model].filter(Boolean).join(" ") ||
-  "Selected car";
-
-const getVehicleModel = (vehicle) => vehicle?.model || getVehicleTitle(vehicle);
-
-const getColorName = (color = {}) =>
-  String(
-    color?.desktopName ||
-      color?.mobileName ||
-      color?.colorName ||
-      color?.name ||
-      color?.label ||
-      "Selected color",
-  )
+const cleanText = (value = "") =>
+  String(value || "")
     .replace(/\s+/g, " ")
     .trim();
 
-const getVehicleVariant = (vehicle) =>
-  vehicle?.selectedVariant ||
-  vehicle?.variant ||
-  vehicle?.variants?.[0]?.name ||
-  "";
+const makeSlug = (value = "", fallback = "item") =>
+  cleanText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || fallback;
 
-const getVehiclePrice = (vehicle) =>
-  vehicle?.priceRange ||
-  vehicle?.startingOnRoadPrice ||
-  vehicle?.price ||
-  "Price available on request";
+const prettifyVehicleTitle = (value = "") =>
+  cleanText(value)
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\bI20\b/g, "i20")
+    .replace(/\s+/g, " ")
+    .trim();
 
-const getVehicleImage = (vehicle, color) =>
-  color?.normalizedImageUrl ||
-  color?.cleanImageUrl ||
-  color?.imageUrl ||
-  color?.carImageUrl ||
-  vehicle?.selectedColor?.normalizedImageUrl ||
-  vehicle?.selectedColor?.imageUrl ||
-  "";
+const getVehicleTitle = (vehicle = {}) => {
+  const display = cleanText(vehicle.displayName || vehicle.name);
+  if (display) return prettifyVehicleTitle(display);
 
-const getColorDisplayLabel = (name = "") => {
-  const clean = String(name || "").trim();
+  const joined = [vehicle.brand || vehicle.make, vehicle.model]
+    .filter(Boolean)
+    .join(" ");
+
+  return prettifyVehicleTitle(joined) || "Selected car";
+};
+
+const getVehicleModel = (vehicle = {}) =>
+  cleanText(vehicle.model || vehicle.modelName || getVehicleTitle(vehicle)) ||
+  "Selected car";
+
+const getColorName = (color = {}) =>
+  cleanText(
+    color.desktopName ||
+      color.mobileName ||
+      color.colorName ||
+      color.name ||
+      color.label,
+  ) || "Selected color";
+
+const getColorLabel = (name = "") => {
+  const clean = cleanText(name);
   if (!clean) return "Color";
-
-  if (/white.*black|black.*white/i.test(clean)) return "White + Black";
-  if (/king.*limited.*matte/i.test(clean)) return "King Edition Matte";
-  if (/shadow grey.*black roof/i.test(clean)) return "Shadow Grey";
-  if (/robust emerald pearl/i.test(clean)) return "Emerald Pearl";
 
   return clean
     .replace(/\bwith\b.*$/i, "")
@@ -109,30 +92,106 @@ const getColorDisplayLabel = (name = "") => {
     .trim();
 };
 
-const pickImageFrame = (raw = {}) =>
-  raw.imageFrame ||
-  raw.image_frame ||
-  raw.carImageFrame ||
-  raw.car_image_frame ||
-  raw.frame ||
-  null;
+const normalizeHexValue = (value = "") => {
+  const text = cleanText(value).replace(/^#/, "");
+  if (/^[0-9a-f]{3}$/i.test(text) || /^[0-9a-f]{6}$/i.test(text)) {
+    return `#${text}`;
+  }
+  return "";
+};
 
-const normalizeColorImage = (raw = {}) =>
+const normalizeHexCodes = (...values) => {
+  const output = [];
+
+  const push = (value) => {
+    if (Array.isArray(value)) {
+      value.forEach(push);
+      return;
+    }
+
+    cleanText(value)
+      .split(/[,\s/|]+/)
+      .map(normalizeHexValue)
+      .filter(Boolean)
+      .forEach((hex) => {
+        const key = hex.toLowerCase();
+        if (!output.some((item) => item.toLowerCase() === key)) {
+          output.push(hex);
+        }
+      });
+  };
+
+  values.forEach(push);
+  return output;
+};
+
+const normalizeImageUrl = (raw = {}) =>
+  raw.displayNormalizedImageUrl ||
   raw.normalizedImageUrl ||
   raw.cleanImageUrl ||
   raw.stagedImageUrl ||
+  raw.normalizedImagePngUrl ||
   raw.imageUrl ||
   raw.carImageUrl ||
-  raw.sourceImageUrl ||
   "";
 
-const normalizeColors = (vehicle, widget) => {
+const hasMeaningfulObject = (value) =>
+  value && typeof value === "object" && Object.keys(value).length > 0;
+
+const pickImageFrame = (raw = {}) => {
+  const frame =
+    raw.imageFrame ||
+    raw.frameMeta ||
+    raw.displayFrameMeta ||
+    raw.image_frame ||
+    raw.carImageFrame ||
+    raw.car_image_frame ||
+    raw.frame ||
+    null;
+
+  return hasMeaningfulObject(frame) ? frame : null;
+};
+
+const isStagePhotoColor = (raw = {}) =>
+  raw.isStudioBackground === true ||
+  raw.imageModeUsed === "stage-only" ||
+  raw.imageMode === "stage-only" ||
+  raw.imageBackgroundRemoved === false ||
+  raw.imageProcessingMethod === "aci-stage-original";
+
+const pickDisplayFrameFallback = (vehicle = {}, widget = {}, data = {}) => {
+  const candidates = [
+    vehicle?.displayFrameMeta,
+    vehicle?.imageFrame,
+    vehicle?.frameMeta,
+    widget?.displayFrameMeta,
+    widget?.vehicle?.displayFrameMeta,
+    widget?.vehicle?.imageFrame,
+    data?.displayFrameMeta,
+    data?.vehicle?.displayFrameMeta,
+    data?.selectedVehicle?.displayFrameMeta,
+    data?.contextPatch?.selectedVehicle?.displayFrameMeta,
+  ];
+
+  return candidates.find(hasMeaningfulObject) || null;
+};
+
+const isHeroImage = (url = "") => /display-hero/i.test(String(url || ""));
+
+const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
   const source =
     widget?.colors ||
     widget?.rows ||
     widget?.records ||
     widget?.items ||
     widget?.data?.colors ||
+    data?.colors ||
+    data?.rows ||
+    data?.records ||
+    data?.items ||
+    data?.visualGallery ||
+    data?.widget?.colors ||
+    data?.widgets?.[0]?.colors ||
     vehicle?.colors ||
     vehicle?.availableColors ||
     [];
@@ -140,35 +199,45 @@ const normalizeColors = (vehicle, widget) => {
   if (!Array.isArray(source) || !source.length) return [];
 
   const seen = new Set();
+  const displayFrameFallback = pickDisplayFrameFallback(vehicle, widget, data);
 
   return source
-    .map((raw, index) => {
+    .map((raw = {}, index) => {
       const name =
-        raw.colorName ||
-        raw.name ||
-        raw.desktopName ||
-        raw.mobileName ||
-        raw.label ||
-        `Color ${index + 1}`;
+        cleanText(
+          raw.colorName ||
+            raw.name ||
+            raw.desktopName ||
+            raw.mobileName ||
+            raw.label,
+        ) || `Color ${index + 1}`;
 
-      const normalizedImageUrl = normalizeColorImage(raw);
+      const normalizedImageUrl = normalizeImageUrl(raw);
 
-      if (!normalizedImageUrl) return null;
+      if (!normalizedImageUrl || isHeroImage(normalizedImageUrl)) return null;
 
-      const id =
-        raw.id ||
-        raw._id ||
-        makeSlug(`${name}-${normalizedImageUrl}`, `color-${index + 1}`);
-
-      const dedupeKey = `${String(name).toLowerCase()}|${normalizedImageUrl}`;
+      const dedupeKey = name.toLowerCase();
+      if (!dedupeKey || dedupeKey === "display") return null;
       if (seen.has(dedupeKey)) return null;
       seen.add(dedupeKey);
 
-      const hasPopularity =
-        raw.hasPopularity === true ||
-        raw.votes !== undefined ||
-        raw.popularity !== undefined ||
-        raw.popularityScore !== undefined;
+      const hexCodes = normalizeHexCodes(
+        raw.hexCodes,
+        raw.hex_codes,
+        raw.dualHexCodes,
+        raw.dual_hex_codes,
+        raw.hex,
+        raw.hexCode,
+        raw.colorHex,
+        raw.color_hex,
+        raw.deep,
+        raw.darkHex,
+        raw.deepHex,
+      );
+
+      const id =
+        cleanText(raw.id || raw._id) ||
+        makeSlug(`${name}-${normalizedImageUrl}`, `color-${index + 1}`);
 
       return {
         ...raw,
@@ -177,8 +246,9 @@ const normalizeColors = (vehicle, widget) => {
         colorName: name,
         mobileName: raw.mobileName || raw.name || raw.colorName || name,
         desktopName: raw.desktopName || raw.name || raw.colorName || name,
-        hex: raw.hex || raw.hexCode || raw.colorHex || "#E5E7EB",
+        hex: hexCodes[0] || raw.hex || raw.hexCode || raw.colorHex || "#E5E7EB",
         deep:
+          hexCodes[1] ||
           raw.deep ||
           raw.darkHex ||
           raw.deepHex ||
@@ -186,26 +256,106 @@ const normalizeColors = (vehicle, widget) => {
           raw.hexCode ||
           raw.colorHex ||
           "#94A3B8",
-
+        hexCodes,
         imageUrl: normalizedImageUrl,
         normalizedImageUrl,
         cleanImageUrl: raw.cleanImageUrl || normalizedImageUrl,
         sourceImageUrl: raw.sourceImageUrl || raw.source_image_url || "",
-        imageFrame: pickImageFrame(raw),
-
-        hasPopularity,
-        votes: hasPopularity
-          ? Number(raw.votes ?? raw.popularity ?? raw.popularityScore ?? 0) || 0
-          : 0,
-
+        imageModeUsed: raw.imageModeUsed || raw.imageMode || "",
+        isStudioBackground: raw.isStudioBackground === true,
+        imageBackgroundRemoved:
+          raw.imageBackgroundRemoved === true
+            ? true
+            : raw.imageBackgroundRemoved === false
+              ? false
+              : undefined,
+        isStagePhoto: isStagePhotoColor(raw),
+        imageFrame: isStagePhotoColor(raw) ? null : pickImageFrame(raw),
         description:
           raw.description ||
           raw.note ||
           raw.summary ||
           "Color availability may vary by variant and city.",
+        hasPopularity:
+          raw.hasPopularity === true ||
+          raw.votes !== undefined ||
+          raw.popularity !== undefined ||
+          raw.popularityScore !== undefined,
+        votes:
+          Number(raw.votes ?? raw.popularity ?? raw.popularityScore ?? 0) || 0,
       };
     })
     .filter(Boolean);
+};
+
+const getResolvedWidget = (widget, data) =>
+  widget || data?.widget || data?.widgets?.[0] || data?.payload?.widget || {};
+
+const findPreferredSelectedColorId = (colors = [], widget = {}, data = {}) => {
+  const selected =
+    widget?.selectedColor ||
+    widget?.vehicle?.selectedColor ||
+    data?.selectedColor ||
+    data?.vehicle?.selectedColor ||
+    data?.contextPatch?.selectedColor ||
+    null;
+
+  if (!selected) return colors[0]?.id || "";
+
+  const selectedId = cleanText(selected.id || selected._id);
+  if (selectedId) {
+    const byId = colors.find((item) => String(item.id) === selectedId);
+    if (byId) return byId.id;
+  }
+
+  const selectedName = cleanText(
+    selected.colorName ||
+      selected.name ||
+      selected.desktopName ||
+      selected.mobileName,
+  ).toLowerCase();
+
+  if (selectedName) {
+    const byName = colors.find(
+      (item) =>
+        cleanText(
+          item.colorName || item.name || item.desktopName || item.mobileName,
+        ).toLowerCase() === selectedName,
+    );
+
+    if (byName) return byName.id;
+  }
+
+  return colors[0]?.id || "";
+};
+
+const buildOrbBackground = (color = {}) => {
+  const hexCodes = normalizeHexCodes(
+    color.hexCodes,
+    color.hex_codes,
+    color.dualHexCodes,
+    color.dual_hex_codes,
+    color.hex,
+    color.deep,
+  );
+
+  const primary = hexCodes[0] || color.hex || "#E5E7EB";
+  const secondary = hexCodes[1] || color.deep || primary;
+
+  if (
+    hexCodes.length > 1 &&
+    primary.toLowerCase() !== secondary.toLowerCase()
+  ) {
+    return `
+      radial-gradient(circle at 30% 22%, rgba(255,255,255,.96), transparent 18%),
+      linear-gradient(90deg, ${primary} 0 50%, ${secondary} 50% 100%)
+    `;
+  }
+
+  return `
+    radial-gradient(circle at 31% 23%, rgba(255,255,255,.95), transparent 18%),
+    radial-gradient(circle at 42% 34%, ${primary}, ${secondary} 82%)
+  `;
 };
 
 const getStageFrame = (imageFrame, stageKey = "colorStudio") => {
@@ -217,7 +367,6 @@ const getStageFrame = (imageFrame, stageKey = "colorStudio") => {
     imageFrame[stageKey] ||
     imageFrame.stageFrames?.colorStudio ||
     imageFrame.stageFrames?.overviewHero ||
-    imageFrame.stageFrames?.priceSide ||
     imageFrame.stageFrames?.mobileHero ||
     imageFrame.stageFrames?.chatCard ||
     imageFrame.stageFrames?.default ||
@@ -225,65 +374,175 @@ const getStageFrame = (imageFrame, stageKey = "colorStudio") => {
   );
 };
 
-const frameNumber = (value, fallback) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-};
-
-const cssPercent = (value, fallback = 0) => {
-  if (typeof value === "string" && value.trim().endsWith("%")) {
-    return value.trim();
-  }
-
-  return `${frameNumber(value, fallback)}%`;
-};
-
 const buildImageFrameStyle = (imageFrame, stageKey = "colorStudio") => {
   const frame = getStageFrame(imageFrame, stageKey);
+  if (!frame || typeof frame !== "object") return {};
 
-  if (!frame || typeof frame !== "object") return undefined;
+  const pickFirst = (...values) =>
+    values.find(
+      (value) => value !== undefined && value !== null && value !== "",
+    );
+
+  const readNumber = (...values) => {
+    const value = pickFirst(...values);
+
+    if (typeof value === "string" && value.trim().endsWith("%")) {
+      const parsed = Number(value.trim().slice(0, -1));
+      return Number.isFinite(parsed) ? parsed / 100 : null;
+    }
+
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  };
+
+  const normalizeFocus = (value) => {
+    const number = readNumber(value);
+    if (!Number.isFinite(number)) return null;
+    return number > 1 ? number / 100 : number;
+  };
 
   const cssVars = {
     ...(imageFrame?.cssVars || {}),
     ...(frame?.cssVars || {}),
   };
 
-  const scale = cssVars["--car-frame-scale"] || frame.scale || frame.zoom || 1;
+  const naturalWidth = readNumber(
+    frame.naturalWidth,
+    frame.imageWidth,
+    frame.sourceWidth,
+    frame.canvasWidth,
+    frame.canvas_width,
+    imageFrame?.naturalWidth,
+    imageFrame?.imageWidth,
+    imageFrame?.sourceWidth,
+    imageFrame?.canvasWidth,
+    imageFrame?.canvas_width,
+  );
+
+  const naturalHeight = readNumber(
+    frame.naturalHeight,
+    frame.imageHeight,
+    frame.sourceHeight,
+    frame.canvasHeight,
+    frame.canvas_height,
+    imageFrame?.naturalHeight,
+    imageFrame?.imageHeight,
+    imageFrame?.sourceHeight,
+    imageFrame?.canvasHeight,
+    imageFrame?.canvas_height,
+  );
+
+  const bounds =
+    frame.bounds || frame.visibleBounds || frame.contentBounds || frame;
+
+  const left = readNumber(bounds.left, bounds.x, bounds.minX);
+  const top = readNumber(bounds.top, bounds.y, bounds.minY);
+  const width = readNumber(bounds.width, bounds.w);
+  const height = readNumber(bounds.height, bounds.h);
+
+  const hasBounds =
+    Number.isFinite(naturalWidth) &&
+    Number.isFinite(naturalHeight) &&
+    naturalWidth > 0 &&
+    naturalHeight > 0 &&
+    Number.isFinite(left) &&
+    Number.isFinite(top) &&
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width > 0 &&
+    height > 0;
+
+  const focusX = normalizeFocus(
+    frame?.focusX ??
+      frame?.focalX ??
+      frame?.centerX ??
+      imageFrame?.focusX ??
+      imageFrame?.focalX,
+  );
+
+  const focusY = normalizeFocus(
+    frame?.focusY ??
+      frame?.focalY ??
+      frame?.centerY ??
+      imageFrame?.focusY ??
+      imageFrame?.focalY,
+  );
+
+  const computedX = hasBounds
+    ? (0.5 - (left + width / 2) / naturalWidth) * 100
+    : Number.isFinite(focusX)
+      ? (0.5 - focusX) * 100
+      : null;
+
+  const computedY = hasBounds
+    ? (0.5 - (top + height / 2) / naturalHeight) * 100
+    : Number.isFinite(focusY)
+      ? (0.5 - focusY) * 100
+      : null;
+
+  const widthRatio = hasBounds ? width / naturalWidth : null;
+  const heightRatio = hasBounds ? height / naturalHeight : null;
+
+  const fittedScale = hasBounds
+    ? Math.min(
+        stageKey === "mobileHero" ? 1.18 : 1.16,
+        Math.max(
+          1,
+          Math.max(
+            0.94 / Math.max(widthRatio, 0.01),
+            0.72 / Math.max(heightRatio, 0.01),
+          ),
+        ),
+      )
+    : null;
+
+  const explicitScale = readNumber(
+    cssVars["--car-frame-scale"],
+    frame?.scale,
+    frame?.zoom,
+  );
 
   const x =
-    cssVars["--car-frame-x"] ||
-    (frame.translateXPct ??
-      frame.translateXPercent ??
-      frame.translateX ??
-      frame.x ??
-      0);
+    cssVars["--car-frame-x"] ??
+    frame?.translateXPct ??
+    frame?.translateXPercent ??
+    frame?.translateX ??
+    (Number.isFinite(computedX) ? `${computedX}%` : undefined);
 
   const y =
-    cssVars["--car-frame-y"] ||
-    (frame.translateYPct ??
-      frame.translateYPercent ??
-      frame.translateY ??
-      frame.y ??
-      (stageKey === "mobileHero" ? 5 : 7));
-
-  const origin =
-    cssVars["--car-frame-origin"] || frame.transformOrigin || "center bottom";
+    cssVars["--car-frame-y"] ??
+    frame?.translateYPct ??
+    frame?.translateYPercent ??
+    frame?.translateY ??
+    (Number.isFinite(computedY) ? `${computedY}%` : undefined);
 
   return {
-    "--car-frame-scale": String(scale),
-    "--car-frame-x": cssPercent(x, 0),
-    "--car-frame-y": cssPercent(y, stageKey === "mobileHero" ? 5 : 7),
-    "--car-frame-origin": origin,
+    ...(explicitScale || fittedScale
+      ? { "--aci-car-frame-scale": String(explicitScale || fittedScale) }
+      : {}),
+    ...(x !== undefined
+      ? { "--aci-car-frame-x": typeof x === "number" ? `${x}%` : x }
+      : {}),
+    ...(y !== undefined
+      ? { "--aci-car-frame-y": typeof y === "number" ? `${y}%` : y }
+      : {}),
+    "--aci-car-frame-origin":
+      cssVars["--car-frame-origin"] ||
+      frame?.transformOrigin ||
+      "center center",
   };
 };
 
-function fireAction(label, payload = {}, onAction) {
+function fireColorAction(label, payload = {}, onAction) {
   const vehicle = payload.vehicle || null;
   const color = payload.color || payload.selectedColor || null;
+  const vehicleTitle = getVehicleTitle(vehicle);
+  const colorName = getColorName(color);
+
   const query =
     payload.query ||
     (vehicle
-      ? `${label} ${getVehicleTitle(vehicle)}${color ? ` ${color.desktopName || color.name}` : ""}`
+      ? `${label} ${vehicleTitle}${color ? ` ${colorName}` : ""}`
       : label);
 
   emitAciAction(
@@ -292,6 +551,7 @@ function fireAction(label, payload = {}, onAction) {
         payload.id ||
         makeSlug(`${label}-${vehicle?.id || vehicle?.model || ""}`),
       label,
+      title: label,
       query,
       type: payload.type || "colors_action",
       intent: payload.intent || ACI_INTENTS.COLORS,
@@ -305,7 +565,7 @@ function fireAction(label, payload = {}, onAction) {
         selectedVehicle: vehicle,
         anchorModel: vehicle?.model,
         anchorMake: vehicle?.make || vehicle?.brand,
-        anchorCity: vehicle?.city,
+        anchorCity: vehicle?.citySlug || vehicle?.anchorCity || vehicle?.city,
         selectedColor: color,
         ...(payload.contextPatch || {}),
       },
@@ -314,75 +574,78 @@ function fireAction(label, payload = {}, onAction) {
   );
 }
 
-function Logo({ mobile = false, onAction }) {
+function AciMark() {
   return (
-    <button
-      type="button"
-      className={`colors-logo ${mobile ? "mobile" : ""}`}
-      onClick={() =>
-        fireAction("Home", { type: "go_home", intent: "" }, onAction)
-      }
-    >
-      <span>ACI</span>
-      <strong>ASSIST</strong>
-      {!mobile ? <Sparkles size={14} /> : null}
-    </button>
+    <span className="aci-color-logo">
+      <strong>ACI</strong>
+      <em>ASSIST</em>
+    </span>
   );
 }
 
-function ColorOrb({ color, selected, large = false }) {
+function ColorOrb({ color = {}, selected = false, size = "md" }) {
   return (
     <span
-      className={`color-orb ${selected ? "selected" : ""} ${large ? "large" : ""}`}
-      style={{
-        background: `
-          radial-gradient(circle at 32% 24%, rgba(255,255,255,.98), transparent 18%),
-          radial-gradient(circle at 40% 34%, ${color.hex}, ${color.deep} 78%)
-        `,
-      }}
+      className={`aci-color-orb ${selected ? "is-selected" : ""} ${size}`}
+      style={{ background: buildOrbBackground(color) }}
     >
       <i />
       {selected ? (
         <b>
-          <Check size={large ? 18 : 12} strokeWidth={3.4} />
+          <Check size={size === "lg" ? 17 : 13} strokeWidth={3.5} />
         </b>
       ) : null}
     </span>
   );
 }
 
-function VehicleArtwork({ color, vehicle, size = "desktop" }) {
-  const imageUrl = getVehicleImage(vehicle, color);
+function VehicleArtwork({ color = {}, vehicle = {}, mode = "desktop" }) {
+  const stageKey = mode === "mobile" ? "mobileHero" : "colorStudio";
+  const frameStyle = color?.isStagePhoto
+    ? {}
+    : buildImageFrameStyle(color?.imageFrame, stageKey);
 
-  const stageKey =
-    size === "mobile"
-      ? "mobileHero"
-      : size === "compact"
-        ? "chatCard"
-        : "colorStudio";
+  const isStagePhoto =
+    color.isStagePhoto === true ||
+    color.isStudioBackground === true ||
+    color.imageModeUsed === "stage-only" ||
+    color.imageBackgroundRemoved === false;
 
-  const frameStyle = buildImageFrameStyle(color?.imageFrame, stageKey);
+  const defaultScale = isStagePhoto
+    ? mode === "mobile"
+      ? "1.48"
+      : "1.42"
+    : mode === "mobile"
+      ? "1.08"
+      : "1.08";
+
+  const defaultY = isStagePhoto ? (mode === "mobile" ? "-7%" : "-7%") : "0%";
 
   return (
     <div
-      className={`safari-vehicle ${size}`}
+      className={`aci-color-car ${mode} ${
+        isStagePhoto ? "is-stage-photo" : "is-cutout"
+      }`}
       style={{
-        "--paint": color.hex,
-        "--deep": color.deep,
-        "--car-frame-scale": "1",
-        "--car-frame-x": "0%",
-        "--car-frame-y": stageKey === "mobileHero" ? "5%" : "7%",
-        "--car-frame-origin": "center bottom",
-        ...(frameStyle || {}),
+        "--aci-car-frame-scale": defaultScale,
+        "--aci-car-frame-x": "0%",
+        "--aci-car-frame-y": defaultY,
+        "--aci-car-frame-origin": "center center",
+        ...frameStyle,
       }}
     >
-      <div className="safari-vehicle-inner">
+      <div className="aci-color-car-photo-window">
         <CarImageStage
-          src={imageUrl}
-          alt={`${getVehicleTitle(vehicle)} in ${color.mobileName || color.colorName || color.name}`}
+          src={
+            color.normalizedImageUrl ||
+            color.imageUrl ||
+            vehicle.normalizedImageUrl ||
+            vehicle.imageUrl
+          }
+          alt={`${getVehicleTitle(vehicle)} in ${getColorName(color)}`}
           stageVariant="hero"
-          className={`safari-stage ${size}`}
-          imageClassName="safari-stage-image"
+          className="aci-color-car-stage"
+          imageClassName="aci-color-car-image"
           fallbackLabel={getVehicleModel(vehicle)}
         />
       </div>
@@ -390,162 +653,270 @@ function VehicleArtwork({ color, vehicle, size = "desktop" }) {
   );
 }
 
-function DesktopHeader({ data, onAction }) {
-  return (
-    <motion.header className="colors-desktop-header" variants={fadeUp}>
-      <Logo onAction={onAction} />
-
-      <div className="desktop-actions">
-        <button
-          type="button"
-          className="icon-bell"
-          onClick={() => fireAction("Notifications", {}, onAction)}
-        >
-          <Bell size={22} />
-          <i />
-        </button>
-
-        <button
-          type="button"
-          className="avatar-button"
-          onClick={() => fireAction("Profile", {}, onAction)}
-        >
-          <img src={data?.avatarUrl} alt="Profile" />
-        </button>
-
-        <button
-          type="button"
-          className="plain-icon"
-          onClick={() => fireAction("Profile menu", {}, onAction)}
-        >
-          <ChevronDown size={16} />
-        </button>
-      </div>
-    </motion.header>
-  );
-}
-
-function DesktopGallery({ selectedColor, vehicle }) {
-  return (
-    <motion.section className="desktop-gallery-card" variants={fadeUp}>
-      <div
-        className="desktop-stage"
-        style={{ background: COLOR_STAGE_BG.desktop }}
-      >
-        <span className="stage-pill">
-          <ColorOrb color={selectedColor} selected={false} />
-          {selectedColor.desktopName}
-        </span>
-
-        <div className="stage-lines" />
-
-        <motion.div
-          className="desktop-gallery-angle"
-          animate={{ opacity: 1, scale: 1 }}
-        >
-          <VehicleArtwork
-            color={selectedColor}
-            vehicle={vehicle}
-            size="desktop"
-          />
-        </motion.div>
-      </div>
-    </motion.section>
-  );
-}
-
-function ColorJourneyCard({ icon = "✦", title, sub, onClick }) {
+function AskRow({ icon, title, sub, onClick }) {
   return (
     <motion.button
       type="button"
-      className="color-journey-card"
+      className="aci-color-ask-row"
       onClick={onClick}
-      whileHover={{ y: -2 }}
+      whileHover={{ y: -1 }}
       whileTap={{ scale: 0.985 }}
     >
       <span>{icon}</span>
       <div>
         <strong>{title}</strong>
-        {sub ? <em>{sub}</em> : null}
+        <small>{sub}</small>
       </div>
-      <ChevronRight size={15} />
+      <ChevronRight size={17} />
     </motion.button>
   );
 }
 
-function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
-  const hasPopularity = colors.some(
-    (item) => item.hasPopularity && Number(item.votes || 0) > 0,
-  );
-
-  const topChoices = hasPopularity
-    ? [...colors]
-        .filter((item) => item.hasPopularity && Number(item.votes || 0) > 0)
-        .sort((a, b) => Number(b.votes || 0) - Number(a.votes || 0))
-        .slice(0, 3)
-    : [];
-
+function AskNextCard({ vehicle, selectedColor, onAction }) {
   const vehicleTitle = getVehicleTitle(vehicle);
-  const colorName =
-    selectedColor.desktopName ||
-    selectedColor.mobileName ||
-    selectedColor.colorName ||
-    selectedColor.name;
+  const colorName = getColorName(selectedColor);
 
   return (
-    <aside className="colors-rail">
-      <motion.article
-        className="rail-card selected-color-card elegant"
-        variants={fadeUp}
-      >
-        <div className="rail-title-row">
-          <h3>Selected color</h3>
-          <Sparkles size={16} />
-        </div>
+    <section className="aci-color-card aci-ask-card">
+      <div className="aci-card-head">
+        <h3>Ask next</h3>
+        <Info size={16} />
+      </div>
 
-        <div
-          className="selected-color-premium"
-          style={{
-            "--paint": selectedColor.hex || "#e5e7eb",
-            "--deep": selectedColor.deep || selectedColor.hex || "#94a3b8",
-          }}
-        >
-          <ColorOrb color={selectedColor} selected={false} />
-
-          <div>
-            <span>{vehicleTitle}</span>
-            <strong>{colorName}</strong>
-            <em>Exterior shade selected</em>
-          </div>
-        </div>
-
-        <p>
-          Color availability may vary by variant and city. ACI can confirm final
-          color availability while preparing the quotation.
-        </p>
-
-        <button
-          type="button"
-          className="primary-rail-button"
+      <div className="aci-ask-list">
+        <AskRow
+          icon="✨"
+          title="Which color looks best?"
+          sub="Get an ACI recommendation"
           onClick={() =>
-            fireAction(
-              "Use this color",
+            fireColorAction(
+              "Which color looks best?",
               {
-                vehicle: {
-                  ...vehicle,
-                  selectedColor,
-                  colorName,
-                  imageUrl: selectedColor.imageUrl,
-                  normalizedImageUrl: selectedColor.normalizedImageUrl,
-                  imageFrame: selectedColor.imageFrame,
-                },
+                vehicle,
                 selectedColor,
                 color: selectedColor,
-                type: "select_color",
-                query: `Use ${colorName} for ${vehicleTitle}`,
-                contextPatch: {
-                  selectedColor,
-                  selectedVehicle: {
+                type: "color_advice",
+                query: `Which color looks best for ${vehicleTitle}?`,
+              },
+              onAction,
+            )
+          }
+        />
+
+        <AskRow
+          icon="🧼"
+          title="Easiest to maintain?"
+          sub="Dust, scratches and resale"
+          onClick={() =>
+            fireColorAction(
+              "Which color is easiest to maintain?",
+              {
+                vehicle,
+                selectedColor,
+                color: selectedColor,
+                type: "color_maintenance",
+                query: `Which ${vehicleTitle} color is easiest to maintain?`,
+              },
+              onAction,
+            )
+          }
+        />
+
+        <AskRow
+          icon="₹"
+          title="Open pricelist"
+          sub="See variants and on-road price"
+          onClick={() =>
+            fireColorAction(
+              "Open pricelist",
+              {
+                vehicle,
+                selectedColor,
+                color: selectedColor,
+                type: "open_pricelist",
+                intent: "vehicle_pricelist",
+                canvasType: "pricelist_canvas",
+                query: `Show ${vehicleTitle} price list`,
+              },
+              onAction,
+            )
+          }
+        />
+
+        <AskRow
+          icon="▣"
+          title="Get quotation"
+          sub={`Quote in ${colorName}`}
+          onClick={() =>
+            fireColorAction(
+              "Get quotation",
+              {
+                vehicle,
+                selectedColor,
+                color: selectedColor,
+                type: "get_quotation",
+                intent: ACI_INTENTS.QUOTATION,
+                canvasType: ACI_CANVAS_TYPES.QUOTATION,
+                query: `Get quotation for ${vehicleTitle} in ${colorName}`,
+              },
+              onAction,
+            )
+          }
+        />
+      </div>
+    </section>
+  );
+}
+
+function DesktopScreen({
+  colors,
+  selectedColor,
+  setSelectedColor,
+  vehicle,
+  onAction,
+}) {
+  const [showAllDesktopColors, setShowAllDesktopColors] = useState(false);
+
+  const vehicleTitle = getVehicleTitle(vehicle);
+  const colorName = getColorName(selectedColor);
+  const desktopVisibleColors = showAllDesktopColors
+    ? colors
+    : colors.slice(0, 9);
+
+  return (
+    <motion.main
+      className="aci-colors-desktop"
+      variants={stagger}
+      initial="hidden"
+      animate="visible"
+    >
+      <section className="aci-colors-main">
+        <motion.header className="aci-desktop-header" variants={fadeUp}>
+          <div>
+            <h1>
+              {vehicleTitle}
+              <span>
+                <Check size={17} strokeWidth={4} />
+              </span>
+            </h1>
+            <p>Explore all exterior colors available for {vehicleTitle}.</p>
+          </div>
+
+          <button
+            type="button"
+            className="aci-change-model"
+            onClick={() =>
+              fireColorAction(
+                "Change model",
+                {
+                  vehicle,
+                  type: "change_model",
+                  query: "Change model for colors",
+                },
+                onAction,
+              )
+            }
+          >
+            <Car size={17} />
+            Change model
+          </button>
+        </motion.header>
+
+        <motion.section className="aci-hero-stage" variants={fadeUp}>
+          <span className="aci-stage-pill">
+            <ColorOrb color={selectedColor} size="xs" />
+            {colorName}
+          </span>
+
+          <div className="aci-stage-bg-ring" />
+          <div className="aci-stage-plate" />
+
+          <VehicleArtwork
+            color={selectedColor}
+            vehicle={vehicle}
+            mode="desktop"
+          />
+        </motion.section>
+
+        <motion.section
+          className="aci-color-swatches desktop"
+          variants={fadeUp}
+        >
+          <h2>Available colors</h2>
+
+          <div className="aci-swatch-row">
+            {desktopVisibleColors.map((color) => {
+              const active = color.id === selectedColor.id;
+
+              return (
+                <motion.button
+                  key={color.id}
+                  type="button"
+                  className={active ? "active" : ""}
+                  onClick={() => {
+                    setSelectedColor(color);
+                    fireColorAction(
+                      "Color selected",
+                      {
+                        vehicle,
+                        selectedColor: color,
+                        color,
+                        type: "color_selected",
+                        query: `${vehicleTitle} ${getColorName(color)} color`,
+                      },
+                      onAction,
+                    );
+                  }}
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.965 }}
+                >
+                  <ColorOrb color={color} selected={active} size="lg" />
+                  <span>{getColorName(color)}</span>
+                </motion.button>
+              );
+            })}
+          </div>
+
+          {colors.length > 9 ? (
+            <button
+              type="button"
+              className="aci-view-all-colors desktop"
+              onClick={() => setShowAllDesktopColors((prev) => !prev)}
+            >
+              {showAllDesktopColors
+                ? "Show fewer colors"
+                : `View all ${colors.length} colors`}
+            </button>
+          ) : null}
+        </motion.section>
+      </section>
+
+      <motion.aside className="aci-colors-rail" variants={stagger}>
+        <motion.section
+          className="aci-color-card selected-card"
+          variants={fadeUp}
+        >
+          <div className="aci-card-head">
+            <h3>Selected color</h3>
+            <Sparkles size={16} />
+          </div>
+
+          <div className="selected-color-layout">
+            <ColorOrb color={selectedColor} size="xl" />
+            <div>
+              <strong>{colorName}</strong>
+              <p>{selectedColor.description}</p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="aci-primary-button"
+            onClick={() =>
+              fireColorAction(
+                "Use this color",
+                {
+                  vehicle: {
                     ...vehicle,
                     selectedColor,
                     colorName,
@@ -553,496 +924,68 @@ function DesktopRail({ colors, selectedColor, vehicle, onAction }) {
                     normalizedImageUrl: selectedColor.normalizedImageUrl,
                     imageFrame: selectedColor.imageFrame,
                   },
-                },
-              },
-              onAction,
-            )
-          }
-        >
-          Use this color <ChevronRight size={15} />
-        </button>
-      </motion.article>
-
-      <motion.article
-        className="rail-card available-shades-card elegant"
-        variants={fadeUp}
-      >
-        <div className="rail-title-row">
-          <h3>Available shades</h3>
-          <Palette size={16} />
-        </div>
-
-        <strong>{colors.length}</strong>
-        <p>
-          Real exterior color images available for {vehicleTitle}. No simulated
-          paint tinting is being used.
-        </p>
-      </motion.article>
-
-      <motion.article
-        className="rail-card color-journey-rail elegant"
-        variants={fadeUp}
-      >
-        <div className="rail-title-row">
-          <h3>Ask next</h3>
-          <Info size={16} />
-        </div>
-
-        <div className="color-journey-list">
-          <ColorJourneyCard
-            icon="✨"
-            title="Which color looks best?"
-            sub="Get an ACI recommendation"
-            onClick={() =>
-              fireAction(
-                "Which color looks best?",
-                {
-                  vehicle,
                   selectedColor,
                   color: selectedColor,
-                  type: "color_advice",
-                  query: `Which color looks best for ${vehicleTitle}?`,
-                  intent: ACI_INTENTS.COLORS,
-                  canvasType: ACI_CANVAS_TYPES.COLORS,
-                },
-                onAction,
-              )
-            }
-          />
-
-          <ColorJourneyCard
-            icon="🧼"
-            title="Easiest to maintain?"
-            sub="Dust, scratches and resale"
-            onClick={() =>
-              fireAction(
-                "Which color is easiest to maintain?",
-                {
-                  vehicle,
-                  selectedColor,
-                  color: selectedColor,
-                  type: "color_maintenance",
-                  query: `Which ${vehicleTitle} color is easiest to maintain?`,
-                  intent: ACI_INTENTS.COLORS,
-                  canvasType: ACI_CANVAS_TYPES.COLORS,
-                },
-                onAction,
-              )
-            }
-          />
-
-          <ColorJourneyCard
-            icon="₹"
-            title="Open pricelist"
-            sub="See variants and on-road price"
-            onClick={() =>
-              fireAction(
-                "Open pricelist",
-                {
-                  vehicle,
-                  type: "open_pricelist",
-                  query: `Show ${vehicleTitle} price list`,
-                  intent: "vehicle_pricelist",
-                  canvasType: "pricelist_canvas",
+                  type: "select_color",
+                  query: `Use ${colorName} for ${vehicleTitle}`,
                   contextPatch: {
                     selectedColor,
                     selectedVehicle: {
                       ...vehicle,
                       selectedColor,
                       colorName,
+                      imageUrl: selectedColor.imageUrl,
+                      normalizedImageUrl: selectedColor.normalizedImageUrl,
+                      imageFrame: selectedColor.imageFrame,
                     },
                   },
                 },
                 onAction,
               )
             }
-          />
+          >
+            Use this color
+            <ChevronRight size={17} />
+          </button>
+        </motion.section>
 
-          <ColorJourneyCard
-            icon="▣"
-            title="Get quotation"
-            sub={`Quote in ${colorName}`}
-            onClick={() =>
-              fireAction(
-                "Get quotation",
-                {
-                  vehicle,
-                  type: "get_quotation",
-                  query: `Get quotation for ${vehicleTitle} in ${colorName}`,
-                  intent: "aci_new_car_quotation",
-                  canvasType: "aci_quotation_canvas",
-                  contextPatch: {
-                    selectedColor,
-                    selectedVehicle: {
-                      ...vehicle,
-                      selectedColor,
-                      colorName,
-                    },
-                  },
-                },
-                onAction,
-              )
-            }
-          />
-        </div>
-      </motion.article>
-
-      {hasPopularity ? (
-        <motion.article
-          className="rail-card popular-card elegant"
+        <motion.section
+          className="aci-color-card shades-card"
           variants={fadeUp}
         >
-          <div className="rail-title-row">
-            <h3>Popular choice</h3>
-            <Info size={16} />
+          <div className="aci-card-head">
+            <h3>Available shades</h3>
+            <Palette size={16} />
           </div>
 
-          <div className="popular-choice-list">
-            {topChoices.map((item, index) => (
-              <div key={item.id}>
-                <span>{index + 1}</span>
-                <strong>{item.desktopName}</strong>
-                <em>{item.votes}%</em>
-                <i style={{ width: `${Math.max(48, item.votes * 2.1)}px` }} />
-              </div>
-            ))}
-          </div>
-        </motion.article>
-      ) : null}
-    </aside>
-  );
-}
+          <strong>{String(colors.length).padStart(2, "0")}</strong>
+          <p>
+            Real exterior color images available for {vehicleTitle}. No
+            simulated paint tinting is being used.
+          </p>
+        </motion.section>
 
-function DesktopColorsPage({
-  colors,
-  selectedColor,
-  setSelectedColor,
-
-  vehicle,
-  data,
-  onAction,
-}) {
-  return (
-    <>
-      <DesktopHeader data={data} onAction={onAction} />
-
-      <motion.main
-        className="colors-desktop-page"
-        variants={stagger}
-        initial="hidden"
-        animate="visible"
-      >
-        <section className="desktop-main">
-          <motion.div className="desktop-title" variants={fadeUp}>
-            <div>
-              <button
-                type="button"
-                onClick={() =>
-                  fireAction(
-                    `Back to ${getVehicleTitle(vehicle)}`,
-                    {
-                      vehicle,
-                      type: "back_to_car",
-                      intent: ACI_INTENTS.OPEN_VEHICLE,
-                      canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
-                    },
-                    onAction,
-                  )
-                }
-              >
-                <ArrowLeft size={17} />
-                Back to {getVehicleTitle(vehicle)}
-              </button>
-
-              <h1>
-                {getVehicleTitle(vehicle)}
-                <span>
-                  <Check size={14} strokeWidth={4} />
-                </span>
-              </h1>
-
-              <p>
-                Explore all exterior colors available for{" "}
-                {getVehicleTitle(vehicle)}.
-              </p>
-            </div>
-
-            <button
-              type="button"
-              className="change-model"
-              onClick={() =>
-                fireAction(
-                  "Change model",
-                  {
-                    vehicle,
-                    type: "change_model",
-                    query: "Change model for colors",
-                  },
-                  onAction,
-                )
-              }
-            >
-              Change model
-            </button>
-          </motion.div>
-
-          <DesktopGallery selectedColor={selectedColor} vehicle={vehicle} />
-
-          <motion.section className="available-colors" variants={fadeUp}>
-            <h2>Available colors</h2>
-
-            <div className="available-grid">
-              {colors.map((color) => {
-                const active = color.id === selectedColor.id;
-
-                return (
-                  <motion.button
-                    type="button"
-                    key={color.id}
-                    className={active ? "active" : ""}
-                    onClick={() => {
-                      setSelectedColor(color);
-                      fireAction(
-                        "Color selected",
-                        {
-                          vehicle,
-                          selectedColor: color,
-                          color,
-                          type: "color_selected",
-                          query: `${getVehicleTitle(vehicle)} ${color.desktopName} color`,
-                        },
-                        onAction,
-                      );
-                    }}
-                    whileHover={{ y: -4 }}
-                    whileTap={{ scale: 0.98 }}
-                  >
-                    <ColorOrb color={color} selected={active} />
-                    <span>{color.desktopName}</span>
-                  </motion.button>
-                );
-              })}
-            </div>
-          </motion.section>
-
-          <AciComposer
-            selectedVehicle={vehicle}
+        <motion.div variants={fadeUp}>
+          <AskNextCard
+            vehicle={vehicle}
+            selectedColor={selectedColor}
             onAction={onAction}
-            placeholder={`Ask ACI Assist anything about ${getVehicleTitle(vehicle)}...`}
           />
-        </section>
+        </motion.div>
+      </motion.aside>
 
-        <DesktopRail
-          colors={colors}
-          selectedColor={selectedColor}
-          vehicle={vehicle}
+      <div className="aci-desktop-chatbar-wrap">
+        <AciComposer
+          selectedVehicle={vehicle}
           onAction={onAction}
+          placeholder={`Ask ACI Assist anything about ${vehicleTitle}...`}
         />
-      </motion.main>
-    </>
-  );
-}
-
-function MobileHeader({ data, vehicle, onAction }) {
-  return (
-    <motion.header className="colors-mobile-header" variants={fadeUp}>
-      <button
-        type="button"
-        className="mobile-back"
-        onClick={() =>
-          fireAction(
-            `Back to ${getVehicleTitle(vehicle)}`,
-            {
-              vehicle,
-              type: "back_to_car",
-              intent: ACI_INTENTS.OPEN_VEHICLE,
-              canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
-            },
-            onAction,
-          )
-        }
-      >
-        <ArrowLeft size={28} />
-      </button>
-
-      <Logo mobile onAction={onAction} />
-
-      <div>
-        <button
-          type="button"
-          className="mobile-bell"
-          onClick={() => fireAction("Notifications", {}, onAction)}
-        >
-          <Bell size={24} />
-          <i />
-        </button>
-
-        <button
-          type="button"
-          className="mobile-avatar"
-          onClick={() => fireAction("Profile", {}, onAction)}
-        >
-          <img src={data?.avatarUrl} alt="Profile" />
-        </button>
       </div>
-    </motion.header>
+    </motion.main>
   );
 }
 
-function MobileHero({
-  selectedColor,
-
-  vehicle,
-  colors,
-  onNextColor,
-  onPrevColor,
-}) {
-  return (
-    <motion.section className="mobile-hero-section" variants={fadeUp}>
-      <div className="mobile-title">
-        <h1>Choose your color</h1>
-        <p>
-          {[getVehicleModel(vehicle), getVehicleVariant(vehicle)]
-            .filter(Boolean)
-            .join(" ")}
-        </p>
-      </div>
-
-      <motion.div
-        className="mobile-car-card"
-        style={{ background: COLOR_STAGE_BG.mobile }}
-        drag="x"
-        dragConstraints={{ left: 0, right: 0 }}
-        dragElastic={0.14}
-        onDragEnd={(_, info) => {
-          if (info.offset.x < -42) onNextColor();
-          if (info.offset.x > 42) onPrevColor();
-        }}
-      >
-        <div className="mobile-card-lines" />
-
-        <div className="mobile-price color-mode">
-          <strong>
-            {selectedColor.mobileName ||
-              selectedColor.desktopName ||
-              selectedColor.name}
-          </strong>
-          <span>{colors.length} exterior colors</span>
-        </div>
-
-        <span className="mobile-count">
-          <Palette size={17} />
-          {colors.length} colors
-        </span>
-
-        <VehicleArtwork color={selectedColor} vehicle={vehicle} size="mobile" />
-      </motion.div>
-    </motion.section>
-  );
-}
-
-function MobileColorPicker({
-  colors,
-  selectedColor,
-  setSelectedColor,
-  vehicle,
-  onAction,
-  showAll,
-  setShowAll,
-}) {
-  const visible = showAll ? colors : colors.slice(0, 6);
-
-  return (
-    <motion.section className="mobile-color-picker" variants={fadeUp}>
-      {visible.map((color) => {
-        const active = color.id === selectedColor.id;
-
-        return (
-          <motion.button
-            type="button"
-            key={color.id}
-            className={active ? "active" : ""}
-            onClick={() => {
-              setSelectedColor(color);
-              fireAction(
-                "Color selected",
-                {
-                  vehicle,
-                  selectedColor: color,
-                  color,
-                  type: "color_selected",
-                  query: `${getVehicleTitle(vehicle)} ${color.mobileName} color`,
-                },
-                onAction,
-              );
-            }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <ColorOrb color={color} selected={active} large />
-            <span>{getColorDisplayLabel(color.mobileName || color.name)}</span>
-          </motion.button>
-        );
-      })}
-
-      {colors.length > 6 ? (
-        <button
-          type="button"
-          className="mobile-colors-toggle"
-          onClick={() => setShowAll((prev) => !prev)}
-        >
-          {showAll ? "Show fewer colors" : `View all ${colors.length} colors`}
-        </button>
-      ) : null}
-    </motion.section>
-  );
-}
-
-function MobileSelectedColorInfo({ selectedColor, vehicle, onAction }) {
-  const vehicleTitle = getVehicleTitle(vehicle);
-  const colorName =
-    selectedColor.mobileName ||
-    selectedColor.desktopName ||
-    selectedColor.colorName ||
-    selectedColor.name;
-
-  return (
-    <motion.section
-      className="mobile-selected-color-info premium"
-      variants={fadeUp}
-    >
-      <div>
-        <p>Selected color</p>
-        <strong>{colorName}</strong>
-        <small>
-          Available for {vehicleTitle}. Final availability may vary by variant.
-        </small>
-      </div>
-
-      <button
-        type="button"
-        onClick={() =>
-          fireAction(
-            "Get quotation",
-            {
-              vehicle,
-              selectedColor,
-              color: selectedColor,
-              query: `Get quotation for ${vehicleTitle} in ${colorName}`,
-              intent: ACI_INTENTS.QUOTATION,
-              canvasType: ACI_CANVAS_TYPES.QUOTATION,
-              type: "get_quotation",
-            },
-            onAction,
-          )
-        }
-      >
-        Get quote
-      </button>
-    </motion.section>
-  );
-}
-
-function MobileColorsPage({
+function MobileScreen({
   colors,
   selectedColor,
   setSelectedColor,
@@ -1050,22 +993,29 @@ function MobileColorsPage({
   data,
   onAction,
 }) {
+  const [showAllMobileColors, setShowAllMobileColors] = useState(false);
+
+  const vehicleTitle = getVehicleTitle(vehicle);
+  const modelName = getVehicleModel(vehicle);
+  const colorName = getColorName(selectedColor);
+
+  const mobileVisibleColors = showAllMobileColors ? colors : colors.slice(0, 4);
   const currentIndex = colors.findIndex((item) => item.id === selectedColor.id);
-  const [showAllColors, setShowAllColors] = useState(false);
 
   const setByIndex = (nextIndex) => {
     const safeIndex = (nextIndex + colors.length) % colors.length;
     const nextColor = colors[safeIndex];
 
     setSelectedColor(nextColor);
-    fireAction(
+
+    fireColorAction(
       "Color selected",
       {
         vehicle,
         selectedColor: nextColor,
         color: nextColor,
         type: "color_selected",
-        query: `${getVehicleTitle(vehicle)} ${nextColor.mobileName} color`,
+        query: `${vehicleTitle} ${getColorName(nextColor)} color`,
       },
       onAction,
     );
@@ -1073,43 +1023,181 @@ function MobileColorsPage({
 
   return (
     <motion.main
-      className="colors-mobile-page"
+      className="aci-colors-mobile"
       variants={stagger}
       initial="hidden"
       animate="visible"
     >
-      <MobileHeader data={data} vehicle={vehicle} onAction={onAction} />
+      <motion.header className="aci-mobile-topbar" variants={fadeUp}>
+        <button
+          type="button"
+          onClick={() =>
+            fireColorAction(
+              `Back to ${vehicleTitle}`,
+              {
+                vehicle,
+                type: "back_to_car",
+                intent: ACI_INTENTS.OPEN_VEHICLE,
+                canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+              },
+              onAction,
+            )
+          }
+        >
+          <ArrowLeft size={28} />
+        </button>
 
-      <MobileHero
-        colors={colors}
-        vehicle={vehicle}
-        selectedColor={selectedColor}
-        onNextColor={() => setByIndex(currentIndex + 1)}
-        onPrevColor={() => setByIndex(currentIndex - 1)}
-      />
+        <AciMark />
 
-      <MobileColorPicker
-        colors={colors}
-        selectedColor={selectedColor}
-        setSelectedColor={setSelectedColor}
-        vehicle={vehicle}
-        onAction={onAction}
-        showAll={showAllColors}
-        setShowAll={setShowAllColors}
-      />
+        <div>
+          <button
+            type="button"
+            onClick={() => fireColorAction("Notifications", {}, onAction)}
+          >
+            <Bell size={24} />
+            <i />
+          </button>
 
-      <MobileSelectedColorInfo
-        selectedColor={selectedColor}
-        vehicle={vehicle}
-        onAction={onAction}
-      />
+          <button
+            type="button"
+            className="aci-mobile-avatar"
+            onClick={() => fireColorAction("Profile", {}, onAction)}
+          >
+            {data?.avatarUrl ? (
+              <img src={data.avatarUrl} alt="Profile" />
+            ) : null}
+          </button>
+        </div>
+      </motion.header>
 
-      <AciComposer
-        mobile
-        selectedVehicle={vehicle}
-        onAction={onAction}
-        placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)} colors...`}
-      />
+      <motion.section className="aci-mobile-title" variants={fadeUp}>
+        <span>Color Studio</span>
+        <h1>Choose your color</h1>
+        <p>{modelName}</p>
+      </motion.section>
+
+      <motion.section
+        className="aci-mobile-hero"
+        variants={fadeUp}
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={0.13}
+        onDragEnd={(_, info) => {
+          if (info.offset.x < -42) setByIndex(currentIndex + 1);
+          if (info.offset.x > 42) setByIndex(currentIndex - 1);
+        }}
+      >
+        <div className="aci-mobile-hero-copy">
+          <div>
+            <h2>{colorName}</h2>
+            <p>Exterior shade selected</p>
+          </div>
+
+          <span>
+            <Palette size={17} />
+            {colors.length} colors
+          </span>
+        </div>
+
+        <div className="aci-stage-bg-ring mobile" />
+        <div className="aci-stage-plate mobile" />
+
+        <VehicleArtwork color={selectedColor} vehicle={vehicle} mode="mobile" />
+      </motion.section>
+
+      <motion.section className="aci-color-swatches mobile" variants={fadeUp}>
+        <h2>Available colors</h2>
+
+        <div className="aci-mobile-swatch-grid">
+          {mobileVisibleColors.map((color) => {
+            const active = color.id === selectedColor.id;
+
+            return (
+              <button
+                type="button"
+                key={color.id}
+                className={active ? "active" : ""}
+                onClick={() => {
+                  setSelectedColor(color);
+                  fireColorAction(
+                    "Color selected",
+                    {
+                      vehicle,
+                      selectedColor: color,
+                      color,
+                      type: "color_selected",
+                      query: `${vehicleTitle} ${getColorName(color)} color`,
+                    },
+                    onAction,
+                  );
+                }}
+              >
+                <ColorOrb color={color} selected={active} size="lg" />
+                <span>{getColorLabel(getColorName(color))}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {colors.length > 4 ? (
+          <button
+            type="button"
+            className="aci-view-all-colors mobile"
+            onClick={() => setShowAllMobileColors((prev) => !prev)}
+          >
+            {showAllMobileColors
+              ? "Show fewer colors"
+              : `View all ${colors.length} colors`}
+          </button>
+        ) : null}
+      </motion.section>
+
+      <motion.section className="aci-mobile-selected-card" variants={fadeUp}>
+        <ColorOrb color={selectedColor} size="lg" />
+        <div>
+          <strong>{colorName}</strong>
+          <p>{selectedColor.description}</p>
+        </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            fireColorAction(
+              "Get quotation",
+              {
+                vehicle,
+                selectedColor,
+                color: selectedColor,
+                query: `Get quotation for ${vehicleTitle} in ${colorName}`,
+                intent: ACI_INTENTS.QUOTATION,
+                canvasType: ACI_CANVAS_TYPES.QUOTATION,
+                type: "get_quotation",
+              },
+              onAction,
+            )
+          }
+        >
+          Get quote
+          <ChevronRight size={18} />
+        </button>
+      </motion.section>
+
+      <motion.div variants={fadeUp}>
+        <AskNextCard
+          vehicle={vehicle}
+          selectedColor={selectedColor}
+          onAction={onAction}
+        />
+      </motion.div>
+
+      <div className="aci-mobile-chatbar-wrap">
+        <AciComposer
+          mobile
+          selectedVehicle={vehicle}
+          onAction={onAction}
+          placeholder={`Ask ACI Assist anything about ${modelName}...`}
+        />
+      </div>
     </motion.main>
   );
 }
@@ -1120,82 +1208,66 @@ export default function AciAssistColorsScreen({
   widget,
   onAction,
 }) {
+  const resolvedWidget = useMemo(
+    () => getResolvedWidget(widget, data),
+    [widget, data],
+  );
+
   const activeVehicle = useMemo(
-    () => vehicle || data?.selectedVehicle || {},
-    [vehicle, data?.selectedVehicle],
+    () =>
+      vehicle ||
+      resolvedWidget?.vehicle ||
+      resolvedWidget?.data?.vehicle ||
+      data?.vehicle ||
+      data?.selectedVehicle ||
+      data?.contextPatch?.selectedVehicle ||
+      {},
+    [vehicle, resolvedWidget, data],
   );
+
   const colors = useMemo(
-    () => normalizeColors(activeVehicle, widget),
-    [activeVehicle, widget],
+    () => normalizeColors(activeVehicle, resolvedWidget, data),
+    [activeVehicle, resolvedWidget, data],
   );
-  const [selectedColorId, setSelectedColorId] = useState(colors[0]?.id || "");
+
+  const preferredSelectedColorId = useMemo(
+    () => findPreferredSelectedColorId(colors, resolvedWidget, data),
+    [colors, resolvedWidget, data],
+  );
+
+  const [selectedColorId, setSelectedColorId] = useState("");
 
   useEffect(() => {
-    if (!colors.some((item) => item.id === selectedColorId)) {
-      setSelectedColorId(colors[0]?.id || "");
+    if (!colors.length) {
+      setSelectedColorId("");
+      return;
     }
-  }, [colors, selectedColorId]);
+
+    setSelectedColorId((current) => {
+      if (current && colors.some((item) => item.id === current)) {
+        return current;
+      }
+
+      return preferredSelectedColorId || colors[0]?.id || "";
+    });
+  }, [colors, preferredSelectedColorId]);
 
   if (!colors.length) {
     return (
       <div className="aci-colors-root">
-        <style>{`
-          .aci-colors-root {
-            min-height: 100vh;
-            display: grid;
-            place-items: center;
-            padding: 28px;
-            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
-            color: #0f172a;
-          }
+        <style>{baseStyles}</style>
 
-          .aci-live-empty {
-            width: min(520px, 100%);
-            border: 1px solid #dbe3ef;
-            border-radius: 28px;
-            background: rgba(255,255,255,.96);
-            box-shadow: 0 24px 74px -56px rgba(15,23,42,.52);
-            padding: 28px;
-            text-align: center;
-          }
-
-          .aci-live-empty h2 {
-            margin: 0;
-            font-family: Georgia, "Times New Roman", serif;
-            font-size: 34px;
-            line-height: 1;
-            letter-spacing: -.05em;
-          }
-
-          .aci-live-empty p {
-            margin: 14px 0 22px;
-            color: #64748b;
-            line-height: 1.5;
-          }
-
-          .aci-live-empty button {
-            height: 44px;
-            border: 0;
-            border-radius: 999px;
-            padding: 0 18px;
-            background: linear-gradient(135deg, #2563eb, #1455ef);
-            color: white;
-            font-weight: 750;
-            cursor: pointer;
-          }
-        `}</style>
-
-        <section className="aci-live-empty">
+        <section className="aci-colors-empty">
           <h2>No live color data found</h2>
           <p>
             Backend was reached, but it did not return colors for{" "}
-            {getVehicleTitle(activeVehicle)}. I am not showing demo colors here.
+            {getVehicleTitle(activeVehicle)}. No demo colors are being shown.
           </p>
+
           <button
             type="button"
             onClick={() =>
-              fireAction(
+              fireColorAction(
                 `Back to ${getVehicleTitle(activeVehicle)}`,
                 {
                   vehicle: activeVehicle,
@@ -1215,2038 +1287,1316 @@ export default function AciAssistColorsScreen({
   }
 
   const selectedColor =
-    colors.find((item) => item.id === selectedColorId) ||
-    colors[0] ||
-    FALLBACK_COLORS[0];
+    colors.find((item) => item.id === selectedColorId) || colors[0];
 
   const setSelectedColor = (color) => setSelectedColorId(color.id);
 
-  const meta = {
-    color: selectedColor.mobileName,
+  const selectedVehicle = {
+    ...activeVehicle,
+    selectedColor,
+    colorName: getColorName(selectedColor),
+    imageUrl: selectedColor.imageUrl,
+    normalizedImageUrl: selectedColor.normalizedImageUrl,
+    imageFrame: selectedColor.imageFrame,
   };
 
   return (
-    <div className="aci-colors-root" data-color={meta.color}>
-      <style>{`
-        :root {
-          --blue: #2563eb;
-          --blue-dark: #1455ef;
-          --ink: #080f2b;
-          --text: #334155;
-          --muted: #64748b;
-          --line: #dbe3ef;
-          --surface: rgba(255,255,255,.94);
-          --shadow: 0 24px 74px -56px rgba(15,23,42,.52);
-          --serif: Georgia, "Times New Roman", serif;
-        }
-
-        html,
-        body,
-        #root {
-          min-height: 100%;
-          margin: 0;
-          overflow-x: hidden;
-        }
-
-        * {
-          box-sizing: border-box;
-        }
-
-        button,
-        input {
-          font-family: inherit;
-        }
-
-        button {
-          cursor: pointer;
-          -webkit-tap-highlight-color: transparent;
-        }
-
-        .aci-colors-root {
-          min-height: 100vh;
-          padding-bottom: 118px;
-          color: var(--ink);
-          font-family:
-            Inter,
-            ui-sans-serif,
-            system-ui,
-            -apple-system,
-            BlinkMacSystemFont,
-            "Segoe UI",
-            sans-serif;
-          background:
-            radial-gradient(circle at 85% -8%, rgba(37,99,235,.08), transparent 28%),
-            linear-gradient(180deg, #fff 0%, #f8fbff 100%);
-          -webkit-font-smoothing: antialiased;
-        }
-
-        .colors-mobile-page {
-          display: none;
-        }
-
-        .colors-logo {
-          border: 0;
-          background: transparent;
-          padding: 0;
-          display: inline-flex;
-          align-items: center;
-          gap: 11px;
-          color: var(--ink);
-        }
-
-        .colors-logo span {
-          color: var(--blue);
-          font-size: 34px;
-          line-height: .9;
-          font-weight: 900;
-          letter-spacing: -4px;
-          transform: skewX(-9deg);
-        }
-
-        .colors-logo strong {
-          font-size: 15px;
-          line-height: 1;
-          letter-spacing: 6px;
-          font-weight: 760;
-        }
-
-        .colors-logo svg {
-          color: var(--blue);
-          fill: currentColor;
-        }
-
-        .colors-desktop-header,
-        .colors-desktop-page {
-          width: min(100%, 1510px);
-          margin-inline: auto;
-        }
-
-        .colors-desktop-header {
-          position: sticky;
-          top: 0;
-          z-index: 80;
-          height: 82px;
-          padding: 14px 40px 8px;
-          display: grid;
-          grid-template-columns: 1fr auto;
-          align-items: center;
-          gap: 20px;
-          background: linear-gradient(180deg, rgba(255,255,255,.97), rgba(255,255,255,.88));
-          backdrop-filter: blur(18px);
-        }
-
-        .desktop-gallery-card,
-        .available-grid button,
-        .rail-card,
-        .colors-composer,
-        .mobile-car-card,
-        
-        .mobile-back,
-        .mobile-color-picker .color-orb {
-          border: 1px solid var(--line);
-          background: var(--surface);
-          box-shadow: var(--shadow), inset 0 1px 0 #fff;
-          backdrop-filter: blur(18px);
-        }
-
-        .desktop-actions {
-          display: flex;
-          justify-content: flex-end;
-          align-items: center;
-          gap: 13px;
-        }
-
-        .icon-bell,
-        .plain-icon {
-          position: relative;
-          width: 38px;
-          height: 38px;
-          border: 0;
-          background: transparent;
-          display: grid;
-          place-items: center;
-          color: #475569;
-        }
-
-        .icon-bell i,
-        .mobile-bell i {
-          position: absolute;
-          top: 5px;
-          right: 7px;
-          width: 8px;
-          height: 8px;
-          border-radius: 999px;
-          background: var(--blue);
-          border: 2px solid #fff;
-        }
-
-        .avatar-button,
-        .mobile-avatar {
-          width: 48px;
-          height: 48px;
-          border: 0;
-          border-radius: 999px;
-          padding: 3px;
-          background: #fff;
-          box-shadow:
-            0 0 0 1px #dbe5f2,
-            0 10px 24px -14px rgba(37,99,235,.45);
-        }
-
-        .avatar-button img,
-        .mobile-avatar img {
-          width: 100%;
-          height: 100%;
-          border-radius: inherit;
-          object-fit: cover;
-          display: block;
-        }
-
-        .colors-desktop-page {
-          padding: 20px 40px 130px;
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) 300px;
-          gap: 24px;
-          align-items: start;
-        }
-
-        .desktop-main {
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 17px;
-        }
-
-        .desktop-title {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 24px;
-        }
-
-        .desktop-title button {
-          border: 0;
-          background: transparent;
-          color: #334155;
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          font-size: 13px;
-          font-weight: 620;
-        }
-
-        .desktop-title h1 {
-          margin: 21px 0 8px;
-          color: #0b1028;
-          font-family: var(--serif);
-          font-size: 38px;
-          line-height: .95;
-          letter-spacing: -.055em;
-          font-weight: 610;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-
-        .desktop-title h1 span {
-          width: 21px;
-          height: 21px;
-          border-radius: 999px;
-          background: var(--blue);
-          color: white;
-          display: grid;
-          place-items: center;
-        }
-
-        .desktop-title p {
-          margin: 0;
-          color: #475569;
-          font-size: 14px;
-          font-weight: 460;
-        }
-
-        .change-model {
-          height: 40px;
-          padding: 0 17px !important;
-          border-radius: 13px !important;
-          border: 1px solid #dfe7f2 !important;
-          background: #fff !important;
-          color: #334155 !important;
-          box-shadow: 0 12px 28px -24px rgba(15,23,42,.28);
-        }
-
-        .desktop-gallery-card {
-          border-radius: 24px;
-          overflow: hidden;
-        }
-
-        .desktop-stage {
-          position: relative;
-          min-height: 425px;
-          display: grid;
-          place-items: center;
-          overflow: hidden;
-          border-radius: 23px;
-        }
-
-        .desktop-stage::after {
-          content: "";
-          position: absolute;
-          inset: 0;
-          background:
-            linear-gradient(165deg, rgba(255,255,255,.24), transparent 42%),
-            radial-gradient(circle at 50% 88%, rgba(15,23,42,.13), transparent 36%);
-          pointer-events: none;
-        }
-
-        .stage-lines,
-        .mobile-card-lines {
-          position: absolute;
-          inset: 0;
-          opacity: .78;
-          background:
-            repeating-radial-gradient(
-              ellipse at 78% 36%,
-              rgba(255,255,255,.42) 0,
-              rgba(255,255,255,.42) 2px,
-              transparent 3px,
-              transparent 24px
-            );
-          pointer-events: none;
-        }
-
-        .stage-pill {
-          position: absolute;
-          top: 22px;
-          left: 22px;
-          z-index: 6;
-          height: 36px;
-          padding: 0 13px 0 9px;
-          border-radius: 12px;
-          background: rgba(255,255,255,.93);
-          color: #1e293b;
-          display: inline-flex;
-          align-items: center;
-          gap: 9px;
-          font-size: 13px;
-          font-weight: 650;
-          box-shadow: 0 14px 30px -24px rgba(15,23,42,.36);
-        }
-
-        .stage-pill .color-orb {
-          width: 18px;
-          height: 18px;
-          border: 0;
-          box-shadow: inset 0 3px 6px rgba(255,255,255,.32);
-        }
-
-        .stage-pill .color-orb i {
-          display: none;
-        }
-
-        .desktop-gallery-angle {
-          width: min(820px, 93%);
-          position: relative;
-          z-index: 4;
-        }
-
-        .safari-vehicle {
-          position: relative;
-          z-index: 4;
-          width: 100%;
-          display: grid;
-          place-items: center;
-          pointer-events: none;
-        }
-
-        .safari-vehicle-inner {
-          position: relative;
-          width: 100%;
-          display: grid;
-          place-items: center;
-        }
-
-        .safari-stage-image {
-          display: block;
-          width: 100%;
-          height: auto;
-          object-fit: contain;
-          user-select: none;
-          filter: var(--car-filter) drop-shadow(0 24px 24px rgba(15,23,42,.22));
-          mix-blend-mode: multiply;
-          transition: filter .34s ease, opacity .34s ease;
-        }
-
-        
-
-        .safari-vehicle.desktop {
-          width: 100%;
-          transform: translateY(24px);
-        }
-
-        .safari-stage {
-          width: 100%;
-          height: 100%;
-        }
-
-        .available-colors h2 {
-          margin: 0 0 12px;
-          color: #1e293b;
-          font-size: 15px;
-          font-weight: 650;
-        }
-
-        .available-grid {
-          display: grid;
-          grid-template-columns: repeat(6, minmax(0, 1fr));
-          gap: 16px;
-        }
-
-        .available-grid button {
-          min-height: 136px;
-          border-radius: 17px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 13px;
-          color: #334155;
-          font-size: 12px;
-          font-weight: 560;
-        }
-
-        .available-grid button.active {
-          border-color: var(--blue);
-          box-shadow:
-            0 0 0 3px rgba(37,99,235,.08),
-            0 22px 60px -50px rgba(37,99,235,.7);
-        }
-
-        .color-orb {
-          position: relative;
-          width: 58px;
-          height: 58px;
-          flex: 0 0 auto;
-          border-radius: 999px;
-          box-shadow:
-            inset 0 8px 16px rgba(255,255,255,.34),
-            inset 0 -12px 22px rgba(15,23,42,.24),
-            0 14px 28px -20px rgba(15,23,42,.45);
-          border: 1px solid rgba(255,255,255,.78);
-        }
-
-        .color-orb.large {
-          width: 44px;
-          height: 44px;
-        }
-
-        .color-orb.selected {
-          box-shadow:
-            0 0 0 3px #fff,
-            0 0 0 5px var(--blue),
-            inset 0 8px 16px rgba(255,255,255,.32),
-            inset 0 -12px 22px rgba(15,23,42,.24),
-            0 16px 30px -18px rgba(37,99,235,.45);
-        }
-
-        .color-orb i {
-          position: absolute;
-          left: 21%;
-          top: 17%;
-          width: 25%;
-          height: 25%;
-          border-radius: 999px;
-          background: rgba(255,255,255,.72);
-          filter: blur(2px);
-        }
-
-        .color-orb b {
-          position: absolute;
-          right: -4px;
-          top: -4px;
-          width: 21px;
-          height: 21px;
-          border-radius: 999px;
-          background: var(--blue);
-          color: white;
-          display: grid;
-          place-items: center;
-          border: 2px solid white;
-          box-shadow: 0 6px 16px rgba(37,99,235,.38);
-        }
-
-        .color-orb.large b {
-          width: 23px;
-          height: 23px;
-          right: -7px;
-          top: -7px;
-        }
-
-        .colors-rail {
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .rail-card {
-          border-radius: 20px;
-          padding: 16px;
-        }
-
-        .rail-card h3,
-        .rail-title-row h3 {
-          margin: 0;
-          color: #0f172a;
-          font-size: 16px;
-          line-height: 1;
-          font-weight: 650;
-        }
-
-        .selected-color-banner {
-          min-height: 102px;
-          margin-top: 16px;
-          border-radius: 14px;
-          padding: 16px;
-          color: white;
-          display: flex;
-          align-items: center;
-          gap: 14px;
-          overflow: hidden;
-        }
-
-        .selected-color-banner .color-orb {
-          width: 54px;
-          height: 54px;
-          border: 2px solid rgba(255,255,255,.7);
-        }
-
-        .selected-color-banner .color-orb b {
-          display: none;
-        }
-
-        .selected-color-banner strong {
-          display: block;
-          font-size: 15px;
-          line-height: 1.1;
-          font-weight: 720;
-        }
-
-        .selected-color-banner span {
-          display: block;
-          margin-top: 5px;
-          font-size: 11px;
-          line-height: 1.4;
-          opacity: .88;
-        }
-
-        .selected-color-card p {
-          margin: 15px 0 17px;
-          color: #64748b;
-          font-size: 12px;
-          line-height: 1.55;
-        }
-
-        .primary-rail-button,
-        .secondary-rail-button {
-          width: 100%;
-          height: 40px;
-          border-radius: 10px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
-          font-size: 12px;
-          font-weight: 650;
-          margin-top: 10px;
-        }
-
-        .primary-rail-button {
-          border: 0;
-          background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-          color: #fff;
-        }
-
-        .secondary-rail-button {
-          border: 1px solid rgba(37,99,235,.28);
-          background: #fff;
-          color: var(--blue);
-        }
-
-        .rail-title-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-
-        .rail-title-row svg {
-          color: #64748b;
-        }
-
-        .popular-choice-list {
-          margin-top: 18px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-
-        .popular-choice-list div {
-          position: relative;
-          display: grid;
-          grid-template-columns: 22px 1fr 40px;
-          gap: 9px;
-          align-items: center;
-          padding-bottom: 10px;
-        }
-
-        .popular-choice-list span {
-          color: #0f172a;
-          font-size: 13px;
-          font-weight: 700;
-        }
-
-        .popular-choice-list strong {
-          color: #334155;
-          font-size: 12px;
-          font-weight: 600;
-        }
-
-        .popular-choice-list em {
-          color: #64748b;
-          font-size: 12px;
-          font-style: normal;
-          text-align: right;
-        }
-
-        .popular-choice-list div::after {
-          content: "";
-          position: absolute;
-          left: 31px;
-          right: 42px;
-          bottom: 0;
-          height: 3px;
-          border-radius: 999px;
-          background: #e5e7eb;
-        }
-
-        .popular-choice-list i {
-          position: absolute;
-          left: 31px;
-          bottom: 0;
-          height: 3px;
-          border-radius: 999px;
-          background: var(--blue);
-          z-index: 2;
-        }
-
-        .rail-link {
-          margin-top: 18px;
-          border: 0;
-          background: transparent;
-          color: var(--blue);
-          display: inline-flex;
-          align-items: center;
-          gap: 5px;
-          font-size: 12px;
-          font-weight: 650;
-        }
-
-        
-
-        .rail-note {
-          margin: 0;
-          color: #94a3b8;
-          font-size: 11px;
-          line-height: 1.4;
-          padding: 0 8px;
-        }
-
-        .colors-composer-dock {
-          position: fixed;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          z-index: 160;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 12px 24px 14px;
-          background: linear-gradient(
-            180deg,
-            rgba(248,251,255,0),
-            rgba(248,251,255,.88) 28%,
-            rgba(248,251,255,.98) 100%
-          );
-          backdrop-filter: blur(14px);
-        }
-
-        .colors-composer {
-          width: min(860px, calc(100vw - 64px));
-          min-height: 62px;
-          padding: 6px 8px 6px 10px;
-          border-radius: 30px;
-          display: grid;
-          grid-template-columns: 48px 1fr 36px 54px;
-          gap: 10px;
-          align-items: center;
-          border: 1px solid #cbd5e1;
-          background: rgba(255,255,255,.97);
-          box-shadow: var(--shadow), inset 0 1px 0 #fff;
-        }
-
-        .colors-composer button:first-child {
-          width: 48px;
-          height: 48px;
-          border: 1px solid #e0e7f1;
-          border-radius: 19px;
-          background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
-          color: var(--blue);
-          display: grid;
-          place-items: center;
-        }
-
-        .colors-composer button:first-child svg {
-          fill: currentColor;
-        }
-
-        .colors-composer input {
-          min-width: 0;
-          border: 0;
-          outline: 0;
-          background: transparent;
-          color: #1e293b;
-          font-size: 14px;
-          font-weight: 460;
-        }
-
-        .colors-composer input::placeholder {
-          color: #94a3b8;
-        }
-
-        .colors-composer button:nth-of-type(2) {
-          width: 36px;
-          height: 36px;
-          border: 0;
-          background: transparent;
-          color: #526075;
-          display: grid;
-          place-items: center;
-        }
-
-        .colors-composer button:last-child {
-          width: 54px;
-          height: 48px;
-          border: 0;
-          border-radius: 18px;
-          color: #fff;
-          background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-          display: grid;
-          place-items: center;
-          box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
-        }
-
-        .colors-composer-dock p {
-          margin: 8px 0 0;
-          color: #94a3b8;
-          font-size: 10px;
-          font-weight: 460;
-        }
-
-        @media (max-width: 1180px) and (min-width: 901px) {
-          .colors-desktop-header {
-            padding-inline: 24px;
-          }
-
-          .colors-desktop-page {
-            grid-template-columns: 1fr;
-            padding-inline: 24px;
-          }
-
-          .colors-rail {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-          }
-
-          .rail-note {
-            display: none;
-          }
-        }
-
-        @media (max-width: 900px) {
-          .colors-desktop-header,
-          .colors-desktop-page {
-            display: none;
-          }
-
-          .aci-colors-root {
-            padding-bottom: 96px;
-            background:
-              radial-gradient(circle at 50% 100%, rgba(37,99,235,.11), transparent 26%),
-              linear-gradient(180deg, #fff 0%, #fbfcff 55%, #f8fbff 100%);
-          }
-
-          .colors-mobile-page {
-            width: 100%;
-            max-width: 430px;
-            min-height: 100vh;
-            margin: 0 auto;
-            padding: 18px 14px 108px;
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-          }
-
-          .colors-mobile-header {
-            display: grid;
-            grid-template-columns: 50px minmax(0, 1fr) auto;
-            gap: 10px;
-            align-items: center;
-          }
-
-          .mobile-back {
-            width: 50px;
-            height: 50px;
-            border-radius: 999px;
-            border: 0;
-            background: #fff;
-            color: #0f172a;
-            display: grid;
-            place-items: center;
-          }
-
-          .colors-logo.mobile {
-            justify-self: start;
-            gap: 10px;
-          }
-
-          .colors-logo.mobile span {
-            font-size: 31px;
-          }
-
-          .colors-logo.mobile strong {
-            font-size: 14px;
-            letter-spacing: 6px;
-          }
-
-          .colors-mobile-header > div {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-          }
-
-          .mobile-bell {
-            position: relative;
-            width: 34px;
-            height: 34px;
-            border: 0;
-            background: transparent;
-            color: #596174;
-            display: grid;
-            place-items: center;
-          }
-
-          .mobile-avatar {
-            width: 44px;
-            height: 44px;
-          }
-
-          .mobile-title h1 {
-            margin: 0 0 7px;
-            color: #07102b;
-            font-family: var(--serif);
-            font-size: 34px;
-            line-height: .97;
-            letter-spacing: -.06em;
-            font-weight: 620;
-          }
-
-          .mobile-title p {
-            margin: 0 0 14px;
-            color: #7b8494;
-            font-size: 18px;
-            line-height: 1;
-            font-weight: 450;
-          }
-
-          .mobile-car-card {
-            position: relative;
-            min-height: 314px;
-            border-radius: 27px;
-            overflow: hidden;
-            display: grid;
-            place-items: center;
-          }
-
-          .mobile-car-card::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            background:
-              linear-gradient(165deg, rgba(255,255,255,.24), transparent 42%),
-              radial-gradient(circle at 50% 88%, rgba(15,23,42,.12), transparent 36%);
-            pointer-events: none;
-          }
-
-          .mobile-card-lines {
-            opacity: .82;
-          }
-
-          .mobile-price {
-            position: absolute;
-            z-index: 8;
-            left: 15px;
-            top: 17px;
-            color: #475569;
-            display: flex;
-            align-items: center;
-            gap: 9px;
-          }
-
-          .mobile-price strong {
-            color: #475569;
-            font-size: 16px;
-            line-height: 1;
-            font-weight: 600;
-            letter-spacing: -.02em;
-          }
-
-          .mobile-count {
-            position: absolute;
-            z-index: 8;
-            right: 15px;
-            top: 14px;
-            height: 38px;
-            padding: 0 13px;
-            border-radius: 999px;
-            border: 1px solid #dfe7f2;
-            background: rgba(255,255,255,.78);
-            color: #475569;
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            font-size: 13px;
-            font-weight: 540;
-          }
-
-          .safari-vehicle.mobile {
-            width: 126%;
-            transform: translateY(31px);
-          }
-
-          .safari-vehicle.mobile .safari-stage-image {
-            filter: var(--car-filter) drop-shadow(0 24px 24px rgba(15,23,42,.23));
-          }
-
-          .mobile-color-picker {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(0, 1fr));
-            gap: 10px 8px;
-            align-items: start;
-            padding: 0 4px;
-          }
-
-          .mobile-color-picker button {
-            border: 0;
-            background: transparent;
-            padding: 0;
-            color: #475569;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 9px;
-            min-width: 0;
-          }
-
-          .mobile-color-picker span:not(.color-orb) {
-            min-height: 28px;
-            color: #475569;
-            font-size: 10.5px;
-            line-height: 1.15;
-            font-weight: 430;
-            text-align: center;
-          }
-
-          .mobile-color-picker button.active span:not(.color-orb) {
-            color: var(--blue);
-            font-weight: 560;
-          }
-
-          .mobile-colors-toggle {
-            grid-column: 1 / -1;
-            margin-top: 2px;
-            height: 34px;
-            border-radius: 999px;
-            border: 1px solid #dbe3ef;
-            background: rgba(255,255,255,.92);
-            color: #2563eb;
-            font-size: 12px;
-            font-weight: 620;
-          }
-
-          .mobile-selected-color-info {
-            border: 1px solid #dbe3ef;
-            border-radius: 20px;
-            padding: 14px;
-            background: rgba(255,255,255,.95);
-          }
-
-          .mobile-selected-color-info p {
-            margin: 0;
-            color: #64748b;
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: .08em;
-            font-weight: 700;
-          }
-
-          .mobile-selected-color-info strong {
-            display: block;
-            margin-top: 6px;
-            color: #0f172a;
-            font-size: 16px;
-            line-height: 1.2;
-            font-weight: 700;
-          }
-
-          .mobile-selected-color-info small {
-            display: block;
-            margin-top: 7px;
-            color: #64748b;
-            font-size: 11px;
-            line-height: 1.3;
-          }
-
-
-          .mobile-chat-dock {
-            position: fixed;
-            left: 50%;
-            bottom: 0;
-            transform: translateX(-50%);
-            z-index: 160;
-            width: min(430px, 100vw);
-            padding: 10px 14px 14px;
-            background: linear-gradient(
-              180deg,
-              rgba(248,251,255,0),
-              rgba(248,251,255,.92) 26%,
-              rgba(248,251,255,1) 100%
-            );
-            backdrop-filter: blur(14px);
-          }
-
-          .mobile-chatbar {
-            min-height: 60px;
-            border-radius: 28px;
-            border: 1px solid rgba(37,99,235,.18);
-            background: rgba(255,255,255,.97);
-            box-shadow:
-              0 0 0 5px rgba(37,99,235,.04),
-              0 20px 44px -34px rgba(37,99,235,.45),
-              inset 0 1px 0 rgba(255,255,255,1);
-            display: grid;
-            grid-template-columns: 42px 1fr 30px 48px;
-            gap: 8px;
-            align-items: center;
-            padding: 6px 7px 6px 8px;
-          }
-
-          .mobile-chatbar button:first-child {
-            width: 40px;
-            height: 40px;
-            border: 1px solid #e0e7f1;
-            border-radius: 18px;
-            background: radial-gradient(circle at 35% 28%, #fff 0%, #eef5ff 100%);
-            color: var(--blue);
-            display: grid;
-            place-items: center;
-          }
-
-          .mobile-chatbar button:first-child svg {
-            fill: currentColor;
-          }
-
-          .mobile-chatbar input {
-            min-width: 0;
-            border: 0;
-            outline: 0;
-            background: transparent;
-            color: #1e293b;
-            font-size: 13px;
-            font-weight: 460;
-          }
-
-          .mobile-chatbar input::placeholder {
-            color: #94a3b8;
-          }
-
-          .mobile-chatbar button:nth-of-type(2) {
-            width: 30px;
-            height: 36px;
-            border: 0;
-            background: transparent;
-            color: #526075;
-            display: grid;
-            place-items: center;
-          }
-
-          .mobile-chatbar button:last-child {
-            width: 48px;
-            height: 46px;
-            border: 0;
-            border-radius: 17px;
-            color: #fff;
-            background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-            display: grid;
-            place-items: center;
-            box-shadow: 0 18px 36px -22px rgba(37,99,235,.58);
-          }
-        }
-
-        @media (max-width: 390px) {
-          .colors-mobile-page {
-            padding-inline: 12px;
-          }
-
-          .colors-mobile-header {
-            grid-template-columns: 48px minmax(0, 1fr) auto;
-          }
-
-          .mobile-back {
-            width: 48px;
-            height: 48px;
-          }
-
-          .colors-logo.mobile span {
-            font-size: 29px;
-          }
-
-          .colors-logo.mobile strong {
-            font-size: 13px;
-            letter-spacing: 5.6px;
-          }
-
-          .mobile-title h1 {
-            font-size: 31px;
-          }
-
-          .mobile-title p {
-            font-size: 16px;
-          }
-
-          .mobile-car-card {
-            min-height: 292px;
-          }
-
-          .safari-vehicle.mobile {
-            width: 136%;
-          }
-
-          .color-orb.large {
-            width: 42px;
-            height: 42px;
-          }
-
-          .mobile-color-picker span:not(.color-orb) {
-            font-size: 10px;
-          }
-        }
-
-        /* ACI_COLORS_POLISH_FIXES_START */
-
-        /* Desktop: reduce wasted top space */
-        .colors-desktop-header {
-          height: 58px !important;
-          padding: 8px 40px 4px !important;
-        }
-
-        .colors-desktop-page {
-          padding-top: 6px !important;
-        }
-
-        .desktop-title h1 {
-          margin-top: 8px !important;
-        }
-
-        .desktop-title p {
-          margin-top: 2px !important;
-        }
-
-        .desktop-stage {
-          min-height: 382px !important;
-        }
-
-        .desktop-gallery-angle {
-          width: min(760px, 88%) !important;
-        }
-
-        .safari-vehicle.desktop {
-          transform: translateY(10px) !important;
-        }
-
-        /* Mobile: remove horizontal overflow completely */
-        @media (max-width: 900px) {
-          html,
-          body,
-          #root,
-          .aci-colors-root {
-            overflow-x: hidden !important;
-          }
-
-          .aci-colors-root {
-            padding-bottom: 90px !important;
-          }
-
-          .colors-mobile-page {
-            max-width: min(430px, 100vw) !important;
-            padding: 10px 14px 92px !important;
-            gap: 10px !important;
-            overflow-x: hidden !important;
-          }
-
-          .colors-mobile-header {
-            min-height: 46px !important;
-          }
-
-          .mobile-back {
-            width: 44px !important;
-            height: 44px !important;
-          }
-
-          .mobile-avatar {
-            width: 40px !important;
-            height: 40px !important;
-          }
-
-          .colors-logo.mobile span {
-            font-size: 28px !important;
-          }
-
-          .colors-logo.mobile strong {
-            font-size: 12px !important;
-            letter-spacing: 5px !important;
-          }
-
-          .mobile-title h1 {
-            margin-top: 0 !important;
-            font-size: 30px !important;
-          }
-
-          .mobile-title p {
-            margin-bottom: 10px !important;
-            font-size: 15px !important;
-          }
-
-          .mobile-car-card {
-            width: 100% !important;
-            max-width: 100% !important;
-            min-height: 284px !important;
-            overflow: hidden !important;
-            border-radius: 26px !important;
-          }
-
-          .mobile-price {
-            left: 14px !important;
-            top: 14px !important;
-          }
-
-          .mobile-count {
-            right: 14px !important;
-            top: 12px !important;
-          }
-
-          .safari-vehicle.mobile {
-            width: 108% !important;
-            max-width: 108% !important;
-            transform: translateY(18px) !important;
-            overflow: hidden !important;
-          }
-
-          .safari-vehicle.mobile .safari-vehicle-inner {
-            width: 100% !important;
-            max-width: 100% !important;
-            overflow: hidden !important;
-          }
-
-          .safari-vehicle.mobile img {
-            width: 100% !important;
-            max-width: 100% !important;
-            object-fit: contain !important;
-            object-position: center center !important;
-          }
-
-          .safari-vehicle.mobile .safari-vector {
-            width: 100% !important;
-            max-width: 100% !important;
-          }
-
-          .mobile-color-picker {
-            grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
-            gap: 8px 6px !important;
-            padding: 0 !important;
-          }
-
-          .mobile-color-picker button {
-            min-width: 0 !important;
-          }
-
-          .color-orb.large {
-            width: 40px !important;
-            height: 40px !important;
-          }
-
-          .mobile-color-picker span:not(.color-orb) {
-            font-size: 10px !important;
-            line-height: 1.12 !important;
-          }
-
-
-          /* Mobile chatbar: center it and remove blue glow/blur */
-          .mobile-chat-dock {
-            position: fixed !important;
-            left: 0 !important;
-            right: 0 !important;
-            bottom: 0 !important;
-            transform: none !important;
-            width: 100% !important;
-            max-width: none !important;
-            padding: 8px 14px 12px !important;
-            display: flex !important;
-            justify-content: center !important;
-            background: linear-gradient(
-              180deg,
-              rgba(248,251,255,0),
-              rgba(248,251,255,.88) 30%,
-              rgba(248,251,255,.98) 100%
-            ) !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-          }
-
-          .mobile-chatbar {
-            width: min(402px, 100%) !important;
-            min-height: 58px !important;
-            border-radius: 27px !important;
-            border: 1px solid #dbe3ef !important;
-            background: rgba(255,255,255,.98) !important;
-            box-shadow:
-              0 16px 36px -28px rgba(15,23,42,.26),
-              inset 0 1px 0 rgba(255,255,255,1) !important;
-          }
-
-          .mobile-chatbar button:first-child {
-            box-shadow: none !important;
-            background: #f5f8ff !important;
-          }
-
-          .mobile-chatbar button:last-child {
-            box-shadow: 0 14px 26px -20px rgba(37,99,235,.45) !important;
-          }
-        }
-
-        @media (max-width: 390px) {
-          .colors-mobile-page {
-            padding-left: 12px !important;
-            padding-right: 12px !important;
-          }
-
-          .mobile-car-card {
-            min-height: 268px !important;
-          }
-
-          .safari-vehicle.mobile {
-            width: 112% !important;
-            max-width: 112% !important;
-          }
-
-          .mobile-chat-dock {
-            padding-left: 12px !important;
-            padding-right: 12px !important;
-          }
-        }
-
-        /* ACI_COLORS_POLISH_FIXES_END */
-
-
-        /* ACI_COLORS_CHATBAR_AND_CAR_SIZE_FIX_START */
-
-        /* Desktop: reduce bottom reserve above fixed chatbar */
-        .aci-colors-root {
-          padding-bottom: 78px !important;
-        }
-
-        .colors-desktop-page {
-          padding-bottom: 86px !important;
-        }
-
-        .colors-composer-dock {
-          padding: 6px 24px 8px !important;
-          background: transparent !important;
-          backdrop-filter: none !important;
-          -webkit-backdrop-filter: none !important;
-        }
-
-        .colors-composer {
-          min-height: 58px !important;
-          box-shadow:
-            0 14px 34px -28px rgba(15,23,42,.24),
-            inset 0 1px 0 rgba(255,255,255,1) !important;
-        }
-
-        /* Desktop car should sit inside stage without feeling oversized */
-        .desktop-stage {
-          min-height: 360px !important;
-        }
-
-        .desktop-gallery-angle {
-          width: min(650px, 76%) !important;
-        }
-
-        .safari-vehicle.desktop {
-          width: 100% !important;
-          transform: translateY(4px) !important;
-        }
-
-        .safari-vehicle.desktop img {
-          max-height: 315px !important;
-          object-fit: contain !important;
-        }
-
-        @media (max-width: 900px) {
-          /* Remove the artificial blank reserve above the fixed chatbar */
-          .aci-colors-root {
-            padding-bottom: 68px !important;
-          }
-
-          .colors-mobile-page {
-            padding-bottom: 70px !important;
-            min-height: auto !important;
-          }
-
-          /* Mobile car must fit fully inside the card */
-          .mobile-car-card {
-            min-height: 276px !important;
-            max-height: 276px !important;
-            overflow: hidden !important;
-            display: grid !important;
-            place-items: center !important;
-          }
-
-          .safari-vehicle.mobile {
-            width: 86% !important;
-            max-width: 86% !important;
-            transform: translateY(10px) !important;
-          }
-
-          .safari-vehicle.mobile .safari-vehicle-inner {
-            width: 100% !important;
-            max-width: 100% !important;
-            display: grid !important;
-            place-items: center !important;
-          }
-
-          .safari-vehicle.mobile img {
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: 218px !important;
-            object-fit: contain !important;
-            object-position: center center !important;
-            transform: none !important;
-          }
-
-          .safari-vehicle.mobile .safari-vector {
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: 220px !important;
-          }
-
-          
-
-          /* Chatbar: no big gradient/blur area above it */
-          .mobile-chat-dock {
-            padding: 4px 14px 8px !important;
-            background: transparent !important;
-            backdrop-filter: none !important;
-            -webkit-backdrop-filter: none !important;
-          }
-
-          .mobile-chatbar {
-            min-height: 54px !important;
-            border-radius: 25px !important;
-            box-shadow:
-              0 12px 28px -24px rgba(15,23,42,.24),
-              inset 0 1px 0 rgba(255,255,255,1) !important;
-          }
-
-          .mobile-chatbar button:first-child {
-            width: 38px !important;
-            height: 38px !important;
-          }
-
-          .mobile-chatbar button:last-child {
-            width: 44px !important;
-            height: 42px !important;
-          }
-
-          .mobile-chatbar input {
-            font-size: 12.5px !important;
-          }
-        }
-
-        @media (max-width: 390px) {
-          .mobile-car-card {
-            min-height: 258px !important;
-            max-height: 258px !important;
-          }
-
-          .safari-vehicle.mobile {
-            width: 88% !important;
-            max-width: 88% !important;
-            transform: translateY(8px) !important;
-          }
-
-          .safari-vehicle.mobile img {
-            max-height: 202px !important;
-          }
-
-          .safari-vehicle.mobile .safari-vector {
-            max-height: 204px !important;
-          }
-
-          .colors-mobile-page {
-            padding-bottom: 66px !important;
-          }
-
-          .mobile-chat-dock {
-            padding-bottom: 7px !important;
-          }
-        }
-
-        /* ACI_COLORS_CHATBAR_AND_CAR_SIZE_FIX_END */
-
-        @media (max-width: 900px) {
-          .colors-mobile-page {
-            padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
-          }
-
-          .mobile-chat-dock {
-            left: 16px !important;
-            right: 16px !important;
-            width: auto !important;
-            transform: none !important;
-            padding: 0 !important;
-            bottom: calc(8px + env(safe-area-inset-bottom)) !important;
-            background: transparent !important;
-          }
-
-          .mobile-chatbar {
-            min-height: 68px !important;
-            border-radius: 999px !important;
-            grid-template-columns: 48px 1fr 36px 54px !important;
-            padding: 7px !important;
-          }
-
-          .mobile-chatbar button:first-child {
-            width: 48px !important;
-            height: 48px !important;
-            border-radius: 999px !important;
-          }
-
-          .mobile-chatbar button:nth-of-type(2) {
-            width: 36px !important;
-            height: 36px !important;
-          }
-
-          .mobile-chatbar button:last-child {
-            width: 54px !important;
-            height: 54px !important;
-            border-radius: 999px !important;
-          }
-
-          .mobile-chatbar input {
-            font-size: 14px !important;
-          }
-        }
-
-        /* ACI_COLORS_BACKEND_IMAGE_FRAME_START */
-
-.safari-vehicle {
-  --car-frame-scale: 1;
-  --car-frame-x: 0%;
-  --car-frame-y: 7%;
-  --car-frame-origin: center bottom;
+    <div
+      className="aci-colors-root"
+      data-tool={TOOL_NAME}
+      data-color={getColorName(selectedColor)}
+    >
+      <style>{baseStyles}</style>
+
+      <DesktopScreen
+        colors={colors}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        vehicle={selectedVehicle}
+        onAction={onAction}
+      />
+
+      <MobileScreen
+        colors={colors}
+        selectedColor={selectedColor}
+        setSelectedColor={setSelectedColor}
+        vehicle={selectedVehicle}
+        data={data}
+        onAction={onAction}
+      />
+    </div>
+  );
 }
 
-.safari-vehicle-inner,
-.safari-stage {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  position: relative;
+const baseStyles = `
+  :root {
+    --aci-blue: #2563eb;
+    --aci-blue-dark: #1555ef;
+    --aci-ink: #07112e;
+    --aci-text: #334155;
+    --aci-muted: #738198;
+    --aci-line: #dbe6f4;
+    --aci-soft-line: rgba(219, 230, 244, .82);
+    --aci-surface: rgba(255, 255, 255, .94);
+    --aci-shadow: 0 24px 72px -58px rgba(15, 23, 42, .54);
+    --aci-shadow-strong: 0 34px 100px -72px rgba(15, 23, 42, .74);
+    --aci-serif: "New York", "Bodoni 72", "Playfair Display", Georgia, "Times New Roman", serif;
+    --aci-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  .aci-colors-root {
+    min-height: 100vh;
+    width: 100%;
+    color: var(--aci-ink);
+    font-family: var(--aci-sans);
+    background:
+      radial-gradient(circle at 72% -12%, rgba(37, 99, 235, .075), transparent 28%),
+      radial-gradient(circle at 10% 18%, rgba(219, 234, 254, .48), transparent 28%),
+      linear-gradient(180deg, #ffffff 0%, #fbfdff 52%, #f7fbff 100%);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .aci-colors-root button {
+    font: inherit;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .aci-colors-mobile {
+    display: none;
+  }
+
+  .aci-colors-desktop {
+    width: min(100%, 1536px);
+    min-height: 100vh;
+    margin: 0 auto;
+    padding: 46px 48px 110px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 310px;
+    gap: 34px;
+    align-items: start;
+  }
+
+  .aci-colors-main {
+    min-width: 0;
+  }
+
+  .aci-desktop-header {
+    min-height: 108px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 28px;
+    padding-bottom: 12px;
+  }
+
+  .aci-desktop-header h1 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #02081f;
+    font-family: var(--aci-serif);
+    font-size: clamp(52px, 4.7vw, 76px);
+    line-height: .86;
+    letter-spacing: -.075em;
+    font-weight: 620;
+    text-wrap: balance;
+  }
+
+  .aci-desktop-header h1 span {
+    width: 26px;
+    height: 26px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    color: #fff;
+    background: linear-gradient(135deg, #3b82f6, #1455ef);
+    box-shadow: 0 10px 22px -12px rgba(37, 99, 235, .7);
+  }
+
+  .aci-desktop-header p {
+    margin: 16px 0 0;
+    color: #526174;
+    font-size: 15px;
+    line-height: 1.35;
+    font-weight: 470;
+  }
+
+  .aci-change-model {
+    height: 44px;
+    margin-top: 10px;
+    padding: 0 18px;
+    border-radius: 15px;
+    border: 1px solid rgba(203, 213, 225, .88);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.9));
+    color: #445166;
+    display: inline-flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 13px;
+    font-weight: 720;
+    box-shadow:
+      0 18px 42px -34px rgba(15, 23, 42, .38),
+      inset 0 1px 0 #fff;
+  }
+
+    .aci-hero-stage {
+    position: relative;
+    min-height: 470px;
+    border-radius: 32px;
+    overflow: hidden;
+    border: 1px solid rgba(211, 224, 241, .88);
+    background:
+      radial-gradient(circle at 52% 38%, rgba(255,255,255,.98), transparent 33%),
+      radial-gradient(circle at 78% 24%, rgba(219,234,254,.52), transparent 34%),
+      radial-gradient(circle at 18% 22%, rgba(255,255,255,.98), transparent 32%),
+      linear-gradient(145deg, #ffffff 0%, #f7fbff 47%, #edf6ff 100%);
+    box-shadow:
+      0 36px 96px -72px rgba(15,23,42,.54),
+      inset 0 1px 0 rgba(255,255,255,.96);
+  }
+
+  .aci-hero-stage::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    background:
+      radial-gradient(ellipse at 50% 88%, rgba(15,23,42,.10), transparent 31%),
+      linear-gradient(120deg, rgba(255,255,255,.40), transparent 38%);
+  }
+
+  .aci-hero-stage::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background:
+      linear-gradient(118deg, transparent 0 7%, rgba(255,255,255,.62) 12%, transparent 25%),
+      linear-gradient(245deg, transparent 0 8%, rgba(255,255,255,.55) 14%, transparent 28%),
+      radial-gradient(ellipse at 8% 72%, rgba(219,234,254,.38), transparent 38%),
+      radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.34), transparent 36%);
+    opacity: .88;
+  }
+
+  .aci-stage-bg-ring {
+    position: absolute;
+    left: 10%;
+    right: 8%;
+    bottom: 12%;
+    height: 60%;
+    border-radius: 999px 999px 0 0;
+    background:
+      radial-gradient(ellipse at 50% 100%, rgba(255,255,255,.98), rgba(255,255,255,.68) 48%, transparent 72%);
+    opacity: .84;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .aci-stage-bg-ring::before,
+  .aci-stage-bg-ring::after {
+    content: "";
+    position: absolute;
+    inset: auto 6% 0;
+    height: 78%;
+    border-radius: 999px 999px 0 0;
+    border: 2px solid rgba(255,255,255,.76);
+    border-bottom: 0;
+    transform: translateY(25%);
+    opacity: .72;
+  }
+
+  .aci-stage-bg-ring::after {
+    inset: auto 18% 0;
+    opacity: .48;
+    transform: translateY(35%);
+  }
+
+  .aci-stage-plate {
+    position: absolute;
+    left: 19%;
+    right: 13%;
+    bottom: 40px;
+    height: 88px;
+    border-radius: 999px;
+    background:
+      radial-gradient(ellipse at 50% 18%, rgba(255,255,255,.99), rgba(238,246,255,.92) 50%, rgba(203,216,233,.46) 100%);
+    box-shadow:
+      0 24px 34px -28px rgba(15,23,42,.42),
+      inset 0 1px 0 rgba(255,255,255,.98),
+      inset 0 -12px 18px rgba(148,163,184,.13);
+    opacity: .72;
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  .aci-stage-pill {
+    position: absolute;
+    z-index: 8;
+    top: 26px;
+    left: 28px;
+    height: 42px;
+    padding: 0 16px 0 9px;
+    border-radius: 999px;
+    border: 1px solid rgba(216, 226, 240, .92);
+    background: rgba(255,255,255,.88);
+    backdrop-filter: blur(16px);
+    color: #0f172a;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    font-weight: 820;
+    box-shadow:
+      0 16px 36px -30px rgba(15,23,42,.42),
+      inset 0 1px 0 #fff;
+  }
+
+  .aci-color-car {
+    position: absolute;
+    z-index: 4;
+    left: 1.8%;
+    right: 1.8%;
+    top: 72px;
+    bottom: 20px;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    overflow: visible;
+  }
+
+  .aci-color-car-photo-window {
+    position: relative;
+    width: min(100%, 1060px);
+    height: min(100%, 390px);
+    aspect-ratio: 930 / 620;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    border-radius: 30px;
+    background:
+      radial-gradient(circle at 52% 48%, rgba(255,255,255,.98), transparent 36%),
+      linear-gradient(180deg, #ffffff 0%, #f8fbff 52%, #edf6ff 100%);
+    -webkit-mask-image:
+      linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
+      linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-image:
+      linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
+      linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
+    z-index: 4;
+  }
+
+  .aci-color-car-photo-window::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background:
+      linear-gradient(90deg, rgba(255,255,255,.76) 0%, rgba(255,255,255,0) 10%, rgba(255,255,255,0) 90%, rgba(255,255,255,.72) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,0) 24%, rgba(255,255,255,.18) 100%);
+  }
+
+  .aci-color-car-stage,
+  .aci-color-car-stage.aci-car-stage,
+  .aci-color-car .aci-car-stage,
+  .aci-color-car .aci-car-stage-inner,
+  .aci-color-car .aci-car-stage-shell {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    outline: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .aci-color-car-image {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+    user-select: none;
+    mix-blend-mode: normal !important;
+    filter: drop-shadow(0 30px 28px rgba(15,23,42,.18)) !important;
+    transform-origin: var(--aci-car-frame-origin, center center) !important;
+    transform:
+      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+      scale(var(--aci-car-frame-scale, 1.16)) !important;
+  }
+
+  .aci-color-car.is-cutout .aci-color-car-photo-window {
+    background: transparent;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+
+  .aci-color-car.is-cutout .aci-color-car-photo-window::before {
+    display: none;
+  }
+
+  .aci-color-car.is-cutout .aci-color-car-image {
+    width: min(96%, 980px) !important;
+    object-fit: contain !important;
+  }
+
+  .aci-color-swatches.desktop {
+    margin-top: 26px;
+  }
+
+  .aci-color-swatches h2 {
+    margin: 0 0 15px;
+    color: #0f172a;
+    font-size: 14px;
+    line-height: 1;
+    font-weight: 820;
+    letter-spacing: -.01em;
+  }
+
+  .aci-swatch-row {
+    display: grid;
+    grid-template-columns: repeat(9, minmax(78px, 1fr));
+    gap: 14px;
+    align-items: start;
+  }
+
+  .aci-swatch-row button,
+  .aci-mobile-swatch-grid button {
+    min-width: 0;
+    border: 0;
+    background: transparent;
+    padding: 4px 4px 0;
+    color: #475569;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .aci-swatch-row button span:not(.aci-color-orb),
+  .aci-mobile-swatch-grid button span:not(.aci-color-orb) {
+    max-width: 104px;
+    color: #475569;
+    text-align: center;
+    font-size: 12px;
+    line-height: 1.16;
+    font-weight: 620;
+  }
+
+  .aci-swatch-row button.active span:not(.aci-color-orb),
+  .aci-mobile-swatch-grid button.active span:not(.aci-color-orb) {
+    color: #08132f;
+    font-weight: 860;
+  }
+
+  .aci-color-orb {
+    position: relative;
+    flex: 0 0 auto;
+    border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.86);
+    box-shadow:
+      inset 0 8px 13px rgba(255,255,255,.30),
+      inset 0 -12px 20px rgba(15,23,42,.30),
+      0 18px 34px -25px rgba(15,23,42,.72);
+  }
+
+  .aci-color-orb.xs {
+    width: 22px;
+    height: 22px;
+  }
+
+  .aci-color-orb.md {
+    width: 44px;
+    height: 44px;
+  }
+
+  .aci-color-orb.lg {
+    width: 66px;
+    height: 66px;
+  }
+
+  .aci-color-orb.xl {
+    width: 70px;
+    height: 70px;
+  }
+
+  .aci-color-orb i {
+    position: absolute;
+    left: 18%;
+    top: 13%;
+    width: 28%;
+    height: 28%;
+    border-radius: 999px;
+    background: rgba(255,255,255,.78);
+    filter: blur(1.8px);
+  }
+
+  .aci-color-orb.is-selected {
+    box-shadow:
+      0 0 0 4px #fff,
+      0 0 0 6px var(--aci-blue),
+      inset 0 8px 16px rgba(255,255,255,.35),
+      inset 0 -13px 22px rgba(15,23,42,.24),
+      0 20px 44px -28px rgba(37,99,235,.8);
+  }
+
+  .aci-color-orb b {
+    position: absolute;
+    right: -7px;
+    bottom: -5px;
+    width: 24px;
+    height: 24px;
+    border-radius: 999px;
+    background: linear-gradient(135deg, #3b82f6, #1455ef);
+    color: #fff;
+    display: grid;
+    place-items: center;
+    border: 2px solid #fff;
+    box-shadow: 0 10px 18px -10px rgba(37,99,235,.7);
+  }
+
+  .aci-view-all-colors {
+    margin: 16px auto 0;
+    height: 38px;
+    border-radius: 999px;
+    border: 1px solid rgba(203, 213, 225, .9);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.94));
+    color: #334155;
+    font-size: 13px;
+    font-weight: 820;
+    align-items: center;
+    justify-content: center;
+    padding: 0 18px;
+    box-shadow:
+      0 16px 36px -30px rgba(15,23,42,.36),
+      inset 0 1px 0 #fff;
+  }
+
+  .aci-view-all-colors.desktop {
+    display: flex;
+  }
+
+  .aci-view-all-colors.mobile {
+    display: inline-flex;
+    width: fit-content;
+    min-width: 148px;
+  }
+
+  .aci-colors-rail {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding-top: 10px;
+  }
+
+  .aci-color-card {
+    border-radius: 24px;
+    border: 1px solid rgba(219, 230, 244, .88);
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.98), rgba(249,252,255,.94));
+    box-shadow:
+      0 28px 80px -64px rgba(15,23,42,.52),
+      inset 0 1px 0 rgba(255,255,255,.95);
+    padding: 18px;
+  }
+
+  .aci-card-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .aci-card-head h3 {
+    margin: 0;
+    color: #0f172a;
+    font-size: 15px;
+    line-height: 1;
+    font-weight: 860;
+    letter-spacing: -.01em;
+  }
+
+  .aci-card-head svg {
+    color: #557197;
+  }
+
+  .selected-color-layout {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 76px 1fr;
+    gap: 14px;
+    align-items: center;
+  }
+
+  .selected-color-layout strong {
+    display: block;
+    color: #08132f;
+    font-size: 19px;
+    line-height: 1.05;
+    letter-spacing: -.035em;
+    font-weight: 900;
+  }
+
+  .selected-color-layout p {
+    margin: 7px 0 0;
+    color: #617088;
+    font-size: 12px;
+    line-height: 1.38;
+    font-weight: 470;
+  }
+
+  .aci-primary-button {
+    width: 100%;
+    height: 43px;
+    margin-top: 18px;
+    border: 0;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    font-size: 13px;
+    font-weight: 850;
+    box-shadow: 0 18px 42px -30px rgba(37,99,235,.82);
+  }
+
+  .shades-card > strong {
+    display: block;
+    margin-top: 18px;
+    color: var(--aci-blue);
+    font-size: 47px;
+    line-height: .9;
+    letter-spacing: -.07em;
+    font-weight: 940;
+  }
+
+  .shades-card p {
+    margin: 14px 0 0;
+    color: #617088;
+    font-size: 12px;
+    line-height: 1.48;
+  }
+
+  .aci-ask-card {
+    padding-bottom: 14px;
+  }
+
+  .aci-ask-list {
+    margin-top: 14px;
+    display: grid;
+    gap: 9px;
+  }
+
+  .aci-color-ask-row {
+    width: 100%;
+    min-height: 58px;
+    border: 1px solid rgba(219, 230, 244, .88);
+    border-radius: 17px;
+    background: rgba(255,255,255,.86);
+    display: grid;
+    grid-template-columns: 36px 1fr auto;
+    align-items: center;
+    gap: 11px;
+    padding: 10px 12px;
+    color: #0f172a;
+    text-align: left;
+    box-shadow: 0 16px 38px -34px rgba(15,23,42,.42);
+  }
+
+  .aci-color-ask-row > span {
+    width: 36px;
+    height: 36px;
+    border-radius: 999px;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 30% 18%, #fff, rgba(219,234,254,.86));
+    box-shadow: inset 0 0 0 1px rgba(37,99,235,.1);
+    font-size: 15px;
+  }
+
+  .aci-color-ask-row strong {
+    display: block;
+    color: #111b36;
+    font-size: 12px;
+    line-height: 1.1;
+    font-weight: 840;
+  }
+
+  .aci-color-ask-row small {
+    display: block;
+    margin-top: 3px;
+    color: #718096;
+    font-size: 10.5px;
+    line-height: 1.2;
+    font-weight: 520;
+  }
+
+  .aci-color-ask-row svg {
+    color: #64748b;
+  }
+
+  .aci-desktop-chatbar-wrap {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    z-index: 80;
+    width: min(700px, calc(100vw - 56px));
+    transform: translateX(-50%);
+  }
+
+  .aci-desktop-chatbar-wrap .colors-composer-dock,
+  .aci-mobile-chatbar-wrap .mobile-chat-dock {
+    position: static !important;
+    transform: none !important;
+    width: 100% !important;
+    padding: 0 !important;
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+
+  .aci-desktop-chatbar-wrap .colors-composer,
+  .aci-mobile-chatbar-wrap .mobile-chatbar {
+    width: 100% !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(203, 213, 225, .88) !important;
+    background: rgba(255,255,255,.96) !important;
+    box-shadow:
+      0 22px 58px -42px rgba(15,23,42,.4),
+      inset 0 1px 0 rgba(255,255,255,1) !important;
+  }
+
+  .aci-colors-empty {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 28px;
+    text-align: center;
+  }
+
+  .aci-colors-empty h2 {
+    margin: 0;
+    color: #07112e;
+    font-family: var(--aci-serif);
+    font-size: 36px;
+    line-height: .96;
+    letter-spacing: -.05em;
+  }
+
+  .aci-colors-empty p {
+    width: min(520px, 100%);
+    margin: 14px auto 22px;
+    color: #64748b;
+    line-height: 1.5;
+  }
+
+  .aci-colors-empty button {
+    height: 44px;
+    border: 0;
+    border-radius: 999px;
+    padding: 0 18px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
+    font-weight: 800;
+  }
+
+  @media (max-width: 1180px) and (min-width: 901px) {
+    .aci-colors-desktop {
+      grid-template-columns: 1fr;
+      padding-inline: 34px;
+    }
+
+    .aci-colors-rail {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .aci-swatch-row {
+      grid-template-columns: repeat(6, minmax(78px, 1fr));
+    }
+  }
+
+  @media (max-width: 900px) {
+    .aci-colors-desktop {
+      display: none;
+    }
+
+    .aci-colors-mobile {
+      width: 100%;
+      max-width: 430px;
+      min-height: 100vh;
+      margin: 0 auto;
+      padding: 16px 14px calc(112px + env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .aci-mobile-topbar {
+      height: 54px;
+      display: grid;
+      grid-template-columns: 44px 1fr auto;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .aci-mobile-topbar button {
+      border: 0;
+      background: transparent;
+      color: #334155;
+      display: grid;
+      place-items: center;
+      padding: 0;
+    }
+
+    .aci-mobile-topbar > button:first-child {
+      justify-self: start;
+    }
+
+    .aci-mobile-topbar > div {
+      justify-self: end;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .aci-mobile-topbar > div button {
+      position: relative;
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+    }
+
+    .aci-mobile-topbar i {
+      position: absolute;
+      right: 6px;
+      top: 5px;
+      width: 7px;
+      height: 7px;
+      border-radius: 999px;
+      background: var(--aci-blue);
+      border: 2px solid #fff;
+    }
+
+    .aci-mobile-avatar {
+      border: 1px solid #dbe6f4 !important;
+      background: #fff !important;
+      overflow: hidden;
+    }
+
+    .aci-mobile-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+      display: block;
+    }
+
+    .aci-color-logo {
+      justify-self: center;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: #07112e;
+    }
+
+    .aci-color-logo strong {
+      color: var(--aci-blue);
+      font-size: 29px;
+      line-height: .85;
+      font-weight: 950;
+      letter-spacing: -3px;
+      transform: skewX(-8deg);
+    }
+
+    .aci-color-logo em {
+      color: #07112e;
+      font-size: 13px;
+      line-height: 1;
+      font-style: normal;
+      letter-spacing: 6px;
+      font-weight: 800;
+    }
+
+    .aci-mobile-title {
+      padding: 8px 2px 0;
+    }
+
+    .aci-mobile-title span {
+      display: block;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: .28em;
+      font-size: 11px;
+      font-weight: 860;
+    }
+
+    .aci-mobile-title h1 {
+      margin: 10px 0 6px;
+      color: #050b22;
+      font-family: var(--aci-serif);
+      font-size: 46px;
+      line-height: .88;
+      letter-spacing: -.075em;
+      font-weight: 620;
+      text-wrap: balance;
+    }
+
+    .aci-mobile-title p {
+      margin: 0;
+      color: #738198;
+      font-size: 22px;
+      line-height: 1.05;
+      font-weight: 460;
+    }
+
+    .aci-mobile-hero {
+      position: relative;
+      min-height: 408px;
+      border-radius: 29px;
+      overflow: hidden;
+      border: 1px solid rgba(211,224,241,.92);
+      background:
+        radial-gradient(circle at 54% 38%, rgba(255,255,255,.98), transparent 34%),
+        radial-gradient(circle at 78% 28%, rgba(219,234,254,.50), transparent 34%),
+        radial-gradient(circle at 18% 18%, rgba(255,255,255,.98), transparent 34%),
+        linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #edf6ff 100%);
+      box-shadow:
+        0 28px 78px -62px rgba(15,23,42,.58),
+        inset 0 1px 0 #fff;
+    }
+        .aci-mobile-hero::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      background:
+        linear-gradient(120deg, transparent 0 5%, rgba(255,255,255,.62) 12%, transparent 28%),
+        linear-gradient(242deg, transparent 0 7%, rgba(255,255,255,.56) 15%, transparent 30%),
+        radial-gradient(ellipse at 6% 72%, rgba(219,234,254,.34), transparent 38%),
+        radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.32), transparent 36%);
+      opacity: .88;
+    }
+
+
+
+    .aci-mobile-hero-copy {
+      position: relative;
+      z-index: 7;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 24px 22px 0;
+    }
+
+    .aci-mobile-hero-copy h2 {
+      margin: 0;
+      color: #07112e;
+      font-size: 22px;
+      line-height: 1.05;
+      letter-spacing: -.04em;
+      font-weight: 900;
+    }
+
+    .aci-mobile-hero-copy p {
+      margin: 5px 0 0;
+      color: #617088;
+      font-size: 14px;
+      font-weight: 660;
+    }
+
+    .aci-mobile-hero-copy > span {
+      height: 39px;
+      padding: 0 13px;
+      border-radius: 999px;
+      border: 1px solid rgba(219,230,244,.92);
+      background: rgba(255,255,255,.82);
+      backdrop-filter: blur(14px);
+      color: #445166;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 13px;
+      font-weight: 800;
+      white-space: nowrap;
+      box-shadow: inset 0 1px 0 #fff;
+    }
+
+    .aci-mobile-hero .aci-stage-bg-ring.mobile {
+      left: 8%;
+      right: 8%;
+      bottom: 20%;
+      height: 50%;
+    }
+
+    .aci-mobile-hero .aci-stage-plate.mobile {
+      left: 14%;
+      right: 12%;
+      bottom: 46px;
+      height: 64px;
+    }
+
+    .aci-color-car.mobile {
+      left: 0;
+      right: 0;
+      top: 102px;
+      bottom: 28px;
+      overflow: visible;
+    }
+
+    .aci-color-car.mobile .aci-color-car-photo-window {
+      width: 108%;
+      max-width: 108%;
+      height: min(100%, 278px);
+      border-radius: 24px;
+      aspect-ratio: 930 / 620;
+      -webkit-mask-image:
+        linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
+        linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
+      -webkit-mask-composite: source-in;
+      mask-image:
+        linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
+        linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
+    }
+
+    .aci-color-car.mobile .aci-color-car-image {
+      width: 100% !important;
+      max-width: 100% !important;
+      height: 100% !important;
+      max-height: 100% !important;
+      object-fit: contain !important;
+      object-position: center center !important;
+      mix-blend-mode: normal !important;
+      filter: drop-shadow(0 26px 22px rgba(15,23,42,.18)) !important;
+      transform:
+        translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+        scale(var(--aci-car-frame-scale, 1.14)) !important;
+    }
+
+    .aci-color-swatches.mobile {
+      margin-top: 2px;
+    }
+
+    .aci-color-swatches.mobile h2 {
+      margin: 0 0 14px;
+      font-size: 14px;
+    }
+
+    .aci-mobile-swatch-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 16px 10px;
+    }
+
+    .aci-mobile-swatch-grid button {
+      padding: 0;
+      gap: 9px;
+    }
+
+    .aci-mobile-swatch-grid .aci-color-orb.lg {
+      width: 58px;
+      height: 58px;
+    }
+
+    .aci-mobile-swatch-grid button span:not(.aci-color-orb) {
+      max-width: 82px;
+      min-height: 28px;
+      color: #526174;
+      font-size: 12px;
+      line-height: 1.15;
+      font-weight: 600;
+    }
+
+    .aci-view-all-colors.mobile {
+      margin-top: 14px;
+    }
+
+    .aci-mobile-selected-card {
+      min-height: 96px;
+      border-radius: 24px;
+      border: 1px solid rgba(219,230,244,.9);
+      background:
+        linear-gradient(180deg, rgba(255,255,255,.98), rgba(249,252,255,.94));
+      box-shadow:
+        0 24px 70px -58px rgba(15,23,42,.6),
+        inset 0 1px 0 #fff;
+      padding: 14px;
+      display: grid;
+      grid-template-columns: 58px 1fr auto;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .aci-mobile-selected-card .aci-color-orb.lg {
+      width: 54px;
+      height: 54px;
+    }
+
+    .aci-mobile-selected-card strong {
+      display: block;
+      color: #07112e;
+      font-size: 16px;
+      line-height: 1.12;
+      letter-spacing: -.025em;
+      font-weight: 900;
+    }
+
+    .aci-mobile-selected-card p {
+      margin: 4px 0 0;
+      color: #617088;
+      font-size: 12px;
+      line-height: 1.25;
+      font-weight: 500;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .aci-mobile-selected-card button {
+      height: 46px;
+      min-width: 112px;
+      border: 0;
+      border-radius: 16px;
+      padding: 0 14px;
+      background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
+      color: #fff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 900;
+      box-shadow: 0 18px 42px -30px rgba(37,99,235,.82);
+    }
+
+    .aci-mobile-chatbar-wrap {
+      position: fixed;
+      left: 14px;
+      right: 14px;
+      bottom: calc(10px + env(safe-area-inset-bottom));
+      z-index: 100;
+      max-width: 402px;
+      margin: 0 auto;
+    }
+
+    .aci-mobile-chatbar-wrap .mobile-chatbar {
+      min-height: 68px !important;
+      grid-template-columns: 48px 1fr 36px 54px !important;
+      padding: 7px !important;
+    }
+
+    .aci-mobile-chatbar-wrap .mobile-chatbar button:first-child,
+    .aci-mobile-chatbar-wrap .mobile-chatbar button:last-child {
+      border-radius: 999px !important;
+    }
+
+    .aci-mobile-chatbar-wrap .mobile-chatbar button:first-child {
+      width: 48px !important;
+      height: 48px !important;
+      background: #f6f9ff !important;
+    }
+
+    .aci-mobile-chatbar-wrap .mobile-chatbar button:last-child {
+      width: 54px !important;
+      height: 54px !important;
+      background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark)) !important;
+      box-shadow: 0 16px 32px -22px rgba(37,99,235,.65) !important;
+    }
+
+    .aci-mobile-chatbar-wrap .mobile-chatbar input {
+      font-size: 14px !important;
+    }
+
+    .aci-ask-card {
+      border-radius: 24px;
+      padding: 16px;
+    }
+  }
+
+  @media (max-width: 390px) {
+    .aci-colors-mobile {
+      padding-inline: 12px;
+    }
+
+    .aci-mobile-title h1 {
+      font-size: 39px;
+    }
+
+        .aci-mobile-hero {
+      min-height: 382px;
+    }
+
+    .aci-color-car.mobile {
+      top: 100px;
+      bottom: 30px;
+    }
+
+    .aci-color-car.mobile .aci-color-car-photo-window {
+      height: min(100%, 252px);
+    }
+
+    .aci-mobile-swatch-grid {
+      gap: 14px 8px;
+    }
+
+    .aci-mobile-swatch-grid .aci-color-orb.lg {
+      width: 54px;
+      height: 54px;
+    }
+
+    .aci-mobile-selected-card {
+      grid-template-columns: 54px 1fr;
+    }
+
+    .aci-mobile-selected-card button {
+      grid-column: 1 / -1;
+      width: 100%;
+      margin-top: 2px;
+    }
+  }
+
+  /* ACI_COLORS_PREMIUM_STAGE_FINAL_FIX_START */
+
+.aci-desktop-header {
+  min-height: 88px !important;
+  padding-bottom: 8px !important;
 }
 
-.safari-stage-image {
-  display: block;
-  width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  object-position: center bottom;
-  user-select: none;
-  mix-blend-mode: normal;
-  filter: drop-shadow(0 24px 24px rgba(15,23,42,.2));
-  transform-origin: var(--car-frame-origin);
-  transform: translate(var(--car-frame-x), var(--car-frame-y)) scale(var(--car-frame-scale));
+.aci-desktop-header h1 {
+  font-family: var(--aci-serif) !important;
+  font-size: clamp(44px, 4vw, 62px) !important;
+  line-height: .88 !important;
+  letter-spacing: -.065em !important;
+  font-weight: 560 !important;
 }
 
-.safari-vehicle.desktop .safari-stage-image {
-  max-height: 340px;
+.aci-desktop-header p {
+  margin-top: 12px !important;
+  font-size: 14px !important;
 }
 
-.safari-vehicle.mobile .safari-stage-image {
-  max-height: 232px;
+.aci-change-model {
+  height: 40px !important;
+  font-size: 12.5px !important;
+  font-weight: 650 !important;
 }
 
-.selected-color-summary {
-  margin-top: 16px;
-  min-height: 86px;
-  border-radius: 18px;
-  padding: 14px;
+.aci-hero-stage {
+  min-height: 420px !important;
+  border-radius: 30px !important;
   background:
-    radial-gradient(circle at 20% 20%, rgba(255,255,255,.78), transparent 28%),
-    linear-gradient(135deg, var(--paint), var(--deep));
-  display: flex;
-  align-items: center;
-  gap: 13px;
-  color: #fff;
+    radial-gradient(circle at 52% 38%, rgba(255,255,255,.98), transparent 33%),
+    radial-gradient(circle at 78% 25%, rgba(219,234,254,.48), transparent 34%),
+    radial-gradient(circle at 18% 22%, rgba(255,255,255,.98), transparent 32%),
+    linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #edf6ff 100%) !important;
 }
 
-.selected-color-summary .color-orb {
-  width: 52px;
-  height: 52px;
-  border: 2px solid rgba(255,255,255,.72);
-}
-
-.selected-color-summary .color-orb b {
-  display: none;
-}
-
-.selected-color-summary strong {
-  display: block;
-  font-size: 15px;
-  line-height: 1.1;
-  font-weight: 760;
-}
-
-.selected-color-summary span {
-  display: block;
-  margin-top: 5px;
-  font-size: 11px;
+.aci-hero-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background:
+    linear-gradient(118deg, transparent 0 7%, rgba(255,255,255,.58) 13%, transparent 26%),
+    linear-gradient(245deg, transparent 0 8%, rgba(255,255,255,.52) 15%, transparent 29%),
+    radial-gradient(ellipse at 5% 72%, rgba(219,234,254,.32), transparent 38%),
+    radial-gradient(ellipse at 96% 72%, rgba(219,234,254,.30), transparent 36%);
   opacity: .9;
 }
 
-.selected-color-card p,
-.available-shades-card p {
-  margin: 14px 0 0;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.52;
+.aci-stage-bg-ring {
+  left: 8% !important;
+  right: 8% !important;
+  bottom: 10% !important;
+  height: 62% !important;
+  opacity: .78 !important;
 }
 
-.primary-rail-button {
-  width: 100%;
-  height: 40px;
-  margin-top: 16px;
-  border: 0;
-  border-radius: 12px;
-  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 760;
+.aci-stage-plate {
+  left: 20% !important;
+  right: 14% !important;
+  bottom: 35px !important;
+  height: 82px !important;
+  opacity: .62 !important;
 }
 
-.available-shades-card > strong {
-  display: block;
-  margin-top: 14px;
-  color: var(--blue);
-  font-size: 42px;
-  line-height: .9;
-  letter-spacing: -.06em;
-  font-weight: 850;
+.aci-color-car {
+  top: 42px !important;
+  bottom: 10px !important;
+  left: 1.5% !important;
+  right: 1.5% !important;
+  overflow: visible !important;
 }
 
-/* ACI_COLORS_BACKEND_IMAGE_FRAME_END */
-
-/* ACI_COLORS_ELEGANT_STUDIO_V2_START */
-
-.desktop-gallery-card {
-  border-radius: 30px !important;
-  border: 1px solid rgba(202, 213, 229, .92) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.92)) !important;
-  box-shadow:
-    0 30px 90px -68px rgba(15,23,42,.7),
-    inset 0 1px 0 rgba(255,255,255,.95) !important;
-}
-
-.desktop-stage {
-  min-height: 470px !important;
-  border-radius: 30px !important;
-  background:
-    radial-gradient(circle at 16% 18%, rgba(255,255,255,.98), transparent 30%),
-    radial-gradient(circle at 78% 28%, rgba(191,219,254,.82), transparent 28%),
-    linear-gradient(135deg,#f7fbff 0%,#eef6ff 45%,#ffffff 100%) !important;
-}
-
-.desktop-stage::before {
-  content: "";
-  position: absolute;
-  left: 18%;
-  right: 18%;
-  bottom: 48px;
-  height: 58px;
-  border-radius: 999px;
-  background:
-    radial-gradient(ellipse at center, rgba(15,23,42,.22), transparent 66%);
-  filter: blur(18px);
-  opacity: .72;
-  pointer-events: none;
-  z-index: 1;
-}
-
-.desktop-stage::after {
-  background:
-    linear-gradient(150deg, rgba(255,255,255,.34), transparent 38%),
-    radial-gradient(circle at 50% 90%, rgba(37,99,235,.08), transparent 34%) !important;
-}
-
-.stage-lines,
-.mobile-card-lines {
-  opacity: .5 !important;
-  background:
-    repeating-radial-gradient(
-      ellipse at 78% 36%,
-      rgba(255,255,255,.44) 0,
-      rgba(255,255,255,.44) 1px,
-      transparent 2px,
-      transparent 26px
-    ) !important;
-}
-
-.stage-pill {
-  top: 24px !important;
-  left: 24px !important;
-  min-width: 172px;
-  height: 42px !important;
-  padding: 0 15px 0 10px !important;
-  border: 1px solid rgba(219,227,239,.95);
-  border-radius: 999px !important;
-  background: rgba(255,255,255,.88) !important;
-  backdrop-filter: blur(16px);
-  font-weight: 760 !important;
-  letter-spacing: -.01em;
-}
-
-.desktop-gallery-angle {
-  width: min(900px, 96%) !important;
-  transform: translateY(20px);
-}
-
-.safari-stage-image {
-  filter: drop-shadow(0 28px 26px rgba(15,23,42,.2)) !important;
-  mix-blend-mode: normal !important;
-}
-
-.available-colors {
-  margin-top: 2px;
-}
-
-.available-colors h2 {
-  font-size: 14px !important;
-  letter-spacing: .01em;
-}
-
-.available-grid {
-  gap: 14px !important;
-}
-
-.available-grid button {
-  min-height: 128px !important;
-  border-radius: 22px !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.9)) !important;
-  box-shadow:
-    0 22px 64px -54px rgba(15,23,42,.55),
-    inset 0 1px 0 rgba(255,255,255,.95) !important;
-}
-
-.available-grid button span {
-  max-width: 110px;
-  line-height: 1.18;
-  text-align: center;
-  color: #334155;
-  font-weight: 680;
-}
-
-.available-grid button.active {
-  border-color: rgba(37,99,235,.72) !important;
-  background:
-    radial-gradient(circle at 50% 0%, rgba(37,99,235,.08), transparent 40%),
-    linear-gradient(180deg, #ffffff, #f7fbff) !important;
-  box-shadow:
-    0 0 0 4px rgba(37,99,235,.08),
-    0 26px 70px -54px rgba(37,99,235,.75),
-    inset 0 1px 0 #fff !important;
-}
-
-.rail-card.elegant,
-.rail-card {
-  border-radius: 24px !important;
-  border: 1px solid rgba(219,227,239,.95) !important;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.93)) !important;
-  box-shadow:
-    0 28px 78px -62px rgba(15,23,42,.58),
-    inset 0 1px 0 rgba(255,255,255,.95) !important;
-}
-
-.selected-color-premium {
-  margin-top: 16px;
-  min-height: 92px;
-  border-radius: 22px;
-  padding: 14px;
-  display: grid;
-  grid-template-columns: 58px 1fr;
-  align-items: center;
-  gap: 13px;
-  background:
-    radial-gradient(circle at 18% 16%, rgba(255,255,255,.82), transparent 26%),
-    linear-gradient(135deg, var(--paint), var(--deep));
-  color: #fff;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.4),
-    0 22px 52px -42px rgba(15,23,42,.8);
-}
-
-.selected-color-premium .color-orb {
-  width: 54px;
-  height: 54px;
-  border: 2px solid rgba(255,255,255,.74);
-}
-
-.selected-color-premium .color-orb b,
-.selected-color-premium .color-orb i {
-  display: none;
-}
-
-.selected-color-premium span {
-  display: block;
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: .12em;
-  opacity: .84;
-  font-weight: 760;
-}
-
-.selected-color-premium strong {
-  display: block;
-  margin-top: 5px;
-  font-size: 17px;
-  line-height: 1.05;
-  font-weight: 850;
-  letter-spacing: -.03em;
-}
-
-.selected-color-premium em {
-  display: block;
-  margin-top: 5px;
-  font-size: 11px;
-  opacity: .86;
-  font-style: normal;
-}
-
-.selected-color-card p,
-.available-shades-card p {
-  margin: 14px 0 0;
-  color: #64748b;
-  font-size: 12px;
-  line-height: 1.52;
-}
-
-.primary-rail-button {
-  width: 100%;
-  height: 42px;
-  margin-top: 16px;
-  border: 0;
-  border-radius: 14px;
-  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 18px 42px -30px rgba(37,99,235,.85);
-}
-
-.available-shades-card > strong {
-  display: block;
-  margin-top: 13px;
-  color: var(--blue);
-  font-size: 44px;
-  line-height: .9;
-  letter-spacing: -.06em;
-  font-weight: 900;
-}
-
-.color-journey-rail {
-  padding-bottom: 16px;
-}
-
-.color-journey-list {
-  margin-top: 14px;
-  display: grid;
-  gap: 9px;
-}
-
-.color-journey-card {
-  width: 100%;
-  min-height: 58px;
-  border: 1px solid rgba(219,227,239,.95);
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.92));
-  display: grid;
-  grid-template-columns: 34px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  color: #0f172a;
-  text-align: left;
-  box-shadow: 0 18px 42px -36px rgba(15,23,42,.42);
-}
-
-.color-journey-card > span {
-  width: 34px;
-  height: 34px;
-  border-radius: 999px;
+.aci-color-car-photo-window {
+  position: relative;
+  width: min(100%, 1080px);
+  height: min(100%, 390px);
+  aspect-ratio: 930 / 620;
   display: grid;
   place-items: center;
-  background:
-    radial-gradient(circle at 30% 20%, #fff, rgba(219,234,254,.9));
-  color: var(--blue);
-  font-size: 15px;
-  font-weight: 850;
-  box-shadow: inset 0 0 0 1px rgba(37,99,235,.12);
-}
-
-.color-journey-card strong {
-  display: block;
-  font-size: 12.5px;
-  line-height: 1.1;
-  font-weight: 780;
-  color: #0f172a;
-}
-
-.color-journey-card em {
-  display: block;
-  margin-top: 3px;
-  font-size: 10.5px;
-  line-height: 1.2;
-  color: #64748b;
-  font-style: normal;
-}
-
-.color-journey-card svg {
-  color: #94a3b8;
-}
-
-/* Mobile polish */
-
-.mobile-price.color-mode {
-  align-items: flex-start !important;
-  flex-direction: column;
-  gap: 2px !important;
-}
-
-.mobile-price.color-mode strong {
-  font-size: 20px !important;
-  line-height: 1.08;
-  letter-spacing: -.035em;
-  color: #0f172a;
-}
-
-.mobile-price.color-mode span {
-  color: #64748b;
-  font-size: 12px;
-  font-weight: 680;
-}
-
-.mobile-car-card {
-  border-radius: 30px !important;
   overflow: hidden;
+  border-radius: 28px;
   background:
-    radial-gradient(circle at 18% 24%, rgba(255,255,255,.98), transparent 30%),
-    radial-gradient(circle at 82% 32%, rgba(191,219,254,.78), transparent 28%),
-    linear-gradient(135deg,#f7fbff 0%,#edf6ff 48%,#ffffff 100%) !important;
+    radial-gradient(circle at 52% 46%, rgba(255,255,255,.98), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #f9fcff 52%, #edf6ff 100%);
+  z-index: 4;
 }
 
-.mobile-car-card::before {
+.aci-color-car-photo-window::before {
   content: "";
   position: absolute;
-  left: 18%;
-  right: 18%;
-  bottom: 58px;
-  height: 42px;
-  border-radius: 999px;
-  background: radial-gradient(ellipse at center, rgba(15,23,42,.22), transparent 66%);
-  filter: blur(15px);
-  opacity: .68;
+  inset: 0;
+  z-index: 3;
   pointer-events: none;
-}
-
-.mobile-selected-color-info.premium {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  gap: 14px;
-  border-radius: 24px !important;
-  padding: 17px 17px !important;
   background:
-    linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.94)) !important;
-  box-shadow:
-    0 24px 70px -58px rgba(15,23,42,.6),
-    inset 0 1px 0 #fff !important;
+    linear-gradient(90deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,0) 8%, rgba(255,255,255,0) 92%, rgba(255,255,255,.78) 100%),
+    linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,.18) 100%);
 }
 
-.mobile-selected-color-info.premium button {
-  height: 40px;
-  border: 0;
+.aci-color-car-photo-window::after {
+  content: "";
+  position: absolute;
+  left: 11%;
+  right: 11%;
+  bottom: 6%;
+  height: 13%;
   border-radius: 999px;
-  padding: 0 16px;
-  background: linear-gradient(135deg, var(--blue), var(--blue-dark));
-  color: white;
-  font-size: 12px;
-  font-weight: 850;
-  box-shadow: 0 18px 42px -30px rgba(37,99,235,.86);
+  z-index: 2;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center, rgba(15,23,42,.13), transparent 68%);
+  filter: blur(12px);
 }
 
-/* ACI_COLORS_ELEGANT_STUDIO_V2_END */
-
-/* ACI_COLORS_FINAL_POLISH_FIX_START */
-
-/* Remove the visible CarImageStage box. Let the car sit directly on the hero stage. */
-.safari-vehicle,
-.safari-vehicle-inner,
-.safari-stage,
-.safari-stage.aci-car-stage,
-.safari-vehicle .aci-car-stage,
-.safari-vehicle .aci-car-stage-inner,
-.safari-vehicle .aci-car-stage-shell {
+.aci-color-car-stage,
+.aci-color-car-stage.aci-car-stage,
+.aci-color-car .aci-car-stage,
+.aci-color-car .aci-car-stage-inner,
+.aci-color-car .aci-car-stage-shell {
   width: 100% !important;
   height: 100% !important;
   min-height: 0 !important;
@@ -3257,132 +2607,198 @@ export default function AciAssistColorsScreen({
   background: transparent !important;
   box-shadow: none !important;
   overflow: visible !important;
-}
-
-.desktop-gallery-card {
-  border: 0 !important;
-  box-shadow: none !important;
-  background: transparent !important;
-}
-
-.desktop-stage {
-  position: relative !important;
-  overflow: hidden !important;
-  border: 1px solid rgba(219, 227, 239, 0.95) !important;
-  box-shadow:
-    0 30px 90px -68px rgba(15, 23, 42, 0.68),
-    inset 0 1px 0 rgba(255, 255, 255, 0.95) !important;
-}
-
-.desktop-gallery-angle {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 20px !important;
-  z-index: 2 !important;
-  width: 100% !important;
-  height: 74% !important;
   display: grid !important;
-  place-items: end center !important;
-  pointer-events: none !important;
+  place-items: center !important;
 }
 
-.safari-stage-image {
-  width: min(92%, 860px) !important;
+.aci-color-car-image {
+  display: block;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
   max-height: 100% !important;
   object-fit: contain !important;
-  object-position: center bottom !important;
-  filter: drop-shadow(0 30px 26px rgba(15, 23, 42, 0.22)) !important;
-  transform-origin: var(--car-frame-origin, center bottom) !important;
+  object-position: center center !important;
+  user-select: none;
+  mix-blend-mode: normal !important;
+  filter: drop-shadow(0 30px 28px rgba(15,23,42,.17)) !important;
+  transform-origin: var(--aci-car-frame-origin, center center) !important;
   transform:
-    translate(var(--car-frame-x, 0%), var(--car-frame-y, 7%))
-    scale(var(--car-frame-scale, 1)) !important;
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
+    scale(var(--aci-car-frame-scale, 1.42)) !important;
 }
 
-/* Make laptop color choices float like mobile, no card borders. */
-.available-colors {
-  margin-top: 20px !important;
+.aci-color-car.is-stage-photo .aci-color-car-image {
+  object-fit: contain !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
+    scale(var(--aci-car-frame-scale, 1.42)) !important;
 }
 
-.available-grid {
-  gap: 16px !important;
-  align-items: start !important;
-}
-
-.available-grid button {
-  min-height: auto !important;
-  padding: 6px 8px 8px !important;
-  border: 0 !important;
+.aci-color-car.is-cutout .aci-color-car-photo-window {
   background: transparent !important;
-  box-shadow: none !important;
 }
 
-.available-grid button:hover {
-  background: transparent !important;
-  box-shadow: none !important;
+.aci-color-car.is-cutout .aci-color-car-photo-window::before,
+.aci-color-car.is-cutout .aci-color-car-photo-window::after {
+  display: none !important;
 }
 
-.available-grid button.active {
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
+.aci-color-car.is-cutout .aci-color-car-image {
+  width: min(96%, 980px) !important;
+  object-fit: contain !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+    scale(var(--aci-car-frame-scale, 1.08)) !important;
 }
 
-.available-grid button .color-orb {
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.66),
-    0 14px 30px -24px rgba(15,23,42,.7) !important;
+.aci-swatch-row button span:not(.aci-color-orb),
+.aci-mobile-swatch-grid button span:not(.aci-color-orb) {
+  font-size: 11.2px !important;
+  font-weight: 560 !important;
+  line-height: 1.14 !important;
 }
 
-.available-grid button.active .color-orb {
-  box-shadow:
-    0 0 0 5px rgba(37,99,235,.12),
-    0 0 0 1px rgba(37,99,235,.28),
-    0 18px 38px -24px rgba(37,99,235,.9) !important;
+.aci-swatch-row button.active span:not(.aci-color-orb),
+.aci-mobile-swatch-grid button.active span:not(.aci-color-orb) {
+  font-weight: 760 !important;
 }
 
-.available-grid button span {
-  margin-top: 9px !important;
-  max-width: 112px !important;
-  text-align: center !important;
-  color: #334155 !important;
+.aci-color-card {
+  padding: 16px !important;
+}
+
+.aci-card-head h3 {
+  font-size: 13.5px !important;
+  font-weight: 760 !important;
+}
+
+.selected-color-layout strong {
+  font-size: 17px !important;
+  font-weight: 820 !important;
+}
+
+.selected-color-layout p,
+.shades-card p {
+  font-size: 11.2px !important;
+}
+
+.aci-color-ask-row strong {
   font-size: 11.5px !important;
-  line-height: 1.18 !important;
-  font-weight: 720 !important;
+  font-weight: 760 !important;
 }
 
-/* Selected color card text visibility */
-.selected-color-premium strong {
-  color: #fff !important;
-  text-shadow: 0 1px 16px rgba(15,23,42,.24);
+.aci-color-ask-row small {
+  font-size: 10px !important;
 }
 
-.selected-color-premium span,
-.selected-color-premium em {
-  color: rgba(255,255,255,.88) !important;
+@media (max-width: 900px) {
+  .aci-mobile-title h1 {
+    font-family: var(--aci-serif) !important;
+    font-size: 40px !important;
+    line-height: .9 !important;
+    letter-spacing: -.065em !important;
+    font-weight: 560 !important;
+  }
+
+  .aci-mobile-title p {
+    font-size: 19px !important;
+  }
+
+  .aci-mobile-hero {
+    min-height: 418px !important;
+    border-radius: 28px !important;
+    background:
+      radial-gradient(circle at 54% 38%, rgba(255,255,255,.98), transparent 34%),
+      radial-gradient(circle at 78% 28%, rgba(219,234,254,.46), transparent 34%),
+      radial-gradient(circle at 18% 18%, rgba(255,255,255,.98), transparent 34%),
+      linear-gradient(145deg, #ffffff 0%, #f9fcff 48%, #eef7ff 100%) !important;
+  }
+
+  .aci-mobile-hero::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 3;
+    pointer-events: none;
+    background:
+      linear-gradient(120deg, transparent 0 5%, rgba(255,255,255,.60) 12%, transparent 28%),
+      linear-gradient(242deg, transparent 0 7%, rgba(255,255,255,.54) 15%, transparent 30%),
+      radial-gradient(ellipse at 6% 72%, rgba(219,234,254,.30), transparent 38%),
+      radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.30), transparent 36%);
+    opacity: .9;
+  }
+
+  .aci-color-car.mobile {
+    top: 90px !important;
+    bottom: 18px !important;
+    left: -5% !important;
+    right: -5% !important;
+    overflow: visible !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    width: 120% !important;
+    max-width: 120% !important;
+    height: min(100%, 306px) !important;
+    border-radius: 24px !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-image {
+    object-fit: contain !important;
+    object-position: center center !important;
+    mix-blend-mode: normal !important;
+    filter: drop-shadow(0 26px 22px rgba(15,23,42,.16)) !important;
+    transform:
+      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
+      scale(var(--aci-car-frame-scale, 1.48)) !important;
+  }
+
+  .aci-color-car.mobile.is-stage-photo .aci-color-car-image {
+    transform:
+      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
+      scale(var(--aci-car-frame-scale, 1.48)) !important;
+  }
+
+  .aci-mobile-hero-copy h2 {
+    font-size: 20px !important;
+    font-weight: 800 !important;
+  }
+
+  .aci-mobile-hero-copy p {
+    font-size: 13px !important;
+  }
+
+  .aci-mobile-swatch-grid .aci-color-orb.lg {
+    width: 54px !important;
+    height: 54px !important;
+  }
 }
 
-/* ACI_COLORS_FINAL_POLISH_FIX_END */
+@media (max-width: 390px) {
+  .aci-mobile-title h1 {
+    font-size: 37px !important;
+  }
 
-      `}</style>
+  .aci-mobile-hero {
+    min-height: 390px !important;
+  }
 
-      <DesktopColorsPage
-        colors={colors}
-        selectedColor={selectedColor}
-        setSelectedColor={setSelectedColor}
-        vehicle={activeVehicle}
-        data={data}
-        onAction={onAction}
-      />
+  .aci-color-car.mobile {
+    top: 88px !important;
+    bottom: 20px !important;
+  }
 
-      <MobileColorsPage
-        colors={colors}
-        selectedColor={selectedColor}
-        setSelectedColor={setSelectedColor}
-        vehicle={activeVehicle}
-        data={data}
-        onAction={onAction}
-      />
-    </div>
-  );
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    height: min(100%, 278px) !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-image {
+    transform:
+      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
+      scale(var(--aci-car-frame-scale, 1.44)) !important;
+  }
 }
+
+/* ACI_COLORS_PREMIUM_STAGE_FINAL_FIX_END */
+`;
