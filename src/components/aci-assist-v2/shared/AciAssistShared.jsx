@@ -169,8 +169,15 @@ const ACI_PREMIUM_ORB_CSS = `
 }
 
 .aci-ref-orb__star {
-  transform-origin: 500px 415px;
-  animation: aciRefStar 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center center;
+  animation: aciRefStarPulse 1.85s ease-in-out infinite;
+}
+
+.aci-ref-orb__eyes {
+  transform-box: fill-box;
+  transform-origin: 50% 78%;
+  animation: aciRefEyesTripleBlinkLoop 5.6s ease-in-out infinite;
 }
 
 .aci-ref-orb__floor {
@@ -223,6 +230,94 @@ const ACI_PREMIUM_ORB_CSS = `
   50% {
     transform: scale(1.1);
     opacity: 1;
+  }
+}
+
+@keyframes aciRefEyesTripleBlinkLoop {
+  0%,
+  52% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  /* blink 1 */
+  56% {
+    transform: scaleY(0.08);
+    opacity: 0.42;
+  }
+
+  60% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  /* blink 2 */
+  66% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  69% {
+    transform: scaleY(0.08);
+    opacity: 0.42;
+  }
+
+  73% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  /* blink 3 */
+  79% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+
+  82% {
+    transform: scaleY(0.08);
+    opacity: 0.42;
+  }
+
+  87%,
+  100% {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+@keyframes aciRefStarPulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.78;
+  }
+
+  38% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+
+  58% {
+    transform: scale(1.04);
+    opacity: 0.94;
+  }
+}
+
+@keyframes aciRefStarPulse {
+  0%,
+  100% {
+    transform: scale(0.9);
+    opacity: 0.78;
+  }
+
+  38% {
+    transform: scale(1.22);
+    opacity: 1;
+  }
+
+  58% {
+    transform: scale(1.04);
+    opacity: 0.94;
   }
 }
 
@@ -377,12 +472,47 @@ export function AciPremiumOrb({
               <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
             </linearGradient>
 
-            <radialGradient id={`coreFill-${uid}`} cx="48%" cy="44%" r="58%">
-              <stop offset="0%" stopColor="#0b2059" />
-              <stop offset="36%" stopColor="#071944" />
-              <stop offset="65%" stopColor="#03102d" />
-              <stop offset="100%" stopColor="#01040d" />
+            <radialGradient id={`coreFill-${uid}`} cx="50%" cy="42%" r="62%">
+              <stop offset="0%" stopColor="#09205a" />
+              <stop offset="28%" stopColor="#061844" />
+              <stop offset="55%" stopColor="#031032" />
+              <stop offset="78%" stopColor="#01091f" />
+              <stop offset="100%" stopColor="#00030a" />
             </radialGradient>
+
+            <radialGradient
+              id={`coreDeepShade-${uid}`}
+              cx="72%"
+              cy="44%"
+              r="58%"
+            >
+              <stop offset="0%" stopColor="#00184b" stopOpacity=".42" />
+              <stop offset="45%" stopColor="#000b26" stopOpacity=".48" />
+              <stop offset="100%" stopColor="#00030a" stopOpacity=".92" />
+            </radialGradient>
+
+            <radialGradient
+              id={`coreBottomBlue-${uid}`}
+              cx="50%"
+              cy="88%"
+              r="50%"
+            >
+              <stop offset="0%" stopColor="#136fff" stopOpacity=".34" />
+              <stop offset="38%" stopColor="#063a9c" stopOpacity=".18" />
+              <stop offset="100%" stopColor="#001033" stopOpacity="0" />
+            </radialGradient>
+
+            <linearGradient
+              id={`coreSideShade-${uid}`}
+              x1="18%"
+              y1="12%"
+              x2="86%"
+              y2="92%"
+            >
+              <stop offset="0%" stopColor="#173a7a" stopOpacity=".16" />
+              <stop offset="42%" stopColor="#061638" stopOpacity=".12" />
+              <stop offset="100%" stopColor="#00030a" stopOpacity=".78" />
+            </linearGradient>
 
             <radialGradient id={`coreBlue-${uid}`} cx="48%" cy="78%" r="54%">
               <stop offset="0%" stopColor="#1b5fd6" stopOpacity=".22" />
@@ -410,10 +540,10 @@ export function AciPremiumOrb({
               x2="100%"
               y2="100%"
             >
-              <stop offset="0%" stopColor="#d9ffff" />
-              <stop offset="34%" stopColor="#82e8ff" />
-              <stop offset="68%" stopColor="#278aff" />
-              <stop offset="100%" stopColor="#155dff" />
+              <stop offset="0%" stopColor="#9ff6ff" />
+              <stop offset="30%" stopColor="#54cfff" />
+              <stop offset="68%" stopColor="#126dff" />
+              <stop offset="100%" stopColor="#003fd6" />
             </linearGradient>
 
             <linearGradient
@@ -459,7 +589,7 @@ export function AciPremiumOrb({
               width="340%"
               height="340%"
             >
-              <feGaussianBlur stdDeviation="3.6 0.9" result="blur" />
+              <feGaussianBlur stdDeviation="3.1 0.28" result="blur" />
               <feColorMatrix
                 in="blur"
                 type="matrix"
@@ -467,7 +597,7 @@ export function AciPremiumOrb({
                   0 0 0 0 0.08
                   0 0 0 0 0.55
                   0 0 0 0 1
-                  0 0 0 .95 0"
+                  0 0 0 .72 0"
                 result="blueBlur"
               />
               <feMerge>
@@ -696,8 +826,8 @@ export function AciPremiumOrb({
               cy="325"
               r="198"
               fill={`url(#coreFill-${uid})`}
-              stroke="#4a91ff"
-              strokeOpacity=".55"
+              stroke="#2d6fe8"
+              strokeOpacity=".5"
               strokeWidth="2.2"
             />
 
@@ -705,8 +835,24 @@ export function AciPremiumOrb({
               cx="500"
               cy="325"
               r="198"
-              fill={`url(#coreBlue-${uid})`}
-              opacity=".45"
+              fill={`url(#coreDeepShade-${uid})`}
+              opacity=".86"
+            />
+
+            <circle
+              cx="500"
+              cy="325"
+              r="198"
+              fill={`url(#coreSideShade-${uid})`}
+              opacity=".72"
+            />
+
+            <circle
+              cx="500"
+              cy="325"
+              r="198"
+              fill={`url(#coreBottomBlue-${uid})`}
+              opacity=".75"
             />
 
             <g clipPath={`url(#coreClip-${uid})`}>
@@ -737,47 +883,49 @@ export function AciPremiumOrb({
               />
             </g>
 
-            {/* left eye - thin diya arch, not filled bowl */}
-            <path
-              d="M354 394
-     C376 330 456 330 478 394
-     C454 339 378 339 354 394 Z"
-              fill={`url(#eyeGrad-${uid})`}
-              filter={`url(#eyeGlow-${uid})`}
-              opacity=".98"
-            />
+            <g className="aci-ref-orb__eyes">
+              {/* left eye - thin diya arch */}
+              <path
+                d="M354 394
+       C376 330 456 330 478 394
+       C454 339 378 339 354 394 Z"
+                fill={`url(#eyeGrad-${uid})`}
+                filter={`url(#eyeGlow-${uid})`}
+                opacity=".98"
+              />
 
-            {/* right eye - thin diya arch, closer to center */}
-            <path
-              d="M522 394
-     C544 330 624 330 646 394
-     C622 339 546 339 522 394 Z"
-              fill={`url(#eyeGrad-${uid})`}
-              filter={`url(#eyeGlow-${uid})`}
-              opacity=".98"
-            />
+              {/* right eye - thin diya arch */}
+              <path
+                d="M522 394
+       C544 330 624 330 646 394
+       C622 339 546 339 522 394 Z"
+                fill={`url(#eyeGrad-${uid})`}
+                filter={`url(#eyeGlow-${uid})`}
+                opacity=".98"
+              />
 
-            {/* left eye white highlight */}
-            <path
-              d="M360 387
-     C382 342 450 342 472 387"
-              fill="none"
-              stroke="#dcfdff"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              opacity=".82"
-            />
+              {/* left eye highlight */}
+              <path
+                d="M360 387
+       C382 342 450 342 472 387"
+                fill="none"
+                stroke="#dcfdff"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                opacity=".72"
+              />
 
-            {/* right eye white highlight */}
-            <path
-              d="M528 387
-     C550 342 618 342 640 387"
-              fill="none"
-              stroke="#dcfdff"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              opacity=".82"
-            />
+              {/* right eye highlight */}
+              <path
+                d="M528 387
+       C550 342 618 342 640 387"
+                fill="none"
+                stroke="#dcfdff"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                opacity=".72"
+              />
+            </g>
             {/* star */}
             <path
               className="aci-ref-orb__star"

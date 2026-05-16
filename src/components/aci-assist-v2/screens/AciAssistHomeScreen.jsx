@@ -142,9 +142,13 @@ const buildHomeImageFrameStyle = (imageFrame, stageKey = "homeCard") => {
       frame?.naturalWidth,
       frame?.imageWidth,
       frame?.sourceWidth,
+      frame?.canvasWidth,
+      frame?.canvas_width,
       imageFrame?.naturalWidth,
       imageFrame?.imageWidth,
       imageFrame?.sourceWidth,
+      imageFrame?.canvasWidth,
+      imageFrame?.canvas_width,
       imageFrame?.width,
     );
 
@@ -152,9 +156,13 @@ const buildHomeImageFrameStyle = (imageFrame, stageKey = "homeCard") => {
       frame?.naturalHeight,
       frame?.imageHeight,
       frame?.sourceHeight,
+      frame?.canvasHeight,
+      frame?.canvas_height,
       imageFrame?.naturalHeight,
       imageFrame?.imageHeight,
       imageFrame?.sourceHeight,
+      imageFrame?.canvasHeight,
+      imageFrame?.canvas_height,
       imageFrame?.height,
     );
 
@@ -170,6 +178,26 @@ const buildHomeImageFrameStyle = (imageFrame, stageKey = "homeCard") => {
       source.h,
       source.bottom && top != null ? source.bottom - top : null,
     );
+
+    const looksNormalized =
+      [left, top, width, height].every((value) => Number.isFinite(value)) &&
+      left >= 0 &&
+      top >= 0 &&
+      width > 0 &&
+      height > 0 &&
+      left <= 1 &&
+      top <= 1 &&
+      width <= 1 &&
+      height <= 1;
+
+    if (looksNormalized) {
+      return {
+        centerX: left + width / 2,
+        centerY: top + height / 2,
+        widthRatio: width,
+        heightRatio: height,
+      };
+    }
 
     if (
       !Number.isFinite(naturalWidth) ||
@@ -197,8 +225,8 @@ const buildHomeImageFrameStyle = (imageFrame, stageKey = "homeCard") => {
   const isRecent = stageKey === "homeRecent";
   const isMobile = stageKey === "homeMobileCard";
 
-  const fallbackScale = isRecent ? 1.08 : isMobile ? 1.06 : 1.08;
-  const maxScale = isRecent ? 1.32 : isMobile ? 1.24 : 1.24;
+  const fallbackScale = isRecent ? 1.04 : isMobile ? 1.02 : 1.04;
+  const maxScale = isRecent ? 1.18 : isMobile ? 1.12 : 1.14;
 
   const cssVars = {
     ...(imageFrame?.cssVars || {}),
@@ -220,7 +248,7 @@ const buildHomeImageFrameStyle = (imageFrame, stageKey = "homeCard") => {
           maxScale,
           Math.max(
             0.86 / Math.max(bounds.widthRatio, 0.01),
-            0.58 / Math.max(bounds.heightRatio, 0.01),
+            0.62 / Math.max(bounds.heightRatio, 0.01),
           ),
         ),
       )
@@ -668,81 +696,79 @@ function DesktopHeader({ data, onAction }) {
 }
 
 function DesktopHero({ data, onAction }) {
+  const desktopHeroActions = Array.isArray(data.quickActions)
+    ? data.quickActions.slice(0, 9)
+    : [];
+
   return (
-    <motion.section className="desktop-hero" variants={fadeUp}>
-      <motion.div
-        className="desktop-hero-orb"
-        animate={{ y: [0, -5, 0], scale: [1, 1.012, 1] }}
-        transition={{ duration: 5.6, repeat: Infinity, ease: "easeInOut" }}
-      >
-        <AciAssistantOrb />
-      </motion.div>
+    <motion.section
+      className="desktop-hero reference-desktop-hero"
+      variants={fadeUp}
+    >
+      <div className="desktop-hero-bg" aria-hidden="true">
+        <span className="desktop-hero-glow glow-one" />
+        <span className="desktop-hero-glow glow-two" />
+        <span className="desktop-hero-dot dot-one" />
+        <span className="desktop-hero-dot dot-two" />
+        <span className="desktop-hero-dot dot-three" />
+      </div>
 
       <div className="desktop-hero-copy">
-        <h1>
-          {data.hero.titlePrefix} <span>{data.hero.titleHighlight}</span>
+        <h1 className="desktop-hero-title">
+          <span className="desktop-title-top">How can I help you</span>
+          <span className="desktop-title-bottom">
+            find <em>your perfect car?</em>
+          </span>
         </h1>
 
-        <p>{data.hero.subtitle}</p>
+        <p>
+          Ask anything about cars and I'll help you with the best
+          recommendations.
+        </p>
 
-        <small>
-          <Sparkles size={14} />
-          {data.hero.badge}
-        </small>
-
-        <div className="desktop-prompt-grid">
-          {data.hero.prompts.map((item) => {
+        <div className="desktop-hero-action-cloud">
+          {desktopHeroActions.map((item, index) => {
             const Icon =
-              getAciV2PremiumIcon(item.label || item.title || item.query) ||
-              item.icon;
+              getAciV2PremiumIcon(item.title || item.label || item.body) ||
+              item.icon ||
+              Sparkles;
 
             return (
               <button
                 type="button"
-                key={item.label}
+                key={item.title || item.label}
+                className={`desktop-action-chip desktop-action-chip-${index + 1}`}
                 onClick={() => emitAciAction(item, onAction)}
               >
-                <Icon size={16} />
-                <span>{item.label}</span>
+                <span className="desktop-action-chip-icon">
+                  <Icon size={15} />
+                </span>
+
+                <span>{item.title || item.label}</span>
               </button>
             );
           })}
         </div>
       </div>
+
+      <motion.div
+        className="desktop-hero-orb"
+        animate={{ y: [0, -5, 0], scale: [1, 1.012, 1] }}
+        transition={{ duration: 5.6, repeat: Infinity, ease: "easeInOut" }}
+      >
+        <AciAssistantOrb
+          size="hero"
+          style={{
+            "--orb-w": "440px",
+            "--orb-h": "330px",
+          }}
+        />
+      </motion.div>
     </motion.section>
   );
 }
 
-function DesktopQuickGrid({ data, onAction }) {
-  return (
-    <motion.section className="desktop-quick-grid" variants={fadeUp}>
-      {data.quickActions.map((item) => {
-        const Icon =
-          getAciV2PremiumIcon(item.title || item.label || item.body) ||
-          item.icon;
 
-        return (
-          <button
-            type="button"
-            key={item.title}
-            onClick={() => emitAciAction(item, onAction)}
-          >
-            <span>
-              <Icon size={24} />
-            </span>
-
-            <div>
-              <strong>{item.title}</strong>
-              <p>{item.body}</p>
-            </div>
-
-            <ChevronRight size={16} />
-          </button>
-        );
-      })}
-    </motion.section>
-  );
-}
 
 function PopularFilters({
   budgetId,
@@ -1314,30 +1340,6 @@ function DesktopRightRail({ data, onAction, recentCars = [] }) {
 
       <DesktopContinueExploringRail cars={recentCars} onAction={onAction} />
 
-      <motion.article
-        className="rail-card reference-rail-card reference-help-card"
-        variants={fadeUp}
-      >
-        <h3>What can I help with?</h3>
-
-        <div className="reference-help-list">
-          {help.map((item) => (
-            <button
-              type="button"
-              key={item}
-              onClick={() =>
-                emitAciAction(
-                  { label: item, query: item, type: "ask" },
-                  onAction,
-                )
-              }
-            >
-              <CircleCheck size={14} />
-              <span>{item}</span>
-            </button>
-          ))}
-        </div>
-      </motion.article>
 
       <motion.article
         className="rail-card reference-rail-card reference-tour-card"
@@ -1393,7 +1395,7 @@ function DesktopHomePage({
         <section className="desktop-home-layout">
           <div className="desktop-home-main">
             <DesktopHero data={data} onAction={onAction} />
-            <DesktopQuickGrid data={data} onAction={onAction} />
+
             <LiveTrendingSection
               {...popular}
               onAction={onAction}
@@ -1456,23 +1458,7 @@ function MobileHeader({ data, onAction }) {
   );
 }
 
-const renderMobileHeroSubtitle = (value = "") => {
-  const words = String(value || "")
-    .trim()
-    .split(/\s+/)
-    .filter(Boolean);
 
-  if (!words.length) return null;
-
-  const rows = [];
-  for (let index = 0; index < words.length; index += 5) {
-    rows.push(words.slice(index, index + 5).join(" "));
-  }
-
-  return rows.map((row, index) => (
-    <span key={`mobile-hero-subtitle-${index}`}>{row}</span>
-  ));
-};
 
 const MOBILE_REFERENCE_SHORTCUTS = [
   {
@@ -1515,15 +1501,18 @@ function MobileHero({ data, onAction }) {
       </div>
 
       <div className="mobile-hero-copy">
-        <h1>
-          How can I help you find
-          <span>your perfect car?</span>
+        <h1 className="mobile-hero-title">
+          <span className="hero-title-line hero-title-black">
+            How can I help you find
+          </span>
+          <span className="hero-title-line hero-title-blue">
+            your perfect car?
+          </span>
         </h1>
 
-        <p>
-          Ask anything about cars and I'll help you
-          <br />
-          with the best recommendations.
+        <p className="mobile-hero-subtitle-lines">
+          <span>Ask anything about cars and I'll help you</span>
+          <span>with the best recommendations.</span>
         </p>
       </div>
 
@@ -2310,7 +2299,7 @@ export default function AciAssistHomeScreen({
 .aci-home-root .aci-rail-recent-visual {
   display: grid !important;
   place-items: center !important;
-  overflow: hidden !important;
+  overflow: visible !important;
 }
 
 .aci-home-root .aci-live-car-visual .aci-car-image-stage,
@@ -2341,9 +2330,11 @@ export default function AciAssistHomeScreen({
   max-height: 100% !important;
   object-fit: contain !important;
   object-position: center center !important;
+  mix-blend-mode: multiply !important;
+  filter: drop-shadow(0 24px 20px rgba(15, 23, 42, 0.18)) !important;
   transform:
     translate(var(--car-frame-x, 0%), var(--car-frame-y, 0%))
-    scale(var(--car-frame-scale, 1.08)) !important;
+    scale(var(--car-frame-scale, 1.04)) !important;
   transform-origin: var(--car-frame-origin, center center) !important;
 }
 
@@ -4703,6 +4694,1127 @@ export default function AciAssistHomeScreen({
   .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button svg {
     width: 16px !important;
     height: 16px !important;
+  }
+}
+
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE HERO FINAL TEXT + SPACING FIX                                       */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 372px !important;
+    padding: 18px 16px 0 !important;
+    margin: 4px 0 2px !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy {
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 auto !important;
+    text-align: center !important;
+    position: relative !important;
+    z-index: 6 !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title {
+    width: 100% !important;
+    max-width: 392px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 31px !important;
+    line-height: 1.04 !important;
+    letter-spacing: -0.055em !important;
+    font-weight: 900 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title .hero-title-line {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title .hero-title-black {
+    color: #07102b !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title .hero-title-blue {
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines {
+    width: 100% !important;
+    max-width: 332px !important;
+    margin: 10px auto 0 !important;
+    display: grid !important;
+    gap: 2px !important;
+    color: #536079 !important;
+    font-size: 14.2px !important;
+    line-height: 1.28 !important;
+    font-weight: 520 !important;
+    letter-spacing: -0.012em !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines span {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    color: #536079 !important;
+  }
+
+  /* Push orb lower so subtitle line 2 sits above it cleanly */
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 156px !important;
+    width: 322px !important;
+    height: 242px !important;
+    z-index: 2 !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 322px !important;
+    height: 242px !important;
+  }
+
+  /* Keep the background rings aligned with lower orb */
+  .aci-home-root .hero-bg-orbit {
+    top: 55% !important;
+    width: 322px !important;
+    height: 80px !important;
+  }
+
+  .aci-home-root .hero-bg-orbit.orbit-2 {
+    top: 55% !important;
+    width: 352px !important;
+    height: 98px !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-1 {
+    top: 41% !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-2 {
+    top: 40% !important;
+  }
+
+  .aci-home-root .hero-bg-dot.dot-3,
+  .aci-home-root .hero-bg-dot.dot-4 {
+    top: 55% !important;
+  }
+
+  /* Pull pills slightly upward so spacing below orb stays tight */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    margin: -2px 0 18px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title {
+    max-width: 360px !important;
+    font-size: 29px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines {
+    max-width: 306px !important;
+    font-size: 13.6px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 150px !important;
+    width: 304px !important;
+    height: 232px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 304px !important;
+    height: 232px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 356px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title {
+    max-width: 330px !important;
+    font-size: 26.5px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines {
+    max-width: 286px !important;
+    font-size: 12.8px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 146px !important;
+    width: 292px !important;
+    height: 222px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 292px !important;
+    height: 222px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* FINAL MOBILE HERO CENTER ALIGNMENT + ORB PLACEMENT                         */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    position: relative !important;
+    display: block !important;
+    min-height: 428px !important;
+    margin: 4px 0 0 !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    text-align: center !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy {
+    position: absolute !important;
+    top: 26px !important;
+    left: 0 !important;
+    right: 0 !important;
+    width: 100% !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    margin: 0 auto !important;
+    padding: 0 10px !important;
+    display: block !important;
+    text-align: center !important;
+    z-index: 8 !important;
+    overflow: visible !important;
+    transform: none !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title {
+    width: 100% !important;
+    max-width: 390px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    display: block !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: 31px !important;
+    line-height: 1.04 !important;
+    letter-spacing: -0.055em !important;
+    font-weight: 900 !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title .hero-title-line {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title .hero-title-black {
+    color: #07102b !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title .hero-title-blue {
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines {
+    width: 100% !important;
+    max-width: 338px !important;
+    margin: 10px auto 0 !important;
+    padding: 0 !important;
+    display: grid !important;
+    gap: 2px !important;
+    color: #536079 !important;
+    font-size: 14.2px !important;
+    line-height: 1.3 !important;
+    font-weight: 520 !important;
+    letter-spacing: -0.012em !important;
+    text-align: center !important;
+    white-space: normal !important;
+    overflow: visible !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines span {
+    display: block !important;
+    width: 100% !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    color: #536079 !important;
+  }
+
+  /* Orb starts below the 4 text lines */
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    position: absolute !important;
+    left: 50% !important;
+    top: 156px !important;
+    width: 328px !important;
+    height: 248px !important;
+    margin: 0 !important;
+    transform: translateX(-50%) !important;
+    display: grid !important;
+    place-items: center !important;
+    z-index: 2 !important;
+    opacity: 1 !important;
+    pointer-events: none !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 328px !important;
+    height: 248px !important;
+  }
+
+  .aci-home-root .hero-bg-orbit {
+    top: 55% !important;
+    width: 328px !important;
+    height: 82px !important;
+  }
+
+  .aci-home-root .hero-bg-orbit.orbit-2 {
+    top: 55% !important;
+    width: 356px !important;
+    height: 100px !important;
+  }
+
+  /* Pills start right after the orb area */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    margin: -8px 0 18px !important;
+  }
+}
+
+@media (max-width: 430px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 414px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy {
+    top: 24px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title {
+    max-width: 360px !important;
+    font-size: 29px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines {
+    max-width: 310px !important;
+    font-size: 13.6px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 150px !important;
+    width: 304px !important;
+    height: 232px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 304px !important;
+    height: 232px !important;
+  }
+}
+
+@media (max-width: 380px) {
+  .aci-home-root .mobile-hero.reference-mobile-hero {
+    min-height: 396px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-title {
+    max-width: 330px !important;
+    font-size: 26.5px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-copy p.mobile-hero-subtitle-lines {
+    max-width: 286px !important;
+    font-size: 12.7px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb-shell {
+    top: 144px !important;
+    width: 292px !important;
+    height: 222px !important;
+  }
+
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb,
+  .aci-home-root .mobile-hero.reference-mobile-hero .mobile-hero-orb > * {
+    width: 292px !important;
+    height: 222px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* MOBILE PILLS FINAL TUNING                                                  */
+/* -------------------------------------------------------------------------- */
+
+@media (max-width: 1180px) {
+  /* Pull the 4 pills upward closer to the orb */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    margin: -60px 0 16px !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 9px 11px !important;
+  }
+
+  /* Reduce pill height */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button {
+    min-height: 30px !important;
+    height: 35px !important;
+    padding: 2px 14px !important;
+    gap: 8px !important;
+    border-radius: 999px !important;
+  }
+
+  /* Force all icons to theme blue */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-1 svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-2 svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-3 svg,
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts .shortcut-color-4 svg {
+    width: 17px !important;
+    height: 17px !important;
+    flex: 0 0 17px !important;
+    color: #0b5cff !important;
+    stroke: #0b5cff !important;
+    stroke-width: 2 !important;
+  }
+
+  /* Slightly readable but not heavy */
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button span {
+    font-size: 13.3px !important;
+    font-weight: 680 !important;
+    line-height: 1 !important;
+    letter-spacing: -0.012em !important;
+    white-space: nowrap !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts {
+    margin: -18px 0 15px !important;
+    gap: 8px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button {
+    min-height: 44px !important;
+    height: 44px !important;
+    padding: 8px 11px !important;
+    gap: 7px !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button span {
+    font-size: 12.4px !important;
+    font-weight: 660 !important;
+  }
+
+  .aci-home-root .mobile-shortcuts.reference-mobile-shortcuts button svg {
+    width: 16px !important;
+    height: 16px !important;
+    flex: 0 0 16px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* DESKTOP HERO REDESIGN - TEXT LEFT, ORB RIGHT, 9 ACTIONS INSIDE HERO         */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1181px) {
+  .aci-home-root .desktop-hero.reference-desktop-hero {
+    position: relative !important;
+    min-height: 326px !important;
+    height: 326px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.58fr) minmax(360px, 0.42fr) !important;
+    align-items: center !important;
+    gap: 22px !important;
+    margin: 0 0 12px !important;
+    padding: 34px 38px 30px !important;
+    border-radius: 24px !important;
+    border: 1px solid rgba(203, 213, 225, 0.9) !important;
+    background:
+      radial-gradient(circle at 74% 50%, rgba(94, 160, 255, 0.24), rgba(255,255,255,0) 32%),
+      radial-gradient(circle at 38% 10%, rgba(235, 244, 255, 0.98), rgba(255,255,255,0) 42%),
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(247,250,255,0.94)) !important;
+    box-shadow:
+      0 18px 44px rgba(15, 23, 42, 0.055),
+      inset 0 1px 0 rgba(255,255,255,0.95) !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .desktop-hero-bg {
+    position: absolute !important;
+    inset: 0 !important;
+    pointer-events: none !important;
+    z-index: 0 !important;
+  }
+
+  .aci-home-root .desktop-hero-glow {
+    position: absolute !important;
+    border-radius: 999px !important;
+    filter: blur(18px) !important;
+  }
+
+  .aci-home-root .desktop-hero-glow.glow-one {
+    right: 105px !important;
+    top: 46px !important;
+    width: 360px !important;
+    height: 240px !important;
+    background: rgba(94, 160, 255, 0.12) !important;
+  }
+
+  .aci-home-root .desktop-hero-glow.glow-two {
+    right: 190px !important;
+    bottom: 20px !important;
+    width: 330px !important;
+    height: 68px !important;
+    background: rgba(11, 92, 255, 0.15) !important;
+  }
+
+  .aci-home-root .desktop-hero-dot {
+    position: absolute !important;
+    width: 7px !important;
+    height: 7px !important;
+    border-radius: 999px !important;
+    background: #5ea0ff !important;
+    box-shadow: 0 0 14px rgba(37, 99, 235, 0.35) !important;
+    opacity: 0.8 !important;
+  }
+
+  .aci-home-root .desktop-hero-dot.dot-one {
+    right: 390px !important;
+    top: 86px !important;
+  }
+
+  .aci-home-root .desktop-hero-dot.dot-two {
+    right: 150px !important;
+    top: 120px !important;
+  }
+
+  .aci-home-root .desktop-hero-dot.dot-three {
+    right: 270px !important;
+    bottom: 86px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy {
+    position: relative !important;
+    z-index: 3 !important;
+    max-width: 650px !important;
+    min-width: 0 !important;
+    padding: 0 !important;
+  }
+
+  .aci-home-root .desktop-hero-title {
+    margin: 0 !important;
+    max-width: 620px !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: clamp(34px, 3vw, 54px) !important;
+    line-height: 0.98 !important;
+    letter-spacing: -0.055em !important;
+    font-weight: 900 !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero-title span {
+    display: block !important;
+  }
+
+  .aci-home-root .desktop-hero-title em {
+    font-style: normal !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy p {
+    max-width: 620px !important;
+    margin: 12px 0 0 !important;
+    color: #536079 !important;
+    font-size: 15.5px !important;
+    line-height: 1.45 !important;
+    font-weight: 520 !important;
+    letter-spacing: -0.01em !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy > small,
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-prompt-grid {
+    display: none !important;
+  }
+
+  .aci-home-root .desktop-hero-actions {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 10px 12px !important;
+    max-width: 720px !important;
+    margin: 28px 0 0 !important;
+  }
+
+  .aci-home-root .desktop-hero-actions button {
+    min-height: 48px !important;
+    height: 48px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    padding: 9px 14px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(203, 213, 225, 0.88) !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.94)) !important;
+    box-shadow:
+      0 10px 24px rgba(15,23,42,0.045),
+      inset 0 1px 0 rgba(255,255,255,0.94) !important;
+    color: #07102b !important;
+    text-align: left !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .desktop-hero-action-icon {
+    width: 28px !important;
+    height: 28px !important;
+    flex: 0 0 28px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 999px !important;
+    color: #0b5cff !important;
+    background: rgba(239, 246, 255, 0.92) !important;
+    border: 1px solid rgba(191, 219, 254, 0.85) !important;
+  }
+
+  .aci-home-root .desktop-hero-action-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+    color: #0b5cff !important;
+    stroke: #0b5cff !important;
+    stroke-width: 2 !important;
+  }
+
+  .aci-home-root .desktop-hero-action-copy {
+    min-width: 0 !important;
+    display: block !important;
+  }
+
+  .aci-home-root .desktop-hero-action-copy strong {
+    display: block !important;
+    color: #07102b !important;
+    font-size: 12.3px !important;
+    line-height: 1.05 !important;
+    font-weight: 720 !important;
+    letter-spacing: -0.012em !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb {
+    position: relative !important;
+    z-index: 2 !important;
+    width: 520px !important;
+    height: 390px !important;
+    margin: -18px -42px -26px auto !important;
+    display: grid !important;
+    place-items: center !important;
+    pointer-events: none !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb > * {
+    width: 520px !important;
+    height: 390px !important;
+  }
+
+  /* Keep old separate quick grid hidden on desktop after actions move into hero */
+  .aci-home-root .desktop-home-main > .desktop-quick-grid {
+    display: none !important;
+  }
+
+  /* Pull Trending right now closer to the redesigned hero */
+  .aci-home-root .desktop-home-main > .aci-live-trending.is-desktop {
+    margin-top: 0 !important;
+  }
+
+  .aci-home-root .desktop-home-main > .aci-live-trending.is-desktop .aci-live-section-head {
+    margin-top: 0 !important;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1360px) {
+  .aci-home-root .desktop-hero.reference-desktop-hero {
+    grid-template-columns: minmax(0, 0.6fr) minmax(320px, 0.4fr) !important;
+    min-height: 318px !important;
+    height: 318px !important;
+    padding: 30px 30px 28px !important;
+  }
+
+  .aci-home-root .desktop-hero-title {
+    font-size: clamp(31px, 2.8vw, 46px) !important;
+  }
+
+  .aci-home-root .desktop-hero-actions {
+    gap: 9px !important;
+    margin-top: 22px !important;
+  }
+
+  .aci-home-root .desktop-hero-actions button {
+    min-height: 45px !important;
+    height: 45px !important;
+    padding: 8px 11px !important;
+    gap: 8px !important;
+  }
+
+  .aci-home-root .desktop-hero-action-copy strong {
+    font-size: 11.6px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb,
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb > * {
+    width: 455px !important;
+    height: 344px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb {
+    margin-right: -50px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* DESKTOP HERO FINAL: BLACK/BLUE TITLE + ACTION CHIP CLOUD                   */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1181px) {
+  .aci-home-root .desktop-hero.reference-desktop-hero {
+    height: 336px !important;
+    min-height: 336px !important;
+    padding: 34px 38px 26px !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 0.56fr) minmax(380px, 0.44fr) !important;
+    align-items: center !important;
+    gap: 22px !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy {
+    position: relative !important;
+    z-index: 4 !important;
+    max-width: 670px !important;
+    align-self: center !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title {
+    margin: 0 !important;
+    max-width: 630px !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: clamp(34px, 3vw, 52px) !important;
+    line-height: 0.98 !important;
+    letter-spacing: -0.055em !important;
+    font-weight: 900 !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title > span {
+    display: block !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title .desktop-title-black {
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title em {
+    font-style: normal !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy p {
+    max-width: 640px !important;
+    margin: 12px 0 0 !important;
+    color: #536079 !important;
+    font-size: 15px !important;
+    line-height: 1.42 !important;
+    font-weight: 520 !important;
+  }
+
+  .aci-home-root .desktop-hero-action-cloud {
+    max-width: 690px !important;
+    margin: 26px 0 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 9px !important;
+  }
+
+  .aci-home-root .desktop-action-chip {
+    height: 36px !important;
+    min-height: 36px !important;
+    width: auto !important;
+    max-width: 188px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 8px !important;
+    padding: 6px 13px 6px 8px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(191, 219, 254, 0.88) !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.98), rgba(245,249,255,0.94)) !important;
+    box-shadow:
+      0 9px 22px rgba(15, 23, 42, 0.045),
+      inset 0 1px 0 rgba(255,255,255,0.96) !important;
+    color: #07102b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  .aci-home-root .desktop-action-chip-icon {
+    width: 24px !important;
+    height: 24px !important;
+    flex: 0 0 24px !important;
+    display: grid !important;
+    place-items: center !important;
+    border-radius: 999px !important;
+    background:
+      radial-gradient(circle at 35% 25%, #ffffff, #eef6ff 60%, #e5f0ff 100%) !important;
+    border: 1px solid rgba(191, 219, 254, 0.9) !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .desktop-action-chip-icon svg {
+    width: 14px !important;
+    height: 14px !important;
+    color: #0b5cff !important;
+    stroke: #0b5cff !important;
+    stroke-width: 2 !important;
+  }
+
+  .aci-home-root .desktop-action-chip > span:last-child {
+    min-width: 0 !important;
+    display: block !important;
+    color: #07102b !important;
+    font-size: 12px !important;
+    line-height: 1 !important;
+    font-weight: 680 !important;
+    letter-spacing: -0.01em !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  /* Give the chip cloud a more organic layout */
+  .aci-home-root .desktop-action-chip-1,
+  .aci-home-root .desktop-action-chip-4,
+  .aci-home-root .desktop-action-chip-7 {
+    margin-left: 0 !important;
+  }
+
+  .aci-home-root .desktop-action-chip-2,
+  .aci-home-root .desktop-action-chip-5,
+  .aci-home-root .desktop-action-chip-8 {
+    transform: translateY(2px) !important;
+  }
+
+  .aci-home-root .desktop-action-chip-3,
+  .aci-home-root .desktop-action-chip-6,
+  .aci-home-root .desktop-action-chip-9 {
+    transform: translateY(-1px) !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb {
+    width: 520px !important;
+    height: 390px !important;
+    margin: -18px -46px -26px auto !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb > * {
+    width: 520px !important;
+    height: 390px !important;
+  }
+
+  .aci-home-root .desktop-home-main > .desktop-quick-grid {
+    display: none !important;
+  }
+
+  .aci-home-root .desktop-home-main > .aci-live-trending.is-desktop {
+    margin-top: 0 !important;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1360px) {
+  .aci-home-root .desktop-hero.reference-desktop-hero {
+    height: 332px !important;
+    min-height: 332px !important;
+    padding: 30px 30px 24px !important;
+    grid-template-columns: minmax(0, 0.58fr) minmax(330px, 0.42fr) !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title {
+    font-size: clamp(31px, 2.8vw, 45px) !important;
+  }
+
+  .aci-home-root .desktop-hero-action-cloud {
+    margin-top: 22px !important;
+    gap: 8px !important;
+    max-width: 610px !important;
+  }
+
+  .aci-home-root .desktop-action-chip {
+    height: 34px !important;
+    min-height: 34px !important;
+    max-width: 168px !important;
+    padding: 5px 11px 5px 7px !important;
+  }
+
+  .aci-home-root .desktop-action-chip > span:last-child {
+    font-size: 11.2px !important;
+  }
+
+  .aci-home-root .desktop-action-chip-icon {
+    width: 22px !important;
+    height: 22px !important;
+    flex-basis: 22px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb,
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb > * {
+    width: 456px !important;
+    height: 344px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb {
+    margin-right: -52px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* DESKTOP HERO CORRECTIONS - TITLE, ORB, ACTION CHIPS                        */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1181px) {
+  .aci-home-root .desktop-hero.reference-desktop-hero {
+    height: 326px !important;
+    min-height: 326px !important;
+    padding: 32px 38px 24px !important;
+    grid-template-columns: minmax(0, 0.58fr) minmax(330px, 0.42fr) !important;
+    gap: 18px !important;
+    overflow: hidden !important;
+  }
+
+  /* Title color + layout fix */
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title {
+    max-width: 650px !important;
+    margin: 0 !important;
+    font-family: Georgia, "Times New Roman", serif !important;
+    font-size: clamp(34px, 3vw, 50px) !important;
+    line-height: 1.02 !important;
+    letter-spacing: -0.055em !important;
+    font-weight: 900 !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title > span {
+    display: block !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-title-top,
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-title-black {
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-title-bottom {
+    white-space: nowrap !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-title-bottom em {
+    font-style: normal !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy p {
+    margin-top: 10px !important;
+    max-width: 640px !important;
+    font-size: 14.6px !important;
+    line-height: 1.4 !important;
+    color: #536079 !important;
+  }
+
+  /* Smaller orb, still visually strong */
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb {
+    width: 440px !important;
+    height: 330px !important;
+    margin: -8px -22px -30px auto !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb > * {
+    width: 440px !important;
+    height: 330px !important;
+  }
+
+  /* Action chips: less table-like, smaller, softer */
+  .aci-home-root .desktop-hero-action-cloud {
+    max-width: 680px !important;
+    margin: 22px 0 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+  }
+
+  .aci-home-root .desktop-action-chip {
+    height: 32px !important;
+    min-height: 32px !important;
+    width: auto !important;
+    max-width: none !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 7px !important;
+    padding: 6px 12px !important;
+    border-radius: 999px !important;
+    border: 1px solid rgba(203, 213, 225, 0.82) !important;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,251,255,0.78)) !important;
+    box-shadow:
+      0 7px 18px rgba(15, 23, 42, 0.035),
+      inset 0 1px 0 rgba(255,255,255,0.92) !important;
+    color: #07102b !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+  }
+
+  /* Remove circle borders/background around icons */
+  .aci-home-root .desktop-action-chip-icon {
+    width: 16px !important;
+    height: 16px !important;
+    flex: 0 0 16px !important;
+    display: grid !important;
+    place-items: center !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #0b5cff !important;
+  }
+
+  .aci-home-root .desktop-action-chip-icon svg {
+    width: 15px !important;
+    height: 15px !important;
+    color: #0b5cff !important;
+    stroke: #0b5cff !important;
+    stroke-width: 2 !important;
+  }
+
+  .aci-home-root .desktop-action-chip > span:last-child {
+    color: #07102b !important;
+    font-size: 11.8px !important;
+    line-height: 1 !important;
+    font-weight: 650 !important;
+    letter-spacing: -0.006em !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+
+  /* Remove old stagger offsets if they made the chips feel messy */
+  .aci-home-root .desktop-action-chip-1,
+  .aci-home-root .desktop-action-chip-2,
+  .aci-home-root .desktop-action-chip-3,
+  .aci-home-root .desktop-action-chip-4,
+  .aci-home-root .desktop-action-chip-5,
+  .aci-home-root .desktop-action-chip-6,
+  .aci-home-root .desktop-action-chip-7,
+  .aci-home-root .desktop-action-chip-8,
+  .aci-home-root .desktop-action-chip-9 {
+    transform: none !important;
+    margin-left: 0 !important;
+  }
+}
+
+@media (min-width: 1181px) and (max-width: 1360px) {
+  .aci-home-root .desktop-hero.reference-desktop-hero {
+    height: 318px !important;
+    min-height: 318px !important;
+    padding: 30px 30px 22px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title {
+    font-size: clamp(31px, 2.8vw, 43px) !important;
+  }
+
+  .aci-home-root .desktop-hero-action-cloud {
+    margin-top: 18px !important;
+    gap: 7px !important;
+  }
+
+  .aci-home-root .desktop-action-chip {
+    height: 30px !important;
+    min-height: 30px !important;
+    padding: 5px 10px !important;
+  }
+
+  .aci-home-root .desktop-action-chip > span:last-child {
+    font-size: 11px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb,
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb > * {
+    width: 400px !important;
+    height: 300px !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-orb {
+    margin-right: -28px !important;
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/* DESKTOP HERO MICRO FIX - LEFT CONTENT UP + TITLE SECOND LINE INLINE         */
+/* -------------------------------------------------------------------------- */
+
+@media (min-width: 1181px) {
+  /* Move whole left content slightly upward */
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-copy {
+    transform: translateY(-12px) !important;
+    align-self: center !important;
+  }
+
+  /* Keep first line black */
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title .desktop-title-top {
+    display: block !important;
+    color: #07102b !important;
+  }
+
+  /* Keep find + your perfect car on the same line */
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title .desktop-title-bottom {
+    display: block !important;
+    white-space: nowrap !important;
+    color: #07102b !important;
+  }
+
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title .desktop-title-bottom em {
+    display: inline !important;
+    font-style: normal !important;
+    color: #0b5cff !important;
+  }
+
+  /* Make sure no older broad span rule forces the second line apart */
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title span,
+  .aci-home-root .desktop-hero.reference-desktop-hero .desktop-hero-title em {
+    vertical-align: baseline !important;
   }
 }
 

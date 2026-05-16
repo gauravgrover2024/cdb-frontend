@@ -999,9 +999,16 @@ function AciV2CanvasPreviewCard({
     if (!hasCanvas || typeof onOpen !== "function") return;
     onOpen(message);
   };
+  const isColorResult =
+    widget?.type === "vehicle_colors" ||
+    widget?.tool === "vehicle_colors" ||
+    widget?.canvasType === "color_studio_canvas" ||
+    canvasType === "color_studio_canvas";
 
   return (
-    <article className="aci-chat-result-card">
+    <article
+      className={`aci-chat-result-card ${isColorResult ? "aci-chat-color-result-card" : ""}`}
+    >
       {rows.length ? (
         <>
           <div
@@ -3950,6 +3957,143 @@ export default function AciAssistV2() {
 }
 
 /* ACI_CHAT_CAR_CENTER_SIZE_ONLY_END */
+
+/* ACI_CHAT_DESKTOP_IMAGE_FIT_START */
+@media (min-width: 761px) {
+  .aci-chat-result-rows > .aci-chat-preview-card,
+  .aci-chat-result-rows > button {
+    min-height: 286px !important;
+    height: 286px !important;
+  }
+
+  .aci-chat-row-visual {
+    height: 186px !important;
+    min-height: 186px !important;
+    padding: 4px 14px 0 !important;
+    margin: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    overflow: visible !important;
+    border: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-row-car-motion {
+    width: 100% !important;
+    height: 186px !important;
+    display: grid !important;
+    place-items: center !important;
+    overflow: visible !important;
+  }
+
+  .aci-chat-row-visual .aci-car-image-stage,
+  .aci-chat-row-car-motion .aci-car-image-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 186px !important;
+    min-height: 186px !important;
+    max-height: 186px !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    overflow: visible !important;
+    transform: translateY(12px) !important;
+  }
+
+  .aci-chat-row-visual .aci-car-stage-glow,
+  .aci-chat-row-visual .aci-car-stage-ground,
+  .aci-chat-row-car-motion .aci-car-stage-glow,
+  .aci-chat-row-car-motion .aci-car-stage-ground,
+  .aci-chat-row-visual::after {
+    display: none !important;
+  }
+
+  .aci-chat-row-visual img,
+  .aci-chat-row-visual svg,
+  .aci-chat-row-car-motion img,
+  .aci-chat-row-car-motion svg {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+    transform:
+      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+      scale(var(--chat-car-frame-scale, 1)) !important;
+    transform-origin: var(--chat-car-frame-origin, center center) !important;
+    filter: drop-shadow(0 26px 22px rgba(15, 23, 42, 0.18)) !important;
+  }
+
+  .aci-chat-row-copy {
+    margin-top: -4px !important;
+    padding: 0 24px 18px !important;
+  }
+}
+/* ACI_CHAT_DESKTOP_IMAGE_FIT_END */
+
+/* ACI_CHAT_COLOR_CARD_IMAGE_FILL_START */
+.aci-chat-color-result-card .aci-chat-row-visual {
+  overflow: visible !important;
+  border-radius: 0 !important;
+}
+
+.aci-chat-color-result-card .aci-chat-row-visual .aci-car-image-stage,
+.aci-chat-color-result-card .aci-chat-row-car-motion .aci-car-image-stage {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  overflow: visible !important;
+  transform: translateY(12px) !important;
+}
+
+.aci-chat-color-result-card .aci-chat-row-visual img,
+.aci-chat-color-result-card .aci-chat-row-visual svg,
+.aci-chat-color-result-card .aci-chat-row-car-motion img,
+.aci-chat-color-result-card .aci-chat-row-car-motion svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  mix-blend-mode: multiply !important;
+  transform:
+    translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+    scale(var(--chat-car-frame-scale, 1)) !important;
+  transform-origin: var(--chat-car-frame-origin, center center) !important;
+}
+
+@media (max-width: 760px) {
+  .aci-chat-color-result-card .aci-chat-row-visual .aci-car-image-stage,
+  .aci-chat-color-result-card .aci-chat-row-car-motion .aci-car-image-stage {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 128px !important;
+    max-height: 128px !important;
+    transform: translateY(30px) !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-row-visual img,
+  .aci-chat-color-result-card .aci-chat-row-visual svg,
+  .aci-chat-color-result-card .aci-chat-row-car-motion img,
+  .aci-chat-color-result-card .aci-chat-row-car-motion svg {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+}
+/* ACI_CHAT_COLOR_CARD_IMAGE_FILL_END */
 
 
 /* ACI_CHAT_REFERENCE_SHELL_END */`}</style>
