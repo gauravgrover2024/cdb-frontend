@@ -18,12 +18,12 @@ import CarImageStage from "../shared/CarImageStage";
 const TOOL_NAME = "vehicle_colors";
 
 const fadeUp = {
-  hidden: { opacity: 0, y: 16, filter: "blur(8px)" },
+  hidden: { opacity: 0, y: 14, filter: "blur(7px)" },
   visible: {
     opacity: 1,
     y: 0,
     filter: "blur(0px)",
-    transition: { duration: 0.44, ease: [0.22, 1, 0.36, 1] },
+    transition: { duration: 0.42, ease: [0.22, 1, 0.36, 1] },
   },
 };
 
@@ -31,7 +31,7 @@ const stagger = {
   hidden: {},
   visible: {
     transition: {
-      staggerChildren: 0.055,
+      staggerChildren: 0.052,
       delayChildren: 0.02,
     },
   },
@@ -48,6 +48,9 @@ const makeSlug = (value = "", fallback = "item") =>
     .replace(/&/g, " and ")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "") || fallback;
+
+const hasMeaningfulObject = (value) =>
+  value && typeof value === "object" && Object.keys(value).length > 0;
 
 const prettifyVehicleTitle = (value = "") =>
   cleanText(value)
@@ -135,9 +138,6 @@ const normalizeImageUrl = (raw = {}) =>
   raw.carImageUrl ||
   "";
 
-const hasMeaningfulObject = (value) =>
-  value && typeof value === "object" && Object.keys(value).length > 0;
-
 const pickImageFrame = (raw = {}) => {
   const frame =
     raw.imageFrame ||
@@ -158,23 +158,6 @@ const isStagePhotoColor = (raw = {}) =>
   raw.imageMode === "stage-only" ||
   raw.imageBackgroundRemoved === false ||
   raw.imageProcessingMethod === "aci-stage-original";
-
-const pickDisplayFrameFallback = (vehicle = {}, widget = {}, data = {}) => {
-  const candidates = [
-    vehicle?.displayFrameMeta,
-    vehicle?.imageFrame,
-    vehicle?.frameMeta,
-    widget?.displayFrameMeta,
-    widget?.vehicle?.displayFrameMeta,
-    widget?.vehicle?.imageFrame,
-    data?.displayFrameMeta,
-    data?.vehicle?.displayFrameMeta,
-    data?.selectedVehicle?.displayFrameMeta,
-    data?.contextPatch?.selectedVehicle?.displayFrameMeta,
-  ];
-
-  return candidates.find(hasMeaningfulObject) || null;
-};
 
 const isHeroImage = (url = "") => /display-hero/i.test(String(url || ""));
 
@@ -199,7 +182,6 @@ const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
   if (!Array.isArray(source) || !source.length) return [];
 
   const seen = new Set();
-  const displayFrameFallback = pickDisplayFrameFallback(vehicle, widget, data);
 
   return source
     .map((raw = {}, index) => {
@@ -230,6 +212,8 @@ const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
         raw.hexCode,
         raw.colorHex,
         raw.color_hex,
+        raw.secondaryHex,
+        raw.secondary_hex,
         raw.deep,
         raw.darkHex,
         raw.deepHex,
@@ -239,6 +223,8 @@ const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
         cleanText(raw.id || raw._id) ||
         makeSlug(`${name}-${normalizedImageUrl}`, `color-${index + 1}`);
 
+      const imageFrame = pickImageFrame(raw);
+
       return {
         ...raw,
         id,
@@ -246,9 +232,12 @@ const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
         colorName: name,
         mobileName: raw.mobileName || raw.name || raw.colorName || name,
         desktopName: raw.desktopName || raw.name || raw.colorName || name,
+
         hex: hexCodes[0] || raw.hex || raw.hexCode || raw.colorHex || "#E5E7EB",
         deep:
           hexCodes[1] ||
+          raw.secondaryHex ||
+          raw.secondary_hex ||
           raw.deep ||
           raw.darkHex ||
           raw.deepHex ||
@@ -257,11 +246,24 @@ const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
           raw.colorHex ||
           "#94A3B8",
         hexCodes,
+
         imageUrl: normalizedImageUrl,
         normalizedImageUrl,
         cleanImageUrl: raw.cleanImageUrl || normalizedImageUrl,
+        stagedImageUrl: raw.stagedImageUrl || normalizedImageUrl,
         sourceImageUrl: raw.sourceImageUrl || raw.source_image_url || "",
+
+        imageFrame,
+        frameMeta: raw.frameMeta || raw.imageFrame || imageFrame || null,
+        frameMethod:
+          raw.frameMethod ||
+          raw.frameMeta?.frameMethod ||
+          raw.imageFrame?.frameMethod ||
+          raw.imageFrame?.bounds?.frameMethod ||
+          "",
+
         imageModeUsed: raw.imageModeUsed || raw.imageMode || "",
+        imageProcessingMethod: raw.imageProcessingMethod || "",
         isStudioBackground: raw.isStudioBackground === true,
         imageBackgroundRemoved:
           raw.imageBackgroundRemoved === true
@@ -270,12 +272,16 @@ const normalizeColors = (vehicle = {}, widget = {}, data = {}) => {
               ? false
               : undefined,
         isStagePhoto: isStagePhotoColor(raw),
-        imageFrame: isStagePhotoColor(raw) ? null : pickImageFrame(raw),
+        imageQualityWarnings: Array.isArray(raw.imageQualityWarnings)
+          ? raw.imageQualityWarnings
+          : [],
+
         description:
           raw.description ||
           raw.note ||
           raw.summary ||
           "Color availability may vary by variant and city.",
+
         hasPopularity:
           raw.hasPopularity === true ||
           raw.votes !== undefined ||
@@ -336,11 +342,12 @@ const buildOrbBackground = (color = {}) => {
     color.dualHexCodes,
     color.dual_hex_codes,
     color.hex,
+    color.secondaryHex,
     color.deep,
   );
 
   const primary = hexCodes[0] || color.hex || "#E5E7EB";
-  const secondary = hexCodes[1] || color.deep || primary;
+  const secondary = hexCodes[1] || color.deep || color.secondaryHex || primary;
 
   if (
     hexCodes.length > 1 &&
@@ -353,7 +360,7 @@ const buildOrbBackground = (color = {}) => {
   }
 
   return `
-    radial-gradient(circle at 31% 23%, rgba(255,255,255,.95), transparent 18%),
+    radial-gradient(circle at 28% 20%, rgba(255,255,255,.92), transparent 18%),
     radial-gradient(circle at 42% 34%, ${primary}, ${secondary} 82%)
   `;
 };
@@ -395,141 +402,177 @@ const buildImageFrameStyle = (imageFrame, stageKey = "colorStudio") => {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  const normalizeFocus = (value) => {
-    const number = readNumber(value);
-    if (!Number.isFinite(number)) return null;
-    return number > 1 ? number / 100 : number;
-  };
+  const clamp = (value, min, max) =>
+    Math.min(max, Math.max(min, Number(value) || 0));
 
   const cssVars = {
     ...(imageFrame?.cssVars || {}),
     ...(frame?.cssVars || {}),
   };
 
-  const naturalWidth = readNumber(
+  const canvasWidth = readNumber(
+    frame.canvas_width,
+    frame.canvasWidth,
     frame.naturalWidth,
     frame.imageWidth,
     frame.sourceWidth,
-    frame.canvasWidth,
-    frame.canvas_width,
+    imageFrame?.canvas_width,
+    imageFrame?.canvasWidth,
     imageFrame?.naturalWidth,
     imageFrame?.imageWidth,
     imageFrame?.sourceWidth,
-    imageFrame?.canvasWidth,
-    imageFrame?.canvas_width,
   );
 
-  const naturalHeight = readNumber(
+  const canvasHeight = readNumber(
+    frame.canvas_height,
+    frame.canvasHeight,
     frame.naturalHeight,
     frame.imageHeight,
     frame.sourceHeight,
-    frame.canvasHeight,
-    frame.canvas_height,
+    imageFrame?.canvas_height,
+    imageFrame?.canvasHeight,
     imageFrame?.naturalHeight,
     imageFrame?.imageHeight,
     imageFrame?.sourceHeight,
-    imageFrame?.canvasHeight,
-    imageFrame?.canvas_height,
   );
 
   const bounds =
-    frame.bounds || frame.visibleBounds || frame.contentBounds || frame;
+    frame.bounds ||
+    frame.visibleBounds ||
+    frame.visibleBox ||
+    frame.contentBounds ||
+    frame.contentBox ||
+    frame.subjectBounds ||
+    frame.carBounds ||
+    frame;
 
-  const left = readNumber(bounds.left, bounds.x, bounds.minX);
-  const top = readNumber(bounds.top, bounds.y, bounds.minY);
-  const width = readNumber(bounds.width, bounds.w);
-  const height = readNumber(bounds.height, bounds.h);
+  const rawLeft = readNumber(bounds.left, bounds.x, bounds.minX);
+  const rawTop = readNumber(bounds.top, bounds.y, bounds.minY);
+  const rawWidth = readNumber(bounds.width, bounds.w);
+  const rawHeight = readNumber(bounds.height, bounds.h);
+
+  const hasPixelBounds =
+    Number.isFinite(canvasWidth) &&
+    Number.isFinite(canvasHeight) &&
+    canvasWidth > 0 &&
+    canvasHeight > 0 &&
+    Number.isFinite(rawLeft) &&
+    Number.isFinite(rawTop) &&
+    Number.isFinite(rawWidth) &&
+    Number.isFinite(rawHeight) &&
+    rawWidth > 0 &&
+    rawHeight > 0;
+
+  const looksNormalized =
+    [rawLeft, rawTop, rawWidth, rawHeight].every(Number.isFinite) &&
+    rawLeft >= 0 &&
+    rawTop >= 0 &&
+    rawWidth > 0 &&
+    rawHeight > 0 &&
+    rawLeft <= 1 &&
+    rawTop <= 1 &&
+    rawWidth <= 1 &&
+    rawHeight <= 1;
+
+  let centerX = null;
+  let centerY = null;
+  let widthRatio = null;
+  let heightRatio = null;
+
+  if (looksNormalized) {
+    centerX = rawLeft + rawWidth / 2;
+    centerY = rawTop + rawHeight / 2;
+    widthRatio = rawWidth;
+    heightRatio = rawHeight;
+  } else if (hasPixelBounds) {
+    centerX = (rawLeft + rawWidth / 2) / canvasWidth;
+    centerY = (rawTop + rawHeight / 2) / canvasHeight;
+    widthRatio = rawWidth / canvasWidth;
+    heightRatio = rawHeight / canvasHeight;
+  }
 
   const hasBounds =
-    Number.isFinite(naturalWidth) &&
-    Number.isFinite(naturalHeight) &&
-    naturalWidth > 0 &&
-    naturalHeight > 0 &&
-    Number.isFinite(left) &&
-    Number.isFinite(top) &&
-    Number.isFinite(width) &&
-    Number.isFinite(height) &&
-    width > 0 &&
-    height > 0;
+    Number.isFinite(centerX) &&
+    Number.isFinite(centerY) &&
+    Number.isFinite(widthRatio) &&
+    Number.isFinite(heightRatio) &&
+    widthRatio > 0 &&
+    heightRatio > 0;
 
-  const focusX = normalizeFocus(
-    frame?.focusX ??
-      frame?.focalX ??
-      frame?.centerX ??
-      imageFrame?.focusX ??
-      imageFrame?.focalX,
+  if (!hasBounds) {
+    return {
+      "--aci-car-frame-scale": "1",
+      "--aci-car-frame-x": "0%",
+      "--aci-car-frame-y": "0%",
+      "--aci-car-frame-origin": "center center",
+      "--aci-image-aspect":
+        Number.isFinite(canvasWidth) && Number.isFinite(canvasHeight)
+          ? `${canvasWidth} / ${canvasHeight}`
+          : "1400 / 787",
+    };
+  }
+
+  /*
+    Correct subject-fit logic:
+    - center the detected car frame inside the stage
+    - use Math.min so the whole car fits
+    - car touches either horizontal safe area OR vertical safe area
+    - never crop the detected car frame
+  */
+  const targetCenterX = 0.5;
+  const targetCenterY = stageKey === "mobileHero" ? 0.53 : 0.54;
+
+  const safeWidthFill = stageKey === "mobileHero" ? 0.94 : 0.92;
+  const safeHeightFill = stageKey === "mobileHero" ? 0.76 : 0.78;
+
+  const widthScale = safeWidthFill / widthRatio;
+  const heightScale = safeHeightFill / heightRatio;
+
+  const fittedScale = clamp(
+    Math.min(widthScale, heightScale),
+    0.82,
+    stageKey === "mobileHero" ? 1.95 : 1.72,
   );
 
-  const focusY = normalizeFocus(
-    frame?.focusY ??
-      frame?.focalY ??
-      frame?.centerY ??
-      imageFrame?.focusY ??
-      imageFrame?.focalY,
-  );
+  /*
+    Translation must account for scaling around center.
+    After scale:
+    point = 0.5 + scale * (center - 0.5) + translate
+  */
+  const computedX = (targetCenterX - 0.5 - fittedScale * (centerX - 0.5)) * 100;
 
-  const computedX = hasBounds
-    ? (0.5 - (left + width / 2) / naturalWidth) * 100
-    : Number.isFinite(focusX)
-      ? (0.5 - focusX) * 100
-      : null;
-
-  const computedY = hasBounds
-    ? (0.5 - (top + height / 2) / naturalHeight) * 100
-    : Number.isFinite(focusY)
-      ? (0.5 - focusY) * 100
-      : null;
-
-  const widthRatio = hasBounds ? width / naturalWidth : null;
-  const heightRatio = hasBounds ? height / naturalHeight : null;
-
-  const fittedScale = hasBounds
-    ? Math.min(
-        stageKey === "mobileHero" ? 1.18 : 1.16,
-        Math.max(
-          1,
-          Math.max(
-            0.94 / Math.max(widthRatio, 0.01),
-            0.72 / Math.max(heightRatio, 0.01),
-          ),
-        ),
-      )
-    : null;
+  const computedY = (targetCenterY - 0.5 - fittedScale * (centerY - 0.5)) * 100;
 
   const explicitScale = readNumber(
     cssVars["--car-frame-scale"],
-    frame?.scale,
-    frame?.zoom,
+    frame.scale,
+    frame.zoom,
   );
 
   const x =
     cssVars["--car-frame-x"] ??
-    frame?.translateXPct ??
-    frame?.translateXPercent ??
-    frame?.translateX ??
-    (Number.isFinite(computedX) ? `${computedX}%` : undefined);
+    frame.translateXPct ??
+    frame.translateXPercent ??
+    frame.translateX ??
+    `${clamp(computedX, -32, 32)}%`;
 
   const y =
     cssVars["--car-frame-y"] ??
-    frame?.translateYPct ??
-    frame?.translateYPercent ??
-    frame?.translateY ??
-    (Number.isFinite(computedY) ? `${computedY}%` : undefined);
+    frame.translateYPct ??
+    frame.translateYPercent ??
+    frame.translateY ??
+    `${clamp(computedY, -30, 24)}%`;
 
   return {
-    ...(explicitScale || fittedScale
-      ? { "--aci-car-frame-scale": String(explicitScale || fittedScale) }
-      : {}),
-    ...(x !== undefined
-      ? { "--aci-car-frame-x": typeof x === "number" ? `${x}%` : x }
-      : {}),
-    ...(y !== undefined
-      ? { "--aci-car-frame-y": typeof y === "number" ? `${y}%` : y }
-      : {}),
+    "--aci-car-frame-scale": String(explicitScale || fittedScale),
+    "--aci-car-frame-x": typeof x === "number" ? `${x}%` : x,
+    "--aci-car-frame-y": typeof y === "number" ? `${y}%` : y,
     "--aci-car-frame-origin":
-      cssVars["--car-frame-origin"] ||
-      frame?.transformOrigin ||
-      "center center",
+      cssVars["--car-frame-origin"] || frame.transformOrigin || "center center",
+    "--aci-image-aspect":
+      Number.isFinite(canvasWidth) && Number.isFinite(canvasHeight)
+        ? `${canvasWidth} / ${canvasHeight}`
+        : "1400 / 787",
   };
 };
 
@@ -601,9 +644,10 @@ function ColorOrb({ color = {}, selected = false, size = "md" }) {
 
 function VehicleArtwork({ color = {}, vehicle = {}, mode = "desktop" }) {
   const stageKey = mode === "mobile" ? "mobileHero" : "colorStudio";
-  const frameStyle = color?.isStagePhoto
-    ? {}
-    : buildImageFrameStyle(color?.imageFrame, stageKey);
+  const hasFrame = hasMeaningfulObject(color?.imageFrame);
+  const frameStyle = hasFrame
+    ? buildImageFrameStyle(color?.imageFrame, stageKey)
+    : {};
 
   const isStagePhoto =
     color.isStagePhoto === true ||
@@ -611,25 +655,23 @@ function VehicleArtwork({ color = {}, vehicle = {}, mode = "desktop" }) {
     color.imageModeUsed === "stage-only" ||
     color.imageBackgroundRemoved === false;
 
-  const defaultScale = isStagePhoto
-    ? mode === "mobile"
-      ? "1.48"
-      : "1.42"
-    : mode === "mobile"
-      ? "1.08"
+  const fallbackScale = hasFrame
+    ? "1"
+    : isStagePhoto
+      ? mode === "mobile"
+        ? "1.42"
+        : "1.3"
       : "1.08";
-
-  const defaultY = isStagePhoto ? (mode === "mobile" ? "-7%" : "-7%") : "0%";
 
   return (
     <div
       className={`aci-color-car ${mode} ${
         isStagePhoto ? "is-stage-photo" : "is-cutout"
-      }`}
+      } ${hasFrame ? "has-frame" : "no-frame"}`}
       style={{
-        "--aci-car-frame-scale": defaultScale,
+        "--aci-car-frame-scale": fallbackScale,
         "--aci-car-frame-x": "0%",
-        "--aci-car-frame-y": defaultY,
+        "--aci-car-frame-y": "0%",
         "--aci-car-frame-origin": "center center",
         ...frameStyle,
       }}
@@ -796,30 +838,11 @@ function DesktopScreen({
             <h1>
               {vehicleTitle}
               <span>
-                <Check size={17} strokeWidth={4} />
+                <Check size={15} strokeWidth={4} />
               </span>
             </h1>
             <p>Explore all exterior colors available for {vehicleTitle}.</p>
           </div>
-
-          <button
-            type="button"
-            className="aci-change-model"
-            onClick={() =>
-              fireColorAction(
-                "Change model",
-                {
-                  vehicle,
-                  type: "change_model",
-                  query: "Change model for colors",
-                },
-                onAction,
-              )
-            }
-          >
-            <Car size={17} />
-            Change model
-          </button>
         </motion.header>
 
         <motion.section className="aci-hero-stage" variants={fadeUp}>
@@ -898,7 +921,7 @@ function DesktopScreen({
         >
           <div className="aci-card-head">
             <h3>Selected color</h3>
-            <Sparkles size={16} />
+            <Sparkles size={15} />
           </div>
 
           <div className="selected-color-layout">
@@ -945,7 +968,7 @@ function DesktopScreen({
             }
           >
             Use this color
-            <ChevronRight size={17} />
+            <ChevronRight size={16} />
           </button>
         </motion.section>
 
@@ -955,7 +978,7 @@ function DesktopScreen({
         >
           <div className="aci-card-head">
             <h3>Available shades</h3>
-            <Palette size={16} />
+            <Palette size={15} />
           </div>
 
           <strong>{String(colors.length).padStart(2, "0")}</strong>
@@ -1044,7 +1067,7 @@ function MobileScreen({
             )
           }
         >
-          <ArrowLeft size={28} />
+          <ArrowLeft size={27} />
         </button>
 
         <AciMark />
@@ -1054,7 +1077,7 @@ function MobileScreen({
             type="button"
             onClick={() => fireColorAction("Notifications", {}, onAction)}
           >
-            <Bell size={24} />
+            <Bell size={23} />
             <i />
           </button>
 
@@ -1094,7 +1117,7 @@ function MobileScreen({
           </div>
 
           <span>
-            <Palette size={17} />
+            <Palette size={16} />
             {colors.length} colors
           </span>
         </div>
@@ -1178,7 +1201,7 @@ function MobileScreen({
           }
         >
           Get quote
-          <ChevronRight size={18} />
+          <ChevronRight size={17} />
         </button>
       </motion.section>
 
@@ -1354,8 +1377,8 @@ const baseStyles = `
     color: var(--aci-ink);
     font-family: var(--aci-sans);
     background:
-      radial-gradient(circle at 72% -12%, rgba(37, 99, 235, .075), transparent 28%),
-      radial-gradient(circle at 10% 18%, rgba(219, 234, 254, .48), transparent 28%),
+      radial-gradient(circle at 72% -12%, rgba(37, 99, 235, .065), transparent 28%),
+      radial-gradient(circle at 10% 18%, rgba(219, 234, 254, .42), transparent 28%),
       linear-gradient(180deg, #ffffff 0%, #fbfdff 52%, #f7fbff 100%);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
@@ -1375,10 +1398,10 @@ const baseStyles = `
     width: min(100%, 1536px);
     min-height: 100vh;
     margin: 0 auto;
-    padding: 46px 48px 110px;
+    padding: 38px 46px 104px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 310px;
-    gap: 34px;
+    grid-template-columns: minmax(0, 1fr) 306px;
+    gap: 32px;
     align-items: start;
   }
 
@@ -1387,31 +1410,31 @@ const baseStyles = `
   }
 
   .aci-desktop-header {
-    min-height: 108px;
+    min-height: 88px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
     gap: 28px;
-    padding-bottom: 12px;
+    padding-bottom: 8px;
   }
 
   .aci-desktop-header h1 {
     margin: 0;
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 11px;
     color: #02081f;
     font-family: var(--aci-serif);
-    font-size: clamp(52px, 4.7vw, 76px);
-    line-height: .86;
-    letter-spacing: -.075em;
-    font-weight: 620;
+    font-size: clamp(44px, 4vw, 62px);
+    line-height: .88;
+    letter-spacing: -.065em;
+    font-weight: 560;
     text-wrap: balance;
   }
 
   .aci-desktop-header h1 span {
-    width: 26px;
-    height: 26px;
+    width: 24px;
+    height: 24px;
     border-radius: 999px;
     display: grid;
     place-items: center;
@@ -1421,43 +1444,43 @@ const baseStyles = `
   }
 
   .aci-desktop-header p {
-    margin: 16px 0 0;
+    margin: 12px 0 0;
     color: #526174;
-    font-size: 15px;
+    font-size: 14px;
     line-height: 1.35;
-    font-weight: 470;
+    font-weight: 450;
   }
 
   .aci-change-model {
-    height: 44px;
-    margin-top: 10px;
-    padding: 0 18px;
-    border-radius: 15px;
+    height: 40px;
+    margin-top: 8px;
+    padding: 0 16px;
+    border-radius: 14px;
     border: 1px solid rgba(203, 213, 225, .88);
     background:
       linear-gradient(180deg, rgba(255,255,255,.96), rgba(248,251,255,.9));
     color: #445166;
     display: inline-flex;
     align-items: center;
-    gap: 9px;
-    font-size: 13px;
-    font-weight: 720;
+    gap: 8px;
+    font-size: 12.5px;
+    font-weight: 650;
     box-shadow:
       0 18px 42px -34px rgba(15, 23, 42, .38),
       inset 0 1px 0 #fff;
   }
 
-    .aci-hero-stage {
+  .aci-hero-stage {
     position: relative;
-    min-height: 470px;
-    border-radius: 32px;
+    min-height: 430px;
+    border-radius: 30px;
     overflow: hidden;
     border: 1px solid rgba(211, 224, 241, .88);
     background:
       radial-gradient(circle at 52% 38%, rgba(255,255,255,.98), transparent 33%),
-      radial-gradient(circle at 78% 24%, rgba(219,234,254,.52), transparent 34%),
+      radial-gradient(circle at 78% 25%, rgba(219,234,254,.48), transparent 34%),
       radial-gradient(circle at 18% 22%, rgba(255,255,255,.98), transparent 32%),
-      linear-gradient(145deg, #ffffff 0%, #f7fbff 47%, #edf6ff 100%);
+      linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #edf6ff 100%);
     box-shadow:
       0 36px 96px -72px rgba(15,23,42,.54),
       inset 0 1px 0 rgba(255,255,255,.96);
@@ -1478,26 +1501,26 @@ const baseStyles = `
     content: "";
     position: absolute;
     inset: 0;
-    z-index: 2;
+    z-index: 3;
     pointer-events: none;
     background:
-      linear-gradient(118deg, transparent 0 7%, rgba(255,255,255,.62) 12%, transparent 25%),
-      linear-gradient(245deg, transparent 0 8%, rgba(255,255,255,.55) 14%, transparent 28%),
-      radial-gradient(ellipse at 8% 72%, rgba(219,234,254,.38), transparent 38%),
-      radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.34), transparent 36%);
-    opacity: .88;
+      linear-gradient(118deg, transparent 0 7%, rgba(255,255,255,.58) 13%, transparent 26%),
+      linear-gradient(245deg, transparent 0 8%, rgba(255,255,255,.52) 15%, transparent 29%),
+      radial-gradient(ellipse at 5% 72%, rgba(219,234,254,.32), transparent 38%),
+      radial-gradient(ellipse at 96% 72%, rgba(219,234,254,.30), transparent 36%);
+    opacity: .9;
   }
 
   .aci-stage-bg-ring {
     position: absolute;
-    left: 10%;
+    left: 8%;
     right: 8%;
-    bottom: 12%;
-    height: 60%;
+    bottom: 10%;
+    height: 62%;
     border-radius: 999px 999px 0 0;
     background:
       radial-gradient(ellipse at 50% 100%, rgba(255,255,255,.98), rgba(255,255,255,.68) 48%, transparent 72%);
-    opacity: .84;
+    opacity: .78;
     pointer-events: none;
     z-index: 1;
   }
@@ -1523,10 +1546,10 @@ const baseStyles = `
 
   .aci-stage-plate {
     position: absolute;
-    left: 19%;
-    right: 13%;
-    bottom: 40px;
-    height: 88px;
+    left: 20%;
+    right: 14%;
+    bottom: 35px;
+    height: 82px;
     border-radius: 999px;
     background:
       radial-gradient(ellipse at 50% 18%, rgba(255,255,255,.99), rgba(238,246,255,.92) 50%, rgba(203,216,233,.46) 100%);
@@ -1534,7 +1557,7 @@ const baseStyles = `
       0 24px 34px -28px rgba(15,23,42,.42),
       inset 0 1px 0 rgba(255,255,255,.98),
       inset 0 -12px 18px rgba(148,163,184,.13);
-    opacity: .72;
+    opacity: .62;
     pointer-events: none;
     z-index: 1;
   }
@@ -1542,10 +1565,10 @@ const baseStyles = `
   .aci-stage-pill {
     position: absolute;
     z-index: 8;
-    top: 26px;
-    left: 28px;
-    height: 42px;
-    padding: 0 16px 0 9px;
+    top: 24px;
+    left: 26px;
+    height: 39px;
+    padding: 0 15px 0 8px;
     border-radius: 999px;
     border: 1px solid rgba(216, 226, 240, .92);
     background: rgba(255,255,255,.88);
@@ -1553,9 +1576,9 @@ const baseStyles = `
     color: #0f172a;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    font-weight: 820;
+    gap: 9px;
+    font-size: 12px;
+    font-weight: 780;
     box-shadow:
       0 16px 36px -30px rgba(15,23,42,.42),
       inset 0 1px 0 #fff;
@@ -1564,10 +1587,10 @@ const baseStyles = `
   .aci-color-car {
     position: absolute;
     z-index: 4;
-    left: 1.8%;
-    right: 1.8%;
-    top: 72px;
-    bottom: 20px;
+    top: 42px;
+    bottom: 10px;
+    left: 1.5%;
+    right: 1.5%;
     display: grid;
     place-items: center;
     pointer-events: none;
@@ -1576,24 +1599,24 @@ const baseStyles = `
 
   .aci-color-car-photo-window {
     position: relative;
-    width: min(100%, 1060px);
+    width: min(100%, 1080px);
     height: min(100%, 390px);
     aspect-ratio: 930 / 620;
     display: grid;
     place-items: center;
     overflow: hidden;
-    border-radius: 30px;
+    border-radius: 28px;
     background:
-      radial-gradient(circle at 52% 48%, rgba(255,255,255,.98), transparent 36%),
-      linear-gradient(180deg, #ffffff 0%, #f8fbff 52%, #edf6ff 100%);
+      radial-gradient(circle at 52% 46%, rgba(255,255,255,.98), transparent 36%),
+      linear-gradient(180deg, #ffffff 0%, #f9fcff 52%, #edf6ff 100%);
+    z-index: 4;
     -webkit-mask-image:
-      linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
-      linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
+      linear-gradient(90deg, transparent 0%, #000 3.5%, #000 96.5%, transparent 100%),
+      linear-gradient(180deg, #000 0%, #000 94%, transparent 100%);
     -webkit-mask-composite: source-in;
     mask-image:
-      linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
-      linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
-    z-index: 4;
+      linear-gradient(90deg, transparent 0%, #000 3.5%, #000 96.5%, transparent 100%),
+      linear-gradient(180deg, #000 0%, #000 94%, transparent 100%);
   }
 
   .aci-color-car-photo-window::before {
@@ -1603,8 +1626,22 @@ const baseStyles = `
     z-index: 3;
     pointer-events: none;
     background:
-      linear-gradient(90deg, rgba(255,255,255,.76) 0%, rgba(255,255,255,0) 10%, rgba(255,255,255,0) 90%, rgba(255,255,255,.72) 100%),
-      linear-gradient(180deg, rgba(255,255,255,.34) 0%, rgba(255,255,255,0) 24%, rgba(255,255,255,.18) 100%);
+      linear-gradient(90deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,0) 8%, rgba(255,255,255,0) 92%, rgba(255,255,255,.78) 100%),
+      linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,.18) 100%);
+  }
+
+  .aci-color-car-photo-window::after {
+    content: "";
+    position: absolute;
+    left: 11%;
+    right: 11%;
+    bottom: 6%;
+    height: 13%;
+    border-radius: 999px;
+    z-index: 2;
+    pointer-events: none;
+    background: radial-gradient(ellipse at center, rgba(15,23,42,.13), transparent 68%);
+    filter: blur(12px);
   }
 
   .aci-color-car-stage,
@@ -1636,11 +1673,11 @@ const baseStyles = `
     object-position: center center !important;
     user-select: none;
     mix-blend-mode: normal !important;
-    filter: drop-shadow(0 30px 28px rgba(15,23,42,.18)) !important;
+    filter: drop-shadow(0 30px 28px rgba(15,23,42,.17)) !important;
     transform-origin: var(--aci-car-frame-origin, center center) !important;
     transform:
       translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
-      scale(var(--aci-car-frame-scale, 1.16)) !important;
+      scale(var(--aci-car-frame-scale, 1)) !important;
   }
 
   .aci-color-car.is-cutout .aci-color-car-photo-window {
@@ -1649,7 +1686,8 @@ const baseStyles = `
     mask-image: none;
   }
 
-  .aci-color-car.is-cutout .aci-color-car-photo-window::before {
+  .aci-color-car.is-cutout .aci-color-car-photo-window::before,
+  .aci-color-car.is-cutout .aci-color-car-photo-window::after {
     display: none;
   }
 
@@ -1659,21 +1697,21 @@ const baseStyles = `
   }
 
   .aci-color-swatches.desktop {
-    margin-top: 26px;
+    margin-top: 22px;
   }
 
   .aci-color-swatches h2 {
     margin: 0 0 15px;
     color: #0f172a;
-    font-size: 14px;
+    font-size: 13.5px;
     line-height: 1;
-    font-weight: 820;
+    font-weight: 760;
     letter-spacing: -.01em;
   }
 
   .aci-swatch-row {
     display: grid;
-    grid-template-columns: repeat(9, minmax(78px, 1fr));
+    grid-template-columns: repeat(9, minmax(76px, 1fr));
     gap: 14px;
     align-items: start;
   }
@@ -1688,7 +1726,7 @@ const baseStyles = `
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
   }
 
   .aci-swatch-row button span:not(.aci-color-orb),
@@ -1696,15 +1734,15 @@ const baseStyles = `
     max-width: 104px;
     color: #475569;
     text-align: center;
-    font-size: 12px;
-    line-height: 1.16;
-    font-weight: 620;
+    font-size: 11.2px;
+    line-height: 1.14;
+    font-weight: 560;
   }
 
   .aci-swatch-row button.active span:not(.aci-color-orb),
   .aci-mobile-swatch-grid button.active span:not(.aci-color-orb) {
     color: #08132f;
-    font-weight: 860;
+    font-weight: 760;
   }
 
   .aci-color-orb {
@@ -1719,8 +1757,8 @@ const baseStyles = `
   }
 
   .aci-color-orb.xs {
-    width: 22px;
-    height: 22px;
+    width: 21px;
+    height: 21px;
   }
 
   .aci-color-orb.md {
@@ -1729,13 +1767,13 @@ const baseStyles = `
   }
 
   .aci-color-orb.lg {
-    width: 66px;
-    height: 66px;
+    width: 62px;
+    height: 62px;
   }
 
   .aci-color-orb.xl {
-    width: 70px;
-    height: 70px;
+    width: 64px;
+    height: 64px;
   }
 
   .aci-color-orb i {
@@ -1762,8 +1800,8 @@ const baseStyles = `
     position: absolute;
     right: -7px;
     bottom: -5px;
-    width: 24px;
-    height: 24px;
+    width: 23px;
+    height: 23px;
     border-radius: 999px;
     background: linear-gradient(135deg, #3b82f6, #1455ef);
     color: #fff;
@@ -1774,18 +1812,18 @@ const baseStyles = `
   }
 
   .aci-view-all-colors {
-    margin: 16px auto 0;
-    height: 38px;
+    margin: 15px auto 0;
+    height: 36px;
     border-radius: 999px;
     border: 1px solid rgba(203, 213, 225, .9);
     background:
       linear-gradient(180deg, rgba(255,255,255,.98), rgba(248,251,255,.94));
     color: #334155;
-    font-size: 13px;
-    font-weight: 820;
+    font-size: 12.5px;
+    font-weight: 760;
     align-items: center;
     justify-content: center;
-    padding: 0 18px;
+    padding: 0 17px;
     box-shadow:
       0 16px 36px -30px rgba(15,23,42,.36),
       inset 0 1px 0 #fff;
@@ -1804,19 +1842,19 @@ const baseStyles = `
   .aci-colors-rail {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding-top: 10px;
+    gap: 15px;
+    padding-top: 8px;
   }
 
   .aci-color-card {
-    border-radius: 24px;
+    border-radius: 23px;
     border: 1px solid rgba(219, 230, 244, .88);
     background:
       linear-gradient(180deg, rgba(255,255,255,.98), rgba(249,252,255,.94));
     box-shadow:
       0 28px 80px -64px rgba(15,23,42,.52),
       inset 0 1px 0 rgba(255,255,255,.95);
-    padding: 18px;
+    padding: 16px;
   }
 
   .aci-card-head {
@@ -1829,9 +1867,9 @@ const baseStyles = `
   .aci-card-head h3 {
     margin: 0;
     color: #0f172a;
-    font-size: 15px;
+    font-size: 13.5px;
     line-height: 1;
-    font-weight: 860;
+    font-weight: 760;
     letter-spacing: -.01em;
   }
 
@@ -1840,34 +1878,34 @@ const baseStyles = `
   }
 
   .selected-color-layout {
-    margin-top: 18px;
+    margin-top: 16px;
     display: grid;
-    grid-template-columns: 76px 1fr;
-    gap: 14px;
+    grid-template-columns: 68px 1fr;
+    gap: 13px;
     align-items: center;
   }
 
   .selected-color-layout strong {
     display: block;
     color: #08132f;
-    font-size: 19px;
+    font-size: 17px;
     line-height: 1.05;
     letter-spacing: -.035em;
-    font-weight: 900;
+    font-weight: 820;
   }
 
   .selected-color-layout p {
-    margin: 7px 0 0;
+    margin: 6px 0 0;
     color: #617088;
-    font-size: 12px;
+    font-size: 11.2px;
     line-height: 1.38;
     font-weight: 470;
   }
 
   .aci-primary-button {
     width: 100%;
-    height: 43px;
-    margin-top: 18px;
+    height: 41px;
+    margin-top: 17px;
     border: 0;
     border-radius: 14px;
     background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
@@ -1876,81 +1914,81 @@ const baseStyles = `
     align-items: center;
     justify-content: center;
     gap: 7px;
-    font-size: 13px;
-    font-weight: 850;
+    font-size: 12.5px;
+    font-weight: 800;
     box-shadow: 0 18px 42px -30px rgba(37,99,235,.82);
   }
 
   .shades-card > strong {
     display: block;
-    margin-top: 18px;
+    margin-top: 16px;
     color: var(--aci-blue);
-    font-size: 47px;
+    font-size: 44px;
     line-height: .9;
     letter-spacing: -.07em;
-    font-weight: 940;
+    font-weight: 890;
   }
 
   .shades-card p {
-    margin: 14px 0 0;
+    margin: 13px 0 0;
     color: #617088;
-    font-size: 12px;
+    font-size: 11.2px;
     line-height: 1.48;
   }
 
   .aci-ask-card {
-    padding-bottom: 14px;
+    padding-bottom: 13px;
   }
 
   .aci-ask-list {
-    margin-top: 14px;
+    margin-top: 13px;
     display: grid;
-    gap: 9px;
+    gap: 8px;
   }
 
   .aci-color-ask-row {
     width: 100%;
-    min-height: 58px;
+    min-height: 56px;
     border: 1px solid rgba(219, 230, 244, .88);
-    border-radius: 17px;
+    border-radius: 16px;
     background: rgba(255,255,255,.86);
     display: grid;
-    grid-template-columns: 36px 1fr auto;
+    grid-template-columns: 35px 1fr auto;
     align-items: center;
-    gap: 11px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 9px 11px;
     color: #0f172a;
     text-align: left;
     box-shadow: 0 16px 38px -34px rgba(15,23,42,.42);
   }
 
   .aci-color-ask-row > span {
-    width: 36px;
-    height: 36px;
+    width: 35px;
+    height: 35px;
     border-radius: 999px;
     display: grid;
     place-items: center;
     background:
       radial-gradient(circle at 30% 18%, #fff, rgba(219,234,254,.86));
     box-shadow: inset 0 0 0 1px rgba(37,99,235,.1);
-    font-size: 15px;
+    font-size: 14px;
   }
 
   .aci-color-ask-row strong {
     display: block;
     color: #111b36;
-    font-size: 12px;
+    font-size: 11.5px;
     line-height: 1.1;
-    font-weight: 840;
+    font-weight: 760;
   }
 
   .aci-color-ask-row small {
     display: block;
     margin-top: 3px;
     color: #718096;
-    font-size: 10.5px;
+    font-size: 10px;
     line-height: 1.2;
-    font-weight: 520;
+    font-weight: 500;
   }
 
   .aci-color-ask-row svg {
@@ -1960,9 +1998,9 @@ const baseStyles = `
   .aci-desktop-chatbar-wrap {
     position: fixed;
     left: 50%;
-    bottom: 18px;
+    bottom: 17px;
     z-index: 80;
-    width: min(700px, calc(100vw - 56px));
+    width: min(690px, calc(100vw - 56px));
     transform: translateX(-50%);
   }
 
@@ -2050,11 +2088,11 @@ const baseStyles = `
       padding: 16px 14px calc(112px + env(safe-area-inset-bottom));
       display: flex;
       flex-direction: column;
-      gap: 15px;
+      gap: 14px;
     }
 
     .aci-mobile-topbar {
-      height: 54px;
+      height: 52px;
       display: grid;
       grid-template-columns: 44px 1fr auto;
       align-items: center;
@@ -2078,13 +2116,13 @@ const baseStyles = `
       justify-self: end;
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 9px;
     }
 
     .aci-mobile-topbar > div button {
       position: relative;
-      width: 36px;
-      height: 36px;
+      width: 35px;
+      height: 35px;
       border-radius: 999px;
     }
 
@@ -2123,7 +2161,7 @@ const baseStyles = `
 
     .aci-color-logo strong {
       color: var(--aci-blue);
-      font-size: 29px;
+      font-size: 28px;
       line-height: .85;
       font-weight: 950;
       letter-spacing: -3px;
@@ -2132,11 +2170,11 @@ const baseStyles = `
 
     .aci-color-logo em {
       color: #07112e;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1;
       font-style: normal;
-      letter-spacing: 6px;
-      font-weight: 800;
+      letter-spacing: 5.6px;
+      font-weight: 760;
     }
 
     .aci-mobile-title {
@@ -2148,88 +2186,87 @@ const baseStyles = `
       color: #334155;
       text-transform: uppercase;
       letter-spacing: .28em;
-      font-size: 11px;
-      font-weight: 860;
+      font-size: 10.5px;
+      font-weight: 780;
     }
 
     .aci-mobile-title h1 {
       margin: 10px 0 6px;
       color: #050b22;
       font-family: var(--aci-serif);
-      font-size: 46px;
-      line-height: .88;
-      letter-spacing: -.075em;
-      font-weight: 620;
+      font-size: 40px;
+      line-height: .9;
+      letter-spacing: -.065em;
+      font-weight: 560;
       text-wrap: balance;
     }
 
     .aci-mobile-title p {
       margin: 0;
       color: #738198;
-      font-size: 22px;
+      font-size: 19px;
       line-height: 1.05;
-      font-weight: 460;
+      font-weight: 430;
     }
 
     .aci-mobile-hero {
       position: relative;
-      min-height: 408px;
-      border-radius: 29px;
+      min-height: 418px;
+      border-radius: 28px;
       overflow: hidden;
       border: 1px solid rgba(211,224,241,.92);
       background:
         radial-gradient(circle at 54% 38%, rgba(255,255,255,.98), transparent 34%),
-        radial-gradient(circle at 78% 28%, rgba(219,234,254,.50), transparent 34%),
+        radial-gradient(circle at 78% 28%, rgba(219,234,254,.46), transparent 34%),
         radial-gradient(circle at 18% 18%, rgba(255,255,255,.98), transparent 34%),
-        linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #edf6ff 100%);
+        linear-gradient(145deg, #ffffff 0%, #f9fcff 48%, #eef7ff 100%);
       box-shadow:
         0 28px 78px -62px rgba(15,23,42,.58),
         inset 0 1px 0 #fff;
     }
-        .aci-mobile-hero::after {
+
+    .aci-mobile-hero::after {
       content: "";
       position: absolute;
       inset: 0;
-      z-index: 2;
+      z-index: 3;
       pointer-events: none;
       background:
-        linear-gradient(120deg, transparent 0 5%, rgba(255,255,255,.62) 12%, transparent 28%),
-        linear-gradient(242deg, transparent 0 7%, rgba(255,255,255,.56) 15%, transparent 30%),
-        radial-gradient(ellipse at 6% 72%, rgba(219,234,254,.34), transparent 38%),
-        radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.32), transparent 36%);
-      opacity: .88;
+        linear-gradient(120deg, transparent 0 5%, rgba(255,255,255,.60) 12%, transparent 28%),
+        linear-gradient(242deg, transparent 0 7%, rgba(255,255,255,.54) 15%, transparent 30%),
+        radial-gradient(ellipse at 6% 72%, rgba(219,234,254,.30), transparent 38%),
+        radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.30), transparent 36%);
+      opacity: .9;
     }
-
-
 
     .aci-mobile-hero-copy {
       position: relative;
-      z-index: 7;
+      z-index: 8;
       display: flex;
       justify-content: space-between;
       gap: 10px;
-      padding: 24px 22px 0;
+      padding: 22px 21px 0;
     }
 
     .aci-mobile-hero-copy h2 {
       margin: 0;
       color: #07112e;
-      font-size: 22px;
+      font-size: 20px;
       line-height: 1.05;
       letter-spacing: -.04em;
-      font-weight: 900;
+      font-weight: 800;
     }
 
     .aci-mobile-hero-copy p {
       margin: 5px 0 0;
       color: #617088;
-      font-size: 14px;
-      font-weight: 660;
+      font-size: 13px;
+      font-weight: 600;
     }
 
     .aci-mobile-hero-copy > span {
-      height: 39px;
-      padding: 0 13px;
+      height: 37px;
+      padding: 0 12px;
       border-radius: 999px;
       border: 1px solid rgba(219,230,244,.92);
       background: rgba(255,255,255,.82);
@@ -2238,8 +2275,8 @@ const baseStyles = `
       display: inline-flex;
       align-items: center;
       gap: 7px;
-      font-size: 13px;
-      font-weight: 800;
+      font-size: 12.5px;
+      font-weight: 760;
       white-space: nowrap;
       box-shadow: inset 0 1px 0 #fff;
     }
@@ -2247,52 +2284,38 @@ const baseStyles = `
     .aci-mobile-hero .aci-stage-bg-ring.mobile {
       left: 8%;
       right: 8%;
-      bottom: 20%;
-      height: 50%;
+      bottom: 18%;
+      height: 52%;
     }
 
     .aci-mobile-hero .aci-stage-plate.mobile {
       left: 14%;
       right: 12%;
-      bottom: 46px;
+      bottom: 42px;
       height: 64px;
     }
 
     .aci-color-car.mobile {
-      left: 0;
-      right: 0;
-      top: 102px;
-      bottom: 28px;
+      left: -5%;
+      right: -5%;
+      top: 90px;
+      bottom: 18px;
       overflow: visible;
     }
 
     .aci-color-car.mobile .aci-color-car-photo-window {
-      width: 108%;
-      max-width: 108%;
-      height: min(100%, 278px);
+      width: 120%;
+      max-width: 120%;
+      height: min(100%, 306px);
       border-radius: 24px;
       aspect-ratio: 930 / 620;
-      -webkit-mask-image:
-        linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
-        linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
-      -webkit-mask-composite: source-in;
-      mask-image:
-        linear-gradient(90deg, transparent 0%, #000 4%, #000 96%, transparent 100%),
-        linear-gradient(180deg, #000 0%, #000 92%, transparent 100%);
     }
 
     .aci-color-car.mobile .aci-color-car-image {
-      width: 100% !important;
-      max-width: 100% !important;
-      height: 100% !important;
-      max-height: 100% !important;
       object-fit: contain !important;
       object-position: center center !important;
       mix-blend-mode: normal !important;
-      filter: drop-shadow(0 26px 22px rgba(15,23,42,.18)) !important;
-      transform:
-        translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
-        scale(var(--aci-car-frame-scale, 1.14)) !important;
+      filter: drop-shadow(0 26px 22px rgba(15,23,42,.16)) !important;
     }
 
     .aci-color-swatches.mobile {
@@ -2300,33 +2323,33 @@ const baseStyles = `
     }
 
     .aci-color-swatches.mobile h2 {
-      margin: 0 0 14px;
-      font-size: 14px;
+      margin: 0 0 13px;
+      font-size: 13.5px;
     }
 
     .aci-mobile-swatch-grid {
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
-      gap: 16px 10px;
+      gap: 15px 10px;
     }
 
     .aci-mobile-swatch-grid button {
       padding: 0;
-      gap: 9px;
+      gap: 8px;
     }
 
     .aci-mobile-swatch-grid .aci-color-orb.lg {
-      width: 58px;
-      height: 58px;
+      width: 54px;
+      height: 54px;
     }
 
     .aci-mobile-swatch-grid button span:not(.aci-color-orb) {
       max-width: 82px;
       min-height: 28px;
       color: #526174;
-      font-size: 12px;
-      line-height: 1.15;
-      font-weight: 600;
+      font-size: 11.2px;
+      line-height: 1.14;
+      font-weight: 560;
     }
 
     .aci-view-all-colors.mobile {
@@ -2334,8 +2357,8 @@ const baseStyles = `
     }
 
     .aci-mobile-selected-card {
-      min-height: 96px;
-      border-radius: 24px;
+      min-height: 94px;
+      border-radius: 23px;
       border: 1px solid rgba(219,230,244,.9);
       background:
         linear-gradient(180deg, rgba(255,255,255,.98), rgba(249,252,255,.94));
@@ -2344,31 +2367,31 @@ const baseStyles = `
         inset 0 1px 0 #fff;
       padding: 14px;
       display: grid;
-      grid-template-columns: 58px 1fr auto;
+      grid-template-columns: 56px 1fr auto;
       align-items: center;
       gap: 12px;
     }
 
     .aci-mobile-selected-card .aci-color-orb.lg {
-      width: 54px;
-      height: 54px;
+      width: 52px;
+      height: 52px;
     }
 
     .aci-mobile-selected-card strong {
       display: block;
       color: #07112e;
-      font-size: 16px;
+      font-size: 15.5px;
       line-height: 1.12;
       letter-spacing: -.025em;
-      font-weight: 900;
+      font-weight: 820;
     }
 
     .aci-mobile-selected-card p {
       margin: 4px 0 0;
       color: #617088;
-      font-size: 12px;
+      font-size: 11.2px;
       line-height: 1.25;
-      font-weight: 500;
+      font-weight: 470;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
@@ -2376,19 +2399,19 @@ const baseStyles = `
     }
 
     .aci-mobile-selected-card button {
-      height: 46px;
-      min-width: 112px;
+      height: 44px;
+      min-width: 108px;
       border: 0;
       border-radius: 16px;
-      padding: 0 14px;
+      padding: 0 13px;
       background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
       color: #fff;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 6px;
-      font-size: 13px;
-      font-weight: 900;
+      font-size: 12.5px;
+      font-weight: 820;
       box-shadow: 0 18px 42px -30px rgba(37,99,235,.82);
     }
 
@@ -2403,8 +2426,8 @@ const baseStyles = `
     }
 
     .aci-mobile-chatbar-wrap .mobile-chatbar {
-      min-height: 68px !important;
-      grid-template-columns: 48px 1fr 36px 54px !important;
+      min-height: 66px !important;
+      grid-template-columns: 47px 1fr 35px 52px !important;
       padding: 7px !important;
     }
 
@@ -2414,25 +2437,25 @@ const baseStyles = `
     }
 
     .aci-mobile-chatbar-wrap .mobile-chatbar button:first-child {
-      width: 48px !important;
-      height: 48px !important;
+      width: 47px !important;
+      height: 47px !important;
       background: #f6f9ff !important;
     }
 
     .aci-mobile-chatbar-wrap .mobile-chatbar button:last-child {
-      width: 54px !important;
-      height: 54px !important;
+      width: 52px !important;
+      height: 52px !important;
       background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark)) !important;
       box-shadow: 0 16px 32px -22px rgba(37,99,235,.65) !important;
     }
 
     .aci-mobile-chatbar-wrap .mobile-chatbar input {
-      font-size: 14px !important;
+      font-size: 13.5px !important;
     }
 
     .aci-ask-card {
-      border-radius: 24px;
-      padding: 16px;
+      border-radius: 23px;
+      padding: 15px;
     }
   }
 
@@ -2442,20 +2465,20 @@ const baseStyles = `
     }
 
     .aci-mobile-title h1 {
-      font-size: 39px;
+      font-size: 37px;
     }
 
-        .aci-mobile-hero {
-      min-height: 382px;
+    .aci-mobile-hero {
+      min-height: 390px;
     }
 
     .aci-color-car.mobile {
-      top: 100px;
-      bottom: 30px;
+      top: 88px;
+      bottom: 20px;
     }
 
     .aci-color-car.mobile .aci-color-car-photo-window {
-      height: min(100%, 252px);
+      height: min(100%, 278px);
     }
 
     .aci-mobile-swatch-grid {
@@ -2463,8 +2486,8 @@ const baseStyles = `
     }
 
     .aci-mobile-swatch-grid .aci-color-orb.lg {
-      width: 54px;
-      height: 54px;
+      width: 52px;
+      height: 52px;
     }
 
     .aci-mobile-selected-card {
@@ -2478,327 +2501,633 @@ const baseStyles = `
     }
   }
 
-  /* ACI_COLORS_PREMIUM_STAGE_FINAL_FIX_START */
+  /* ACI_COLORS_FRAME_CONTAIN_FINAL_START */
 
-.aci-desktop-header {
-  min-height: 88px !important;
-  padding-bottom: 8px !important;
+/* Better typography: less childish, more editorial/premium */
+:root {
+  --aci-serif: "Iowan Old Style", "Apple Garamond", "Palatino Linotype", "Book Antiqua", Georgia, "Times New Roman", serif;
+  --aci-sans: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
 }
 
 .aci-desktop-header h1 {
   font-family: var(--aci-serif) !important;
-  font-size: clamp(44px, 4vw, 62px) !important;
-  line-height: .88 !important;
-  letter-spacing: -.065em !important;
-  font-weight: 560 !important;
+  font-size: clamp(42px, 3.7vw, 58px) !important;
+  line-height: .9 !important;
+  letter-spacing: -.058em !important;
+  font-weight: 520 !important;
 }
 
 .aci-desktop-header p {
-  margin-top: 12px !important;
-  font-size: 14px !important;
-}
-
-.aci-change-model {
-  height: 40px !important;
-  font-size: 12.5px !important;
-  font-weight: 650 !important;
-}
-
-.aci-hero-stage {
-  min-height: 420px !important;
-  border-radius: 30px !important;
-  background:
-    radial-gradient(circle at 52% 38%, rgba(255,255,255,.98), transparent 33%),
-    radial-gradient(circle at 78% 25%, rgba(219,234,254,.48), transparent 34%),
-    radial-gradient(circle at 18% 22%, rgba(255,255,255,.98), transparent 32%),
-    linear-gradient(145deg, #ffffff 0%, #f8fbff 48%, #edf6ff 100%) !important;
-}
-
-.aci-hero-stage::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background:
-    linear-gradient(118deg, transparent 0 7%, rgba(255,255,255,.58) 13%, transparent 26%),
-    linear-gradient(245deg, transparent 0 8%, rgba(255,255,255,.52) 15%, transparent 29%),
-    radial-gradient(ellipse at 5% 72%, rgba(219,234,254,.32), transparent 38%),
-    radial-gradient(ellipse at 96% 72%, rgba(219,234,254,.30), transparent 36%);
-  opacity: .9;
-}
-
-.aci-stage-bg-ring {
-  left: 8% !important;
-  right: 8% !important;
-  bottom: 10% !important;
-  height: 62% !important;
-  opacity: .78 !important;
-}
-
-.aci-stage-plate {
-  left: 20% !important;
-  right: 14% !important;
-  bottom: 35px !important;
-  height: 82px !important;
-  opacity: .62 !important;
-}
-
-.aci-color-car {
-  top: 42px !important;
-  bottom: 10px !important;
-  left: 1.5% !important;
-  right: 1.5% !important;
-  overflow: visible !important;
-}
-
-.aci-color-car-photo-window {
-  position: relative;
-  width: min(100%, 1080px);
-  height: min(100%, 390px);
-  aspect-ratio: 930 / 620;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  border-radius: 28px;
-  background:
-    radial-gradient(circle at 52% 46%, rgba(255,255,255,.98), transparent 36%),
-    linear-gradient(180deg, #ffffff 0%, #f9fcff 52%, #edf6ff 100%);
-  z-index: 4;
-}
-
-.aci-color-car-photo-window::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(255,255,255,.82) 0%, rgba(255,255,255,0) 8%, rgba(255,255,255,0) 92%, rgba(255,255,255,.78) 100%),
-    linear-gradient(180deg, rgba(255,255,255,.42) 0%, rgba(255,255,255,0) 26%, rgba(255,255,255,.18) 100%);
-}
-
-.aci-color-car-photo-window::after {
-  content: "";
-  position: absolute;
-  left: 11%;
-  right: 11%;
-  bottom: 6%;
-  height: 13%;
-  border-radius: 999px;
-  z-index: 2;
-  pointer-events: none;
-  background: radial-gradient(ellipse at center, rgba(15,23,42,.13), transparent 68%);
-  filter: blur(12px);
-}
-
-.aci-color-car-stage,
-.aci-color-car-stage.aci-car-stage,
-.aci-color-car .aci-car-stage,
-.aci-color-car .aci-car-stage-inner,
-.aci-color-car .aci-car-stage-shell {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 0 !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  outline: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  overflow: visible !important;
-  display: grid !important;
-  place-items: center !important;
-}
-
-.aci-color-car-image {
-  display: block;
-  width: 100% !important;
-  max-width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  object-fit: contain !important;
-  object-position: center center !important;
-  user-select: none;
-  mix-blend-mode: normal !important;
-  filter: drop-shadow(0 30px 28px rgba(15,23,42,.17)) !important;
-  transform-origin: var(--aci-car-frame-origin, center center) !important;
-  transform:
-    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
-    scale(var(--aci-car-frame-scale, 1.42)) !important;
-}
-
-.aci-color-car.is-stage-photo .aci-color-car-image {
-  object-fit: contain !important;
-  transform:
-    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
-    scale(var(--aci-car-frame-scale, 1.42)) !important;
-}
-
-.aci-color-car.is-cutout .aci-color-car-photo-window {
-  background: transparent !important;
-}
-
-.aci-color-car.is-cutout .aci-color-car-photo-window::before,
-.aci-color-car.is-cutout .aci-color-car-photo-window::after {
-  display: none !important;
-}
-
-.aci-color-car.is-cutout .aci-color-car-image {
-  width: min(96%, 980px) !important;
-  object-fit: contain !important;
-  transform:
-    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
-    scale(var(--aci-car-frame-scale, 1.08)) !important;
-}
-
-.aci-swatch-row button span:not(.aci-color-orb),
-.aci-mobile-swatch-grid button span:not(.aci-color-orb) {
-  font-size: 11.2px !important;
-  font-weight: 560 !important;
-  line-height: 1.14 !important;
-}
-
-.aci-swatch-row button.active span:not(.aci-color-orb),
-.aci-mobile-swatch-grid button.active span:not(.aci-color-orb) {
-  font-weight: 760 !important;
-}
-
-.aci-color-card {
-  padding: 16px !important;
-}
-
-.aci-card-head h3 {
   font-size: 13.5px !important;
+  font-weight: 430 !important;
+}
+
+.shades-card > strong {
+  font-family: var(--aci-sans) !important;
+  font-size: 38px !important;
+  line-height: .92 !important;
+  letter-spacing: -.045em !important;
   font-weight: 760 !important;
+  color: #2563eb !important;
+}
+
+.aci-card-head h3,
+.aci-color-swatches h2 {
+  font-size: 13px !important;
+  font-weight: 720 !important;
 }
 
 .selected-color-layout strong {
-  font-size: 17px !important;
-  font-weight: 820 !important;
-}
-
-.selected-color-layout p,
-.shades-card p {
-  font-size: 11.2px !important;
-}
-
-.aci-color-ask-row strong {
-  font-size: 11.5px !important;
+  font-size: 16px !important;
   font-weight: 760 !important;
 }
 
-.aci-color-ask-row small {
-  font-size: 10px !important;
+.aci-color-ask-row strong {
+  font-size: 11.2px !important;
+  font-weight: 720 !important;
 }
 
+.aci-color-ask-row small,
+.selected-color-layout p,
+.shades-card p {
+  font-size: 10.8px !important;
+}
+
+/* Laptop hero: allow full car to fit without cropping */
+.aci-hero-stage {
+  min-height: 500px !important;
+  border-radius: 30px !important;
+}
+
+.aci-color-car {
+  top: 58px !important;
+  bottom: 30px !important;
+  left: 2.5% !important;
+  right: 2.5% !important;
+  overflow: visible !important;
+}
+
+/*
+  The photo window now uses the source image aspect ratio from frameMeta:
+  --aci-image-aspect comes from canvas_width / canvas_height.
+*/
+.aci-color-car-photo-window {
+  width: min(100%, 1080px) !important;
+  height: auto !important;
+  aspect-ratio: var(--aci-image-aspect, 1400 / 787) !important;
+  max-height: 410px !important;
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(circle at 52% 46%, rgba(255,255,255,.98), transparent 36%),
+    linear-gradient(180deg, #ffffff 0%, #f9fcff 52%, #edf6ff 100%) !important;
+}
+
+/*
+  Remove the bottom line/strip created by the fake stage shadow.
+  We keep the premium side light but remove harsh bottom artefact.
+*/
+.aci-color-car-photo-window::after {
+  display: none !important;
+}
+
+.aci-color-car-photo-window::before {
+  background:
+    linear-gradient(
+      90deg,
+      rgba(255,255,255,.84) 0%,
+      rgba(255,255,255,.24) 4%,
+      rgba(255,255,255,0) 13%,
+      rgba(255,255,255,0) 87%,
+      rgba(255,255,255,.24) 96%,
+      rgba(255,255,255,.84) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,.28) 0%,
+      rgba(255,255,255,0) 22%,
+      rgba(255,255,255,.12) 100%
+    ) !important;
+}
+
+/*
+  Important:
+  no manual image scaling here.
+  Scale and translate now come from frameMeta via buildImageFrameStyle.
+*/
+.aci-color-car-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  mix-blend-mode: normal !important;
+  filter: drop-shadow(0 28px 24px rgba(15,23,42,.16)) !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+    scale(var(--aci-car-frame-scale, 1)) !important;
+}
+
+/* Mobile: keep your good size, remove line and white artefacts */
 @media (max-width: 900px) {
   .aci-mobile-title h1 {
     font-family: var(--aci-serif) !important;
-    font-size: 40px !important;
+    font-size: 39px !important;
     line-height: .9 !important;
-    letter-spacing: -.065em !important;
-    font-weight: 560 !important;
+    letter-spacing: -.058em !important;
+    font-weight: 520 !important;
   }
 
   .aci-mobile-title p {
-    font-size: 19px !important;
+    font-size: 18px !important;
+    font-weight: 420 !important;
   }
 
   .aci-mobile-hero {
-    min-height: 418px !important;
-    border-radius: 28px !important;
-    background:
-      radial-gradient(circle at 54% 38%, rgba(255,255,255,.98), transparent 34%),
-      radial-gradient(circle at 78% 28%, rgba(219,234,254,.46), transparent 34%),
-      radial-gradient(circle at 18% 18%, rgba(255,255,255,.98), transparent 34%),
-      linear-gradient(145deg, #ffffff 0%, #f9fcff 48%, #eef7ff 100%) !important;
-  }
-
-  .aci-mobile-hero::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    z-index: 3;
-    pointer-events: none;
-    background:
-      linear-gradient(120deg, transparent 0 5%, rgba(255,255,255,.60) 12%, transparent 28%),
-      linear-gradient(242deg, transparent 0 7%, rgba(255,255,255,.54) 15%, transparent 30%),
-      radial-gradient(ellipse at 6% 72%, rgba(219,234,254,.30), transparent 38%),
-      radial-gradient(ellipse at 94% 70%, rgba(219,234,254,.30), transparent 36%);
-    opacity: .9;
-  }
-
-  .aci-color-car.mobile {
-    top: 90px !important;
-    bottom: 18px !important;
-    left: -5% !important;
-    right: -5% !important;
-    overflow: visible !important;
-  }
-
-  .aci-color-car.mobile .aci-color-car-photo-window {
-    width: 120% !important;
-    max-width: 120% !important;
-    height: min(100%, 306px) !important;
-    border-radius: 24px !important;
-  }
-
-  .aci-color-car.mobile .aci-color-car-image {
-    object-fit: contain !important;
-    object-position: center center !important;
-    mix-blend-mode: normal !important;
-    filter: drop-shadow(0 26px 22px rgba(15,23,42,.16)) !important;
-    transform:
-      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
-      scale(var(--aci-car-frame-scale, 1.48)) !important;
-  }
-
-  .aci-color-car.mobile.is-stage-photo .aci-color-car-image {
-    transform:
-      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
-      scale(var(--aci-car-frame-scale, 1.48)) !important;
-  }
-
-  .aci-mobile-hero-copy h2 {
-    font-size: 20px !important;
-    font-weight: 800 !important;
-  }
-
-  .aci-mobile-hero-copy p {
-    font-size: 13px !important;
-  }
-
-  .aci-mobile-swatch-grid .aci-color-orb.lg {
-    width: 54px !important;
-    height: 54px !important;
-  }
-}
-
-@media (max-width: 390px) {
-  .aci-mobile-title h1 {
-    font-size: 37px !important;
-  }
-
-  .aci-mobile-hero {
-    min-height: 390px !important;
+    min-height: 420px !important;
   }
 
   .aci-color-car.mobile {
     top: 88px !important;
     bottom: 20px !important;
+    left: -4% !important;
+    right: -4% !important;
   }
 
   .aci-color-car.mobile .aci-color-car-photo-window {
-    height: min(100%, 278px) !important;
+    width: 116% !important;
+    max-width: 116% !important;
+    height: auto !important;
+    aspect-ratio: var(--aci-image-aspect, 1400 / 787) !important;
+    max-height: 306px !important;
+    border-radius: 24px !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window::after {
+    display: none !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window::before {
+    background:
+      linear-gradient(
+        90deg,
+        rgba(255,255,255,.78) 0%,
+        rgba(255,255,255,.14) 5%,
+        rgba(255,255,255,0) 14%,
+        rgba(255,255,255,0) 86%,
+        rgba(255,255,255,.14) 95%,
+        rgba(255,255,255,.78) 100%
+      ),
+      linear-gradient(
+        180deg,
+        rgba(255,255,255,.22) 0%,
+        rgba(255,255,255,0) 22%,
+        rgba(255,255,255,.08) 100%
+      ) !important;
   }
 
   .aci-color-car.mobile .aci-color-car-image {
     transform:
-      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, -7%))
-      scale(var(--aci-car-frame-scale, 1.44)) !important;
+      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+      scale(var(--aci-car-frame-scale, 1)) !important;
+  }
+
+  .shades-card > strong {
+    font-size: 36px !important;
   }
 }
 
-/* ACI_COLORS_PREMIUM_STAGE_FINAL_FIX_END */
+@media (max-width: 390px) {
+  .aci-mobile-title h1 {
+    font-size: 36px !important;
+  }
+
+  .aci-mobile-hero {
+    min-height: 398px !important;
+  }
+
+  .aci-color-car.mobile {
+    top: 86px !important;
+    bottom: 22px !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    max-height: 282px !important;
+  }
+}
+
+/* ACI_COLORS_FRAME_CONTAIN_FINAL_END */
+
+/* ACI_COLORS_TRUE_COLOR_IMAGE_FIX_START */
+
+/*
+  Do not place any white/blue overlay above the actual car image.
+  This preserves exact image colors.
+*/
+.aci-color-car-photo-window::before,
+.aci-color-car-photo-window::after {
+  display: none !important;
+}
+
+/*
+  Keep the image pixels untouched:
+  - no filter
+  - no blend mode
+  - no opacity
+  - no brightness/contrast/saturation
+*/
+.aci-color-car-image {
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+  filter: none !important;
+  image-rendering: auto !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+    scale(var(--aci-car-frame-scale, 1)) !important;
+}
+
+/*
+  Put the premium side lighting on the stage background,
+  not over the car image.
+*/
+.aci-hero-stage::after {
+  z-index: 2 !important;
+  background:
+    radial-gradient(ellipse at 4% 70%, rgba(219,234,254,.30), transparent 36%),
+    radial-gradient(ellipse at 96% 70%, rgba(219,234,254,.26), transparent 36%),
+    linear-gradient(118deg, transparent 0 8%, rgba(255,255,255,.42) 14%, transparent 27%),
+    linear-gradient(245deg, transparent 0 8%, rgba(255,255,255,.36) 15%, transparent 29%) !important;
+  pointer-events: none !important;
+}
+
+/*
+  Ensure the car is always above the decorative stage layer.
+*/
+.aci-color-car {
+  z-index: 5 !important;
+}
+
+/*
+  If you still want depth, apply shadow to the photo container,
+  not the image pixels.
+*/
+.aci-color-car-photo-window {
+  box-shadow:
+    0 26px 54px -46px rgba(15,23,42,.34),
+    inset 0 1px 0 rgba(255,255,255,.75) !important;
+}
+
+/* Mobile also must preserve true colors */
+@media (max-width: 900px) {
+  .aci-color-car.mobile .aci-color-car-image {
+    opacity: 1 !important;
+    mix-blend-mode: normal !important;
+    filter: none !important;
+    image-rendering: auto !important;
+    object-fit: contain !important;
+    object-position: center center !important;
+    transform:
+      translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+      scale(var(--aci-car-frame-scale, 1)) !important;
+  }
+
+  .aci-mobile-hero::after {
+    z-index: 2 !important;
+    background:
+      radial-gradient(ellipse at 5% 72%, rgba(219,234,254,.26), transparent 36%),
+      radial-gradient(ellipse at 95% 70%, rgba(219,234,254,.24), transparent 36%),
+      linear-gradient(120deg, transparent 0 7%, rgba(255,255,255,.36) 14%, transparent 29%),
+      linear-gradient(242deg, transparent 0 8%, rgba(255,255,255,.32) 15%, transparent 30%) !important;
+    pointer-events: none !important;
+  }
+}
+
+/* ACI_COLORS_TRUE_COLOR_IMAGE_FIX_END */
+
+/* ACI_COLORS_CRISP_IMAGE_FINAL_FIX_START */
+
+/*
+  Keep actual car pixels 100% clean.
+  No CSS shadow/filter on the car image itself.
+*/
+.aci-color-car-image,
+.aci-color-car.mobile .aci-color-car-image {
+  filter: none !important;
+  opacity: 1 !important;
+  mix-blend-mode: normal !important;
+  image-rendering: auto !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+    scale(var(--aci-car-frame-scale, 1)) !important;
+}
+
+/*
+  Remove artificial shadow/reflection near tyres.
+*/
+.aci-color-car-photo-window::after,
+.aci-color-car.mobile .aci-color-car-photo-window::after {
+  display: none !important;
+}
+
+/*
+  Remove the vertical bottom fade.
+  That fade can soften tyres and make the lower edge look blurry.
+  Keep only side fade for premium edge blending.
+*/
+.aci-color-car-photo-window,
+.aci-color-car.mobile .aci-color-car-photo-window {
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 3.5%,
+      #000 96.5%,
+      transparent 100%
+    ) !important;
+  mask-image:
+    linear-gradient(
+      90deg,
+      transparent 0%,
+      #000 3.5%,
+      #000 96.5%,
+      transparent 100%
+    ) !important;
+}
+
+/*
+  Keep stage styling behind the image, but not under the tyres.
+*/
+.aci-stage-plate,
+.aci-stage-plate.mobile {
+  display: none !important;
+}
+
+/*
+  Remove any inset/photo-window shadow that can visually touch the wheels.
+*/
+.aci-color-car-photo-window {
+  box-shadow: none !important;
+}
+
+/* ACI_COLORS_CRISP_IMAGE_FINAL_FIX_END */
+
+/* ACI_COLORS_MATCH_PRICE_IMAGE_RENDER_START */
+
+/*
+  Match price widget image rendering:
+  clean image, soft card background, no artificial overlay on the car.
+*/
+.aci-hero-stage {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 48%, #eef6ff 100%) !important;
+  box-shadow:
+    0 24px 70px -56px rgba(15,23,42,.32),
+    inset 0 1px 0 rgba(255,255,255,.96) !important;
+}
+
+/*
+  Keep only very soft stage ambience behind the image.
+  This is behind the car, not on top of it.
+*/
+.aci-hero-stage::before {
+  z-index: 1 !important;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.92), transparent 42%),
+    radial-gradient(circle at 50% 82%, rgba(219,234,254,.42), transparent 38%) !important;
+}
+
+.aci-hero-stage::after {
+  display: none !important;
+}
+
+.aci-stage-bg-ring,
+.aci-stage-plate {
+  display: none !important;
+}
+
+/*
+  This photo window should behave like the price card image area.
+  No mask, no side fade, no internal overlay.
+*/
+.aci-color-car-photo-window,
+.aci-color-car.mobile .aci-color-car-photo-window {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 54%, #edf6ff 100%) !important;
+  border-radius: 26px !important;
+  overflow: hidden !important;
+  box-shadow: none !important;
+
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+.aci-color-car-photo-window::before,
+.aci-color-car-photo-window::after,
+.aci-color-car.mobile .aci-color-car-photo-window::before,
+.aci-color-car.mobile .aci-color-car-photo-window::after {
+  display: none !important;
+}
+
+/*
+  Most important:
+  preserve actual image quality and color.
+*/
+.aci-color-car-image,
+.aci-color-car.mobile .aci-color-car-image {
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  image-rendering: auto !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+    scale(var(--aci-car-frame-scale, 1)) !important;
+}
+
+/*
+  Keep frame-fit area large, but no cropping artefacts.
+*/
+.aci-color-car {
+  top: 52px !important;
+  bottom: 24px !important;
+  left: 2.5% !important;
+  right: 2.5% !important;
+}
+
+.aci-color-car-photo-window {
+  width: min(100%, 1080px) !important;
+  height: auto !important;
+  aspect-ratio: var(--aci-image-aspect, 1400 / 787) !important;
+  max-height: 410px !important;
+}
+
+/* Mobile: keep the same clean rendering */
+@media (max-width: 900px) {
+  .aci-mobile-hero {
+    background:
+      linear-gradient(180deg, #ffffff 0%, #fbfdff 50%, #eef7ff 100%) !important;
+  }
+
+  .aci-mobile-hero::after {
+    display: none !important;
+  }
+
+  .aci-color-car.mobile {
+    top: 88px !important;
+    bottom: 20px !important;
+    left: -4% !important;
+    right: -4% !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    width: 116% !important;
+    max-width: 116% !important;
+    height: auto !important;
+    aspect-ratio: var(--aci-image-aspect, 1400 / 787) !important;
+    max-height: 306px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-color-car.mobile {
+    top: 86px !important;
+    bottom: 22px !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    max-height: 282px !important;
+  }
+}
+
+/* ACI_COLORS_MATCH_PRICE_IMAGE_RENDER_END */
+
+
+
+/* ACI_COLORS_PRICE_STYLE_TRUE_IMAGE_START */
+
+/*
+  Final image rendering rule:
+  match the pricelist widget image behavior.
+  The image pixels must stay untouched.
+*/
+.aci-hero-stage,
+.aci-mobile-hero {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 52%, #eef6ff 100%) !important;
+}
+
+.aci-hero-stage::after,
+.aci-mobile-hero::after,
+.aci-stage-bg-ring,
+.aci-stage-plate {
+  display: none !important;
+}
+
+/*
+  Remove all artificial photo-window styling that can soften tyres,
+  wash colors, or create white/blue edge artefacts.
+*/
+.aci-color-car-photo-window,
+.aci-color-car.mobile .aci-color-car-photo-window {
+  background:
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 54%, #eef6ff 100%) !important;
+  box-shadow: none !important;
+  border-radius: 24px !important;
+  overflow: hidden !important;
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+.aci-color-car-photo-window::before,
+.aci-color-car-photo-window::after,
+.aci-color-car.mobile .aci-color-car-photo-window::before,
+.aci-color-car.mobile .aci-color-car-photo-window::after {
+  display: none !important;
+}
+
+/*
+  Actual vehicle image:
+  no filter, no blend, no brightness, no shadow.
+  FrameMeta still controls scale and position.
+*/
+.aci-color-car-image,
+.aci-color-car.mobile .aci-color-car-image {
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  image-rendering: auto !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+  transform:
+    translate(var(--aci-car-frame-x, 0%), var(--aci-car-frame-y, 0%))
+    scale(var(--aci-car-frame-scale, 1)) !important;
+}
+
+/*
+  Desktop sizing area.
+  Keep enough height so the frame-fit logic can show the full car.
+*/
+.aci-hero-stage {
+  min-height: 500px !important;
+}
+
+.aci-color-car {
+  top: 52px !important;
+  bottom: 24px !important;
+  left: 2.5% !important;
+  right: 2.5% !important;
+  z-index: 5 !important;
+}
+
+.aci-color-car-photo-window {
+  width: min(100%, 1080px) !important;
+  height: auto !important;
+  aspect-ratio: var(--aci-image-aspect, 1400 / 787) !important;
+  max-height: 410px !important;
+}
+
+/*
+  Mobile sizing stays large but clean.
+*/
+@media (max-width: 900px) {
+  .aci-mobile-hero {
+    min-height: 420px !important;
+  }
+
+  .aci-color-car.mobile {
+    top: 88px !important;
+    bottom: 20px !important;
+    left: -4% !important;
+    right: -4% !important;
+    z-index: 5 !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    width: 116% !important;
+    max-width: 116% !important;
+    height: auto !important;
+    aspect-ratio: var(--aci-image-aspect, 1400 / 787) !important;
+    max-height: 306px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-mobile-hero {
+    min-height: 398px !important;
+  }
+
+  .aci-color-car.mobile {
+    top: 86px !important;
+    bottom: 22px !important;
+  }
+
+  .aci-color-car.mobile .aci-color-car-photo-window {
+    max-height: 282px !important;
+  }
+}
+
+/* ACI_COLORS_PRICE_STYLE_TRUE_IMAGE_END */
+
 `;

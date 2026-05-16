@@ -46,9 +46,10 @@ const frameNumber = (value, fallback) => {
 };
 
 const cssPercent = (value, fallback = 0, min = -18, max = 18) => {
-  const raw = typeof value === "string" && value.trim().endsWith("%")
-    ? Number(value.trim().slice(0, -1))
-    : frameNumber(value, fallback);
+  const raw =
+    typeof value === "string" && value.trim().endsWith("%")
+      ? Number(value.trim().slice(0, -1))
+      : frameNumber(value, fallback);
 
   if (!Number.isFinite(raw)) return `${fallback}%`;
   return `${clampNumber(raw, min, max)}%`;
@@ -72,11 +73,27 @@ const getStageFrame = (imageFrame, stageKey = "chatCard") => {
 
 const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
   const frame = getStageFrame(imageFrame, stageKey);
+  if (!frame || typeof frame !== "object") {
+    return {
+      "--chat-car-frame-scale": "1",
+      "--chat-car-frame-x": "0%",
+      "--chat-car-frame-y": "0%",
+      "--chat-car-frame-origin": "center center",
+      "--car-frame-scale": "1",
+      "--car-frame-x": "0%",
+      "--car-frame-y": "0%",
+      "--car-frame-origin": "center center",
+    };
+  }
+
   const pickFirst = (...values) =>
-    values.find((value) => value !== undefined && value !== null && value !== "");
+    values.find(
+      (value) => value !== undefined && value !== null && value !== "",
+    );
 
   const readNumber = (...values) => {
     const value = pickFirst(...values);
+
     if (typeof value === "string" && value.trim().endsWith("%")) {
       const parsed = Number(value.trim().slice(0, -1));
       return Number.isFinite(parsed) ? parsed / 100 : null;
@@ -86,197 +103,189 @@ const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
     return Number.isFinite(parsed) ? parsed : null;
   };
 
-  const normalizeFocus = (value) => {
-    const number = readNumber(value);
-    if (!Number.isFinite(number)) return null;
-    return number > 1 ? number / 100 : number;
-  };
-
-  const getBounds = () => {
-    const source =
-      frame?.visibleBounds ||
-      frame?.visibleBox ||
-      frame?.contentBounds ||
-      frame?.contentBox ||
-      frame?.normalizedBounds ||
-      frame?.normalizedBox ||
-      frame?.subjectBounds ||
-      frame?.subjectBox ||
-      frame?.carBounds ||
-      frame?.carBox ||
-      frame?.trimBounds ||
-      frame?.trimBox ||
-      frame?.bbox ||
-      frame?.bounds ||
-      imageFrame?.visibleBounds ||
-      imageFrame?.visibleBox ||
-      imageFrame?.contentBounds ||
-      imageFrame?.contentBox ||
-      imageFrame?.normalizedBounds ||
-      imageFrame?.normalizedBox ||
-      imageFrame?.subjectBounds ||
-      imageFrame?.subjectBox ||
-      imageFrame?.carBounds ||
-      imageFrame?.carBox ||
-      imageFrame?.trimBounds ||
-      imageFrame?.trimBox ||
-      imageFrame?.bbox ||
-      imageFrame?.bounds;
-
-    if (!source || typeof source !== "object") return null;
-
-    const naturalWidth = readNumber(
-      frame?.naturalWidth,
-      frame?.imageWidth,
-      frame?.sourceWidth,
-      imageFrame?.naturalWidth,
-      imageFrame?.imageWidth,
-      imageFrame?.sourceWidth,
-      imageFrame?.width,
-    );
-    const naturalHeight = readNumber(
-      frame?.naturalHeight,
-      frame?.imageHeight,
-      frame?.sourceHeight,
-      imageFrame?.naturalHeight,
-      imageFrame?.imageHeight,
-      imageFrame?.sourceHeight,
-      imageFrame?.height,
-    );
-
-    const left = readNumber(source.left, source.x, source.minX);
-    const top = readNumber(source.top, source.y, source.minY);
-    const width = readNumber(
-      source.width,
-      source.w,
-      source.right && left != null ? source.right - left : null,
-    );
-    const height = readNumber(
-      source.height,
-      source.h,
-      source.bottom && top != null ? source.bottom - top : null,
-    );
-
-    const looksNormalized =
-      [left, top, width, height].every((value) => Number.isFinite(value)) &&
-      left >= 0 &&
-      top >= 0 &&
-      width > 0 &&
-      height > 0 &&
-      left <= 1 &&
-      top <= 1 &&
-      width <= 1 &&
-      height <= 1;
-
-    if (looksNormalized) {
-      return {
-        centerX: left + width / 2,
-        centerY: top + height / 2,
-        widthRatio: width,
-        heightRatio: height,
-      };
-    }
-
-    if (
-      !Number.isFinite(naturalWidth) ||
-      !Number.isFinite(naturalHeight) ||
-      naturalWidth <= 0 ||
-      naturalHeight <= 0 ||
-      !Number.isFinite(left) ||
-      !Number.isFinite(top) ||
-      !Number.isFinite(width) ||
-      !Number.isFinite(height) ||
-      width <= 0 ||
-      height <= 0
-    ) {
-      return null;
-    }
-
-    return {
-      centerX: (left + width / 2) / naturalWidth,
-      centerY: (top + height / 2) / naturalHeight,
-      widthRatio: width / naturalWidth,
-      heightRatio: height / naturalHeight,
-    };
-  };
+  const clamp = (value, min, max) =>
+    Math.min(max, Math.max(min, Number(value) || 0));
 
   const cssVars = {
     ...(imageFrame?.cssVars || {}),
     ...(frame?.cssVars || {}),
   };
 
-  const bounds = frame && typeof frame === "object" ? getBounds() : null;
-  const explicitScale = readNumber(
-    cssVars["--car-frame-scale"],
-    frame?.scale,
-    frame?.zoom,
+  const canvasWidth = readNumber(
+    frame.canvas_width,
+    frame.canvasWidth,
+    frame.naturalWidth,
+    frame.imageWidth,
+    frame.sourceWidth,
+    imageFrame?.canvas_width,
+    imageFrame?.canvasWidth,
+    imageFrame?.naturalWidth,
+    imageFrame?.imageWidth,
+    imageFrame?.sourceWidth,
   );
 
-  const fittedScale = bounds
-    ? Math.min(
-        1.34,
-        Math.max(
-          1,
-          Math.max(
-            0.84 / Math.max(bounds.widthRatio, 0.01),
-            0.54 / Math.max(bounds.heightRatio, 0.01),
-          ),
+  const canvasHeight = readNumber(
+    frame.canvas_height,
+    frame.canvasHeight,
+    frame.naturalHeight,
+    frame.imageHeight,
+    frame.sourceHeight,
+    imageFrame?.canvas_height,
+    imageFrame?.canvasHeight,
+    imageFrame?.naturalHeight,
+    imageFrame?.imageHeight,
+    imageFrame?.sourceHeight,
+  );
+
+  const bounds =
+    frame.bounds ||
+    frame.visibleBounds ||
+    frame.visibleBox ||
+    frame.contentBounds ||
+    frame.contentBox ||
+    frame.subjectBounds ||
+    frame.subjectBox ||
+    frame.carBounds ||
+    frame.carBox ||
+    frame.trimBounds ||
+    frame.trimBox ||
+    frame.bbox ||
+    frame;
+
+  const rawLeft = readNumber(bounds.left, bounds.x, bounds.minX);
+  const rawTop = readNumber(bounds.top, bounds.y, bounds.minY);
+  const rawWidth = readNumber(bounds.width, bounds.w);
+  const rawHeight = readNumber(bounds.height, bounds.h);
+
+  const looksNormalized =
+    [rawLeft, rawTop, rawWidth, rawHeight].every((value) =>
+      Number.isFinite(value),
+    ) &&
+    rawLeft >= 0 &&
+    rawTop >= 0 &&
+    rawWidth > 0 &&
+    rawHeight > 0 &&
+    rawLeft <= 1 &&
+    rawTop <= 1 &&
+    rawWidth <= 1 &&
+    rawHeight <= 1;
+
+  let centerX = null;
+  let centerY = null;
+  let widthRatio = null;
+  let heightRatio = null;
+
+  if (looksNormalized) {
+    centerX = rawLeft + rawWidth / 2;
+    centerY = rawTop + rawHeight / 2;
+    widthRatio = rawWidth;
+    heightRatio = rawHeight;
+  } else if (
+    Number.isFinite(canvasWidth) &&
+    Number.isFinite(canvasHeight) &&
+    canvasWidth > 0 &&
+    canvasHeight > 0 &&
+    Number.isFinite(rawLeft) &&
+    Number.isFinite(rawTop) &&
+    Number.isFinite(rawWidth) &&
+    Number.isFinite(rawHeight) &&
+    rawWidth > 0 &&
+    rawHeight > 0
+  ) {
+    centerX = (rawLeft + rawWidth / 2) / canvasWidth;
+    centerY = (rawTop + rawHeight / 2) / canvasHeight;
+    widthRatio = rawWidth / canvasWidth;
+    heightRatio = rawHeight / canvasHeight;
+  }
+
+  const hasBounds =
+    Number.isFinite(centerX) &&
+    Number.isFinite(centerY) &&
+    Number.isFinite(widthRatio) &&
+    Number.isFinite(heightRatio) &&
+    widthRatio > 0 &&
+    heightRatio > 0;
+
+  const explicitScale =
+    stageKey === "colorChatCard"
+      ? null
+      : readNumber(
+          cssVars["--chat-car-frame-scale"],
+          cssVars["--car-frame-scale"],
+          frame.scale,
+          frame.zoom,
+        );
+
+  const targetCenterX = 0.5;
+  const targetCenterY = stageKey === "chatCard" ? 0.5 : 0.5;
+
+  /*
+    True frame-fit logic for inline cards:
+    - center detected vehicle bounds in the tile
+    - scale until the vehicle fits inside the safe area
+    - do not crop or color-shift image pixels
+  */
+  const fittedScale = hasBounds
+    ? clamp(
+        Math.min(
+          0.86 / Math.max(widthRatio, 0.01),
+          0.68 / Math.max(heightRatio, 0.01),
         ),
+        0.9,
+        1.72,
       )
     : 1;
 
-  const explicitX = pickFirst(
+  const computedX = hasBounds
+    ? (targetCenterX - 0.5 - fittedScale * (centerX - 0.5)) * 100
+    : 0;
+
+  const computedY = hasBounds
+    ? (targetCenterY - 0.5 - fittedScale * (centerY - 0.5)) * 100
+    : 0;
+
+  const x = pickFirst(
+    cssVars["--chat-car-frame-x"],
     cssVars["--car-frame-x"],
-    frame?.translateXPct,
-    frame?.translateXPercent,
-    frame?.translateX,
-    frame?.xOffset,
-    frame?.x,
+    frame.translateXPct,
+    frame.translateXPercent,
+    frame.translateX,
   );
 
-  const explicitY = pickFirst(
+  const y = pickFirst(
+    cssVars["--chat-car-frame-y"],
     cssVars["--car-frame-y"],
-    frame?.translateYPct,
-    frame?.translateYPercent,
-    frame?.translateY,
-    frame?.yOffset,
-    frame?.y,
+    frame.translateYPct,
+    frame.translateYPercent,
+    frame.translateY,
   );
-
-  const focusX = normalizeFocus(
-    frame?.focusX ??
-      frame?.focalX ??
-      frame?.centerX ??
-      imageFrame?.focusX ??
-      imageFrame?.focalX,
-  );
-  const focusY = normalizeFocus(
-    frame?.focusY ??
-      frame?.focalY ??
-      frame?.centerY ??
-      imageFrame?.focusY ??
-      imageFrame?.focalY,
-  );
-
-  const computedX = bounds
-    ? (0.5 - bounds.centerX) * 100
-    : Number.isFinite(focusX)
-      ? (0.5 - focusX) * 100
-      : 0;
-  const computedY = bounds
-    ? (0.5 - bounds.centerY) * 100
-    : Number.isFinite(focusY)
-      ? (0.5 - focusY) * 100
-      : 0;
 
   const origin =
-    cssVars["--car-frame-origin"] || frame?.transformOrigin || "center center";
+    cssVars["--chat-car-frame-origin"] ||
+    cssVars["--car-frame-origin"] ||
+    frame.transformOrigin ||
+    "center center";
+
+  const scale = String(explicitScale || fittedScale);
+  const xValue =
+    typeof x === "number" ? `${x}%` : x || `${clamp(computedX, -34, 34)}%`;
+  const yValue =
+    typeof y === "number" ? `${y}%` : y || `${clamp(computedY, -30, 30)}%`;
 
   return {
-    "--chat-car-frame-scale": String(clampNumber(explicitScale ?? fittedScale, 0.92, 1.34)),
-    "--chat-car-frame-x": cssPercent(explicitX ?? computedX, 0, -22, 22),
-    "--chat-car-frame-y": cssPercent(explicitY ?? computedY, 0, -18, 18),
+    "--chat-car-frame-scale": scale,
+    "--chat-car-frame-x": xValue,
+    "--chat-car-frame-y": yValue,
     "--chat-car-frame-origin": origin,
+
+    /*
+      AciVehicleVisual and CarImageStage may consume the generic vars,
+      so keep these in sync with the chat-specific vars.
+    */
+    "--car-frame-scale": scale,
+    "--car-frame-x": xValue,
+    "--car-frame-y": yValue,
+    "--car-frame-origin": origin,
   };
 };
 
@@ -693,9 +702,10 @@ const getWidgetSubtitle = (widget = {}, vehicle = null) => {
 const getWidgetRows = (widget = {}) => {
   const item = safeWidget(widget);
 
-  return toArray(
-    item.rows || item.variants || item.items || item.colors,
-  ).slice(0, 3);
+  return toArray(item.rows || item.variants || item.items || item.colors).slice(
+    0,
+    3,
+  );
 };
 
 const getWidgetCountText = (widget = {}) => {
@@ -769,9 +779,6 @@ const formatIndianPrice = (value) => {
 
   return formatSinglePrice(originalText, inheritedUnit);
 };
-
-
-
 
 const getQuestionIconType = (label = "", index = 0) => {
   const text = String(label).toLowerCase();
@@ -896,7 +903,166 @@ const buildChatSuggestions = ({
   return merged.slice(0, limit);
 };
 
+function buildInlineColorFrameStyle(imageFrame = {}) {
+  const source = imageFrame && typeof imageFrame === "object" ? imageFrame : {};
+  const stage =
+    getStageFrame(source, "colorChatCard") ||
+    getStageFrame(source, "chatCard") ||
+    getStageFrame(source, "default") ||
+    source;
 
+  const frame =
+    stage?.bounds ||
+    stage?.frameMeta ||
+    stage?.frame_meta ||
+    stage?.visibleBounds ||
+    stage?.visibleBox ||
+    stage?.contentBounds ||
+    stage?.contentBox ||
+    stage?.subjectBounds ||
+    stage?.subjectBox ||
+    stage?.carBounds ||
+    stage?.carBox ||
+    stage?.trimBounds ||
+    stage?.trimBox ||
+    stage?.bbox ||
+    stage;
+
+  const fallback = {
+    "--chat-car-frame-scale": "1.34",
+    "--chat-car-frame-x": "0%",
+    "--chat-car-frame-y": "0%",
+    "--chat-car-frame-origin": "center center",
+  };
+
+  if (!frame || typeof frame !== "object") return fallback;
+
+  const readNumber = (...values) => {
+    for (const value of values) {
+      if (value === undefined || value === null || value === "") continue;
+
+      if (typeof value === "string" && value.trim().endsWith("%")) {
+        const parsed = Number(value.trim().slice(0, -1));
+        if (Number.isFinite(parsed)) return parsed / 100;
+      }
+
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+
+    return null;
+  };
+
+  const clamp = (value, min, max) =>
+    Math.min(max, Math.max(min, Number(value) || 0));
+
+  const x = readNumber(frame.x, frame.left, frame.minX);
+  const y = readNumber(frame.y, frame.top, frame.minY);
+  const width = readNumber(frame.width, frame.w);
+  const height = readNumber(frame.height, frame.h);
+
+  const canvasWidth = readNumber(
+    stage?.canvas_width,
+    stage?.canvasWidth,
+    stage?.naturalWidth,
+    stage?.imageWidth,
+    stage?.sourceWidth,
+    source?.canvas_width,
+    source?.canvasWidth,
+    source?.naturalWidth,
+    source?.imageWidth,
+    source?.sourceWidth,
+    frame?.canvas_width,
+    frame?.canvasWidth,
+  );
+
+  const canvasHeight = readNumber(
+    stage?.canvas_height,
+    stage?.canvasHeight,
+    stage?.naturalHeight,
+    stage?.imageHeight,
+    stage?.sourceHeight,
+    source?.canvas_height,
+    source?.canvasHeight,
+    source?.naturalHeight,
+    source?.imageHeight,
+    source?.sourceHeight,
+    frame?.canvas_height,
+    frame?.canvasHeight,
+  );
+
+  const looksNormalized =
+    [x, y, width, height].every(Number.isFinite) &&
+    x >= 0 &&
+    y >= 0 &&
+    width > 0 &&
+    height > 0 &&
+    x <= 1 &&
+    y <= 1 &&
+    width <= 1 &&
+    height <= 1;
+
+  let centerX = null;
+  let centerY = null;
+  let widthRatio = null;
+  let heightRatio = null;
+
+  if (looksNormalized) {
+    centerX = x + width / 2;
+    centerY = y + height / 2;
+    widthRatio = width;
+    heightRatio = height;
+  } else if (
+    Number.isFinite(canvasWidth) &&
+    Number.isFinite(canvasHeight) &&
+    canvasWidth > 0 &&
+    canvasHeight > 0 &&
+    Number.isFinite(x) &&
+    Number.isFinite(y) &&
+    Number.isFinite(width) &&
+    Number.isFinite(height) &&
+    width > 0 &&
+    height > 0
+  ) {
+    centerX = (x + width / 2) / canvasWidth;
+    centerY = (y + height / 2) / canvasHeight;
+    widthRatio = width / canvasWidth;
+    heightRatio = height / canvasHeight;
+  }
+
+  const hasBounds =
+    Number.isFinite(centerX) &&
+    Number.isFinite(centerY) &&
+    Number.isFinite(widthRatio) &&
+    Number.isFinite(heightRatio) &&
+    widthRatio > 0 &&
+    heightRatio > 0;
+
+  if (!hasBounds) return fallback;
+
+  /*
+    Inline color card fit:
+    - detected vehicle center becomes card center
+    - vehicle grows until it almost touches width or height safe area
+    - Math.min prevents cropping
+  */
+  const safeWidthFill = 0.98;
+  const safeHeightFill = 0.9;
+
+  const widthScale = safeWidthFill / Math.max(widthRatio, 0.01);
+  const heightScale = safeHeightFill / Math.max(heightRatio, 0.01);
+  const scale = clamp(Math.min(widthScale, heightScale), 1.0, 2.85);
+
+  const translateX = (0.5 - 0.5 - scale * (centerX - 0.5)) * 100;
+  const translateY = (0.5 - 0.5 - scale * (centerY - 0.5)) * 100;
+
+  return {
+    "--chat-car-frame-scale": String(Number(scale.toFixed(4))),
+    "--chat-car-frame-x": `${Number(clamp(translateX, -20, 20).toFixed(3))}%`,
+    "--chat-car-frame-y": `${Number(clamp(translateY, -20, 20).toFixed(3))}%`,
+    "--chat-car-frame-origin": "center center",
+  };
+}
 
 function AciV2CanvasPreviewCard({
   message = {},
@@ -925,10 +1091,31 @@ function AciV2CanvasPreviewCard({
 
   const carouselRef = useRef(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
-
-  const maxCarouselIndex = Math.max(0, rows.length - 2);
+  const maxCarouselIndex = Math.max(0, rows.length - 1);
   const carouselProgress =
-    maxCarouselIndex > 0 ? (carouselIndex + 1) / (maxCarouselIndex + 1) : 1;
+    maxCarouselIndex > 0 ? carouselIndex / maxCarouselIndex : 0;
+
+  const isColorResult =
+    widget?.type === "vehicle_colors" ||
+    widget?.tool === "vehicle_colors" ||
+    widget?.canvasType === "color_studio_canvas" ||
+    canvasType === "color_studio_canvas";
+
+  const pickText = (...values) => {
+    for (const value of values) {
+      const text = String(value || "").trim();
+      if (text) return text;
+    }
+    return "";
+  };
+
+  const pickAny = (...values) =>
+    values.find((value) => {
+      if (value === undefined || value === null) return false;
+      if (typeof value === "string") return value.trim() !== "";
+      if (typeof value === "object") return Object.keys(value).length > 0;
+      return true;
+    }) || null;
 
   const getCarouselStep = () => {
     const scroller = carouselRef.current;
@@ -999,11 +1186,6 @@ function AciV2CanvasPreviewCard({
     if (!hasCanvas || typeof onOpen !== "function") return;
     onOpen(message);
   };
-  const isColorResult =
-    widget?.type === "vehicle_colors" ||
-    widget?.tool === "vehicle_colors" ||
-    widget?.canvasType === "color_studio_canvas" ||
-    canvasType === "color_studio_canvas";
 
   return (
     <article
@@ -1019,31 +1201,89 @@ function AciV2CanvasPreviewCard({
             onMouseUp={snapCarouselToNearest}
           >
             {rows.map((row, index) => {
-              const rowTitle =
-                row.variant ||
-                row.name ||
-                row.title ||
-                row.label ||
-                row.model ||
-                `Option ${index + 1}`;
+              const rowTitle = isColorResult
+                ? pickText(
+                    row.colorName,
+                    row.name,
+                    row.desktopName,
+                    row.mobileName,
+                    row.title,
+                    row.label,
+                    `Color ${index + 1}`,
+                  )
+                : pickText(
+                    row.variant,
+                    row.name,
+                    row.title,
+                    row.label,
+                    row.model,
+                    `Option ${index + 1}`,
+                  );
 
-              const rowSub =
-                row.subtitle ||
-                row.fuelTransmission ||
-                [row.fuel, row.transmission].filter(Boolean).join(" · ");
+              const rowSub = isColorResult
+                ? ""
+                : pickText(
+                    row.subtitle,
+                    row.fuelTransmission,
+                    [row.fuel, row.transmission].filter(Boolean).join(" · "),
+                  );
 
-              const rowPrice =
-                row.price ||
-                row.priceRange ||
-                row.onRoadPrice ||
-                row.exShowroomPrice ||
-                row.value ||
-                "";
-              const rowImageFrame =
-                row.vehicle?.imageFrame ||
-                row.imageFrame ||
-                selectedVehicle?.imageFrame ||
-                null;
+              const rowPrice = isColorResult
+                ? ""
+                : pickText(
+                    row.price,
+                    row.priceRange,
+                    row.onRoadPrice,
+                    row.exShowroomPrice,
+                    row.value,
+                  );
+
+              const rowImageFrame = isColorResult
+                ? pickAny(
+                    row.imageFrame,
+                    row.frameMeta,
+                    row.frame_meta,
+                    row.image_frame,
+                    row.carImageFrame,
+                    row.car_image_frame,
+                    row.frame,
+                    row.vehicle?.imageFrame,
+                    row.vehicle?.frameMeta,
+                    row.vehicle?.frame_meta,
+                    row.vehicle?.carImageFrame,
+                    row.vehicle?.frame,
+                  )
+                : pickAny(
+                    row.vehicle?.imageFrame,
+                    row.vehicle?.frameMeta,
+                    row.vehicle?.frame_meta,
+                    row.imageFrame,
+                    row.frameMeta,
+                    row.frame_meta,
+                    row.frame,
+                    selectedVehicle?.imageFrame,
+                  );
+
+              const rowImageUrl = isColorResult
+                ? pickText(
+                    row.normalizedImageUrl,
+                    row.cleanImageUrl,
+                    row.stagedImageUrl,
+                    row.imageUrl,
+                    row.carImageUrl,
+                    row.sourceImageUrl,
+                    row.vehicle?.normalizedImageUrl,
+                    row.vehicle?.imageUrl,
+                    selectedVehicle?.normalizedImageUrl,
+                    selectedVehicle?.imageUrl,
+                  )
+                : "";
+
+              const frameStyle = isColorResult
+                ? buildInlineColorFrameStyle(rowImageFrame || {})
+                : rowImageFrame
+                  ? buildChatImageFrameStyle(rowImageFrame, "chatCard")
+                  : {};
 
               const priceContext =
                 row.exShowroomPrice &&
@@ -1057,7 +1297,7 @@ function AciV2CanvasPreviewCard({
               return (
                 <motion.button
                   type="button"
-                  className="aci-chat-preview-card"
+                  className={`aci-chat-preview-card ${isColorResult ? "is-color-card" : ""}`}
                   key={row.id || row._id || rowTitle || index}
                   aria-label={`View ${rowTitle}`}
                   initial={{ opacity: 0, y: 12, scale: 0.985 }}
@@ -1082,23 +1322,32 @@ function AciV2CanvasPreviewCard({
                       return;
                     }
 
+                    const nextVehicle = isColorResult
+                      ? {
+                          ...(selectedVehicle || {}),
+                          selectedColor: row,
+                          colorName: rowTitle,
+                          imageUrl: rowImageUrl,
+                          normalizedImageUrl: rowImageUrl,
+                          imageFrame: rowImageFrame,
+                        }
+                      : row.vehicle || selectedVehicle;
+
                     onAction?.({
                       id: `chat-preview-row-${index}`,
                       label: rowTitle,
                       query: row.query || rowTitle,
-                      vehicle: row.vehicle || selectedVehicle,
+                      vehicle: nextVehicle,
                       contextPatch: {
-                        selectedVehicle: row.vehicle || selectedVehicle,
+                        selectedVehicle: nextVehicle,
+                        selectedColor: isColorResult ? row : undefined,
                         anchorModel: selectedVehicle?.model,
                         anchorCity: selectedVehicle?.city || "Delhi",
                       },
                     });
                   }}
                 >
-                  <div
-                    className="aci-chat-row-visual"
-                    style={buildChatImageFrameStyle(rowImageFrame)}
-                  >
+                  <div className="aci-chat-row-visual" style={frameStyle}>
                     <motion.div
                       className="aci-chat-row-car-motion"
                       initial={{ opacity: 0, y: 10, scale: 0.94 }}
@@ -1109,19 +1358,29 @@ function AciV2CanvasPreviewCard({
                         delay: Math.min(index * 0.055, 0.16),
                       }}
                     >
-                      <AciVehicleVisual
-                        vehicle={row.vehicle || row}
-                        height={112}
-                        stage
-                        stageVariant="compact"
-                      />
+                      {isColorResult && rowImageUrl ? (
+                        <img
+                          className="aci-chat-color-card-image"
+                          src={rowImageUrl}
+                          alt={rowTitle}
+                          loading="lazy"
+                          draggable="false"
+                        />
+                      ) : (
+                        <AciVehicleVisual
+                          vehicle={row.vehicle || row}
+                          height={112}
+                          stage
+                          stageVariant="compact"
+                        />
+                      )}
                     </motion.div>
                   </div>
 
                   <div className="aci-chat-row-copy">
                     <strong>{rowTitle}</strong>
-                    {rowSub ? <span>{rowSub}</span> : null}
-                    {rowPrice ? (
+                    {!isColorResult && rowSub ? <span>{rowSub}</span> : null}
+                    {!isColorResult && rowPrice ? (
                       <b className="aci-chat-row-price">
                         <span className="aci-chat-price-context">
                           {priceContext}
@@ -1346,34 +1605,31 @@ function AciV2ChatFirstShell({
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
 
+    const thread = threadRef.current;
+    if (!thread) return undefined;
+
     const scrollToEnd = (behavior = "smooth") => {
-      const thread = threadRef.current;
-      if (!thread) return;
+      const activeThread = threadRef.current;
+      if (!activeThread) return;
 
-      thread.scrollTo({
-        top: thread.scrollHeight + 9999,
+      activeThread.scrollTo({
+        top: activeThread.scrollHeight,
         behavior,
-      });
-
-      threadEndRef.current?.scrollIntoView({
-        behavior,
-        block: "end",
-        inline: "nearest",
       });
     };
 
-    const rafOne = window.requestAnimationFrame(() => scrollToEnd("smooth"));
-    const rafTwo = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => scrollToEnd("smooth"));
-    });
+    const animationFrames = [
+      window.requestAnimationFrame(() => scrollToEnd("smooth")),
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => scrollToEnd("smooth"));
+      }),
+    ];
 
-    const settleTimers = [140, 360, 760].map((delay) =>
+    const timers = [120, 320, 650, 1000].map((delay) =>
       window.setTimeout(() => scrollToEnd("auto"), delay),
     );
 
-    const thread = threadRef.current;
-    const images = thread ? Array.from(thread.querySelectorAll("img")) : [];
-
+    const images = Array.from(thread.querySelectorAll("img"));
     const handleImageLoad = () => scrollToEnd("auto");
 
     images.forEach((img) => {
@@ -1383,12 +1639,9 @@ function AciV2ChatFirstShell({
     });
 
     return () => {
-      window.cancelAnimationFrame(rafOne);
-      window.cancelAnimationFrame(rafTwo);
-      settleTimers.forEach((timer) => window.clearTimeout(timer));
-      images.forEach((img) => {
-        img.removeEventListener("load", handleImageLoad);
-      });
+      animationFrames.forEach((frame) => window.cancelAnimationFrame(frame));
+      timers.forEach((timer) => window.clearTimeout(timer));
+      images.forEach((img) => img.removeEventListener("load", handleImageLoad));
     };
   }, [messages.length, isLoading, error]);
 
@@ -1509,9 +1762,7 @@ function AciV2FullCanvasShell({
 }) {
   const safeCanvasWidget = safeWidget(widget);
   const canvasType =
-    safeCanvasWidget.canvasType ||
-    safeCanvasWidget.__rawCanvasType ||
-    "";
+    safeCanvasWidget.canvasType || safeCanvasWidget.__rawCanvasType || "";
 
   const ScreenComponent =
     ACI_V2_SCREEN_COMPONENTS[screen] ||
@@ -3383,193 +3634,21 @@ export default function AciAssistV2() {
   color: #fff !important;
   border-color: rgba(7, 88, 248, 0.28) !important;
 }
+/* ACI_CHAT_REFERENCE_SHELL_END */
 
 
+/* ACI_INLINE_COLOR_PERFECT_FINAL_START */
 
-
-
-
-
-/* ACI_CHAT_ULTRA_PREMIUM_PASS_1_START */
-
-/* =========================================================
-   ACI Assist V2 — Ultra Premium Pass 1
-   Includes:
-   1) final consolidated chat/card CSS
-   2) premium carousel polish
-   3) glass card highlight + refined shadows
-   4) centered car presentation
-   5) premium follow-up chips
-   No live-data trust line added.
-   ========================================================= */
-
-/* ---------- Card + car animation polish ---------- */
-
-.aci-chat-preview-card {
-  will-change: transform, opacity;
-  transform-origin: center bottom;
-}
-
-.aci-chat-preview-card > * {
-  position: relative;
-  z-index: 1;
-}
-
-.aci-chat-row-car-motion {
-  width: 100%;
-  height: 100%;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-}
-
-/* Price line: keeps existing On-road / Ex-showroom markup */
-.aci-chat-row-price {
-  display: inline-flex !important;
-  align-items: baseline !important;
-  gap: 5px !important;
-  white-space: nowrap !important;
-}
-
-.aci-chat-price-context,
-.aci-chat-price-amount {
-  display: inline-flex !important;
-  line-height: 1 !important;
-}
-
-.aci-chat-price-context {
-  color: #7b8496 !important;
-  font-size: 9.2px !important;
-  font-weight: 850 !important;
-  letter-spacing: 0.035em !important;
-  text-transform: uppercase !important;
-}
-
-.aci-chat-price-amount {
-  color: var(--aci-blue) !important;
-  font-size: inherit !important;
-  font-weight: inherit !important;
-  letter-spacing: inherit !important;
-}
-
-/* ---------- Apple-level card surface ---------- */
-
-.aci-chat-result-rows > .aci-chat-preview-card {
-  background:
-    radial-gradient(circle at 82% 14%, rgba(7, 88, 248, 0.16), transparent 34%),
-    radial-gradient(ellipse at 54% 63%, rgba(15, 23, 42, 0.055), transparent 48%),
-    linear-gradient(145deg, rgba(255, 255, 255, 0.98) 0%, #f8fbff 47%, #eef6ff 100%) !important;
-  box-shadow:
-    0 30px 72px -56px rgba(7, 22, 52, 0.62),
-    0 18px 40px -36px rgba(7, 88, 248, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
-}
-
-.aci-chat-result-rows > .aci-chat-preview-card::before {
-  content: "" !important;
-  position: absolute !important;
-  inset: 0 !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-  border-radius: inherit !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0) 40%),
-    linear-gradient(125deg, rgba(255, 255, 255, 0.62) 0%, rgba(255, 255, 255, 0) 28%),
-    radial-gradient(ellipse at 50% 78%, rgba(7, 88, 248, 0.08), transparent 48%) !important;
-}
-
-.aci-chat-result-rows > .aci-chat-preview-card::after {
-  content: "" !important;
-  position: absolute !important;
-  inset: 1px !important;
-  z-index: 0 !important;
-  pointer-events: none !important;
-  border-radius: inherit !important;
-  border: 1px solid rgba(255, 255, 255, 0.78) !important;
-  box-shadow:
-    inset 0 0 0 1px rgba(7, 88, 248, 0.025),
-    inset 0 -24px 54px rgba(7, 88, 248, 0.045) !important;
-}
-
-@media (hover: hover) and (min-width: 761px) {
-  .aci-chat-result-rows > .aci-chat-preview-card:hover {
-    border-color: rgba(7, 88, 248, 0.32) !important;
-    box-shadow:
-      0 36px 86px -58px rgba(7, 88, 248, 0.46),
-      0 24px 52px -44px rgba(15, 23, 42, 0.58),
-      inset 0 1px 0 rgba(255, 255, 255, 1) !important;
-  }
-}
-
-/* ---------- Premium follow-up chips ---------- */
-
-.aci-chat-result-card footer,
-.aci-chat-followups {
-  gap: 9px !important;
-}
-
-.aci-chat-result-card footer button,
-.aci-chat-followups button {
-  min-height: 38px !important;
-  border-radius: 999px !important;
-  border: 1.2px solid rgba(7, 88, 248, 0.42) !important;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 250, 255, 0.96)) !important;
-  color: #101827 !important;
-  box-shadow:
-    0 16px 34px -31px rgba(7, 88, 248, 0.36),
-    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
-  transition:
-    transform 180ms cubic-bezier(0.19, 1, 0.22, 1),
-    border-color 180ms ease,
-    box-shadow 180ms ease,
-    background 180ms ease !important;
-}
-
-.aci-chat-result-card footer button:hover,
-.aci-chat-followups button:hover {
-  border-color: rgba(7, 88, 248, 0.66) !important;
-  transform: translateY(-1px);
-  box-shadow:
-    0 20px 42px -34px rgba(7, 88, 248, 0.46),
-    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
-}
-
-.aci-chat-open-canvas-pill {
-  border-color: rgba(7, 88, 248, 0.78) !important;
-  background:
-    linear-gradient(180deg, #ffffff 0%, #f3f7ff 100%) !important;
-  box-shadow:
-    0 18px 38px -28px rgba(7, 88, 248, 0.48),
-    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
-}
-
-.aci-chat-open-canvas-pill .aci-chat-chip-icon {
-  background:
-    linear-gradient(135deg, #0758f8 0%, #2f74ff 100%) !important;
-  color: #fff !important;
-  border-color: rgba(7, 88, 248, 0.28) !important;
-  box-shadow:
-    0 10px 22px -14px rgba(7, 88, 248, 0.72),
-    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
-}
-
-.aci-chat-chip-icon {
-  width: 23px !important;
-  height: 23px !important;
-  flex-basis: 23px !important;
-}
-
-/* ---------- Mobile final shell + carousel ---------- */
-
-@media (max-width: 760px) {
+/* Desktop/laptop chat should behave like chat, not page scroll. */
+@media (min-width: 761px) {
   .aci-chat-shell {
     height: 100svh !important;
     min-height: 100svh !important;
     max-height: 100svh !important;
+    overflow: hidden !important;
     display: flex !important;
     flex-direction: column !important;
-    overflow: hidden !important;
+    padding-bottom: 0 !important;
   }
 
   .aci-chat-app-frame {
@@ -3594,509 +3673,230 @@ export default function AciAssistV2() {
     overflow-x: hidden !important;
     overscroll-behavior: contain !important;
     scroll-behavior: smooth !important;
-    padding-left: 2px !important;
-    padding-right: 2px !important;
-    padding-bottom: 0 !important;
-  }
-
-  .aci-chat-scroll-anchor {
-    width: 100% !important;
-    height: 112px !important;
-    min-height: 112px !important;
-    flex: 0 0 112px !important;
-    pointer-events: none !important;
-  }
-
-  .aci-chat-message.is-assistant {
-    padding-left: 6px !important;
-  }
-
-  .aci-chat-orb {
-    width: 38px !important;
-    height: 38px !important;
-    flex: 0 0 38px !important;
-    margin-left: 0 !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-orb::before {
-    inset: -4px !important;
-  }
-
-  .aci-chat-assistant-stack {
-    max-width: calc(100% - 48px) !important;
-  }
-
-  .aci-chat-result-card {
-    width: calc(100% + 42px) !important;
-    max-width: none !important;
-    margin-left: -42px !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-result-rows {
-    display: flex !important;
-    grid-template-columns: none !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    gap: 12px !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scroll-snap-type: x mandatory !important;
-    scroll-snap-stop: always !important;
-    scroll-padding-left: 0 !important;
-    scroll-behavior: smooth !important;
-    -webkit-overflow-scrolling: touch !important;
-    overscroll-behavior-x: contain !important;
-    scrollbar-width: none !important;
-    -webkit-mask-image: linear-gradient(
-      90deg,
-      #000 0%,
-      #000 93%,
-      rgba(0, 0, 0, 0.88) 100%
-    );
-    mask-image: linear-gradient(
-      90deg,
-      #000 0%,
-      #000 93%,
-      rgba(0, 0, 0, 0.88) 100%
-    );
-  }
-
-  .aci-chat-result-rows::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  .aci-chat-result-rows > button,
-  .aci-chat-result-rows > .aci-chat-preview-card {
-    flex: 0 0 calc((100% - 12px) / 2) !important;
-    width: calc((100% - 12px) / 2) !important;
-    min-width: calc((100% - 12px) / 2) !important;
-    max-width: calc((100% - 12px) / 2) !important;
-
-    height: 226px !important;
-    min-height: 226px !important;
-    max-height: 226px !important;
-
-    padding: 0 !important;
-    border-radius: 24px !important;
-    overflow: hidden !important;
-    scroll-snap-align: start !important;
-    scroll-snap-stop: always !important;
-  }
-
-  .aci-chat-row-visual {
-    height: 122px !important;
-    min-height: 122px !important;
-    padding: 0 8px !important;
-    margin: 0 !important;
-    display: grid !important;
-    place-items: center !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-row-car-motion {
-    width: 100% !important;
-    height: 122px !important;
-    display: grid !important;
-    place-items: center !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-row-visual .aci-car-image-stage,
-  .aci-chat-row-car-motion .aci-car-image-stage {
-    width: 94% !important;
-    max-width: 94% !important;
-    min-width: 0 !important;
-
-    height: 118px !important;
-    min-height: 118px !important;
-    max-height: 118px !important;
-
-    margin: 0 auto !important;
-    padding: 0 !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-    transform: translateY(-3px) !important;
-  }
-
-  .aci-chat-row-visual .aci-car-stage-glow,
-  .aci-chat-row-visual .aci-car-stage-ground,
-  .aci-chat-row-car-motion .aci-car-stage-glow,
-  .aci-chat-row-car-motion .aci-car-stage-ground {
-    display: none !important;
-  }
-
-  .aci-chat-row-visual img,
-  .aci-chat-row-visual svg,
-  .aci-chat-row-car-motion img,
-  .aci-chat-row-car-motion svg {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-
-    height: 100% !important;
-    max-height: 100% !important;
-
-    object-fit: contain !important;
-    object-position: center center !important;
-
-    transform:
-      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-      scale(var(--chat-car-frame-scale, 1)) !important;
-    transform-origin: var(--chat-car-frame-origin, center center) !important;
-    mix-blend-mode: multiply !important;
-    filter: drop-shadow(0 14px 12px rgba(15, 23, 42, 0.15)) !important;
-  }
-
-  .aci-chat-row-visual::after {
-    left: 18% !important;
-    right: 18% !important;
-    bottom: 5px !important;
-    height: 9px !important;
-    filter: blur(7px) !important;
-    opacity: 0.9 !important;
-  }
-
-  .aci-chat-row-copy {
-    height: 104px !important;
-    min-height: 104px !important;
-    padding: 0 10px 20px !important;
-    margin: 0 !important;
-    display: flex !important;
-    flex-direction: column !important;
-    justify-content: flex-end !important;
-    overflow: visible !important;
-    transform: translateY(-4px) !important;
-  }
-
-  .aci-chat-result-rows strong {
-    font-size: 13px !important;
-    line-height: 1.05 !important;
-    letter-spacing: -0.034em !important;
-  }
-
-  .aci-chat-result-rows span {
-    margin-top: 4px !important;
-    font-size: 10.2px !important;
-    line-height: 1.16 !important;
-  }
-
-  .aci-chat-row-price,
-  .aci-chat-result-rows b {
-    margin-top: 6px !important;
-    font-size: 14.1px !important;
-    line-height: 1.05 !important;
-    white-space: nowrap !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-price-context {
-    font-size: 8.2px !important;
-  }
-
-  /* Dot + line indicator, centered under carousel */
-  .aci-chat-carousel-indicator {
-    position: relative !important;
-    left: auto !important;
-    transform: none !important;
-
-    display: flex !important;
-    align-items: center !important;
-    justify-content: center !important;
-    gap: 8px !important;
-
-    width: 68px !important;
-    min-width: 68px !important;
-    height: 18px !important;
-
-    margin: 10px auto 0 !important;
-    padding: 0 !important;
-
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .aci-chat-carousel-indicator span {
-    display: block !important;
-    width: 7px !important;
-    height: 7px !important;
-    flex: 0 0 7px !important;
-    border-radius: 999px !important;
-    background: #0758f8 !important;
-    box-shadow: 0 0 0 3px rgba(7, 88, 248, 0.08) !important;
-  }
-
-  .aci-chat-carousel-indicator i {
-    position: relative !important;
-    display: block !important;
-    width: 34px !important;
-    height: 4px !important;
-    flex: 0 0 34px !important;
-    border-radius: 999px !important;
-    background: rgba(7, 88, 248, 0.16) !important;
-    overflow: hidden !important;
-  }
-
-  .aci-chat-carousel-indicator i::after {
-    content: "" !important;
-    position: absolute !important;
-    inset: 0 auto 0 0 !important;
-    width: calc(var(--aci-carousel-progress, 0.5) * 100%) !important;
-    min-width: 12px !important;
-    border-radius: inherit !important;
-    background: linear-gradient(90deg, #0758f8 0%, #72a3ff 100%) !important;
-    transition: width 280ms cubic-bezier(0.22, 1, 0.36, 1) !important;
+    padding-bottom: 152px !important;
   }
 }
 
-/* ---------- Reduced motion support ---------- */
-
-@media (prefers-reduced-motion: reduce) {
-  .aci-chat-preview-card,
-  .aci-chat-row-car-motion,
-  .aci-chat-message,
-  .aci-chat-message.is-user .aci-chat-bubble,
-  .aci-chat-message.is-assistant .aci-chat-bubble,
-  .aci-chat-result-rows > button,
-  .aci-chat-row-visual img,
-  .aci-chat-row-visual svg,
-  .aci-chat-followups button,
-  .aci-chat-result-card footer button,
-  .aci-chat-thinking span,
-  .aci-chat-result-skeleton i {
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-    animation: none !important;
-    transition: none !important;
-  }
-
-  .aci-chat-result-rows,
-  .aci-chat-thread {
-    scroll-behavior: auto !important;
-  }
-
-  .aci-chat-carousel-indicator i::after {
-    transition: none !important;
-  }
+.aci-chat-scroll-anchor {
+  width: 100% !important;
+  height: 152px !important;
+  min-height: 152px !important;
+  flex: 0 0 152px !important;
+  pointer-events: none !important;
 }
 
-/* ACI_CHAT_ULTRA_PREMIUM_PASS_1_END */
-
-
-
-/* ACI_CHAT_CAR_CENTER_SIZE_ONLY_START */
-
-/*
-  Only fixes car image center + size after Ultra Premium Pass 1.
-  No JSX change.
-  No price change.
-  No scroll change.
-  No carousel/indicator/card-width change.
-*/
-@media (max-width: 760px) {
-  .aci-chat-row-visual {
-    place-items: center !important;
-    height: 128px !important;
-    min-height: 128px !important;
-    padding: 0 6px !important;
-  }
-
-  .aci-chat-row-car-motion {
-    width: 100% !important;
-    height: 128px !important;
-    min-height: 128px !important;
-    display: grid !important;
-    place-items: center !important;
-  }
-
-  .aci-chat-row-visual .aci-car-image-stage,
-  .aci-chat-row-car-motion .aci-car-image-stage {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-
-    height: 128px !important;
-    min-height: 128px !important;
-    max-height: 128px !important;
-
-    margin: 0 auto !important;
-    transform: translateY(30px) !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-row-visual img,
-  .aci-chat-row-visual svg,
-  .aci-chat-row-car-motion img,
-  .aci-chat-row-car-motion svg {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-
-    height: 100% !important;
-    max-height: 100% !important;
-
-    object-fit: contain !important;
-    object-position: center center !important;
-    transform:
-      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-      scale(var(--chat-car-frame-scale, 1)) !important;
-    transform-origin: var(--chat-car-frame-origin, center center) !important;
-  }
-
-  .aci-chat-row-visual::after {
-    bottom: 4px !important;
-  }
-}
-
-/* ACI_CHAT_CAR_CENTER_SIZE_ONLY_END */
-
-/* ACI_CHAT_DESKTOP_IMAGE_FIT_START */
-@media (min-width: 761px) {
-  .aci-chat-result-rows > .aci-chat-preview-card,
-  .aci-chat-result-rows > button {
-    min-height: 286px !important;
-    height: 286px !important;
-  }
-
-  .aci-chat-row-visual {
-    height: 186px !important;
-    min-height: 186px !important;
-    padding: 4px 14px 0 !important;
-    margin: 0 !important;
-    display: grid !important;
-    place-items: center !important;
-    overflow: visible !important;
-    border: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-  }
-
-  .aci-chat-row-car-motion {
-    width: 100% !important;
-    height: 186px !important;
-    display: grid !important;
-    place-items: center !important;
-    overflow: visible !important;
-  }
-
-  .aci-chat-row-visual .aci-car-image-stage,
-  .aci-chat-row-car-motion .aci-car-image-stage {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    height: 186px !important;
-    min-height: 186px !important;
-    max-height: 186px !important;
-    margin: 0 auto !important;
-    padding: 0 !important;
-    display: grid !important;
-    place-items: center !important;
-    border: 0 !important;
-    border-radius: 0 !important;
-    background: transparent !important;
-    box-shadow: none !important;
-    overflow: visible !important;
-    transform: translateY(12px) !important;
-  }
-
-  .aci-chat-row-visual .aci-car-stage-glow,
-  .aci-chat-row-visual .aci-car-stage-ground,
-  .aci-chat-row-car-motion .aci-car-stage-glow,
-  .aci-chat-row-car-motion .aci-car-stage-ground,
-  .aci-chat-row-visual::after {
-    display: none !important;
-  }
-
-  .aci-chat-row-visual img,
-  .aci-chat-row-visual svg,
-  .aci-chat-row-car-motion img,
-  .aci-chat-row-car-motion svg {
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    height: 100% !important;
-    max-height: 100% !important;
-    object-fit: contain !important;
-    object-position: center center !important;
-    transform:
-      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-      scale(var(--chat-car-frame-scale, 1)) !important;
-    transform-origin: var(--chat-car-frame-origin, center center) !important;
-    filter: drop-shadow(0 26px 22px rgba(15, 23, 42, 0.18)) !important;
-  }
-
-  .aci-chat-row-copy {
-    margin-top: -4px !important;
-    padding: 0 24px 18px !important;
-  }
-}
-/* ACI_CHAT_DESKTOP_IMAGE_FIT_END */
-
-/* ACI_CHAT_COLOR_CARD_IMAGE_FILL_START */
-.aci-chat-color-result-card .aci-chat-row-visual {
+/* Chat avatar should be only the glass orb, no extra ring. */
+.aci-chat-orb {
+  width: 42px !important;
+  height: 42px !important;
+  min-width: 42px !important;
+  flex: 0 0 42px !important;
+  border: 0 !important;
+  outline: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  display: grid !important;
+  place-items: center !important;
   overflow: visible !important;
-  border-radius: 0 !important;
 }
 
-.aci-chat-color-result-card .aci-chat-row-visual .aci-car-image-stage,
-.aci-chat-color-result-card .aci-chat-row-car-motion .aci-car-image-stage {
+.aci-chat-orb::before,
+.aci-chat-orb::after {
+  display: none !important;
+}
+
+.aci-chat-orb .orb.small,
+.aci-chat-orb .orb.small .orb-shell {
+  width: 42px !important;
+  height: 42px !important;
+}
+
+/* Inline color widget wrapper: no background panel behind cards. */
+.aci-chat-color-result-card {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  overflow: visible !important;
+}
+
+.aci-chat-color-result-card .aci-chat-result-rows {
   width: 100% !important;
   max-width: 100% !important;
-  height: 100% !important;
-  max-height: 100% !important;
-  overflow: visible !important;
-  transform: translateY(12px) !important;
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  gap: 12px !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  scroll-snap-type: x mandatory !important;
+  scroll-behavior: smooth !important;
+  padding: 0 2px 2px !important;
+  margin: 0 !important;
+  scrollbar-width: none !important;
+  -webkit-overflow-scrolling: touch !important;
 }
 
-.aci-chat-color-result-card .aci-chat-row-visual img,
-.aci-chat-color-result-card .aci-chat-row-visual svg,
-.aci-chat-color-result-card .aci-chat-row-car-motion img,
-.aci-chat-color-result-card .aci-chat-row-car-motion svg {
+.aci-chat-color-result-card .aci-chat-result-rows::-webkit-scrollbar {
+  display: none !important;
+}
+
+/* Mobile/tablet default: two swipe cards. */
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card {
+  position: relative !important;
+  flex: 0 0 calc((100% - 12px) / 2) !important;
+  width: calc((100% - 12px) / 2) !important;
+  min-width: calc((100% - 12px) / 2) !important;
+  max-width: calc((100% - 12px) / 2) !important;
+  height: 232px !important;
+  min-height: 232px !important;
+  padding: 0 !important;
+  display: block !important;
+  scroll-snap-align: start !important;
+  border-radius: 22px !important;
+  border: 1px solid rgba(203, 213, 225, .92) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.99), rgba(239,247,255,.96)) !important;
+  box-shadow:
+    0 18px 46px -42px rgba(15,23,42,.26),
+    inset 0 1px 0 rgba(255,255,255,1) !important;
+  overflow: hidden !important;
+}
+
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card::before,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card::after,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::before,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::after,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::before,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::after,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-image-stage::before,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-image-stage::after,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-shell::before,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-shell::after,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-inner::before,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-inner::after {
+  display: none !important;
+}
+
+/* The whole card is the image stage. Name floats at bottom-left. */
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual {
+  position: absolute !important;
+  inset: 0 !important;
   width: 100% !important;
-  max-width: 100% !important;
   height: 100% !important;
-  max-height: 100% !important;
+  min-height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+  border-radius: inherit !important;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255,255,255,.99), transparent 38%),
+    linear-gradient(180deg, #ffffff 0%, #fbfdff 48%, #eef7ff 100%) !important;
+  box-shadow: none !important;
+}
+
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
+}
+
+.aci-chat-color-result-card .aci-chat-color-card-image {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
   object-fit: contain !important;
   object-position: center center !important;
-  mix-blend-mode: multiply !important;
+  opacity: 1 !important;
+  filter: none !important;
+  mix-blend-mode: normal !important;
+  image-rendering: auto !important;
+  transform-origin: var(--chat-car-frame-origin, center center) !important;
   transform:
     translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-    scale(var(--chat-car-frame-scale, 1)) !important;
-  transform-origin: var(--chat-car-frame-origin, center center) !important;
+    scale(var(--chat-car-frame-scale, 1.34)) !important;
 }
 
-@media (max-width: 760px) {
-  .aci-chat-color-result-card .aci-chat-row-visual .aci-car-image-stage,
-  .aci-chat-color-result-card .aci-chat-row-car-motion .aci-car-image-stage {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 128px !important;
-    max-height: 128px !important;
-    transform: translateY(30px) !important;
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy {
+  position: absolute !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 4 !important;
+  min-height: 58px !important;
+  padding: 22px 12px 11px !important;
+  display: flex !important;
+  align-items: flex-end !important;
+  justify-content: flex-start !important;
+  background:
+    linear-gradient(180deg, rgba(248,251,255,0), rgba(248,251,255,.94) 52%, rgba(248,251,255,.99)) !important;
+  box-shadow: none !important;
+}
+
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy strong {
+  display: -webkit-box !important;
+  -webkit-line-clamp: 2 !important;
+  -webkit-box-orient: vertical !important;
+  overflow: hidden !important;
+  color: #07112e !important;
+  font-size: 12.7px !important;
+  line-height: 1.15 !important;
+  font-weight: 560 !important;
+  letter-spacing: -0.01em !important;
+  text-align: left !important;
+  white-space: normal !important;
+  text-overflow: clip !important;
+}
+
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy span,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-price,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-context,
+.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-amount {
+  display: none !important;
+}
+
+.aci-chat-color-result-card .aci-chat-carousel-indicator {
+  display: inline-flex !important;
+}
+
+/* Desktop/laptop: three cards, still horizontal and stable. */
+@media (min-width: 761px) {
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card {
+    flex: 0 0 calc((100% - 24px) / 3) !important;
+    width: calc((100% - 24px) / 3) !important;
+    min-width: calc((100% - 24px) / 3) !important;
+    max-width: calc((100% - 24px) / 3) !important;
+    height: 258px !important;
+    min-height: 258px !important;
+    border-radius: 24px !important;
   }
 
-  .aci-chat-color-result-card .aci-chat-row-visual img,
-  .aci-chat-color-result-card .aci-chat-row-visual svg,
-  .aci-chat-color-result-card .aci-chat-row-car-motion img,
-  .aci-chat-color-result-card .aci-chat-row-car-motion svg {
-    width: 100% !important;
-    max-width: 100% !important;
-    height: 100% !important;
-    max-height: 100% !important;
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy {
+    min-height: 62px !important;
+    padding: 24px 14px 12px !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy strong {
+    font-size: 13.2px !important;
   }
 }
-/* ACI_CHAT_COLOR_CARD_IMAGE_FILL_END */
 
+/* ACI_INLINE_COLOR_PERFECT_FINAL_END */
 
-/* ACI_CHAT_REFERENCE_SHELL_END */`}</style>
+`}</style>
 
       {!hasStartedChat ? (
         <AciAssistHomeScreen
