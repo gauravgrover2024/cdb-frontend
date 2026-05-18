@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
-  Armchair,
+  BadgeIndianRupee,
   Bell,
   Camera,
   Car,
@@ -12,38 +12,28 @@ import {
   CircleCheck,
   CircleMinus,
   Gauge,
-  Hand,
   Info,
+  Layers3,
   Mic,
   Music2,
   Route,
   Search,
-  SendHorizontal,
-  Share2,
   ShieldCheck,
-  Smartphone,
+  SlidersHorizontal,
   Sparkles,
+  Star,
+  Wand2,
   Wind,
-  Filter,
+  Armchair,
+  Smartphone,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
-import { emitAciAction } from "../shared/AciAssistShared";
+import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
 import { getDisplayCarImage } from "../shared/aciV2Image";
 
-const AVATAR =
-  "https://images.unsplash.com/photo-1633332755192-727a05c4013d?q=80&w=240&auto=format&fit=crop";
-
-const CATEGORY_CONFIG = [
-  { id: "comfort", label: "Comfort", Icon: Armchair },
-  { id: "safety", label: "Safety", Icon: ShieldCheck },
-  { id: "infotainment", label: "Infotainment", Icon: Music2 },
-  { id: "convenience", label: "Convenience", Icon: Hand },
-  { id: "adas", label: "ADAS", Icon: Route },
-];
-
 const fadeUp = {
-  hidden: { opacity: 0, y: 14, filter: "blur(6px)" },
+  hidden: { opacity: 0, y: 14, filter: "blur(7px)" },
   visible: {
     opacity: 1,
     y: 0,
@@ -62,80 +52,127 @@ const stagger = {
   },
 };
 
-function compactText(value) {
+const CATEGORY_META = {
+  all: { label: "All", Icon: Layers3 },
+  comfort: { label: "Comfort", Icon: Armchair },
+  safety: { label: "Safety", Icon: ShieldCheck },
+  infotainment: { label: "Infotainment", Icon: Music2 },
+  convenience: { label: "Convenience", Icon: Wand2 },
+  adas: { label: "ADAS", Icon: Route },
+  performance: { label: "Performance", Icon: Gauge },
+  dimensions: { label: "Space", Icon: Car },
+  exterior: { label: "Exterior", Icon: Camera },
+  other: { label: "More", Icon: Sparkles },
+};
+
+const DEFAULT_CITY = "new-delhi";
+
+const cleanText = (value = "") => {
   if (value === null || value === undefined) return "";
-  if (typeof value === "string") return value.replace(/\s+/g, " ").trim();
-  if (typeof value === "number") return String(value);
-  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (typeof value === "number" || typeof value === "boolean")
+    return String(value);
   if (Array.isArray(value))
-    return value.map(compactText).filter(Boolean).join(", ");
+    return value.map(cleanText).filter(Boolean).join(", ");
   if (typeof value === "object") {
-    return compactText(
-      value.label || value.name || value.title || value.value || "",
+    return cleanText(
+      value.label ||
+        value.name ||
+        value.title ||
+        value.value ||
+        value.text ||
+        "",
     );
   }
-  return "";
-}
+  return String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+};
 
-function asArray(value) {
+const asArray = (value) => {
   if (!value) return [];
-  if (Array.isArray(value)) return value;
-  if (Array.isArray(value.rows)) return value.rows;
-  if (Array.isArray(value.items)) return value.items;
-  if (Array.isArray(value.data)) return value.data;
-  if (Array.isArray(value.data?.rows)) return value.data.rows;
-  if (Array.isArray(value.data?.items)) return value.data.items;
-  if (Array.isArray(value.features)) return value.features;
-  if (Array.isArray(value.variants)) return value.variants;
-  return [];
-}
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [value].filter(Boolean);
+};
 
-function valueFrom(object, keys, fallback = "") {
+const slugify = (value = "", fallback = "item") =>
+  cleanText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "") || fallback;
+
+const normalizeKey = (value = "") =>
+  cleanText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const valueFrom = (object, keys = [], fallback = "") => {
   if (!object || typeof object !== "object") return fallback;
 
   for (const key of keys) {
     const value = object[key];
-
-    if (value !== undefined && value !== null && value !== "") {
-      return value;
-    }
+    if (value !== undefined && value !== null && value !== "") return value;
   }
 
   return fallback;
-}
+};
 
-function isImageUrl(value) {
+const getResolvedWidget = ({ widget, data, message }) =>
+  widget ||
+  data?.widget ||
+  data?.widgets?.[0] ||
+  message?.widget ||
+  message?.widgets?.[0] ||
+  {};
+
+const getResolvedVehicle = ({ vehicle, widget, data, message }) => {
+  const resolvedWidget = getResolvedWidget({ widget, data, message });
+
+  return (
+    resolvedWidget?.vehicle ||
+    resolvedWidget?.data?.vehicle ||
+    data?.vehicle ||
+    data?.contextPatch?.selectedVehicle ||
+    message?.vehicle ||
+    message?.contextPatch?.selectedVehicle ||
+    vehicle ||
+    {}
+  );
+};
+
+const isImageUrl = (value) => {
   if (!value || typeof value !== "string") return false;
-
   const text = value.trim();
 
   return (
     /^(data:image\/|blob:)/i.test(text) ||
     /\.(png|jpe?g|webp|avif|gif|svg)(\?|#|$)/i.test(text) ||
-    /cloudinary|imgix|googleusercontent|cardekho|carwale|acko|spinny|cars24|cdn|uploads|images/i.test(
+    /cloudinary|imgix|googleusercontent|cardekho|carwale|acko|spinny|cars24|cdn|uploads|images|r2\.dev/i.test(
       text,
     )
   );
-}
+};
 
-function extractImage(value, depth = 0) {
+const extractImage = (value, depth = 0) => {
   if (!value || depth > 6) return "";
 
-  if (typeof value === "string") {
-    return isImageUrl(value) ? value.trim() : "";
-  }
+  if (typeof value === "string") return isImageUrl(value) ? value.trim() : "";
 
   if (Array.isArray(value)) {
     for (const item of value) {
       const found = extractImage(item, depth + 1);
       if (found) return found;
     }
-
     return "";
   }
 
   if (typeof value === "object") {
     const imageKeys = [
+      "displayImageUrl",
+      "displayNormalizedImageUrl",
       "heroImage",
       "heroImageUrl",
       "vehicleImage",
@@ -160,463 +197,596 @@ function extractImage(value, depth = 0) {
       if (found) return found;
     }
 
-    for (const nestedValue of Object.values(value)) {
-      const found = extractImage(nestedValue, depth + 1);
+    for (const nested of Object.values(value)) {
+      const found = extractImage(nested, depth + 1);
       if (found) return found;
     }
   }
 
   return "";
-}
+};
 
-function normaliseCategory(value) {
-  const text = compactText(value).toLowerCase();
+const formatPrice = (value) => {
+  const raw = cleanText(value);
+  if (!raw) return "";
+  if (/₹|rs\.?|lakh|lac|cr/i.test(raw)) return raw;
 
+  const numeric = Number(String(value).replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(numeric) || numeric <= 0) return raw;
+
+  if (numeric >= 10000000) return `₹${(numeric / 10000000).toFixed(2)} Cr`;
+  if (numeric >= 100000) return `₹${(numeric / 100000).toFixed(2)}L`;
+  return `₹${numeric.toLocaleString("en-IN")}`;
+};
+
+const getVariantPriceLabel = (variant = {}) =>
+  cleanText(variant.priceLabel) ||
+  cleanText(variant.exShowroomPriceLabel) ||
+  cleanText(variant.onRoadPriceLabel) ||
+  formatPrice(
+    variant.exShowroomPrice || variant.price || variant.onRoadPrice || "",
+  );
+
+const getOnRoadLabel = (variant = {}) =>
+  cleanText(variant.onRoadPriceLabel) || formatPrice(variant.onRoadPrice || "");
+
+const getVehicleTitle = (vehicle = {}, widget = {}) => {
+  const display = cleanText(vehicle.displayName || widget.vehicle?.displayName);
+  if (display) return display;
+
+  return (
+    [
+      vehicle.brand || vehicle.make || widget.brand || widget.make,
+      vehicle.model || widget.model,
+    ]
+      .filter(Boolean)
+      .join(" ") || "Selected car"
+  );
+};
+
+const getFeatureCategory = (feature = {}) => {
+  const category = normalizeKey(feature.category || feature.type || "");
+  if (category) return slugify(category, "other");
+
+  const section = normalizeKey(feature.section || feature.group || "");
+  if (section.includes("safety")) return "safety";
   if (
-    /adas|lane|cruise|aeb|blind|collision|autonomous|assist|departure/i.test(
-      text,
-    )
-  ) {
-    return "adas";
-  }
-
-  if (
-    /airbag|safety|esc|isofix|brake|tpms|hill|stability|ncap|child/i.test(text)
-  ) {
-    return "safety";
-  }
-
-  if (
-    /audio|speaker|touch|screen|android|apple|carplay|infotain|connected|music|jbl/i.test(
-      text,
-    )
-  ) {
+    section.includes("comfort") ||
+    section.includes("convenience") ||
+    section.includes("interior")
+  )
+    return "comfort";
+  if (section.includes("entertainment") || section.includes("communication"))
     return "infotainment";
-  }
-
+  if (section.includes("adas")) return "adas";
   if (
-    /wireless|charger|mode|convenience|keyless|tailgate|memory|climate|boot|start/i.test(
-      text,
-    )
-  ) {
-    return "convenience";
-  }
+    section.includes("engine") ||
+    section.includes("fuel") ||
+    section.includes("performance")
+  )
+    return "performance";
+  if (section.includes("dimension") || section.includes("capacity"))
+    return "dimensions";
+  if (section.includes("exterior")) return "exterior";
 
-  return "comfort";
-}
+  return "other";
+};
 
-function getFeatureIcon(feature) {
-  const text = `${feature.name || ""} ${feature.category || ""}`.toLowerCase();
+const getFeatureIcon = (feature = {}) => {
+  const text = normalizeKey(
+    `${feature.name || feature.label || ""} ${feature.section || ""} ${feature.category || ""}`,
+  );
 
   if (/camera|360/.test(text)) return Camera;
-  if (/seat|ventilat|comfort/.test(text)) return Armchair;
-  if (/airbag|safety|shield|brake/.test(text)) return ShieldCheck;
-  if (/adas|lane|route|cruise|assist/.test(text)) return Route;
-  if (/audio|music|speaker|jbl|infotain/.test(text)) return Music2;
-  if (/android|apple|carplay|phone|wireless|screen/.test(text))
+  if (/seat|ventilat|comfort|steering|climate|ac|heater/.test(text))
+    return Armchair;
+  if (/airbag|safety|brake|abs|esc|isofix|tpms/.test(text)) return ShieldCheck;
+  if (/adas|lane|cruise|assist|collision/.test(text)) return Route;
+  if (/audio|music|speaker|jbl|infotain|radio/.test(text)) return Music2;
+  if (/android|apple|carplay|phone|wireless|screen|bluetooth/.test(text))
     return Smartphone;
-  if (/tailgate|boot|car/.test(text)) return Car;
-  if (/mode|gauge|drive/.test(text)) return Gauge;
-  if (/sunroof|roof|panoramic/.test(text)) return Smartphone;
-  if (/ac|climate|wind/.test(text)) return Wind;
+  if (/engine|power|torque|fuel|mileage|transmission/.test(text)) return Gauge;
+  if (/sunroof|roof|lamp|wheel|exterior/.test(text)) return Camera;
+  if (/air conditioning|climate|wind/.test(text)) return Wind;
 
   return Sparkles;
-}
+};
 
-function emitFeatureAction(
-  onAction,
-  {
-    label,
-    query,
-    type = "features_action",
-    intent = ACI_INTENTS?.FEATURES,
-    canvasType = ACI_CANVAS_TYPES?.FEATURES,
-    vehicle,
-    payload = {},
-  },
-) {
-  emitAciAction(
-    {
-      label,
-      query: query || label,
-      type,
-      intent,
-      canvasType,
-      vehicle,
-      payload,
-      contextPatch: {
-        selectedVehicle: vehicle,
-        anchorModel: vehicle?.model,
-        anchorVariant: vehicle?.selectedVariant || vehicle?.variant,
-        anchorCity: vehicle?.city || "Delhi",
-      },
-    },
-    onAction,
-  );
-}
-
-function parseVariantLabel(label = "") {
-  const text = compactText(label);
-  const seatMatch = text.match(/\b(6S|7S)\b/i);
-  const seat = seatMatch?.[0] || "";
-  const base = seat ? text.replace(/\b(6S|7S)\b/i, "").trim() : text;
-
-  return { base, seat };
-}
-
-function parseVariants(widget, vehicle) {
-  const raw = [
-    ...asArray(widget?.variants),
-    ...asArray(widget?.data?.variants),
-    ...asArray(widget?.variantOptions),
-    ...asArray(widget?.data?.variantOptions),
-    ...asArray(vehicle?.variants),
-  ];
-
-  const parsed = raw
-    .map((item, index) => {
-      if (typeof item === "string") {
-        const label = compactText(item);
-
-        if (!label) return null;
-
-        return {
-          id:
-            label.toLowerCase().replace(/[^a-z0-9]+/g, "-") ||
-            `variant-${index}`,
-          label,
-          price: "",
-        };
-      }
-
-      if (!item || typeof item !== "object") return null;
-
-      const label = compactText(
-        item.label ||
-          item.name ||
-          item.variant ||
-          item.variantName ||
-          item.title ||
-          item.displayName,
-      );
-
-      if (!label) return null;
-
-      return {
-        id:
-          compactText(item.id || item.key || label)
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-") || `variant-${index}`,
-        label,
-        price: compactText(
-          item.price ||
-            item.priceRange ||
-            item.range ||
-            item.onRoadPrice ||
-            item.exShowroomPrice,
-        ),
-      };
-    })
-    .filter(Boolean);
-
-  const selectedVariant = compactText(
-    vehicle?.selectedVariant ||
-      vehicle?.variant ||
-      widget?.selectedVariant ||
-      widget?.variant ||
-      widget?.data?.selectedVariant,
+const isUnavailableValue = (value) =>
+  /^(no|na|n\/a|not available|unavailable|absent|nil|false|-)$/i.test(
+    cleanText(value),
   );
 
-  if (
-    selectedVariant &&
-    !parsed.some((item) => item.label === selectedVariant)
-  ) {
-    parsed.unshift({
-      id: selectedVariant.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      label: selectedVariant,
-      price: compactText(
-        vehicle?.priceRange || widget?.priceRange || widget?.data?.priceRange,
-      ),
-    });
-  }
-
-  return parsed;
-}
-
-function normaliseFeature(item, index) {
-  if (!item) return null;
-
+const normalizeFeature = (item = {}, index = 0, selectedVariant = {}) => {
   if (typeof item === "string") {
-    const name = compactText(item);
+    const name = cleanText(item);
     if (!name) return null;
 
     return {
-      id: `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${index}`,
+      id: slugify(`${name}-${index}`, `feature-${index}`),
       name,
-      category: normaliseCategory(name),
+      label: name,
+      section: "Features",
+      category: "other",
+      value: "Yes",
+      displayValue: "Yes",
       available: true,
-      highlight: false,
-      raw: item,
+      variant: selectedVariant.label || selectedVariant.variant || "",
+      Icon: Sparkles,
+      searchableText: normalizeKey(name),
     };
   }
 
-  if (typeof item !== "object") return null;
+  if (!item || typeof item !== "object") return null;
 
-  const name = compactText(
-    item.name ||
-      item.label ||
-      item.title ||
-      item.feature ||
-      item.featureName ||
-      item.displayName,
+  const name = cleanText(
+    item.name || item.label || item.title || item.feature || item.featureName,
   );
-
   if (!name) return null;
 
-  const availabilityText = compactText(
-    item.status || item.availability || item.availableText,
+  const value = cleanText(
+    item.displayValue || item.value || item.status || item.availability || "",
   );
-
   const available =
     item.available === false ||
     item.present === false ||
     item.included === false ||
     item.isAvailable === false ||
-    /no|unavailable|missing|not available|absent/i.test(availabilityText)
+    isUnavailableValue(value)
       ? false
       : true;
 
-  const categorySource = compactText(
-    item.category || item.group || item.type || item.section || name,
-  );
+  const feature = {
+    ...item,
+    id:
+      cleanText(item.id || item.key || item.slug) ||
+      slugify(
+        `${selectedVariant.id || selectedVariant.label || "variant"}-${name}-${index}`,
+        `feature-${index}`,
+      ),
+    name,
+    label: name,
+    section: cleanText(item.section || item.group || "Features"),
+    category: getFeatureCategory(item),
+    value,
+    displayValue: value || (available ? "Available" : "Not available"),
+    available,
+    present: available,
+    included: available,
+    variant: cleanText(
+      item.variant ||
+        item.variantName ||
+        selectedVariant.label ||
+        selectedVariant.variant ||
+        "",
+    ),
+  };
 
   return {
-    id:
-      compactText(item.id || item.key || item.slug || name)
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, "-") || `feature-${index}`,
-    name,
-    category: normaliseCategory(categorySource),
-    available,
-    highlight:
-      item.highlight === true ||
-      item.segmentHighlight === true ||
-      item.isHighlight === true ||
-      /highlight|best|segment|top/i.test(
-        compactText(item.badge || item.tag || item.labelTag),
-      ),
-    raw: item,
+    ...feature,
+    Icon: getFeatureIcon(feature),
+    searchableText: normalizeKey(
+      `${feature.section} ${feature.name} ${feature.displayValue} ${feature.category}`,
+    ),
   };
-}
+};
 
-function collectFeatureRowsFrom(value, bucket, depth = 0) {
-  if (!value || depth > 5) return;
+const normalizeFeatureGroup = (group = {}, index = 0, features = []) => {
+  const label = cleanText(
+    group.label || group.name || group.section || `Group ${index + 1}`,
+  );
+  const id = cleanText(group.id) || slugify(label, `group-${index}`);
+  const groupFeatures = asArray(group.features)
+    .map((item, featureIndex) => normalizeFeature(item, featureIndex))
+    .filter(Boolean);
 
-  if (Array.isArray(value)) {
-    value.forEach((item) => {
-      const row = normaliseFeature(item, bucket.length);
-      if (row) bucket.push(row);
-
-      if (item && typeof item === "object") {
-        collectFeatureRowsFrom(item.features, bucket, depth + 1);
-        collectFeatureRowsFrom(item.items, bucket, depth + 1);
-        collectFeatureRowsFrom(item.rows, bucket, depth + 1);
-        collectFeatureRowsFrom(item.children, bucket, depth + 1);
-      }
-    });
-
-    return;
-  }
-
-  if (typeof value === "object") {
-    const row = normaliseFeature(value, bucket.length);
-    if (row) bucket.push(row);
-
-    collectFeatureRowsFrom(value.features, bucket, depth + 1);
-    collectFeatureRowsFrom(value.items, bucket, depth + 1);
-    collectFeatureRowsFrom(value.rows, bucket, depth + 1);
-    collectFeatureRowsFrom(value.children, bucket, depth + 1);
-  }
-}
-
-function parseFeatures(widget, vehicle) {
-  const bucket = [];
-
-  collectFeatureRowsFrom(widget?.features, bucket);
-  collectFeatureRowsFrom(widget?.data?.features, bucket);
-  collectFeatureRowsFrom(widget?.featureList, bucket);
-  collectFeatureRowsFrom(widget?.data?.featureList, bucket);
-  collectFeatureRowsFrom(widget?.rows, bucket);
-  collectFeatureRowsFrom(widget?.items, bucket);
-  collectFeatureRowsFrom(widget?.data?.rows, bucket);
-  collectFeatureRowsFrom(widget?.data?.items, bucket);
-  collectFeatureRowsFrom(vehicle?.features, bucket);
-  collectFeatureRowsFrom(vehicle?.featureList, bucket);
-  collectFeatureRowsFrom(vehicle?.specs, bucket);
-  collectFeatureRowsFrom(vehicle?.highlights, bucket);
-
-  const seen = new Set();
-
-  return bucket
-    .filter((feature) => {
-      if (!feature?.id || seen.has(feature.id)) return false;
-      seen.add(feature.id);
-      return true;
-    })
-    .map((feature) => ({
-      ...feature,
-      Icon: getFeatureIcon(feature),
-    }));
-}
-
-function parseStats(widget, features) {
-  const statsSource =
-    widget?.categoryStats ||
-    widget?.featureStats ||
-    widget?.data?.categoryStats ||
-    widget?.data?.featureStats ||
-    widget?.summary ||
-    widget?.data?.summary;
-
-  const output = {};
-
-  CATEGORY_CONFIG.forEach((category) => {
-    const source =
-      statsSource?.[category.id] ||
-      statsSource?.[category.label] ||
-      statsSource?.[category.label.toLowerCase()] ||
-      null;
-
-    if (source && typeof source === "object") {
-      const available = Number(
-        source.available ??
-          source.included ??
-          source.present ??
-          source.count ??
-          0,
-      );
-      const total = Number(
-        source.total ?? source.countTotal ?? source.overall ?? 0,
+  const allGroupFeatures = groupFeatures.length
+    ? groupFeatures
+    : features.filter(
+        (feature) => slugify(feature.section || feature.group || "") === id,
       );
 
-      if (total || available) {
-        output[category.id] = {
-          available,
-          total: total || available,
-        };
-        return;
-      }
-    }
+  const availableCount = Number(
+    group.availableCount ??
+      allGroupFeatures.filter((feature) => feature.available).length,
+  );
+  const totalCount = Number(group.totalCount ?? allGroupFeatures.length);
 
-    const rows = features.filter((feature) => feature.category === category.id);
-    const available = rows.filter((feature) => feature.available).length;
+  return {
+    id,
+    label,
+    name: label,
+    category:
+      cleanText(group.category) || allGroupFeatures[0]?.category || "other",
+    availableCount,
+    totalCount,
+    unavailableCount: Number(
+      group.unavailableCount ?? Math.max(totalCount - availableCount, 0),
+    ),
+    features: allGroupFeatures,
+  };
+};
 
-    output[category.id] = {
-      available,
-      total: rows.length,
+const groupFeaturesFromRows = (features = []) => {
+  const map = new Map();
+
+  features.forEach((feature) => {
+    const label = cleanText(feature.section || "Features");
+    const id = slugify(label, "features");
+    const existing = map.get(id) || {
+      id,
+      label,
+      name: label,
+      category: feature.category || "other",
+      availableCount: 0,
+      totalCount: 0,
+      unavailableCount: 0,
+      features: [],
     };
+
+    existing.features.push(feature);
+    existing.totalCount += 1;
+    if (feature.available) existing.availableCount += 1;
+    else existing.unavailableCount += 1;
+
+    map.set(id, existing);
   });
 
-  return output;
-}
+  return [...map.values()];
+};
 
-function parseQuickSearches(widget, features) {
+const normalizeVariant = (item = {}, index = 0) => {
+  if (typeof item === "string") {
+    const label = cleanText(item);
+    if (!label) return null;
+    return {
+      id: slugify(label, `variant-${index}`),
+      label,
+      variant: label,
+      variantName: label,
+      features: [],
+      featureGroups: [],
+    };
+  }
+
+  if (!item || typeof item !== "object") return null;
+
+  const label = cleanText(
+    item.label ||
+      item.variant ||
+      item.variantName ||
+      item.name ||
+      item.title ||
+      item.displayName,
+  );
+  if (!label) return null;
+
+  return {
+    ...item,
+    id:
+      cleanText(item.id || item._id || item.key) ||
+      slugify(label, `variant-${index}`),
+    label,
+    name: label,
+    variant: label,
+    variantName: label,
+    priceLabel: getVariantPriceLabel(item),
+    onRoadPriceLabel: cleanText(item.onRoadPriceLabel) || getOnRoadLabel(item),
+    active: item.active,
+    current: item.current,
+    currentPricelistMatched: item.currentPricelistMatched,
+    selectedVariantIsActive: item.selectedVariantIsActive,
+  };
+};
+
+const collectVariants = (widget = {}, vehicle = {}) => {
   const raw = [
-    ...asArray(widget?.quickSearches),
-    ...asArray(widget?.popularSearches),
-    ...asArray(widget?.data?.quickSearches),
-    ...asArray(widget?.data?.popularSearches),
+    ...asArray(widget.variantOptions),
+    ...asArray(widget.data?.variantOptions),
+    ...asArray(widget.variants),
+    ...asArray(widget.data?.variants),
+    ...asArray(vehicle.variants),
   ];
 
-  const provided = raw.map(compactText).filter(Boolean);
-
-  if (provided.length) return provided.slice(0, 5);
-
-  const derived = features
-    .filter(
-      (feature) =>
-        feature.highlight ||
-        /sunroof|adas|camera|carplay|seat/i.test(feature.name),
-    )
-    .map((feature) => {
-      if (/sunroof/i.test(feature.name)) return "sunroof";
-      if (/adas/i.test(feature.name)) return "ADAS";
-      if (/360|camera/i.test(feature.name)) return "360 camera";
-      if (/carplay|android/i.test(feature.name)) return "wireless CarPlay";
-      return feature.name;
+  const seen = new Set();
+  const variants = raw
+    .map(normalizeVariant)
+    .filter(Boolean)
+    .filter((variant) => {
+      const key = cleanText(variant.id) || normalizeKey(variant.label);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
     });
 
-  return [...new Set(derived)].slice(0, 5);
-}
+  const selectedName = cleanText(
+    widget.selectedVariant ||
+      widget.data?.selectedVariant ||
+      vehicle.selectedVariant ||
+      vehicle.variant,
+  );
+  const selectedId = cleanText(
+    widget.selectedVariantId || widget.data?.selectedVariantId,
+  );
 
-function parseHighlights(widget, features) {
-  const raw = [
-    ...asArray(widget?.highlights),
-    ...asArray(widget?.data?.highlights),
-    ...asArray(widget?.whyThisVariant),
-    ...asArray(widget?.data?.whyThisVariant),
-  ];
+  if (
+    selectedName &&
+    !variants.some(
+      (item) => item.label === selectedName || item.id === selectedId,
+    )
+  ) {
+    variants.unshift({
+      id: selectedId || slugify(selectedName),
+      label: selectedName,
+      variant: selectedName,
+      variantName: selectedName,
+      features: asArray(widget.features || widget.rows),
+      featureGroups: asArray(widget.featureGroups),
+    });
+  }
 
-  const provided = raw.map(compactText).filter(Boolean);
+  return variants;
+};
 
-  if (provided.length) return provided.slice(0, 4);
+const getSelectedVariantId = (widget = {}, vehicle = {}, variants = []) => {
+  const preferredId = cleanText(
+    widget.selectedVariantId || widget.data?.selectedVariantId,
+  );
+  if (preferredId && variants.some((item) => item.id === preferredId))
+    return preferredId;
+
+  const preferredLabel = cleanText(
+    widget.selectedVariant ||
+      widget.data?.selectedVariant ||
+      vehicle.selectedVariant ||
+      vehicle.variant,
+  );
+  if (preferredLabel) {
+    const byLabel = variants.find(
+      (item) => normalizeKey(item.label) === normalizeKey(preferredLabel),
+    );
+    if (byLabel) return byLabel.id;
+  }
+
+  return variants[0]?.id || "";
+};
+
+const getVariantFeatureRows = ({ widget, selectedVariant }) => {
+  const selectedRows = asArray(
+    selectedVariant?.features ||
+      selectedVariant?.featureList ||
+      selectedVariant?.rows ||
+      selectedVariant?.items,
+  )
+    .map((item, index) => normalizeFeature(item, index, selectedVariant))
+    .filter(Boolean);
+
+  if (selectedRows.length) return selectedRows;
+
+  return asArray(
+    widget.features ||
+      widget.featureList ||
+      widget.rows ||
+      widget.items ||
+      widget.data?.features ||
+      widget.data?.featureList,
+  )
+    .map((item, index) => normalizeFeature(item, index, selectedVariant))
+    .filter(Boolean);
+};
+
+const getVariantGroups = ({ widget, selectedVariant, features }) => {
+  const rawGroups = asArray(
+    selectedVariant?.featureGroups ||
+      selectedVariant?.groups ||
+      widget.featureGroups ||
+      widget.data?.featureGroups,
+  );
+  const groups = rawGroups
+    .map((group, index) => normalizeFeatureGroup(group, index, features))
+    .filter(Boolean);
+  return groups.length ? groups : groupFeaturesFromRows(features);
+};
+
+const getQuickSpecs = ({ widget, selectedVariant }) => {
+  const raw = asArray(
+    selectedVariant?.quickSpecs || widget.quickSpecs || widget.data?.quickSpecs,
+  );
+
+  return raw
+    .map((item, index) => {
+      if (typeof item === "string")
+        return { id: slugify(item, `spec-${index}`), label: item, value: "" };
+      const label = cleanText(item.label || item.name || item.title);
+      const value = cleanText(item.value || item.displayValue || item.text);
+      if (!label && !value) return null;
+      return {
+        id: cleanText(item.id) || slugify(`${label}-${value}`, `spec-${index}`),
+        label: label || value,
+        value,
+        icon: item.icon || item.category || "other",
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 10);
+};
+
+const getHighlights = ({ widget, selectedVariant, features }) => {
+  const raw = asArray(
+    selectedVariant?.highlights ||
+      widget.highlights ||
+      widget.data?.highlights ||
+      widget.whyThisVariant,
+  );
+  const provided = raw
+    .map((item, index) => {
+      const label = cleanText(item.label || item.text || item.name || item);
+      return label
+        ? {
+            id: cleanText(item.id) || slugify(label, `highlight-${index}`),
+            label,
+          }
+        : null;
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+
+  if (provided.length) return provided;
 
   return features
-    .filter((feature) => feature.available && feature.highlight)
-    .slice(0, 4)
-    .map((feature) => `${feature.name} available in this variant`);
-}
+    .filter(
+      (feature) =>
+        feature.available &&
+        /sunroof|airbag|adas|camera|ventilated|wireless|climate|alloy|cruise/i.test(
+          `${feature.name} ${feature.section}`,
+        ),
+    )
+    .slice(0, 8)
+    .map((feature, index) => ({
+      id: slugify(`${feature.name}-${index}`, `highlight-${index}`),
+      label: /^(yes|available)$/i.test(feature.displayValue || feature.value)
+        ? `${feature.name} available`
+        : `${feature.name}: ${feature.displayValue || feature.value}`,
+    }));
+};
 
-function AciLogo({ onAction, mobile = false }) {
+const buildCategoryTabs = (groups = [], features = []) => {
+  const byCategory = new Map();
+
+  groups.forEach((group) => {
+    const category = group.category || group.features?.[0]?.category || "other";
+    const key = slugify(category, "other");
+    const meta = CATEGORY_META[key] || CATEGORY_META.other;
+    const existing = byCategory.get(key) || {
+      id: key,
+      label: meta.label || group.label,
+      Icon: meta.Icon || Sparkles,
+      availableCount: 0,
+      totalCount: 0,
+    };
+
+    existing.availableCount += Number(group.availableCount || 0);
+    existing.totalCount += Number(
+      group.totalCount || group.features?.length || 0,
+    );
+    byCategory.set(key, existing);
+  });
+
+  if (!byCategory.size) {
+    features.forEach((feature) => {
+      const key = feature.category || "other";
+      const meta = CATEGORY_META[key] || CATEGORY_META.other;
+      const existing = byCategory.get(key) || {
+        id: key,
+        label: meta.label,
+        Icon: meta.Icon,
+        availableCount: 0,
+        totalCount: 0,
+      };
+      existing.totalCount += 1;
+      if (feature.available) existing.availableCount += 1;
+      byCategory.set(key, existing);
+    });
+  }
+
+  const preferredOrder = [
+    "comfort",
+    "safety",
+    "infotainment",
+    "adas",
+    "performance",
+    "dimensions",
+    "exterior",
+    "other",
+  ];
+
+  const tabs = [...byCategory.values()].sort((a, b) => {
+    const ai = preferredOrder.indexOf(a.id);
+    const bi = preferredOrder.indexOf(b.id);
+    if (ai >= 0 && bi >= 0) return ai - bi;
+    if (ai >= 0) return -1;
+    if (bi >= 0) return 1;
+    return a.label.localeCompare(b.label);
+  });
+
+  return [
+    {
+      id: "all",
+      label: "All",
+      Icon: Layers3,
+      availableCount: features.filter((feature) => feature.available).length,
+      totalCount: features.length,
+    },
+    ...tabs,
+  ];
+};
+
+const featureMatchesSearch = (feature = {}, query = "") => {
+  const needle = normalizeKey(query);
+  if (!needle) return true;
+  const haystack =
+    feature.searchableText ||
+    normalizeKey(
+      `${feature.section} ${feature.name} ${feature.displayValue} ${feature.value} ${feature.category}`,
+    );
+  return haystack.includes(needle);
+};
+
+const fireFeatureAction = (
+  onAction,
+  {
+    label,
+    query,
+    type = "features_action",
+    intent,
+    canvasType,
+    vehicle,
+    payload = {},
+    contextPatch = {},
+  },
+) => {
+  emitAciAction(
+    {
+      id: slugify(`${label}-${query || ""}`, "feature-action"),
+      label,
+      title: label,
+      query: query || label,
+      type,
+      intent: intent || ACI_INTENTS.FEATURES,
+      canvasType: canvasType || ACI_CANVAS_TYPES.FEATURES,
+      vehicle,
+      payload,
+      contextPatch: {
+        selectedVehicle: vehicle,
+        anchorMake: vehicle?.make || vehicle?.brand,
+        anchorModel: vehicle?.model,
+        anchorVariant: vehicle?.selectedVariant || vehicle?.variant,
+        anchorCity: vehicle?.citySlug || vehicle?.city || DEFAULT_CITY,
+        ...contextPatch,
+      },
+    },
+    onAction,
+  );
+};
+
+function AciMark() {
   return (
-    <button
-      type="button"
-      className="inline-flex items-center gap-3 border-0 bg-transparent p-0"
-      onClick={() =>
-        emitFeatureAction(onAction, {
-          label: "Home",
-          type: "go_home",
-          intent: "",
-          canvasType: "",
-        })
-      }
-    >
-      <span
-        className={`select-none font-black leading-none tracking-[-0.18em] text-[#075df6] [transform:skewX(-9deg)] ${
-          mobile ? "text-[38px]" : "text-[34px]"
-        }`}
-      >
-        ACI
-      </span>
-
-      <span
-        className={`select-none font-black text-[#080f2b] ${
-          mobile
-            ? "text-[17px] tracking-[0.38em]"
-            : "text-[16px] tracking-[0.36em]"
-        }`}
-      >
-        ASSIST
-      </span>
-    </button>
+    <span className="afi-mark" aria-label="ACI Assist">
+      <strong>ACI</strong>
+      <em>ASSIST</em>
+    </span>
   );
 }
 
 function VehicleImage({ src, title, mobile = false }) {
   const [failed, setFailed] = useState(false);
 
-  useEffect(() => {
-    setFailed(false);
-  }, [src]);
+  useEffect(() => setFailed(false), [src]);
 
   if (!src || failed) {
     return (
-      <div
-        className={`grid place-items-center rounded-[24px] border border-[#dbe3ef] bg-[radial-gradient(circle_at_50%_42%,#ffffff_0%,#f8fafc_38%,#eaf2ff_100%)] text-[#94a3b8] ${
-          mobile ? "h-[150px]" : "h-[260px]"
-        }`}
-      >
-        <Car size={mobile ? 54 : 76} strokeWidth={1.25} />
+      <div className={`afi-car-placeholder ${mobile ? "mobile" : ""}`}>
+        <Car size={mobile ? 58 : 84} strokeWidth={1.35} />
       </div>
     );
   }
@@ -631,157 +801,8 @@ function VehicleImage({ src, title, mobile = false }) {
       initial={{ opacity: 0, scale: 0.985, y: 8 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       transition={{ type: "spring", stiffness: 240, damping: 25 }}
-      className="h-auto w-full object-contain mix-blend-multiply drop-shadow-[0_24px_26px_rgba(15,23,42,0.2)]"
+      className="afi-car-image"
     />
-  );
-}
-
-function AssistantComposer({ mobile = false, onAction, vehicle }) {
-  return (
-    <section
-      className={
-        mobile
-          ? "fixed bottom-0 left-1/2 z-[90] w-full max-w-[430px] -translate-x-1/2 px-5 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2"
-          : "pointer-events-none fixed bottom-4 left-1/2 z-[80] w-full max-w-[700px] -translate-x-1/2 px-5"
-      }
-    >
-      <div
-        className={`pointer-events-auto grid items-center gap-2 rounded-[28px] border border-[rgba(37,99,235,0.18)] bg-white/96 shadow-[0_0_0_5px_rgba(37,99,235,0.04),0_22px_50px_-36px_rgba(37,99,235,0.52),inset_0_1px_0_rgba(255,255,255,1)] ${
-          mobile
-            ? "min-h-[58px] grid-cols-[40px_1fr_30px_46px] p-[6px]"
-            : "min-h-[58px] grid-cols-[40px_1fr_32px_46px] p-[6px]"
-        }`}
-      >
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Assistant",
-              query: "",
-              type: "open_assistant",
-              intent: "",
-              canvasType: "",
-              vehicle,
-            })
-          }
-          className="grid h-10 w-10 place-items-center rounded-[17px] border border-[#e0e7f1] bg-[radial-gradient(circle_at_35%_28%,#fff_0%,#eef5ff_100%)] text-[#075df6]"
-        >
-          <Sparkles size={20} fill="currentColor" />
-        </button>
-
-        <input
-          placeholder="Ask if this variant has any feature"
-          className="min-w-0 border-0 bg-transparent text-[13px] font-normal text-[#1e293b] outline-none placeholder:text-[#94a3b8]"
-        />
-
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Voice input",
-              query: "",
-              type: "voice_input",
-              intent: "",
-              canvasType: "",
-              vehicle,
-            })
-          }
-          className="grid h-9 w-[30px] place-items-center border-0 bg-transparent text-[#526075]"
-        >
-          <Mic size={21} />
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Send",
-              query: "",
-              type: "send",
-              intent: "",
-              canvasType: "",
-              vehicle,
-            })
-          }
-          className="grid h-[46px] w-[46px] place-items-center rounded-[17px] border-0 bg-[linear-gradient(135deg,#075df6,#0448d8)] text-white shadow-[0_18px_36px_-22px_rgba(37,99,235,0.58)]"
-        >
-          <SendHorizontal size={22} />
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function DesktopHeader({ onAction, topSearch, setTopSearch, vehicle }) {
-  return (
-    <motion.header
-      variants={fadeUp}
-      className="mx-auto grid h-[76px] w-full max-w-[1510px] grid-cols-[250px_minmax(420px,640px)_250px] items-center gap-5 px-10"
-    >
-      <AciLogo onAction={onAction} />
-
-      <label className="grid h-[54px] grid-cols-[38px_1fr_46px] items-center rounded-[21px] border border-[#dbe3ef] bg-white/95 px-4 text-[#64748b] shadow-[0_20px_52px_-42px_rgba(15,23,42,0.42)]">
-        <Search size={20} />
-
-        <input
-          value={topSearch}
-          onChange={(event) => setTopSearch(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === "Enter" && topSearch.trim()) {
-              emitFeatureAction(onAction, {
-                label: "Search",
-                query: topSearch,
-                type: "search",
-                vehicle,
-              });
-            }
-          }}
-          placeholder="Search for variants, features, specs and more..."
-          className="min-w-0 border-0 bg-transparent text-[14px] font-normal text-[#172033] outline-none placeholder:text-[#7b8799]"
-        />
-
-        <span className="grid h-[30px] place-items-center rounded-[10px] border border-[#d8e0eb] bg-[#fbfcff] text-[12px] font-semibold text-[#6b7280]">
-          ⌘ K
-        </span>
-      </label>
-
-      <div className="flex items-center justify-end gap-4">
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Notifications",
-              type: "notifications",
-              vehicle,
-            })
-          }
-          className="relative grid h-10 w-10 place-items-center border-0 bg-transparent text-[#566176]"
-        >
-          <Bell size={23} strokeWidth={1.85} />
-          <span className="absolute right-2 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#075df6]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Profile",
-              type: "profile",
-              vehicle,
-            })
-          }
-          className="h-[48px] w-[48px] rounded-full bg-white p-[3px] shadow-[0_0_0_1px_#dbe5f2,0_12px_26px_-16px_rgba(37,99,235,0.5)]"
-        >
-          <img
-            src={AVATAR}
-            alt="Profile"
-            className="h-full w-full rounded-full object-cover"
-          />
-        </button>
-
-        <ChevronDown size={16} className="text-[#64748b]" />
-      </div>
-    </motion.header>
   );
 }
 
@@ -794,196 +815,94 @@ function VariantSelect({
   if (!variants.length) return null;
 
   return (
-    <label
-      className={`relative inline-flex max-w-full items-center rounded-[15px] border border-[#dbe3ef] bg-white/94 text-[#172033] shadow-[0_18px_45px_-36px_rgba(15,23,42,0.5)] ${
-        compact ? "h-10 px-3 text-[12px]" : "h-[46px] px-4 text-[13px]"
-      }`}
-    >
-      <span className="mr-2 shrink-0 font-semibold text-[#64748b]">
-        Change variant
-      </span>
-
+    <label className={`afi-variant-select ${compact ? "compact" : ""}`}>
+      <span>{compact ? "Variant" : "Change variant"}</span>
       <select
         value={selectedVariantId}
         onChange={(event) => setSelectedVariantId(event.target.value)}
-        className="min-w-0 max-w-[190px] appearance-none truncate border-0 bg-transparent pr-7 font-semibold text-[#075df6] outline-none"
       >
         {variants.map((variant) => (
           <option key={variant.id} value={variant.id}>
             {variant.label}
+            {getVariantPriceLabel(variant)
+              ? ` · ${getVariantPriceLabel(variant)}`
+              : ""}
           </option>
         ))}
       </select>
-
-      <ChevronDown
-        size={compact ? 15 : 16}
-        className="pointer-events-none absolute right-3 text-[#64748b]"
-      />
+      <ChevronDown size={compact ? 15 : 16} />
     </label>
   );
 }
 
-function FeatureSearch({
+function SearchBox({
   query,
   setQuery,
-  placeholder = "Search features like sunroof, ADAS, ventilated seats...",
+  placeholder = "Search sunroof, ADAS, airbags, touchscreen...",
 }) {
   return (
-    <label className="grid h-[48px] grid-cols-[38px_1fr] items-center rounded-[15px] border border-[#dbe3ef] bg-white/95 px-4 text-[#64748b] shadow-[0_16px_42px_-36px_rgba(15,23,42,0.45)]">
-      <Search size={19} />
-
+    <label className="afi-search-box">
+      <Search size={18} />
       <input
         value={query}
         onChange={(event) => setQuery(event.target.value)}
         placeholder={placeholder}
-        className="min-w-0 border-0 bg-transparent text-[13px] font-normal text-[#172033] outline-none placeholder:text-[#94a3b8]"
       />
     </label>
   );
 }
 
-function DesktopHero({
-  title,
-  image,
-  selectedVariant,
-  variants,
-  selectedVariantId,
-  setSelectedVariantId,
-  query,
-  setQuery,
-  onAction,
-  vehicle,
-}) {
-  const { base, seat } = parseVariantLabel(selectedVariant?.label);
-  const price = selectedVariant?.price || compactText(vehicle?.priceRange);
-
+function StatPill({ icon: Icon, label, value }) {
   return (
-    <motion.section
-      variants={fadeUp}
-      className="relative overflow-hidden rounded-[30px] border border-[#dbe3ef] bg-[linear-gradient(135deg,#f4f8ff_0%,#ffffff_48%,#edf4ff_100%)] shadow-[0_30px_84px_-60px_rgba(15,23,42,0.5)]"
-    >
-      <div className="pointer-events-none absolute inset-0 opacity-80 [background:repeating-radial-gradient(ellipse_at_82%_32%,rgba(255,255,255,0.62)_0,rgba(255,255,255,0.62)_2px,transparent_3px,transparent_24px)]" />
-      <div className="pointer-events-none absolute -left-28 top-[-70px] h-64 w-64 rounded-full bg-white/70 blur-3xl" />
-
-      <button
-        type="button"
-        onClick={() =>
-          emitFeatureAction(onAction, {
-            label: "Share",
-            type: "share",
-            vehicle,
-          })
-        }
-        className="absolute right-8 top-7 z-20 inline-flex h-11 items-center gap-2 rounded-[14px] border border-[#dbe3ef] bg-white/82 px-4 text-[13px] font-semibold text-[#172033] shadow-[0_18px_38px_-30px_rgba(15,23,42,0.5)]"
-      >
-        <Share2 size={17} />
-        Share
-      </button>
-
-      <div className="relative z-10 grid min-h-[300px] grid-cols-[45%_55%] items-center gap-8 px-10 py-7">
-        <div className="relative flex h-full items-end justify-center">
-          <div className="absolute inset-x-16 bottom-4 h-10 rounded-full bg-slate-500/20 blur-2xl" />
-
-          <div className="w-[88%] max-w-[620px] translate-y-3">
-            <VehicleImage src={image} title={title} />
-          </div>
-        </div>
-
-        <div className="max-w-[610px] pb-1">
-          <h1 className="font-serif text-[45px] font-semibold leading-[0.95] tracking-[-0.065em] text-[#07102b]">
-            {title}
-          </h1>
-
-          <div className="mt-3 flex flex-wrap items-center gap-3">
-            {base ? (
-              <span className="text-[24px] font-medium leading-none tracking-[-0.035em] text-[#075df6]">
-                {base}
-              </span>
-            ) : null}
-
-            {seat ? (
-              <span className="inline-flex h-8 items-center rounded-[10px] border border-[#bfdbfe] bg-[#eff6ff] px-3 text-[15px] font-semibold text-[#075df6]">
-                {seat}
-              </span>
-            ) : null}
-          </div>
-
-          {price ? (
-            <p className="mt-4 flex items-center gap-2 text-[18px] font-medium tracking-[-0.02em] text-[#526075]">
-              {price}
-              <Info size={17} />
-            </p>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            <button
-              type="button"
-              onClick={() =>
-                emitFeatureAction(onAction, {
-                  label: "View key specs",
-                  type: "key_specs",
-                  intent: ACI_INTENTS?.SPECS,
-                  canvasType: ACI_CANVAS_TYPES?.SPECS,
-                  vehicle,
-                })
-              }
-              className="inline-flex h-[46px] items-center gap-2 rounded-[13px] border-0 bg-[linear-gradient(135deg,#075df6,#0448d8)] px-6 text-[15px] font-semibold text-white shadow-[0_18px_40px_-24px_rgba(37,99,235,0.7)]"
-            >
-              View key specs
-              <ChevronRight size={18} />
-            </button>
-
-            <VariantSelect
-              variants={variants}
-              selectedVariantId={selectedVariantId}
-              setSelectedVariantId={setSelectedVariantId}
-            />
-          </div>
-
-          <div className="mt-5 max-w-[560px]">
-            <FeatureSearch query={query} setQuery={setQuery} />
-          </div>
-        </div>
-      </div>
-    </motion.section>
+    <span className="afi-stat-pill">
+      <Icon size={15} />
+      <strong>{value}</strong>
+      <em>{label}</em>
+    </span>
   );
 }
 
-function CategoryTabs({ activeCategory, setActiveCategory, mobile = false }) {
+function ActiveStatusBadge({ variant, compact = false }) {
+  const isCurrent =
+    variant?.active === true ||
+    variant?.current === true ||
+    variant?.currentPricelistMatched === true;
+
+  return (
+    <span
+      className={`afi-status-badge ${isCurrent ? "current" : "inactive"} ${compact ? "compact" : ""}`}
+    >
+      {isCurrent ? "Current variant" : "Older variant"}
+    </span>
+  );
+}
+
+function FeatureTabs({
+  tabs,
+  activeCategory,
+  setActiveCategory,
+  mobile = false,
+}) {
   return (
     <motion.nav
       variants={fadeUp}
-      className={
-        mobile
-          ? "-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          : "flex flex-wrap items-center gap-4"
-      }
+      className={`afi-category-tabs ${mobile ? "mobile" : ""}`}
     >
-      {CATEGORY_CONFIG.map((category) => {
-        const Icon = category.Icon;
-        const active = category.id === activeCategory;
-
+      {tabs.map((tab) => {
+        const Icon = tab.Icon || Sparkles;
+        const active = tab.id === activeCategory;
         return (
           <button
+            key={tab.id}
             type="button"
-            key={category.id}
-            onClick={() => setActiveCategory(category.id)}
-            className={`inline-flex shrink-0 items-center gap-3 rounded-[17px] border bg-white/94 transition ${
-              mobile
-                ? `h-[56px] px-4 text-[14px] font-medium ${
-                    active
-                      ? "border-[#075df6] text-[#075df6] shadow-[0_18px_42px_-28px_rgba(37,99,235,0.52)]"
-                      : "border-[#dbe3ef] text-[#1f2937] shadow-[0_16px_36px_-30px_rgba(15,23,42,0.38)]"
-                  }`
-                : `h-[52px] px-5 text-[13px] font-semibold ${
-                    active
-                      ? "border-[#075df6] text-[#075df6] shadow-[0_18px_42px_-30px_rgba(37,99,235,0.5)]"
-                      : "border-[#dbe3ef] text-[#172033] shadow-[0_16px_38px_-32px_rgba(15,23,42,0.38)] hover:bg-[#eff6ff]"
-                  }`
-            }`}
+            className={active ? "active" : ""}
+            onClick={() => setActiveCategory(tab.id)}
           >
-            <Icon size={mobile ? 22 : 20} strokeWidth={1.9} />
-            <span>{category.label}</span>
+            <Icon size={mobile ? 20 : 19} strokeWidth={1.9} />
+            <span>{tab.label}</span>
+            <small>
+              {tab.availableCount}/{tab.totalCount}
+            </small>
           </button>
         );
       })}
@@ -998,59 +917,28 @@ function FeatureRow({ feature, mobile = false }) {
     <motion.div
       layout
       variants={fadeUp}
-      className={`grid items-center border-b border-[#e8eef7] last:border-b-0 ${
-        mobile
-          ? "grid-cols-[54px_1fr_auto] gap-3 px-3 py-3.5"
-          : "grid-cols-[68px_1fr_170px_38px] gap-4 px-5 py-3.5"
-      }`}
+      className={`afi-feature-row ${mobile ? "mobile" : ""}`}
     >
-      <span
-        className={`grid place-items-center rounded-[16px] border border-[#dbeafe] bg-[#f1f6ff] text-[#075df6] ${
-          mobile ? "h-[42px] w-[42px]" : "h-[46px] w-[46px]"
-        }`}
-      >
-        <Icon size={mobile ? 21 : 22} strokeWidth={1.85} />
+      <span className="afi-feature-icon">
+        <Icon size={mobile ? 20 : 21} strokeWidth={1.85} />
       </span>
-
-      <div className="min-w-0">
-        <p
-          className={`truncate text-[#07102b] ${
-            mobile ? "text-[15px] font-normal" : "text-[15px] font-medium"
-          }`}
-          title={feature.name}
-        >
-          {feature.name}
-        </p>
+      <div className="afi-feature-main">
+        <strong title={feature.name}>{feature.name}</strong>
+        <small>{feature.section}</small>
       </div>
-
-      {feature.highlight ? (
-        <span
-          className={`w-fit rounded-[8px] border border-[#bfdbfe] bg-[#eff6ff] text-[#075df6] ${
-            mobile
-              ? "hidden px-2 py-1 text-[10px] font-semibold sm:inline-flex"
-              : "inline-flex px-3 py-1.5 text-[11px] font-semibold"
-          }`}
-        >
-          Segment highlight
-        </span>
-      ) : (
-        <span className={mobile ? "hidden" : "block"} />
-      )}
-
-      <span className="grid place-items-center">
+      <span className="afi-feature-value" title={feature.displayValue}>
+        {feature.displayValue}
+      </span>
+      <span className="afi-feature-state">
         {feature.available ? (
           <CircleCheck
-            size={mobile ? 25 : 24}
+            size={mobile ? 24 : 23}
             fill="#075df6"
             stroke="white"
-            strokeWidth={2.4}
+            strokeWidth={2.35}
           />
         ) : (
-          <CircleMinus
-            size={mobile ? 25 : 24}
-            className="text-[#94a3b8]"
-            strokeWidth={1.7}
-          />
+          <CircleMinus size={mobile ? 24 : 23} strokeWidth={1.8} />
         )}
       </span>
     </motion.div>
@@ -1060,51 +948,30 @@ function FeatureRow({ feature, mobile = false }) {
 function FeatureTable({
   activeCategory,
   filteredFeatures,
-  categoryStats,
+  activeTab,
   mobile = false,
 }) {
-  const activeMeta =
-    CATEGORY_CONFIG.find((item) => item.id === activeCategory) ||
-    CATEGORY_CONFIG[0];
-
-  const activeStats = categoryStats?.[activeCategory] || {
-    available: 0,
-    total: 0,
-  };
-
   return (
     <motion.section
       variants={fadeUp}
-      className={
-        mobile
-          ? "rounded-[24px] border border-[#dbe3ef] bg-white/95 p-4 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.48)]"
-          : "rounded-[24px] border border-[#dbe3ef] bg-white/95 p-5 shadow-[0_24px_70px_-58px_rgba(15,23,42,0.48)]"
-      }
+      className={`afi-feature-table ${mobile ? "mobile" : ""}`}
     >
-      <div className="flex items-center justify-between gap-4">
-        <h2
-          className={
-            mobile
-              ? "text-[18px] font-normal leading-none tracking-[-0.02em] text-[#07102b]"
-              : "font-serif text-[20px] font-semibold leading-none tracking-[-0.045em] text-[#07102b]"
-          }
-        >
-          All {activeMeta.label.toLowerCase()} features
-        </h2>
-
-        <p className="shrink-0 text-[14px] font-normal text-[#64748b]">
-          <span className="text-[#075df6]">{activeStats.available}</span> /{" "}
-          {activeStats.total} available
-        </p>
+      <div className="afi-section-head">
+        <div>
+          <h2>
+            {activeCategory === "all"
+              ? "All features"
+              : `${activeTab?.label || "Selected"} features`}
+          </h2>
+          <p>{filteredFeatures.length} matching feature records</p>
+        </div>
+        <span>
+          {filteredFeatures.filter((feature) => feature.available).length}{" "}
+          available
+        </span>
       </div>
 
-      <div
-        className={
-          mobile
-            ? "mt-4 overflow-hidden rounded-[19px] border border-[#e2e8f0] bg-white"
-            : "mt-4 overflow-hidden rounded-[20px] border border-[#e2e8f0] bg-white"
-        }
-      >
+      <div className="afi-feature-list">
         <AnimatePresence mode="popLayout">
           {filteredFeatures.length ? (
             filteredFeatures.map((feature) => (
@@ -1115,14 +982,11 @@ function FeatureTable({
               key="empty"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="grid min-h-[180px] place-items-center px-6 text-center"
+              className="afi-empty-features"
             >
-              <div>
-                <Search size={24} className="mx-auto mb-2 text-[#94a3b8]" />
-                <p className="text-sm font-medium text-[#64748b]">
-                  No feature data available for this selection.
-                </p>
-              </div>
+              <Search size={25} />
+              <strong>No feature found</strong>
+              <p>Try searching another feature or switch category.</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1131,575 +995,904 @@ function FeatureTable({
   );
 }
 
-function DesktopFeatureControls({ query, setQuery, activeCategory }) {
-  const activeMeta =
-    CATEGORY_CONFIG.find((item) => item.id === activeCategory) ||
-    CATEGORY_CONFIG[0];
+function QuickSpecs({ specs = [], mobile = false }) {
+  if (!specs.length) return null;
 
   return (
-    <div className="ml-auto hidden items-center gap-4 xl:flex">
-      <button
-        type="button"
-        className="inline-flex h-[48px] items-center gap-2 rounded-[15px] border border-[#dbe3ef] bg-white/94 px-5 text-[13px] font-semibold text-[#172033] shadow-[0_16px_38px_-32px_rgba(15,23,42,0.38)]"
-      >
-        <Filter size={18} />
-        Filter
-        <ChevronDown size={16} />
-      </button>
-
-      <label className="grid h-[48px] w-[200px] grid-cols-[34px_1fr] items-center rounded-[15px] border border-[#dbe3ef] bg-white/94 px-3 text-[#64748b] shadow-[0_16px_38px_-32px_rgba(15,23,42,0.38)]">
-        <Search size={18} />
-
-        <input
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-          placeholder={`Search in ${activeMeta.label.toLowerCase()}`}
-          className="min-w-0 border-0 bg-transparent text-[13px] font-normal text-[#172033] outline-none placeholder:text-[#94a3b8]"
-        />
-      </label>
-    </div>
+    <motion.section
+      variants={fadeUp}
+      className={`afi-card afi-specs-card ${mobile ? "mobile" : ""}`}
+    >
+      <div className="afi-card-head">
+        <h3>Quick specs</h3>
+        <Gauge size={16} />
+      </div>
+      <div className="afi-spec-grid">
+        {specs.slice(0, mobile ? 6 : 10).map((spec) => (
+          <div key={spec.id || `${spec.label}-${spec.value}`}>
+            <small>{spec.label}</small>
+            <strong>{spec.value || "—"}</strong>
+          </div>
+        ))}
+      </div>
+    </motion.section>
   );
 }
 
-function DesktopSidebar({
-  query,
-  setQuery,
-  setActiveCategory,
-  categoryStats,
-  quickSearches,
-  highlights,
+function HighlightsCard({ highlights = [], mobile = false }) {
+  if (!highlights.length) return null;
+
+  return (
+    <motion.section
+      variants={fadeUp}
+      className={`afi-card ${mobile ? "mobile" : ""}`}
+    >
+      <div className="afi-card-head">
+        <h3>Highlights</h3>
+        <Sparkles size={16} fill="currentColor" />
+      </div>
+      <div className="afi-highlight-list">
+        {highlights.slice(0, mobile ? 5 : 8).map((item) => (
+          <p key={item.id || item.label}>
+            <Check size={15} />
+            {item.label}
+          </p>
+        ))}
+      </div>
+    </motion.section>
+  );
+}
+
+function SuggestedQuestions({
+  vehicle,
+  selectedVariant,
+  onAction,
+  mobile = false,
 }) {
+  const model = vehicle?.model || "this car";
+  const variant =
+    selectedVariant?.label ||
+    selectedVariant?.variant ||
+    vehicle?.selectedVariant ||
+    vehicle?.variant ||
+    "";
+  const prefix = `${model}${variant ? ` ${variant}` : ""}`;
+
+  const questions = [
+    {
+      label: "Does it have sunroof?",
+      query: `Does ${prefix} have sunroof?`,
+      icon: "☀️",
+    },
+    {
+      label: "How many airbags?",
+      query: `How many airbags does ${prefix} have?`,
+      icon: "🛡️",
+    },
+    {
+      label: "Show ADAS variants",
+      query: `Which ${model} variants have ADAS?`,
+      icon: "✨",
+      discovery: true,
+    },
+  ];
+
   return (
-    <aside className="space-y-4">
-      <motion.article
-        variants={fadeUp}
-        className="rounded-[22px] border border-[#dbe3ef] bg-white/94 p-5 shadow-[0_22px_64px_-56px_rgba(15,23,42,0.42)]"
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-serif text-[18px] font-semibold leading-none tracking-[-0.045em] text-[#07102b]">
-            Feature search
-          </h3>
-          <Sparkles size={16} fill="#075df6" className="text-[#075df6]" />
-        </div>
-
-        <FeatureSearch query={query} setQuery={setQuery} />
-
-        {quickSearches.length ? (
-          <>
-            <p className="mt-3 text-[11px] font-semibold text-[#94a3b8]">
-              Popular searches
-            </p>
-
-            <div className="mt-2 flex flex-wrap gap-3">
-              {quickSearches.map((chip) => (
-                <button
-                  key={chip}
-                  type="button"
-                  onClick={() => setQuery(chip)}
-                  className="h-8 rounded-full border border-[#bfdbfe] bg-[#eff6ff] px-4 text-[11px] font-semibold text-[#075df6]"
-                >
-                  {chip}
-                </button>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </motion.article>
-
-      <motion.article
-        variants={fadeUp}
-        className="rounded-[22px] border border-[#dbe3ef] bg-white/94 p-5 shadow-[0_22px_64px_-56px_rgba(15,23,42,0.42)]"
-      >
-        <div className="mb-5 flex items-center justify-between">
-          <h3 className="font-serif text-[18px] font-semibold leading-none tracking-[-0.045em] text-[#07102b]">
-            Feature summary
-          </h3>
-          <Sparkles size={16} fill="#075df6" className="text-[#075df6]" />
-        </div>
-
-        <div className="space-y-4">
-          {CATEGORY_CONFIG.slice(0, 4).map((category) => {
-            const stat = categoryStats?.[category.id] || {
-              available: 0,
-              total: 0,
-            };
-            const percent = stat.total
-              ? Math.round((stat.available / stat.total) * 100)
-              : 0;
-
-            return (
-              <button
-                type="button"
-                key={category.id}
-                onClick={() => setActiveCategory(category.id)}
-                className="grid w-full grid-cols-[104px_1fr_54px] items-center gap-3 border-0 bg-transparent p-0 text-left"
-              >
-                <span className="text-[12px] font-semibold text-[#1f2937]">
-                  {category.label}
-                </span>
-
-                <span className="h-1.5 overflow-hidden rounded-full bg-[#e5e7eb]">
-                  <motion.span
-                    initial={{ width: 0 }}
-                    animate={{ width: `${percent}%` }}
-                    transition={{ duration: 0.45, ease: "easeOut" }}
-                    className="block h-full rounded-full bg-[#075df6]"
-                  />
-                </span>
-
-                <span className="text-right text-[12px] font-medium text-[#64748b]">
-                  {stat.available} / {stat.total}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </motion.article>
-
-      {highlights.length ? (
-        <motion.article
-          variants={fadeUp}
-          className="rounded-[22px] border border-[#dbe3ef] bg-white/94 p-5 shadow-[0_22px_64px_-56px_rgba(15,23,42,0.42)]"
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="font-serif text-[18px] font-semibold leading-none tracking-[-0.045em] text-[#07102b]">
-              Why this variant stands out
-            </h3>
-            <Sparkles size={16} fill="#075df6" className="text-[#075df6]" />
-          </div>
-
-          <div className="space-y-3">
-            {highlights.map((item) => (
-              <p
-                key={item}
-                className="flex gap-2 text-[12px] font-medium leading-5 text-[#64748b]"
-              >
-                <Check
-                  size={16}
-                  className="mt-0.5 shrink-0 rounded-full bg-[#075df6] p-[3px] text-white"
-                  strokeWidth={3}
-                />
-                {item}
-              </p>
-            ))}
-          </div>
-        </motion.article>
-      ) : null}
-    </aside>
+    <motion.section
+      variants={fadeUp}
+      className={`afi-card afi-questions-card ${mobile ? "mobile" : ""}`}
+    >
+      <div className="afi-card-head">
+        <h3>Ask next</h3>
+        <Info size={16} />
+      </div>
+      <div className="afi-question-list">
+        {questions.map((question) => (
+          <button
+            key={question.query}
+            type="button"
+            onClick={() =>
+              fireFeatureAction(onAction, {
+                label: question.label,
+                query: question.query,
+                type: question.discovery
+                  ? "feature_discovery"
+                  : "feature_answer",
+                intent: question.discovery
+                  ? "vehicle_feature_discovery"
+                  : "vehicle_feature_answer",
+                canvasType: question.discovery
+                  ? "feature_match_builder_canvas"
+                  : "",
+                vehicle,
+                contextPatch: {
+                  anchorVariant: variant,
+                  feature: question.label,
+                },
+              })
+            }
+          >
+            <span>{question.icon}</span>
+            <strong>{question.label}</strong>
+            <ChevronRight size={16} />
+          </button>
+        ))}
+      </div>
+    </motion.section>
   );
 }
 
-function DesktopFeaturesPage({
+function DesktopHero({
   title,
   image,
-  variants,
   selectedVariant,
+  variants,
   selectedVariantId,
   setSelectedVariantId,
-  activeCategory,
-  setActiveCategory,
   query,
   setQuery,
-  topSearch,
-  setTopSearch,
-  filteredFeatures,
-  categoryStats,
-  quickSearches,
-  highlights,
-  onAction,
   vehicle,
 }) {
-  return (
-    <section className="hidden xl:block">
-      <motion.div variants={stagger} initial="hidden" animate="visible">
-        <DesktopHeader
-          onAction={onAction}
-          topSearch={topSearch}
-          setTopSearch={setTopSearch}
-          vehicle={vehicle}
-        />
+  const exShowroom = getVariantPriceLabel(selectedVariant);
+  const onRoad = getOnRoadLabel(selectedVariant);
 
-        <main className="mx-auto w-full max-w-[1510px] space-y-5 px-10 pb-[112px]">
-          <DesktopHero
-            title={title}
-            image={image}
-            selectedVariant={selectedVariant}
+  return (
+    <motion.section variants={fadeUp} className="afi-desktop-hero">
+      <div className="afi-hero-glow" />
+      <div className="afi-hero-image-wrap">
+        <VehicleImage src={image} title={title} />
+      </div>
+
+      <div className="afi-hero-copy">
+        <div className="afi-eyebrow">
+          <Sparkles size={15} fill="currentColor" />
+          Features Explorer
+        </div>
+        <h1>{title}</h1>
+        <div className="afi-variant-title-row">
+          <strong>
+            {selectedVariant?.label || vehicle?.selectedVariant || "Variant"}
+          </strong>
+          <ActiveStatusBadge variant={selectedVariant} />
+        </div>
+
+        <div className="afi-price-row">
+          {exShowroom ? (
+            <StatPill
+              icon={BadgeIndianRupee}
+              label="ex-showroom"
+              value={exShowroom}
+            />
+          ) : null}
+          {onRoad ? (
+            <StatPill icon={BadgeIndianRupee} label="on-road" value={onRoad} />
+          ) : null}
+          <StatPill
+            icon={Layers3}
+            label="features"
+            value={
+              selectedVariant?.featureCount || vehicle?.featureCount || "—"
+            }
+          />
+        </div>
+
+        <div className="afi-hero-controls">
+          <VariantSelect
             variants={variants}
             selectedVariantId={selectedVariantId}
             setSelectedVariantId={setSelectedVariantId}
-            query={query}
-            setQuery={setQuery}
-            onAction={onAction}
-            vehicle={vehicle}
           />
+          <SearchBox query={query} setQuery={setQuery} />
+        </div>
+      </div>
+    </motion.section>
+  );
+}
 
-          <section className="flex items-center gap-4">
-            <CategoryTabs
+function DesktopLayout(props) {
+  const {
+    title,
+    image,
+    variants,
+    selectedVariant,
+    selectedVariantId,
+    setSelectedVariantId,
+    activeCategory,
+    setActiveCategory,
+    query,
+    setQuery,
+    tabs,
+    activeTab,
+    filteredFeatures,
+    quickSpecs,
+    highlights,
+    vehicle,
+    onAction,
+  } = props;
+
+  return (
+    <section className="afi-desktop-shell">
+      <motion.div
+        variants={stagger}
+        initial="hidden"
+        animate="visible"
+        className="afi-desktop-page"
+      >
+        <header className="afi-desktop-header">
+          <button
+            type="button"
+            className="afi-back-button"
+            onClick={() =>
+              fireFeatureAction(onAction, {
+                label: "Back to car",
+                type: "back_to_car",
+                intent: ACI_INTENTS.OPEN_VEHICLE,
+                canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+                vehicle,
+              })
+            }
+          >
+            <ArrowLeft size={19} />
+            Back
+          </button>
+          <AciMark />
+          <button
+            type="button"
+            className="afi-bell-button"
+            onClick={() =>
+              fireFeatureAction(onAction, {
+                label: "Notifications",
+                type: "notifications",
+                vehicle,
+              })
+            }
+          >
+            <Bell size={20} />
+            <i />
+          </button>
+        </header>
+
+        <DesktopHero
+          title={title}
+          image={image}
+          selectedVariant={selectedVariant}
+          variants={variants}
+          selectedVariantId={selectedVariantId}
+          setSelectedVariantId={setSelectedVariantId}
+          query={query}
+          setQuery={setQuery}
+          vehicle={vehicle}
+        />
+
+        <section className="afi-main-grid">
+          <div className="afi-main-left">
+            <FeatureTabs
+              tabs={tabs}
               activeCategory={activeCategory}
               setActiveCategory={setActiveCategory}
             />
-            <DesktopFeatureControls
-              query={query}
-              setQuery={setQuery}
-              activeCategory={activeCategory}
-            />
-          </section>
-
-          <section className="grid grid-cols-[minmax(0,1fr)_460px] gap-7">
             <FeatureTable
               activeCategory={activeCategory}
+              activeTab={activeTab}
               filteredFeatures={filteredFeatures}
-              categoryStats={categoryStats}
             />
-
-            <DesktopSidebar
-              query={query}
-              setQuery={setQuery}
-              setActiveCategory={setActiveCategory}
-              categoryStats={categoryStats}
-              quickSearches={quickSearches}
-              highlights={highlights}
+          </div>
+          <aside className="afi-side-rail">
+            <QuickSpecs specs={quickSpecs} />
+            <HighlightsCard highlights={highlights} />
+            <SuggestedQuestions
+              vehicle={vehicle}
+              selectedVariant={selectedVariant}
+              onAction={onAction}
             />
-          </section>
-        </main>
+          </aside>
+        </section>
       </motion.div>
 
-      <AssistantComposer onAction={onAction} vehicle={vehicle} />
+      <div className="afi-desktop-composer">
+        <AciComposer
+          selectedVehicle={vehicle}
+          onAction={onAction}
+          placeholder={`Ask about ${title} features...`}
+        />
+      </div>
     </section>
   );
 }
 
-function MobileHeader({ onAction, vehicle }) {
-  return (
-    <motion.header
-      variants={fadeUp}
-      className="flex items-center justify-between"
-    >
-      <AciLogo onAction={onAction} mobile />
+function MobileLayout(props) {
+  const {
+    title,
+    image,
+    variants,
+    selectedVariant,
+    selectedVariantId,
+    setSelectedVariantId,
+    activeCategory,
+    setActiveCategory,
+    query,
+    setQuery,
+    tabs,
+    activeTab,
+    filteredFeatures,
+    quickSpecs,
+    highlights,
+    vehicle,
+    onAction,
+  } = props;
 
-      <div className="flex items-center gap-4">
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Notifications",
-              type: "notifications",
-              vehicle,
-            })
-          }
-          className="relative grid h-9 w-9 place-items-center border-0 bg-transparent text-[#566176]"
-        >
-          <Bell size={24} strokeWidth={1.85} />
-          <span className="absolute right-1.5 top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-[#075df6]" />
-        </button>
-
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "Profile",
-              type: "profile",
-              vehicle,
-            })
-          }
-          className="h-[48px] w-[48px] rounded-full bg-white p-[3px] shadow-[0_0_0_1px_#dbe5f2,0_12px_26px_-16px_rgba(37,99,235,0.5)]"
-        >
-          <img
-            src={AVATAR}
-            alt="Profile"
-            className="h-full w-full rounded-full object-cover"
-          />
-        </button>
-      </div>
-    </motion.header>
-  );
-}
-
-function MobileTitle({ selectedVariant, onAction, title, vehicle }) {
-  return (
-    <motion.section
-      variants={fadeUp}
-      className="grid grid-cols-[70px_1fr_62px] items-center gap-3"
-    >
-      <button
-        type="button"
-        onClick={() =>
-          emitFeatureAction(onAction, {
-            label: "Back",
-            type: "back_to_car",
-            intent: ACI_INTENTS?.OPEN_VEHICLE,
-            canvasType: ACI_CANVAS_TYPES?.CAR_OVERVIEW,
-            vehicle,
-          })
-        }
-        className="grid h-[60px] w-[60px] place-items-center rounded-full border border-[#dbe3ef] bg-white text-[#07102b] shadow-[0_22px_56px_-44px_rgba(15,23,42,0.48)]"
-      >
-        <ArrowLeft size={26} />
-      </button>
-
-      <div className="min-w-0">
-        <h1 className="font-serif text-[32px] font-semibold leading-[0.96] tracking-[-0.06em] text-[#07102b]">
-          Features explorer
-        </h1>
-
-        <p className="mt-2 truncate text-[16px] font-normal text-[#667085]">
-          {title} {selectedVariant?.label || ""}
-        </p>
-      </div>
-
-      <button
-        type="button"
-        onClick={() =>
-          emitFeatureAction(onAction, {
-            label: "Share",
-            type: "share",
-            vehicle,
-          })
-        }
-        className="grid h-[56px] w-[56px] place-items-center rounded-full border border-[#dbe3ef] bg-white text-[#07102b] shadow-[0_22px_56px_-44px_rgba(15,23,42,0.48)]"
-      >
-        <Share2 size={23} />
-      </button>
-    </motion.section>
-  );
-}
-
-function MobileHero({ title, image, selectedVariant, onAction, vehicle }) {
-  const { base, seat } = parseVariantLabel(selectedVariant?.label);
-  const price = selectedVariant?.price || compactText(vehicle?.priceRange);
+  const exShowroom = getVariantPriceLabel(selectedVariant);
 
   return (
-    <motion.section
-      variants={fadeUp}
-      className="relative min-h-[214px] overflow-hidden rounded-[26px] border border-[#dbe3ef] bg-[linear-gradient(135deg,#f5f9ff_0%,#ffffff_48%,#edf4ff_100%)] px-5 py-5 shadow-[0_24px_70px_-56px_rgba(15,23,42,0.48)]"
-    >
-      <div className="pointer-events-none absolute inset-0 opacity-80 [background:repeating-radial-gradient(ellipse_at_84%_26%,rgba(255,255,255,0.62)_0,rgba(255,255,255,0.62)_2px,transparent_3px,transparent_20px)]" />
-
-      <div className="absolute bottom-1 left-[-18px] z-[4] w-[58%]">
-        <VehicleImage src={image} title={title} mobile />
-      </div>
-
-      <div className="relative z-10 ml-[48%] min-w-0">
-        <h2 className="font-serif text-[29px] font-semibold leading-[0.98] tracking-[-0.055em] text-[#07102b]">
-          {title}
-        </h2>
-
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {base ? (
-            <span className="text-[16px] font-medium text-[#075df6]">
-              {base}
-            </span>
-          ) : null}
-
-          {seat ? (
-            <span className="inline-flex h-7 items-center rounded-[9px] border border-[#bfdbfe] bg-[#eff6ff] px-2.5 text-[13px] font-semibold text-[#075df6]">
-              {seat}
-            </span>
-          ) : null}
-        </div>
-
-        {price ? (
-          <p className="mt-4 flex items-center gap-2 text-[15px] font-medium text-[#526075]">
-            {price}
-            <Info size={16} />
-          </p>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={() =>
-            emitFeatureAction(onAction, {
-              label: "View key specs",
-              type: "key_specs",
-              intent: ACI_INTENTS?.SPECS,
-              canvasType: ACI_CANVAS_TYPES?.SPECS,
-              vehicle,
-            })
-          }
-          className="mt-4 inline-flex h-10 items-center gap-2 rounded-[13px] border border-[#bfdbfe] bg-white/78 px-4 text-[14px] font-medium text-[#075df6]"
-        >
-          View key specs
-          <ChevronRight size={17} />
-        </button>
-      </div>
-    </motion.section>
-  );
-}
-
-function MobileFeaturesPage({
-  title,
-  image,
-  selectedVariant,
-  activeCategory,
-  setActiveCategory,
-  filteredFeatures,
-  categoryStats,
-  onAction,
-  vehicle,
-}) {
-  return (
-    <section className="xl:hidden">
+    <section className="afi-mobile-shell">
       <motion.main
         variants={stagger}
         initial="hidden"
         animate="visible"
-        className="mx-auto flex min-h-screen w-full max-w-[430px] flex-col gap-5 px-5 pb-[100px] pt-5"
+        className="afi-mobile-page"
       >
-        <MobileHeader onAction={onAction} vehicle={vehicle} />
+        <header className="afi-mobile-header">
+          <button
+            type="button"
+            onClick={() =>
+              fireFeatureAction(onAction, {
+                label: "Back",
+                type: "back_to_car",
+                intent: ACI_INTENTS.OPEN_VEHICLE,
+                canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
+                vehicle,
+              })
+            }
+          >
+            <ArrowLeft size={25} />
+          </button>
+          <AciMark />
+          <button
+            type="button"
+            onClick={() =>
+              fireFeatureAction(onAction, {
+                label: "Notifications",
+                type: "notifications",
+                vehicle,
+              })
+            }
+          >
+            <Bell size={22} />
+            <i />
+          </button>
+        </header>
 
-        <MobileTitle
-          title={title}
-          selectedVariant={selectedVariant}
-          onAction={onAction}
-          vehicle={vehicle}
-        />
+        <motion.section variants={fadeUp} className="afi-mobile-title">
+          <span>Features Explorer</span>
+          <h1>{title}</h1>
+          <p>{selectedVariant?.label || "Select variant"}</p>
+        </motion.section>
 
-        <MobileHero
-          title={title}
-          image={image}
-          selectedVariant={selectedVariant}
-          onAction={onAction}
-          vehicle={vehicle}
-        />
+        <motion.section variants={fadeUp} className="afi-mobile-hero">
+          <div className="afi-mobile-car-wrap">
+            <VehicleImage src={image} title={title} mobile />
+          </div>
+          <div className="afi-mobile-hero-copy">
+            <ActiveStatusBadge variant={selectedVariant} compact />
+            <strong>{selectedVariant?.label || "Variant"}</strong>
+            {exShowroom ? (
+              <p>
+                {exShowroom} <small>ex-showroom</small>
+              </p>
+            ) : null}
+            <span>
+              {selectedVariant?.availableCount || 0}/
+              {selectedVariant?.featureCount || filteredFeatures.length}{" "}
+              available
+            </span>
+          </div>
+        </motion.section>
 
-        <CategoryTabs
+        <motion.section variants={fadeUp} className="afi-mobile-controls">
+          <VariantSelect
+            variants={variants}
+            selectedVariantId={selectedVariantId}
+            setSelectedVariantId={setSelectedVariantId}
+            compact
+          />
+          <SearchBox
+            query={query}
+            setQuery={setQuery}
+            placeholder="Search features"
+          />
+        </motion.section>
+
+        <FeatureTabs
+          tabs={tabs}
           activeCategory={activeCategory}
           setActiveCategory={setActiveCategory}
           mobile
         />
-
+        <QuickSpecs specs={quickSpecs} mobile />
+        <HighlightsCard highlights={highlights} mobile />
         <FeatureTable
           activeCategory={activeCategory}
+          activeTab={activeTab}
           filteredFeatures={filteredFeatures}
-          categoryStats={categoryStats}
+          mobile
+        />
+        <SuggestedQuestions
+          vehicle={vehicle}
+          selectedVariant={selectedVariant}
+          onAction={onAction}
           mobile
         />
       </motion.main>
 
-      <AssistantComposer mobile onAction={onAction} vehicle={vehicle} />
+      <div className="afi-mobile-composer">
+        <AciComposer
+          mobile
+          selectedVehicle={vehicle}
+          onAction={onAction}
+          placeholder="Ask about features..."
+        />
+      </div>
+    </section>
+  );
+}
+
+export function AciFeatureAnswerInlineCard({
+  widget = {},
+  data = {},
+  vehicle = {},
+  onAction,
+}) {
+  const answer = cleanText(
+    widget.answer || data.answer || widget.title || "Feature answer",
+  );
+  const feature = cleanText(
+    widget.feature ||
+      widget.matchedFeature ||
+      data.feature ||
+      data.matchedFeature ||
+      "Feature",
+  );
+  const value = cleanText(
+    widget.value ||
+      widget.displayValue ||
+      data.value ||
+      data.displayValue ||
+      "",
+  );
+  const available =
+    widget.available ?? widget.present ?? data.available ?? data.present;
+  const isAvailable = available === false ? false : !isUnavailableValue(value);
+
+  return (
+    <section className="afi-inline-card">
+      <span className={isAvailable ? "yes" : "no"}>
+        {isAvailable ? <CircleCheck size={18} /> : <CircleMinus size={18} />}
+      </span>
+      <div>
+        <strong>{feature}</strong>
+        <p>{answer}</p>
+        {value ? <small>{value}</small> : null}
+      </div>
+      <button
+        type="button"
+        onClick={() =>
+          fireFeatureAction(onAction, {
+            label: "Open features",
+            query: `Show features of ${vehicle?.model || "this car"}`,
+            intent: "vehicle_model_features_explorer",
+            canvasType: "features_explorer_canvas",
+            vehicle,
+          })
+        }
+      >
+        Open explorer
+      </button>
     </section>
   );
 }
 
 export default function AciAssistFeaturesScreen({
+  data = {},
   vehicle = {},
   widget = {},
   message = {},
   onAction,
 }) {
-  const variants = useMemo(
-    () => parseVariants(widget, vehicle),
-    [widget, vehicle],
+  const resolvedWidget = useMemo(
+    () => getResolvedWidget({ widget, data, message }),
+    [widget, data, message],
   );
-  const features = useMemo(
-    () => parseFeatures(widget, vehicle),
-    [widget, vehicle],
+  const resolvedVehicle = useMemo(
+    () =>
+      getResolvedVehicle({ vehicle, widget: resolvedWidget, data, message }),
+    [vehicle, resolvedWidget, data, message],
   );
 
-  const [selectedVariantId, setSelectedVariantId] = useState(
-    variants[0]?.id || "",
+  const variants = useMemo(
+    () => collectVariants(resolvedWidget, resolvedVehicle),
+    [resolvedWidget, resolvedVehicle],
   );
-  const [activeCategory, setActiveCategory] = useState("comfort");
+  const initialVariantId = useMemo(
+    () => getSelectedVariantId(resolvedWidget, resolvedVehicle, variants),
+    [resolvedWidget, resolvedVehicle, variants],
+  );
+
+  const [selectedVariantId, setSelectedVariantId] = useState(initialVariantId);
+  const [activeCategory, setActiveCategory] = useState("all");
   const [query, setQuery] = useState("");
-  const [topSearch, setTopSearch] = useState("");
 
   useEffect(() => {
-    if (!variants.length) {
-      setSelectedVariantId("");
-      return;
+    setSelectedVariantId((current) => {
+      if (current && variants.some((variant) => variant.id === current))
+        return current;
+      return initialVariantId || variants[0]?.id || "";
+    });
+  }, [variants, initialVariantId]);
+
+  const selectedVariant = useMemo(
+    () =>
+      variants.find((variant) => variant.id === selectedVariantId) ||
+      variants[0] ||
+      null,
+    [variants, selectedVariantId],
+  );
+
+  const features = useMemo(
+    () => getVariantFeatureRows({ widget: resolvedWidget, selectedVariant }),
+    [resolvedWidget, selectedVariant],
+  );
+  const featureGroups = useMemo(
+    () =>
+      getVariantGroups({ widget: resolvedWidget, selectedVariant, features }),
+    [resolvedWidget, selectedVariant, features],
+  );
+  const tabs = useMemo(
+    () => buildCategoryTabs(featureGroups, features),
+    [featureGroups, features],
+  );
+  const activeTab = tabs.find((tab) => tab.id === activeCategory) || tabs[0];
+
+  useEffect(() => {
+    if (!tabs.some((tab) => tab.id === activeCategory)) {
+      setActiveCategory(tabs[0]?.id || "all");
     }
-
-    if (!variants.some((variant) => variant.id === selectedVariantId)) {
-      setSelectedVariantId(variants[0]?.id || "");
-    }
-  }, [variants, selectedVariantId]);
-
-  const selectedVariant =
-    variants.find((variant) => variant.id === selectedVariantId) ||
-    variants[0] ||
-    null;
-
-  const title =
-    compactText(
-      valueFrom(widget || {}, ["model", "title", "vehicleName"], "") ||
-        valueFrom(widget?.data || {}, ["model", "title", "vehicleName"], "") ||
-        vehicle?.model ||
-        vehicle?.displayName ||
-        [vehicle?.brand || vehicle?.make, vehicle?.model]
-          .filter(Boolean)
-          .join(" "),
-    ) || "Vehicle";
-
-  const image = useMemo(() => {
-    return (
-      getDisplayCarImage(vehicle) ||
-      extractImage(widget) ||
-      extractImage(message) ||
-      extractImage(vehicle)
-    );
-  }, [message, widget, vehicle]);
+  }, [tabs, activeCategory]);
 
   const filteredFeatures = useMemo(() => {
-    const normalisedQuery = query.trim().toLowerCase();
-
     return features.filter((feature) => {
-      const categoryMatch = feature.category === activeCategory;
-      const queryMatch =
-        !normalisedQuery ||
-        feature.name.toLowerCase().includes(normalisedQuery) ||
-        feature.category.toLowerCase().includes(normalisedQuery);
-
-      return categoryMatch && queryMatch;
+      const categoryMatch =
+        activeCategory === "all" || feature.category === activeCategory;
+      return categoryMatch && featureMatchesSearch(feature, query);
     });
   }, [features, activeCategory, query]);
 
-  const categoryStats = useMemo(
-    () => parseStats(widget, features),
-    [widget, features],
-  );
-  const quickSearches = useMemo(
-    () => parseQuickSearches(widget, features),
-    [widget, features],
+  const quickSpecs = useMemo(
+    () => getQuickSpecs({ widget: resolvedWidget, selectedVariant }),
+    [resolvedWidget, selectedVariant],
   );
   const highlights = useMemo(
-    () => parseHighlights(widget, features),
-    [widget, features],
+    () => getHighlights({ widget: resolvedWidget, selectedVariant, features }),
+    [resolvedWidget, selectedVariant, features],
   );
 
-  return (
-    <div className="relative min-h-screen bg-[radial-gradient(circle_at_84%_-10%,rgba(37,99,235,0.08),transparent_30%),linear-gradient(180deg,#fff_0%,#f8fbff_100%)] text-[#07102b]">
-      <DesktopFeaturesPage
-        title={title}
-        image={image}
-        variants={variants}
-        selectedVariant={selectedVariant}
-        selectedVariantId={selectedVariantId}
-        setSelectedVariantId={setSelectedVariantId}
-        activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
-        query={query}
-        setQuery={setQuery}
-        topSearch={topSearch}
-        setTopSearch={setTopSearch}
-        filteredFeatures={filteredFeatures}
-        categoryStats={categoryStats}
-        quickSearches={quickSearches}
-        highlights={highlights}
-        onAction={onAction}
-        vehicle={vehicle}
-      />
+  const title = useMemo(
+    () => getVehicleTitle(resolvedVehicle, resolvedWidget),
+    [resolvedVehicle, resolvedWidget],
+  );
+  const image = useMemo(
+    () =>
+      getDisplayCarImage(resolvedVehicle) ||
+      extractImage(resolvedWidget) ||
+      extractImage(data) ||
+      extractImage(message) ||
+      extractImage(resolvedVehicle),
+    [resolvedVehicle, resolvedWidget, data, message],
+  );
 
-      <MobileFeaturesPage
-        title={title}
-        image={image}
-        selectedVariant={selectedVariant}
-        activeCategory={activeCategory}
-        setActiveCategory={setActiveCategory}
-        filteredFeatures={filteredFeatures}
-        categoryStats={categoryStats}
-        onAction={onAction}
-        vehicle={vehicle}
-      />
+  const selectedVehicle = useMemo(
+    () => ({
+      ...resolvedVehicle,
+      selectedVariant:
+        selectedVariant?.label ||
+        resolvedVehicle.selectedVariant ||
+        resolvedVehicle.variant,
+      variant: selectedVariant?.label || resolvedVehicle.variant,
+      variantId: selectedVariant?.id,
+      exShowroomPrice: selectedVariant?.exShowroomPrice,
+      onRoadPrice: selectedVariant?.onRoadPrice,
+      priceLabel: getVariantPriceLabel(selectedVariant),
+      featureCount: selectedVariant?.featureCount || features.length,
+      availableFeatureCount:
+        selectedVariant?.availableCount ||
+        features.filter((feature) => feature.available).length,
+    }),
+    [resolvedVehicle, selectedVariant, features],
+  );
+
+  const sharedProps = {
+    title,
+    image,
+    variants,
+    selectedVariant,
+    selectedVariantId,
+    setSelectedVariantId,
+    activeCategory,
+    setActiveCategory,
+    query,
+    setQuery,
+    tabs,
+    activeTab,
+    filteredFeatures,
+    quickSpecs,
+    highlights,
+    vehicle: selectedVehicle,
+    onAction,
+  };
+
+  return (
+    <div
+      className="afi-root"
+      data-canvas="features_explorer_canvas"
+      data-selected-variant={selectedVariant?.label || ""}
+    >
+      <style>{styles}</style>
+      <DesktopLayout {...sharedProps} />
+      <MobileLayout {...sharedProps} />
     </div>
   );
 }
+
+const styles = `
+  :root {
+    --afi-blue: #075df6;
+    --afi-blue-dark: #0448d8;
+    --afi-ink: #07102b;
+    --afi-text: #334155;
+    --afi-muted: #64748b;
+    --afi-line: #dbe3ef;
+    --afi-soft: #f6f9ff;
+    --afi-serif: "Iowan Old Style", "Apple Garamond", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+    --afi-sans: Inter, -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  .afi-root {
+    min-height: 100vh;
+    width: 100%;
+    color: var(--afi-ink);
+    font-family: var(--afi-sans);
+    background:
+      radial-gradient(circle at 84% -10%, rgba(37, 99, 235, .08), transparent 30%),
+      radial-gradient(circle at 8% 16%, rgba(219, 234, 254, .42), transparent 28%),
+      linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  .afi-root button,
+  .afi-root input,
+  .afi-root select { font: inherit; }
+  .afi-root button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+
+  .afi-mobile-shell { display: none; }
+
+  .afi-desktop-shell { display: block; }
+  .afi-desktop-page { width: min(100%, 1530px); margin: 0 auto; padding: 26px 42px 116px; }
+
+  .afi-desktop-header {
+    height: 54px;
+    display: grid;
+    grid-template-columns: 120px 1fr 120px;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+
+  .afi-mark { justify-self: center; display: inline-flex; align-items: center; gap: 9px; color: var(--afi-ink); }
+  .afi-mark strong { color: var(--afi-blue); font-size: 30px; line-height: .85; font-weight: 950; letter-spacing: -3px; transform: skewX(-8deg); }
+  .afi-mark em { color: var(--afi-ink); font-size: 13px; line-height: 1; font-style: normal; letter-spacing: 5.4px; font-weight: 780; }
+
+  .afi-back-button,
+  .afi-bell-button {
+    height: 40px;
+    border: 1px solid rgba(219, 227, 239, .9);
+    background: rgba(255, 255, 255, .9);
+    color: #334155;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    box-shadow: 0 18px 44px -36px rgba(15, 23, 42, .42), inset 0 1px 0 #fff;
+  }
+
+  .afi-back-button { justify-self: start; padding: 0 14px; font-size: 12.5px; font-weight: 760; }
+  .afi-bell-button { justify-self: end; position: relative; width: 40px; padding: 0; }
+  .afi-bell-button i { position: absolute; right: 9px; top: 7px; width: 8px; height: 8px; background: var(--afi-blue); border: 2px solid #fff; border-radius: 999px; }
+
+  .afi-desktop-hero {
+    position: relative;
+    min-height: 360px;
+    overflow: hidden;
+    border-radius: 32px;
+    border: 1px solid rgba(219, 227, 239, .92);
+    background: linear-gradient(135deg, #f5f9ff 0%, #ffffff 46%, #edf5ff 100%);
+    box-shadow: 0 34px 96px -68px rgba(15, 23, 42, .56), inset 0 1px 0 rgba(255,255,255,.96);
+    display: grid;
+    grid-template-columns: 47% 53%;
+    align-items: center;
+    gap: 26px;
+    padding: 30px 38px;
+  }
+
+  .afi-hero-glow {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+      radial-gradient(circle at 27% 54%, rgba(255,255,255,.98), transparent 30%),
+      radial-gradient(circle at 80% 25%, rgba(219,234,254,.52), transparent 32%),
+      repeating-radial-gradient(ellipse at 84% 32%, rgba(255,255,255,.62) 0, rgba(255,255,255,.62) 2px, transparent 3px, transparent 24px);
+    opacity: .9;
+  }
+
+  .afi-hero-image-wrap {
+    position: relative;
+    z-index: 2;
+    min-height: 280px;
+    display: grid;
+    place-items: center;
+  }
+
+  .afi-car-image {
+    display: block;
+    width: min(100%, 680px);
+    max-height: 300px;
+    object-fit: contain;
+    mix-blend-mode: multiply;
+    filter: drop-shadow(0 28px 26px rgba(15,23,42,.16));
+    user-select: none;
+  }
+
+  .afi-car-placeholder {
+    height: 280px;
+    width: min(100%, 640px);
+    display: grid;
+    place-items: center;
+    border-radius: 26px;
+    border: 1px solid rgba(219, 227, 239, .92);
+    background: radial-gradient(circle at 50% 42%, #ffffff 0%, #f8fafc 38%, #eaf2ff 100%);
+    color: #94a3b8;
+  }
+
+  .afi-hero-copy { position: relative; z-index: 3; min-width: 0; }
+  .afi-eyebrow { display: inline-flex; align-items: center; gap: 7px; height: 32px; padding: 0 11px; border-radius: 999px; background: rgba(239, 246, 255, .9); color: var(--afi-blue); font-size: 11.5px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+  .afi-hero-copy h1 { margin: 15px 0 0; font-family: var(--afi-serif); font-size: clamp(42px, 4vw, 62px); line-height: .9; letter-spacing: -.065em; font-weight: 560; color: #03091f; }
+  .afi-variant-title-row { margin-top: 14px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+  .afi-variant-title-row strong { color: var(--afi-blue); font-size: 25px; line-height: 1; font-weight: 760; letter-spacing: -.035em; }
+
+  .afi-status-badge { display: inline-flex; align-items: center; height: 28px; padding: 0 10px; border-radius: 999px; font-size: 11px; font-weight: 820; }
+  .afi-status-badge.current { color: #047857; background: #ecfdf5; border: 1px solid #bbf7d0; }
+  .afi-status-badge.inactive { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
+  .afi-status-badge.compact { height: 25px; font-size: 10.5px; }
+
+  .afi-price-row { margin-top: 18px; display: flex; flex-wrap: wrap; gap: 10px; }
+  .afi-stat-pill { min-height: 42px; display: inline-grid; grid-template-columns: 18px auto; column-gap: 7px; align-items: center; padding: 8px 12px; border-radius: 15px; border: 1px solid rgba(219, 227, 239, .92); background: rgba(255,255,255,.86); box-shadow: inset 0 1px 0 #fff; color: #475569; }
+  .afi-stat-pill svg { color: var(--afi-blue); grid-row: 1 / span 2; }
+  .afi-stat-pill strong { color: #07102b; font-size: 13.5px; line-height: 1; font-weight: 820; }
+  .afi-stat-pill em { margin-top: 2px; font-size: 10px; line-height: 1; color: #64748b; font-style: normal; font-weight: 650; text-transform: uppercase; letter-spacing: .08em; }
+
+  .afi-hero-controls { margin-top: 20px; display: grid; grid-template-columns: minmax(220px, 310px) minmax(260px, 1fr); gap: 12px; align-items: center; }
+  .afi-variant-select { position: relative; min-width: 0; height: 48px; display: grid; grid-template-columns: auto 1fr 18px; align-items: center; gap: 8px; padding: 0 13px; border-radius: 15px; border: 1px solid rgba(219, 227, 239, .95); background: rgba(255,255,255,.94); box-shadow: 0 18px 46px -38px rgba(15,23,42,.46), inset 0 1px 0 #fff; }
+  .afi-variant-select span { color: #64748b; font-size: 11px; font-weight: 770; white-space: nowrap; }
+  .afi-variant-select select { min-width: 0; width: 100%; appearance: none; border: 0; background: transparent; outline: none; color: var(--afi-blue); font-size: 12.5px; font-weight: 800; }
+  .afi-variant-select svg { pointer-events: none; color: #64748b; }
+  .afi-variant-select.compact { height: 44px; border-radius: 14px; }
+
+  .afi-search-box { height: 48px; min-width: 0; display: grid; grid-template-columns: 34px 1fr; align-items: center; padding: 0 13px; border-radius: 15px; border: 1px solid rgba(219,227,239,.95); background: rgba(255,255,255,.94); color: #64748b; box-shadow: 0 18px 46px -38px rgba(15,23,42,.46), inset 0 1px 0 #fff; }
+  .afi-search-box input { min-width: 0; border: 0; background: transparent; outline: none; color: #172033; font-size: 13px; font-weight: 500; }
+  .afi-search-box input::placeholder { color: #94a3b8; }
+
+  .afi-main-grid { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+  .afi-main-left { min-width: 0; display: grid; gap: 16px; }
+  .afi-side-rail { position: sticky; top: 18px; display: grid; gap: 14px; }
+
+  .afi-category-tabs { display: flex; flex-wrap: wrap; gap: 11px; }
+  .afi-category-tabs button { min-height: 52px; display: inline-grid; grid-template-columns: 20px auto auto; align-items: center; gap: 8px; padding: 0 14px; border-radius: 17px; border: 1px solid rgba(219,227,239,.95); background: rgba(255,255,255,.94); color: #172033; box-shadow: 0 16px 38px -32px rgba(15,23,42,.38); font-size: 12.5px; font-weight: 760; }
+  .afi-category-tabs button small { color: #94a3b8; font-size: 10.5px; font-weight: 760; }
+  .afi-category-tabs button.active { border-color: rgba(7,93,246,.6); color: var(--afi-blue); background: #eff6ff; box-shadow: 0 18px 42px -28px rgba(37,99,235,.36); }
+  .afi-category-tabs button.active small { color: var(--afi-blue); }
+
+  .afi-feature-table,
+  .afi-card { border-radius: 24px; border: 1px solid rgba(219,227,239,.95); background: rgba(255,255,255,.95); box-shadow: 0 24px 70px -58px rgba(15,23,42,.5), inset 0 1px 0 #fff; }
+  .afi-feature-table { padding: 18px; }
+  .afi-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+  .afi-section-head h2 { margin: 0; font-family: var(--afi-serif); color: #07102b; font-size: 25px; line-height: 1; letter-spacing: -.05em; font-weight: 560; }
+  .afi-section-head p { margin: 7px 0 0; color: #64748b; font-size: 12px; font-weight: 560; }
+  .afi-section-head > span { height: 32px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 999px; background: #eff6ff; color: var(--afi-blue); font-size: 11.5px; font-weight: 820; }
+
+  .afi-feature-list { margin-top: 15px; overflow: hidden; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; }
+  .afi-feature-row { display: grid; grid-template-columns: 54px minmax(0, 1fr) minmax(90px, 160px) 34px; align-items: center; gap: 12px; min-height: 64px; padding: 10px 14px; border-bottom: 1px solid #e8eef7; }
+  .afi-feature-row:last-child { border-bottom: 0; }
+  .afi-feature-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 15px; border: 1px solid #dbeafe; background: #f1f6ff; color: var(--afi-blue); }
+  .afi-feature-main { min-width: 0; }
+  .afi-feature-main strong { display: block; color: #07102b; font-size: 14px; line-height: 1.12; font-weight: 710; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .afi-feature-main small { display: block; margin-top: 4px; color: #94a3b8; font-size: 10.8px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .afi-feature-value { justify-self: start; max-width: 160px; color: #475569; font-size: 12.2px; line-height: 1.2; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .afi-feature-state { color: #94a3b8; display: grid; place-items: center; }
+
+  .afi-card { padding: 16px; }
+  .afi-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .afi-card-head h3 { margin: 0; color: #07102b; font-size: 13.5px; font-weight: 820; letter-spacing: -.01em; }
+  .afi-card-head svg { color: var(--afi-blue); }
+  .afi-spec-grid { margin-top: 13px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+  .afi-spec-grid div { min-height: 58px; padding: 10px; border-radius: 15px; border: 1px solid #e5edf7; background: #fbfdff; }
+  .afi-spec-grid small { display: block; color: #94a3b8; font-size: 10px; font-weight: 760; text-transform: uppercase; letter-spacing: .06em; }
+  .afi-spec-grid strong { display: block; margin-top: 6px; color: #0f172a; font-size: 12.2px; line-height: 1.2; font-weight: 780; }
+  .afi-highlight-list { margin-top: 13px; display: grid; gap: 9px; }
+  .afi-highlight-list p { margin: 0; display: grid; grid-template-columns: 20px 1fr; gap: 7px; align-items: start; color: #475569; font-size: 12.2px; line-height: 1.35; font-weight: 620; }
+  .afi-highlight-list svg { margin-top: 1px; padding: 3px; color: #fff; background: var(--afi-blue); border-radius: 999px; }
+  .afi-question-list { margin-top: 13px; display: grid; gap: 8px; }
+  .afi-question-list button { min-height: 46px; border: 1px solid #e2e8f0; border-radius: 15px; background: #fff; display: grid; grid-template-columns: 28px 1fr 18px; gap: 8px; align-items: center; padding: 8px 10px; text-align: left; color: #0f172a; }
+  .afi-question-list strong { font-size: 12px; line-height: 1.15; font-weight: 760; }
+
+  .afi-empty-features { min-height: 180px; display: grid; place-items: center; text-align: center; padding: 30px; color: #94a3b8; }
+  .afi-empty-features strong { display: block; margin-top: 8px; color: #475569; font-size: 14px; }
+  .afi-empty-features p { margin: 5px 0 0; color: #94a3b8; font-size: 12px; }
+
+  .afi-desktop-composer { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 80; width: min(720px, calc(100vw - 56px)); }
+  .afi-desktop-composer .colors-composer-dock,
+  .afi-mobile-composer .mobile-chat-dock { position: static !important; transform: none !important; width: 100% !important; padding: 0 !important; background: transparent !important; backdrop-filter: none !important; }
+
+  .afi-inline-card { display: grid; grid-template-columns: 38px 1fr auto; gap: 12px; align-items: center; border-radius: 20px; border: 1px solid #dbe3ef; background: rgba(255,255,255,.96); padding: 13px; box-shadow: 0 18px 46px -36px rgba(15,23,42,.4); }
+  .afi-inline-card > span { width: 34px; height: 34px; border-radius: 999px; display: grid; place-items: center; }
+  .afi-inline-card > span.yes { color: #fff; background: var(--afi-blue); }
+  .afi-inline-card > span.no { color: #64748b; background: #f1f5f9; }
+  .afi-inline-card strong { display: block; color: #07102b; font-size: 13px; font-weight: 820; }
+  .afi-inline-card p { margin: 3px 0 0; color: #475569; font-size: 12px; line-height: 1.35; }
+  .afi-inline-card small { display: block; margin-top: 4px; color: var(--afi-blue); font-weight: 760; }
+  .afi-inline-card button { height: 34px; border: 0; border-radius: 999px; background: var(--afi-blue); color: #fff; padding: 0 12px; font-size: 11.5px; font-weight: 820; }
+
+  @media (max-width: 1180px) {
+    .afi-desktop-shell { display: none; }
+    .afi-mobile-shell { display: block; }
+    .afi-root { background: linear-gradient(180deg, #fff 0%, #f8fbff 100%); }
+    .afi-mobile-page { width: 100%; max-width: 430px; min-height: 100vh; margin: 0 auto; padding: 16px 14px calc(112px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+    .afi-mobile-header { height: 48px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; }
+    .afi-mobile-header button { position: relative; width: 40px; height: 40px; border: 0; border-radius: 999px; background: transparent; color: #334155; display: grid; place-items: center; }
+    .afi-mobile-header button:last-child { justify-self: end; }
+    .afi-mobile-header button i { position: absolute; right: 8px; top: 7px; width: 8px; height: 8px; border-radius: 999px; background: var(--afi-blue); border: 2px solid #fff; }
+    .afi-mobile-header .afi-mark { justify-self: center; }
+    .afi-mobile-header .afi-mark strong { font-size: 28px; }
+    .afi-mobile-header .afi-mark em { font-size: 12px; letter-spacing: 5.2px; }
+    .afi-mobile-title { padding: 6px 2px 0; }
+    .afi-mobile-title span { color: #334155; text-transform: uppercase; letter-spacing: .24em; font-size: 10px; font-weight: 820; }
+    .afi-mobile-title h1 { margin: 9px 0 0; color: #050b22; font-family: var(--afi-serif); font-size: 39px; line-height: .9; letter-spacing: -.062em; font-weight: 560; }
+    .afi-mobile-title p { margin: 7px 0 0; color: #64748b; font-size: 17px; line-height: 1.05; font-weight: 520; }
+    .afi-mobile-hero { position: relative; min-height: 234px; overflow: hidden; border-radius: 27px; border: 1px solid rgba(219,227,239,.94); background: linear-gradient(135deg, #f5f9ff 0%, #ffffff 48%, #edf4ff 100%); box-shadow: 0 28px 78px -62px rgba(15,23,42,.58), inset 0 1px 0 #fff; padding: 18px; display: grid; grid-template-columns: 48% 52%; gap: 8px; align-items: center; }
+    .afi-mobile-car-wrap { min-width: 0; display: grid; place-items: center; }
+    .afi-car-placeholder.mobile { height: 150px; width: 100%; border-radius: 22px; }
+    .afi-mobile-hero .afi-car-image { width: 124%; max-height: 165px; transform: translateX(-8%); filter: drop-shadow(0 18px 18px rgba(15,23,42,.15)); }
+    .afi-mobile-hero-copy { min-width: 0; position: relative; z-index: 2; }
+    .afi-mobile-hero-copy strong { display: block; margin-top: 9px; color: var(--afi-blue); font-size: 22px; line-height: 1; letter-spacing: -.04em; font-weight: 820; }
+    .afi-mobile-hero-copy p { margin: 10px 0 0; color: #07102b; font-size: 17px; line-height: 1; font-weight: 760; }
+    .afi-mobile-hero-copy p small { display: block; margin-top: 4px; color: #64748b; font-size: 10px; font-weight: 760; text-transform: uppercase; letter-spacing: .08em; }
+    .afi-mobile-hero-copy > span:last-child { margin-top: 10px; display: inline-flex; height: 30px; align-items: center; border-radius: 999px; background: #eff6ff; color: var(--afi-blue); padding: 0 10px; font-size: 11px; font-weight: 820; }
+    .afi-mobile-controls { display: grid; gap: 10px; }
+    .afi-mobile-controls .afi-search-box { height: 44px; border-radius: 14px; }
+    .afi-category-tabs.mobile { display: flex; gap: 10px; overflow-x: auto; padding: 1px 1px 5px; flex-wrap: nowrap; scrollbar-width: none; }
+    .afi-category-tabs.mobile::-webkit-scrollbar { display: none; }
+    .afi-category-tabs.mobile button { min-height: 50px; flex: 0 0 auto; grid-template-columns: 18px auto; padding: 0 12px; border-radius: 16px; font-size: 12px; }
+    .afi-category-tabs.mobile button small { grid-column: 2; justify-self: start; margin-top: -4px; }
+    .afi-feature-table.mobile,
+    .afi-card.mobile { border-radius: 23px; padding: 14px; }
+    .afi-section-head h2 { font-size: 20px; }
+    .afi-feature-row.mobile { grid-template-columns: 46px minmax(0,1fr) 34px; gap: 10px; min-height: 61px; padding: 10px; }
+    .afi-feature-row.mobile .afi-feature-value { grid-column: 2; max-width: 100%; font-size: 11.2px; margin-top: -6px; }
+    .afi-feature-row.mobile .afi-feature-state { grid-column: 3; grid-row: 1 / span 2; }
+    .afi-feature-row.mobile .afi-feature-icon { width: 40px; height: 40px; border-radius: 14px; }
+    .afi-feature-main strong { font-size: 13.6px; }
+    .afi-spec-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .afi-mobile-composer { position: fixed; left: 14px; right: 14px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 100; max-width: 402px; margin: 0 auto; }
+  }
+`;
