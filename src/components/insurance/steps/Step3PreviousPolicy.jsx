@@ -272,15 +272,13 @@ const Step3PreviousPolicy = ({
   ]);
 
   const comprehensiveDurationOptions = React.useMemo(
-    () =>
-      isNewCar
-        ? [
-            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
-          ]
-        : [{ label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" }],
-    [isNewCar],
+    () => [
+      { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
+      { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+      { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+      { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+    ],
+    [],
   );
 
   const durationSelectOptions =
@@ -512,10 +510,7 @@ const Step3PreviousPolicy = ({
     return null;
   }, [formData.dateOfReg, formData.manufactureYear]);
 
-  const showStandaloneAgeWarning =
-    formData.previousPolicyType === "Stand Alone OD" &&
-    standaloneAgeYears != null &&
-    standaloneAgeYears > 3;
+  const showStandaloneAgeWarning = false;
 
   const suggestedNcb = React.useMemo(() => {
     const regDateRaw = String(formData.dateOfReg || "").trim();
