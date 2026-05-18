@@ -4060,13 +4060,13 @@ export default function AciAssistV2() {
 @media (max-width: 900px) {
   .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-visual {
     padding-left: 6px !important;
-    padding-right: 6px !important;
+    padding-right: 12px !important;
     padding-top: 11px !important;
   }
 
   .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-copy {
     padding-left: 4px !important;
-    padding-right: 4px !important;
+    padding-right: 12px !important;
     padding-bottom: 12px !important;
   }
 }
