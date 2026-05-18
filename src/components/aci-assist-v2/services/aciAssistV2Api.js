@@ -830,7 +830,102 @@ const normalizeBrandCard = ({ brand = "", model = "", city = "Delhi", variants =
   };
 };
 
-export const normalizeAciBackendResponse = (raw) => {
+export 
+const isStableAciBackendContract = (value) => {
+  if (!isObject(value)) return false;
+
+  const hasContractSignal = Boolean(
+    value.intent ||
+      value.displayMode ||
+      value.canvasType ||
+      value.inlineType ||
+      value.contextSnapshot ||
+      value.contextPatch ||
+      value.sourceTransparency ||
+      value.runtimeResultsMeta,
+  );
+
+  const hasPayloadSignal = Boolean(
+    value.widget ||
+      value.widgets ||
+      value.rows ||
+      value.items ||
+      value.features ||
+      value.colors ||
+      value.variants ||
+      value.data?.rows ||
+      value.data?.features ||
+      value.data?.variants,
+  );
+
+  return hasContractSignal && hasPayloadSignal;
+};
+
+const preserveStableAciBackendContract = (body = {}) => {
+  if (!isStableAciBackendContract(body)) return null;
+
+  const widget =
+    (isObject(body.widget) && body.widget) ||
+    (Array.isArray(body.widgets) && isObject(body.widgets[0]) && body.widgets[0]) ||
+    {};
+
+  const rows = toSafeList(
+    body.rows ||
+      body.items ||
+      body.features ||
+      body.data?.rows ||
+      body.data?.items ||
+      body.data?.features ||
+      widget.rows ||
+      widget.items ||
+      widget.features ||
+      widget.matchedVariants,
+  );
+
+  const enrichedWidget = {
+    ...widget,
+    intent: body.intent || widget.intent,
+    displayMode: body.displayMode || widget.displayMode,
+    canvasType: body.canvasType || widget.canvasType || "",
+    inlineType: body.inlineType || widget.inlineType || "",
+    title: body.title || widget.title,
+    answer: body.answer || widget.answer,
+    rows: toSafeList(widget.rows || rows),
+    items: toSafeList(widget.items || rows),
+    features: toSafeList(widget.features || widget.featureList || body.features || body.data?.features),
+    featureList: toSafeList(widget.featureList || widget.features || body.features || body.data?.features),
+    variants: toSafeList(widget.variantOptions || widget.variants || body.variants || body.data?.variants),
+    variantOptions: toSafeList(widget.variantOptions || body.variantOptions || body.data?.variantOptions || widget.variants),
+    matchedVariants: toSafeList(widget.matchedVariants || body.matchedVariants || body.data?.matchedVariants),
+    featureGroups: toSafeList(widget.featureGroups || body.featureGroups || body.data?.featureGroups),
+    quickSpecs: toSafeList(widget.quickSpecs || body.quickSpecs || body.data?.quickSpecs),
+    highlights: toSafeList(widget.highlights || body.highlights || body.data?.highlights),
+    vehicle: widget.vehicle || body.vehicle || body.data?.vehicle || null,
+    data: {
+      ...(widget.data || {}),
+      ...(body.data || {}),
+    },
+  };
+
+  return {
+    ...body,
+    widget: enrichedWidget,
+    widgets: [enrichedWidget],
+    rows,
+    items: toSafeList(body.items || rows),
+    features: toSafeList(body.features || body.data?.features || enrichedWidget.features),
+    variants: toSafeList(body.variants || body.data?.variants || enrichedWidget.variantOptions || enrichedWidget.variants),
+    actions: toSafeList(body.actions || enrichedWidget.actions),
+    leadingQuestions: toSafeList(body.leadingQuestions || enrichedWidget.leadingQuestions),
+  };
+};
+
+
+const normalizeAciBackendResponse = (raw) => {
+  // PRESERVE_STABLE_ACI_BACKEND_CONTRACT_GUARD
+  const stableContract = preserveStableAciBackendContract(raw);
+  if (stableContract) return stableContract;
+
   if (typeof raw === "string") {
     return {
       ok: true,

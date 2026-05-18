@@ -459,24 +459,83 @@ const mergeSessionContext = (previous = {}, patch = {}) => {
 const normalizeBackendWidget = (backend = {}) => {
   const widget =
     (isObject(backend.widget) && backend.widget) ||
+    (isObject(backend.widgets?.[0]) && backend.widgets[0]) ||
     (isObject(backend.canvas) && backend.canvas) ||
     (isObject(backend.payload?.widget) && backend.payload.widget) ||
     (isObject(backend.data?.widget) && backend.data.widget) ||
     {};
 
+  const rows = toArray(firstValue(backend.rows, widget.rows, backend.data?.rows));
+  const items = toArray(firstValue(backend.items, widget.items, backend.data?.items));
+  const features = toArray(
+    firstValue(
+      backend.features,
+      widget.features,
+      widget.featureList,
+      backend.data?.features,
+      backend.data?.featureList,
+    ),
+  );
+
+  const variantOptions = toArray(
+    firstValue(
+      widget.variantOptions,
+      backend.variantOptions,
+      backend.data?.variantOptions,
+      widget.data?.variantOptions,
+      widget.variants,
+      backend.variants,
+    ),
+  );
+
   return {
     ...widget,
+
+    intent: firstValue(backend.intent, widget.intent),
+    displayMode: firstValue(backend.displayMode, widget.displayMode),
     canvasType: firstValue(backend.canvasType, widget.canvasType),
+    inlineType: firstValue(backend.inlineType, widget.inlineType),
     title: firstValue(backend.title, widget.title),
     subtitle: firstValue(backend.subtitle, widget.subtitle),
     answer: firstValue(backend.answer, widget.answer),
-    rows: toArray(firstValue(backend.rows, widget.rows)),
+
+    rows,
+    items,
+    features,
+    featureList: features,
     colors: toArray(firstValue(backend.colors, widget.colors)),
-    variants: toArray(firstValue(backend.variants, widget.variants)),
+    variants: variantOptions.length
+      ? variantOptions
+      : toArray(firstValue(backend.variants, widget.variants)),
+    variantOptions,
+    allVariants: toArray(firstValue(widget.allVariants, backend.allVariants, backend.data?.allVariants)),
+    matchedVariants: toArray(firstValue(widget.matchedVariants, backend.matchedVariants, backend.data?.matchedVariants)),
+
+    featureGroups: toArray(firstValue(widget.featureGroups, backend.featureGroups, backend.data?.featureGroups)),
+    quickSpecs: toArray(firstValue(widget.quickSpecs, backend.quickSpecs, backend.data?.quickSpecs)),
+    highlights: toArray(firstValue(widget.highlights, backend.highlights, backend.data?.highlights)),
+    searchableFeatures: toArray(firstValue(widget.searchableFeatures, backend.searchableFeatures, backend.data?.searchableFeatures)),
+
+    selectedVariant: firstValue(widget.selectedVariant, backend.selectedVariant, backend.data?.selectedVariant),
+    selectedVariantId: firstValue(widget.selectedVariantId, backend.selectedVariantId, backend.data?.selectedVariantId),
+    activeStatusSource: firstValue(widget.activeStatusSource, backend.activeStatusSource, backend.data?.activeStatusSource),
+    activeVariantCount: firstValue(widget.activeVariantCount, backend.activeVariantCount, backend.data?.activeVariantCount),
+    totalRawVariantCount: firstValue(widget.totalRawVariantCount, backend.totalRawVariantCount, backend.data?.totalRawVariantCount),
+    selectedVariantIsActive: firstValue(widget.selectedVariantIsActive, backend.selectedVariantIsActive, backend.data?.selectedVariantIsActive),
+    currentPricelistMatched: firstValue(widget.currentPricelistMatched, backend.currentPricelistMatched, backend.data?.currentPricelistMatched),
+    totalFeatureCount: firstValue(widget.totalFeatureCount, backend.totalFeatureCount, backend.data?.totalFeatureCount),
+    availableFeatureCount: firstValue(widget.availableFeatureCount, backend.availableFeatureCount, backend.data?.availableFeatureCount),
+
     actions: toArray(firstValue(backend.actions, widget.actions)),
     leadingQuestions: toArray(
       firstValue(backend.leadingQuestions, widget.leadingQuestions),
     ),
+
+    vehicle: widget.vehicle || backend.vehicle || backend.data?.vehicle || null,
+    data: {
+      ...(widget.data || {}),
+      ...(backend.data || {}),
+    },
     contextPatch: {
       ...(widget.contextPatch || {}),
       ...(backend.contextPatch || {}),
@@ -953,6 +1012,133 @@ const buildChatSuggestions = ({
   return merged.slice(0, limit);
 };
 
+
+const isFeatureCanvasWidget = (widget = {}, canvasType = "") => {
+  const type = canvasType || widget.canvasType || "";
+  const intent = widget.intent || "";
+  return (
+    type === "features_explorer_canvas" ||
+    type === "feature_match_builder_canvas" ||
+    intent === "vehicle_model_features_explorer" ||
+    intent === "vehicle_feature_discovery"
+  );
+};
+
+const isFeatureAnswerWidget = (message = {}, widget = {}) =>
+  message.inlineType === "feature_answer_card" ||
+  widget.inlineType === "feature_answer_card" ||
+  message.intent === "vehicle_feature_answer" ||
+  widget.intent === "vehicle_feature_answer";
+
+const getFeaturePreviewRows = (widget = {}, canvasType = "") => {
+  if (canvasType === "feature_match_builder_canvas" || widget.intent === "vehicle_feature_discovery") {
+    return toArray(widget.rows || widget.matchedVariants || widget.items).slice(0, 3);
+  }
+
+  const variants = toArray(widget.variantOptions || widget.variants);
+  const selectedVariantId = String(widget.selectedVariantId || "");
+  const selectedVariant = String(widget.selectedVariant || "").toLowerCase();
+
+  const selected = variants.find((variant) => {
+    const id = String(variant.id || variant._id || "");
+    const label = String(variant.label || variant.variant || variant.variantName || "").toLowerCase();
+    return (selectedVariantId && id === selectedVariantId) || (selectedVariant && label === selectedVariant);
+  });
+
+  const ordered = selected
+    ? [selected, ...variants.filter((variant) => variant !== selected)]
+    : variants;
+
+  return ordered.slice(0, 3);
+};
+
+const formatFeaturePreviewPrice = (row = {}) =>
+  firstValue(
+    row.priceLabel,
+    row.exShowroomPriceLabel,
+    row.onRoadPriceLabel,
+    row.priceRange,
+    row.price,
+    row.exShowroomPrice,
+    row.onRoadPrice,
+  );
+
+const getFeatureAnswerRows = (message = {}, widget = {}) =>
+  toArray(widget.rows || widget.items || widget.features || message.rows || message.features).slice(0, 5);
+
+function AciFeatureAnswerCard({ message = {}, selectedVehicle, onAction }) {
+  const widget = safeWidget(message.widget || {});
+  const rows = getFeatureAnswerRows(message, widget);
+  const title = firstValue(widget.title, message.title, "Feature answer");
+  const answer = firstValue(widget.answer, message.answer, message.text);
+  const vehicle = widget.vehicle || message.vehicle || selectedVehicle || {};
+  const feature = firstValue(widget.feature, widget.matchedFeature, message.feature, "");
+
+  return (
+    <article className="aci-feature-inline-card">
+      <header>
+        <span>
+          <AciQuestionIcon label={feature || title} index={0} />
+        </span>
+        <div>
+          <strong>{title}</strong>
+          <small>
+            {firstValue(vehicle.displayName, vehicle.model, message.contextPatch?.anchorModel, "Selected car")}
+          </small>
+        </div>
+      </header>
+
+      {answer ? <p>{answer}</p> : null}
+
+      {rows.length ? (
+        <div className="aci-feature-inline-rows">
+          {rows.slice(0, 4).map((row, index) => {
+            const variant = firstValue(row.variant, row.variantName, row.label, row.name, `Variant ${index + 1}`);
+            const value = firstValue(row.value, row.displayValue, row.featureValue, row.status, row.available === false ? "Not available" : "Available");
+            const available = row.available !== false && !/not available|no|absent/i.test(String(value));
+
+            return (
+              <div key={row.id || row._id || variant || index}>
+                <span className={available ? "is-yes" : "is-no"}>
+                  {available ? "✓" : "–"}
+                </span>
+                <strong>{variant}</strong>
+                <small>{value}</small>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <footer>
+        <button
+          type="button"
+          onClick={() =>
+            onAction?.({
+              id: "feature-inline-open-explorer",
+              label: "Open feature explorer",
+              query: `Show features of ${firstValue(vehicle.model, message.contextPatch?.anchorModel, "")}`,
+              intent: "vehicle_model_features_explorer",
+              canvasType: "features_explorer_canvas",
+              vehicle,
+              contextPatch: {
+                ...(message.contextPatch || {}),
+                selectedVehicle: vehicle,
+                anchorModel: firstValue(vehicle.model, message.contextPatch?.anchorModel),
+                anchorVariant: firstValue(vehicle.variant, message.contextPatch?.anchorVariant),
+                anchorCity: firstValue(vehicle.city, message.contextPatch?.anchorCity, "new-delhi"),
+              },
+            })
+          }
+        >
+          Open feature explorer
+        </button>
+      </footer>
+    </article>
+  );
+}
+
+
 function buildInlineColorFrameStyle(imageFrame = {}) {
   return buildChatImageFrameStyle(imageFrame, "colorStudio");
 }
@@ -980,11 +1166,15 @@ function AciV2CanvasPreviewCard({
     canvasType === "colors_canvas" ||
     canvasType === "vehicle_colors";
 
+  const isFeatureResult = isFeatureCanvasWidget(widget, canvasType);
+
   const rows = isColorResult
     ? toArray(
         widget.colors || widget.rows || widget.items || widget.records,
       ).slice(0, 3)
-    : getWidgetRows(widget);
+    : isFeatureResult
+      ? getFeaturePreviewRows(widget, canvasType)
+      : getWidgetRows(widget);
 
   const hasCanvas = Boolean(canvasType);
 
@@ -1115,32 +1305,54 @@ function AciV2CanvasPreviewCard({
                     row.label,
                     `Color ${index + 1}`,
                   )
-                : pickText(
-                    row.variant,
-                    row.name,
-                    row.title,
-                    row.label,
-                    row.model,
-                    `Option ${index + 1}`,
-                  );
+                : isFeatureResult
+                  ? pickText(
+                      row.variant,
+                      row.variantName,
+                      row.label,
+                      row.name,
+                      row.matchedFeature,
+                      row.feature,
+                      `Feature option ${index + 1}`,
+                    )
+                  : pickText(
+                      row.variant,
+                      row.name,
+                      row.title,
+                      row.label,
+                      row.model,
+                      `Option ${index + 1}`,
+                    );
 
               const rowSub = isColorResult
                 ? ""
-                : pickText(
-                    row.subtitle,
-                    row.fuelTransmission,
-                    [row.fuel, row.transmission].filter(Boolean).join(" · "),
-                  );
+                : isFeatureResult
+                  ? pickText(
+                      row.section,
+                      row.feature,
+                      row.matchedFeature,
+                      [
+                        row.availableCount ? `${row.availableCount} available` : "",
+                        row.featureCount ? `${row.featureCount} features` : "",
+                      ].filter(Boolean).join(" · "),
+                    )
+                  : pickText(
+                      row.subtitle,
+                      row.fuelTransmission,
+                      [row.fuel, row.transmission].filter(Boolean).join(" · "),
+                    );
 
               const rowPrice = isColorResult
                 ? ""
-                : pickText(
-                    row.price,
-                    row.priceRange,
-                    row.onRoadPrice,
-                    row.exShowroomPrice,
-                    row.value,
-                  );
+                : isFeatureResult
+                  ? formatFeaturePreviewPrice(row)
+                  : pickText(
+                      row.price,
+                      row.priceRange,
+                      row.onRoadPrice,
+                      row.exShowroomPrice,
+                      row.value,
+                    );
 
               const rowImageFrame = isColorResult
                 ? pickAny(
@@ -1222,7 +1434,7 @@ function AciV2CanvasPreviewCard({
               return (
                 <motion.button
                   type="button"
-                  className={`aci-chat-preview-card ${isColorResult ? "is-color-card" : ""}`}
+                  className={`aci-chat-preview-card ${isColorResult ? "is-color-card" : ""} ${isFeatureResult ? "is-feature-card" : ""}`}
                   key={row.id || row._id || rowTitle || index}
                   aria-label={`View ${rowTitle}`}
                   initial={{ opacity: 0, y: 12, scale: 0.985 }}
@@ -1291,6 +1503,11 @@ function AciV2CanvasPreviewCard({
                           loading="lazy"
                           draggable="false"
                         />
+                      ) : isFeatureResult ? (
+                        <div className="aci-chat-feature-preview-icon">
+                          <AciQuestionIcon label={rowTitle} index={index} />
+                          <strong>{row.availableCount || row.matchedVariantCount || row.featureCount || "✓"}</strong>
+                        </div>
                       ) : (
                         <AciVehicleVisual
                           vehicle={row.vehicle || row}
@@ -1383,14 +1600,16 @@ function AciV2ChatMessage({
   onOpenCanvas,
 }) {
   const isUser = message.role === "user";
+  const widget = safeWidget(message.widget || {});
   const hasCanvas = Boolean(
     message.canvasType ||
-    message.widget?.canvasType ||
-    message.widget?.__rawCanvasType,
+    widget.canvasType ||
+    widget.__rawCanvasType,
   );
+  const hasFeatureInline = isFeatureAnswerWidget(message, widget);
 
   const followups = buildChatSuggestions({
-    widget: message.widget || {},
+    widget,
     message,
     limit: 4,
   });
@@ -1418,6 +1637,14 @@ function AciV2ChatMessage({
           </div>
         ) : null}
 
+        {hasFeatureInline ? (
+          <AciFeatureAnswerCard
+            message={message}
+            selectedVehicle={selectedVehicle}
+            onAction={onAction}
+          />
+        ) : null}
+
         {hasCanvas ? (
           <AciV2CanvasPreviewCard
             message={message}
@@ -1433,7 +1660,7 @@ function AciV2ChatMessage({
           </div>
         ) : null}
 
-        {followups.length && !hasCanvas ? (
+        {followups.length && !hasCanvas && !hasFeatureInline ? (
           <div className="aci-chat-followups">
             {followups.map((item, index) => {
               const label =
@@ -2053,10 +2280,19 @@ export default function AciAssistV2() {
           role: "assistant",
           text: assistantText,
           answer: assistantText,
+          intent: firstValue(backend.intent, widget.intent),
+          displayMode: firstValue(backend.displayMode, widget.displayMode),
           canvasType,
+          inlineType: firstValue(backend.inlineType, widget.inlineType),
           widget,
+          rows: toArray(firstValue(backend.rows, widget.rows)),
+          items: toArray(firstValue(backend.items, widget.items)),
+          features: toArray(firstValue(backend.features, widget.features)),
           actions: toArray(widget.actions),
           leadingQuestions: toArray(widget.leadingQuestions),
+          contextPatch,
+          sourceTransparency: backend.sourceTransparency || null,
+          runtimeResultsMeta: backend.runtimeResultsMeta || [],
           vehicle: backendVehicle || targetVehicle || selectedVehicle,
         },
       ]);
@@ -2397,7 +2633,189 @@ export default function AciAssistV2() {
     <>
       <AciAssistStyles />
 
-      <style>{`/* ACI_CHAT_REFERENCE_SHELL_START */
+      <style>{`
+/* ACI_FEATURE_CHAT_INTEGRATION_START */
+
+.aci-feature-inline-card {
+  width: min(100%, 560px);
+  border: 1px solid rgba(219, 230, 244, 0.9);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(37, 99, 235, 0.08), transparent 32%),
+    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
+  box-shadow:
+    0 26px 76px -62px rgba(15,23,42,0.52),
+    inset 0 1px 0 rgba(255,255,255,0.92);
+  padding: 15px;
+}
+
+.aci-feature-inline-card header {
+  display: grid;
+  grid-template-columns: 42px 1fr;
+  align-items: center;
+  gap: 11px;
+}
+
+.aci-feature-inline-card header > span {
+  width: 42px;
+  height: 42px;
+  border-radius: 15px;
+  display: grid;
+  place-items: center;
+  color: var(--aci-blue);
+  background: #eff6ff;
+  border: 1px solid #dbeafe;
+}
+
+.aci-feature-inline-card header strong {
+  display: block;
+  color: #071126;
+  font-size: 13.5px;
+  line-height: 1.15;
+  font-weight: 780;
+}
+
+.aci-feature-inline-card header small {
+  display: block;
+  margin-top: 3px;
+  color: #667085;
+  font-size: 11px;
+  font-weight: 560;
+}
+
+.aci-feature-inline-card > p {
+  margin: 12px 0 0;
+  color: #334155;
+  font-size: 12.5px;
+  line-height: 1.45;
+  font-weight: 500;
+}
+
+.aci-feature-inline-rows {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.aci-feature-inline-rows > div {
+  min-height: 38px;
+  border: 1px solid rgba(226,232,240,0.95);
+  border-radius: 14px;
+  background: rgba(255,255,255,0.9);
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+}
+
+.aci-feature-inline-rows span {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.aci-feature-inline-rows span.is-yes {
+  color: #fff;
+  background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
+}
+
+.aci-feature-inline-rows span.is-no {
+  color: #64748b;
+  background: #f1f5f9;
+}
+
+.aci-feature-inline-rows strong {
+  min-width: 0;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 760;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aci-feature-inline-rows small {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 620;
+  white-space: nowrap;
+}
+
+.aci-feature-inline-card footer {
+  margin-top: 12px;
+  display: flex;
+}
+
+.aci-feature-inline-card footer button {
+  height: 36px;
+  border: 0;
+  border-radius: 999px;
+  padding: 0 14px;
+  background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 820;
+  box-shadow: 0 16px 34px -24px rgba(37,99,235,0.7);
+}
+
+.aci-chat-preview-card.is-feature-card .aci-chat-row-visual {
+  background:
+    radial-gradient(circle at 35% 22%, #ffffff, transparent 28%),
+    linear-gradient(180deg, #f8fbff, #eff6ff);
+}
+
+.aci-chat-feature-preview-icon {
+  width: 100%;
+  height: 100%;
+  min-height: 112px;
+  display: grid;
+  place-items: center;
+  gap: 6px;
+}
+
+.aci-chat-feature-preview-icon .aci-chat-chip-icon {
+  width: 42px;
+  height: 42px;
+  color: var(--aci-blue);
+  background: #fff;
+  border: 1px solid #dbeafe;
+  box-shadow: 0 16px 34px -28px rgba(37,99,235,0.6);
+}
+
+.aci-chat-feature-preview-icon strong {
+  color: #0758f8;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: -0.06em;
+  font-weight: 900;
+}
+
+@media (max-width: 640px) {
+  .aci-feature-inline-card {
+    width: 100%;
+    border-radius: 20px;
+    padding: 13px;
+  }
+
+  .aci-feature-inline-rows > div {
+    grid-template-columns: 23px 1fr;
+  }
+
+  .aci-feature-inline-rows small {
+    grid-column: 2;
+    white-space: normal;
+  }
+}
+
+/* ACI_FEATURE_CHAT_INTEGRATION_END */
+
+
+/* ACI_CHAT_REFERENCE_SHELL_START */
 
 .heart-button.is-saved,
 .mobile-heart.is-saved,
