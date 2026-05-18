@@ -73,14 +73,19 @@ const getVehicleModel = (vehicle = {}) =>
   cleanText(vehicle.model || vehicle.modelName || getVehicleTitle(vehicle)) ||
   "Selected car";
 
-const getColorName = (color = {}) =>
-  cleanText(
-    color.desktopName ||
-      color.mobileName ||
-      color.colorName ||
-      color.name ||
-      color.label,
-  ) || "Selected color";
+const getColorName = (color = {}) => {
+  const safeColor = hasMeaningfulObject(color) ? color : {};
+
+  return (
+    cleanText(
+      safeColor.desktopName ||
+        safeColor.mobileName ||
+        safeColor.colorName ||
+        safeColor.name ||
+        safeColor.label,
+    ) || "Selected color"
+  );
+};
 
 const getColorLabel = (name = "") => {
   const clean = cleanText(name);
@@ -583,7 +588,7 @@ function fireColorAction(label, payload = {}, onAction) {
   const vehicle = payload.vehicle || null;
   const color = payload.color || payload.selectedColor || null;
   const vehicleTitle = getVehicleTitle(vehicle);
-  const colorName = getColorName(color);
+  const colorName = color ? getColorName(color) : "";
 
   const query =
     payload.query ||
