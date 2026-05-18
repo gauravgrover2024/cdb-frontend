@@ -58,33 +58,43 @@ const cssPercent = (value, fallback = 0, min = -18, max = 18) => {
 const getStageFrame = (imageFrame, stageKey = "chatCard") => {
   if (!imageFrame || typeof imageFrame !== "object") return null;
 
+  const stageFrames = imageFrame.stageFrames || {};
+  const stages = imageFrame.stages || {};
+
   return (
-    imageFrame.stageFrames?.[stageKey] ||
-    imageFrame.stages?.[stageKey] ||
-    imageFrame[stageKey] ||
-    imageFrame.stageFrames?.chatCard ||
-    imageFrame.stageFrames?.homeCard ||
-    imageFrame.stageFrames?.priceSide ||
-    imageFrame.stageFrames?.mobileHero ||
-    imageFrame.stageFrames?.default ||
+    stageFrames?.[stageKey] ||
+    stages?.[stageKey] ||
+    imageFrame?.[stageKey] ||
+    stageFrames?.colorChatCard ||
+    stageFrames?.chatCard ||
+    stageFrames?.colorStudio ||
+    stageFrames?.overviewHero ||
+    stageFrames?.mobileHero ||
+    stageFrames?.homeCard ||
+    stageFrames?.priceSide ||
+    stageFrames?.default ||
     imageFrame
   );
 };
 
 const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
+  const isColorChat =
+    stageKey === "colorChatCard" || stageKey === "colorStudio";
+  const fallbackScale = isColorChat ? "1.42" : "1";
+
+  const fallback = {
+    "--chat-car-frame-scale": fallbackScale,
+    "--chat-car-frame-x": "0%",
+    "--chat-car-frame-y": "0%",
+    "--chat-car-frame-origin": "center center",
+    "--car-frame-scale": fallbackScale,
+    "--car-frame-x": "0%",
+    "--car-frame-y": "0%",
+    "--car-frame-origin": "center center",
+  };
+
   const frame = getStageFrame(imageFrame, stageKey);
-  if (!frame || typeof frame !== "object") {
-    return {
-      "--chat-car-frame-scale": "1",
-      "--chat-car-frame-x": "0%",
-      "--chat-car-frame-y": "0%",
-      "--chat-car-frame-origin": "center center",
-      "--car-frame-scale": "1",
-      "--car-frame-x": "0%",
-      "--car-frame-y": "0%",
-      "--car-frame-origin": "center center",
-    };
-  }
+  if (!frame || typeof frame !== "object") return fallback;
 
   const pickFirst = (...values) =>
     values.find(
@@ -206,59 +216,61 @@ const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
     widthRatio > 0 &&
     heightRatio > 0;
 
-  const explicitScale =
-    stageKey === "colorChatCard"
-      ? null
-      : readNumber(
-          cssVars["--chat-car-frame-scale"],
-          cssVars["--car-frame-scale"],
-          frame.scale,
-          frame.zoom,
-        );
+  if (!hasBounds) return fallback;
+
+  const explicitScale = isColorChat
+    ? null
+    : readNumber(
+        cssVars["--chat-car-frame-scale"],
+        cssVars["--car-frame-scale"],
+        frame.scale,
+        frame.zoom,
+      );
 
   const targetCenterX = 0.5;
-  const targetCenterY = stageKey === "chatCard" ? 0.5 : 0.5;
+  const targetCenterY = 0.65;
 
   /*
-    True frame-fit logic for inline cards:
-    - center detected vehicle bounds in the tile
-    - scale until the vehicle fits inside the safe area
-    - do not crop or color-shift image pixels
-  */
-  const fittedScale = hasBounds
-    ? clamp(
-        Math.min(
-          0.86 / Math.max(widthRatio, 0.01),
-          0.68 / Math.max(heightRatio, 0.01),
-        ),
-        0.9,
-        1.72,
-      )
-    : 1;
+  Same principle as Color Studio:
+  center the detected car frame and scale until it fills
+  the padded stage without cropping.
+*/
+  const safeWidthFill = isColorChat ? 0.94 : 0.9;
+  const safeHeightFill = isColorChat ? 0.86 : 0.72;
 
-  const computedX = hasBounds
-    ? (targetCenterX - 0.5 - fittedScale * (centerX - 0.5)) * 100
-    : 0;
+  const widthScale = safeWidthFill / Math.max(widthRatio, 0.01);
+  const heightScale = safeHeightFill / Math.max(heightRatio, 0.01);
 
-  const computedY = hasBounds
-    ? (targetCenterY - 0.5 - fittedScale * (centerY - 0.5)) * 100
-    : 0;
-
-  const x = pickFirst(
-    cssVars["--chat-car-frame-x"],
-    cssVars["--car-frame-x"],
-    frame.translateXPct,
-    frame.translateXPercent,
-    frame.translateX,
+  const fittedScale = clamp(
+    Math.min(widthScale, heightScale),
+    isColorChat ? 0.95 : 0.9,
+    isColorChat ? 2.85 : 2.05,
   );
 
-  const y = pickFirst(
-    cssVars["--chat-car-frame-y"],
-    cssVars["--car-frame-y"],
-    frame.translateYPct,
-    frame.translateYPercent,
-    frame.translateY,
-  );
+  const scale = explicitScale || fittedScale;
+
+  const computedX = (targetCenterX - 0.5 - scale * (centerX - 0.5)) * 100;
+  const computedY = (targetCenterY - 0.5 - scale * (centerY - 0.5)) * 100;
+
+  const x = isColorChat
+    ? ""
+    : pickFirst(
+        cssVars["--chat-car-frame-x"],
+        cssVars["--car-frame-x"],
+        frame.translateXPct,
+        frame.translateXPercent,
+        frame.translateX,
+      );
+
+  const y = isColorChat
+    ? ""
+    : pickFirst(
+        cssVars["--chat-car-frame-y"],
+        cssVars["--car-frame-y"],
+        frame.translateYPct,
+        frame.translateYPercent,
+        frame.translateY,
+      );
 
   const origin =
     cssVars["--chat-car-frame-origin"] ||
@@ -266,23 +278,24 @@ const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
     frame.transformOrigin ||
     "center center";
 
-  const scale = String(explicitScale || fittedScale);
   const xValue =
-    typeof x === "number" ? `${x}%` : x || `${clamp(computedX, -34, 34)}%`;
+    typeof x === "number"
+      ? `${x}%`
+      : x ||
+        `${clamp(computedX, isColorChat ? -28 : -34, isColorChat ? 28 : 34)}%`;
+
   const yValue =
-    typeof y === "number" ? `${y}%` : y || `${clamp(computedY, -30, 30)}%`;
+    typeof y === "number"
+      ? `${y}%`
+      : y ||
+        `${clamp(computedY, isColorChat ? -34 : -30, isColorChat ? 26 : 30)}%`;
 
   return {
-    "--chat-car-frame-scale": scale,
+    "--chat-car-frame-scale": String(Number(scale).toFixed(4)),
     "--chat-car-frame-x": xValue,
     "--chat-car-frame-y": yValue,
     "--chat-car-frame-origin": origin,
-
-    /*
-      AciVehicleVisual and CarImageStage may consume the generic vars,
-      so keep these in sync with the chat-specific vars.
-    */
-    "--car-frame-scale": scale,
+    "--car-frame-scale": String(Number(scale).toFixed(4)),
     "--car-frame-x": xValue,
     "--car-frame-y": yValue,
     "--car-frame-origin": origin,
@@ -472,6 +485,8 @@ const normalizeBackendWidget = (backend = {}) => {
   };
 };
 
+const safeWidget = (widget) => (isObject(widget) ? widget : {});
+
 const buildContextPatchFromBackend = (backend = {}, widget = {}) => ({
   ...(widget.contextPatch || {}),
   ...(backend.contextPatch || {}),
@@ -482,6 +497,43 @@ const buildContextPatchFromBackend = (backend = {}, widget = {}) => ({
     widget.vehicle ||
     null,
 });
+
+const firstVehicle = (...values) => {
+  for (const value of values) {
+    const vehicle = normalizeVehicle(value);
+    if (vehicle) return vehicle;
+  }
+
+  return null;
+};
+
+const getCanvasScopedVehicle = (message = {}, widget = {}) =>
+  firstVehicle(
+    message.vehicle,
+    message.selectedVehicle,
+    message.contextPatch?.selectedVehicle,
+    widget.contextPatch?.selectedVehicle,
+    widget.vehicle,
+    widget.selectedVehicle,
+    widget.data?.vehicle,
+    widget.data?.selectedVehicle,
+    message.data?.vehicle,
+    message.data?.selectedVehicle,
+  );
+
+const withCanvasVehicleContext = (widget = {}, vehicle = null) => {
+  const safe = safeWidget(widget);
+  if (!vehicle) return safe;
+
+  return {
+    ...safe,
+    vehicle: safe.vehicle || vehicle,
+    contextPatch: {
+      ...(safe.contextPatch || {}),
+      selectedVehicle: vehicle,
+    },
+  };
+};
 
 const CROSS_CANVAS_INTENTS = new Set([
   "vehicle_pricelist",
@@ -671,8 +723,6 @@ const canvasTypeLabel = (canvasType = "") =>
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase()) || "Result";
-
-const safeWidget = (widget) => (isObject(widget) ? widget : {});
 
 const getWidgetTitle = (widget = {}, canvasType = "", vehicle = null) => {
   const item = safeWidget(widget);
@@ -904,164 +954,7 @@ const buildChatSuggestions = ({
 };
 
 function buildInlineColorFrameStyle(imageFrame = {}) {
-  const source = imageFrame && typeof imageFrame === "object" ? imageFrame : {};
-  const stage =
-    getStageFrame(source, "colorChatCard") ||
-    getStageFrame(source, "chatCard") ||
-    getStageFrame(source, "default") ||
-    source;
-
-  const frame =
-    stage?.bounds ||
-    stage?.frameMeta ||
-    stage?.frame_meta ||
-    stage?.visibleBounds ||
-    stage?.visibleBox ||
-    stage?.contentBounds ||
-    stage?.contentBox ||
-    stage?.subjectBounds ||
-    stage?.subjectBox ||
-    stage?.carBounds ||
-    stage?.carBox ||
-    stage?.trimBounds ||
-    stage?.trimBox ||
-    stage?.bbox ||
-    stage;
-
-  const fallback = {
-    "--chat-car-frame-scale": "1.34",
-    "--chat-car-frame-x": "0%",
-    "--chat-car-frame-y": "0%",
-    "--chat-car-frame-origin": "center center",
-  };
-
-  if (!frame || typeof frame !== "object") return fallback;
-
-  const readNumber = (...values) => {
-    for (const value of values) {
-      if (value === undefined || value === null || value === "") continue;
-
-      if (typeof value === "string" && value.trim().endsWith("%")) {
-        const parsed = Number(value.trim().slice(0, -1));
-        if (Number.isFinite(parsed)) return parsed / 100;
-      }
-
-      const parsed = Number(value);
-      if (Number.isFinite(parsed)) return parsed;
-    }
-
-    return null;
-  };
-
-  const clamp = (value, min, max) =>
-    Math.min(max, Math.max(min, Number(value) || 0));
-
-  const x = readNumber(frame.x, frame.left, frame.minX);
-  const y = readNumber(frame.y, frame.top, frame.minY);
-  const width = readNumber(frame.width, frame.w);
-  const height = readNumber(frame.height, frame.h);
-
-  const canvasWidth = readNumber(
-    stage?.canvas_width,
-    stage?.canvasWidth,
-    stage?.naturalWidth,
-    stage?.imageWidth,
-    stage?.sourceWidth,
-    source?.canvas_width,
-    source?.canvasWidth,
-    source?.naturalWidth,
-    source?.imageWidth,
-    source?.sourceWidth,
-    frame?.canvas_width,
-    frame?.canvasWidth,
-  );
-
-  const canvasHeight = readNumber(
-    stage?.canvas_height,
-    stage?.canvasHeight,
-    stage?.naturalHeight,
-    stage?.imageHeight,
-    stage?.sourceHeight,
-    source?.canvas_height,
-    source?.canvasHeight,
-    source?.naturalHeight,
-    source?.imageHeight,
-    source?.sourceHeight,
-    frame?.canvas_height,
-    frame?.canvasHeight,
-  );
-
-  const looksNormalized =
-    [x, y, width, height].every(Number.isFinite) &&
-    x >= 0 &&
-    y >= 0 &&
-    width > 0 &&
-    height > 0 &&
-    x <= 1 &&
-    y <= 1 &&
-    width <= 1 &&
-    height <= 1;
-
-  let centerX = null;
-  let centerY = null;
-  let widthRatio = null;
-  let heightRatio = null;
-
-  if (looksNormalized) {
-    centerX = x + width / 2;
-    centerY = y + height / 2;
-    widthRatio = width;
-    heightRatio = height;
-  } else if (
-    Number.isFinite(canvasWidth) &&
-    Number.isFinite(canvasHeight) &&
-    canvasWidth > 0 &&
-    canvasHeight > 0 &&
-    Number.isFinite(x) &&
-    Number.isFinite(y) &&
-    Number.isFinite(width) &&
-    Number.isFinite(height) &&
-    width > 0 &&
-    height > 0
-  ) {
-    centerX = (x + width / 2) / canvasWidth;
-    centerY = (y + height / 2) / canvasHeight;
-    widthRatio = width / canvasWidth;
-    heightRatio = height / canvasHeight;
-  }
-
-  const hasBounds =
-    Number.isFinite(centerX) &&
-    Number.isFinite(centerY) &&
-    Number.isFinite(widthRatio) &&
-    Number.isFinite(heightRatio) &&
-    widthRatio > 0 &&
-    heightRatio > 0;
-
-  if (!hasBounds) return fallback;
-
-  /*
-    Inline color card fit:
-    - detected vehicle center becomes card center
-    - vehicle grows until it almost touches width or height safe area
-    - Math.min prevents cropping
-  */
-  const safeWidthFill = 0.98;
-  const safeHeightFill = 0.9;
-
-  const widthScale = safeWidthFill / Math.max(widthRatio, 0.01);
-  const heightScale = safeHeightFill / Math.max(heightRatio, 0.01);
-  const scale = clamp(Math.min(widthScale, heightScale), 1.0, 2.85);
-
-  const translateX = (0.5 - 0.5 - scale * (centerX - 0.5)) * 100;
-  const translateY = (0.5 - 0.5 - scale * (centerY - 0.5)) * 100;
-
-  return {
-    "--chat-car-frame-scale": String(Number(scale.toFixed(4))),
-    "--chat-car-frame-x": `${Number(clamp(translateX, -20, 20).toFixed(3))}%`,
-    "--chat-car-frame-y": `${Number(clamp(translateY, -20, 20).toFixed(3))}%`,
-    "--chat-car-frame-origin": "center center",
-  };
+  return buildChatImageFrameStyle(imageFrame, "colorStudio");
 }
 
 function AciV2CanvasPreviewCard({
@@ -1071,10 +964,27 @@ function AciV2CanvasPreviewCard({
   onOpen,
 }) {
   const widget = message.widget || {};
-  const rows = getWidgetRows(widget);
 
   const canvasType =
     message.canvasType || widget.canvasType || widget.__rawCanvasType || "";
+
+  const isColorResult =
+    widget?.type === "vehicle_colors" ||
+    widget?.tool === "vehicle_colors" ||
+    widget?.toolName === "vehicle_colors" ||
+    widget?.tool_name === "vehicle_colors" ||
+    widget?.canvasType === "color_studio_canvas" ||
+    widget?.canvasType === "colors_canvas" ||
+    widget?.canvasType === "vehicle_colors" ||
+    canvasType === "color_studio_canvas" ||
+    canvasType === "colors_canvas" ||
+    canvasType === "vehicle_colors";
+
+  const rows = isColorResult
+    ? toArray(
+        widget.colors || widget.rows || widget.items || widget.records,
+      ).slice(0, 3)
+    : getWidgetRows(widget);
 
   const hasCanvas = Boolean(canvasType);
 
@@ -1094,12 +1004,6 @@ function AciV2CanvasPreviewCard({
   const maxCarouselIndex = Math.max(0, rows.length - 1);
   const carouselProgress =
     maxCarouselIndex > 0 ? carouselIndex / maxCarouselIndex : 0;
-
-  const isColorResult =
-    widget?.type === "vehicle_colors" ||
-    widget?.tool === "vehicle_colors" ||
-    widget?.canvasType === "color_studio_canvas" ||
-    canvasType === "color_studio_canvas";
 
   const pickText = (...values) => {
     for (const value of values) {
@@ -1240,6 +1144,8 @@ function AciV2CanvasPreviewCard({
 
               const rowImageFrame = isColorResult
                 ? pickAny(
+                    row.displayFrameMeta,
+                    row.display_frame_meta,
                     row.imageFrame,
                     row.frameMeta,
                     row.frame_meta,
@@ -1247,11 +1153,16 @@ function AciV2CanvasPreviewCard({
                     row.carImageFrame,
                     row.car_image_frame,
                     row.frame,
+                    row.vehicle?.displayFrameMeta,
+                    row.vehicle?.display_frame_meta,
                     row.vehicle?.imageFrame,
                     row.vehicle?.frameMeta,
                     row.vehicle?.frame_meta,
                     row.vehicle?.carImageFrame,
                     row.vehicle?.frame,
+                    selectedVehicle?.displayFrameMeta,
+                    selectedVehicle?.imageFrame,
+                    selectedVehicle?.frameMeta,
                   )
                 : pickAny(
                     row.vehicle?.imageFrame,
@@ -1262,18 +1173,32 @@ function AciV2CanvasPreviewCard({
                     row.frame_meta,
                     row.frame,
                     selectedVehicle?.imageFrame,
+                    selectedVehicle?.frameMeta,
+                    selectedVehicle?.displayFrameMeta,
                   );
 
               const rowImageUrl = isColorResult
                 ? pickText(
+                    row.displayNormalizedImageUrl,
+                    row.display_normalized_image_url,
+                    row.vehicle?.displayNormalizedImageUrl,
+                    row.vehicle?.display_normalized_image_url,
+
                     row.normalizedImageUrl,
                     row.cleanImageUrl,
+                    row.normalizedImagePngUrl,
                     row.stagedImageUrl,
                     row.imageUrl,
                     row.carImageUrl,
                     row.sourceImageUrl,
+
                     row.vehicle?.normalizedImageUrl,
+                    row.vehicle?.cleanImageUrl,
+                    row.vehicle?.normalizedImagePngUrl,
+                    row.vehicle?.stagedImageUrl,
                     row.vehicle?.imageUrl,
+
+                    selectedVehicle?.displayNormalizedImageUrl,
                     selectedVehicle?.normalizedImageUrl,
                     selectedVehicle?.imageUrl,
                   )
@@ -1601,6 +1526,49 @@ function AciV2ChatFirstShell({
   const activeVehicle = selectedVehicle || homeData?.selectedVehicle || null;
   const threadRef = useRef(null);
   const threadEndRef = useRef(null);
+  const shouldStickToBottomRef = useRef(true);
+
+  const scrollToLatest = useCallback((behavior = "auto") => {
+    const thread = threadRef.current;
+    const anchor = threadEndRef.current;
+    if (!thread || !anchor) return;
+
+    anchor.scrollIntoView({
+      block: "end",
+      inline: "nearest",
+      behavior,
+    });
+  }, []);
+
+  const handleThreadScroll = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+
+    const distanceFromBottom =
+      thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+
+    shouldStickToBottomRef.current = distanceFromBottom < 140;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+
+    shouldStickToBottomRef.current = true;
+    scrollToLatest("auto");
+
+    const frame = window.requestAnimationFrame(() => {
+      scrollToLatest("smooth");
+    });
+
+    const timers = [80, 220, 520].map((delay) =>
+      window.setTimeout(() => scrollToLatest("auto"), delay),
+    );
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      timers.forEach((timer) => window.clearTimeout(timer));
+    };
+  }, [messages.length, scrollToLatest]);
 
   useEffect(() => {
     if (typeof window === "undefined") return undefined;
@@ -1608,42 +1576,32 @@ function AciV2ChatFirstShell({
     const thread = threadRef.current;
     if (!thread) return undefined;
 
-    const scrollToEnd = (behavior = "smooth") => {
-      const activeThread = threadRef.current;
-      if (!activeThread) return;
-
-      activeThread.scrollTo({
-        top: activeThread.scrollHeight,
-        behavior,
-      });
+    const keepBottomIfNeeded = () => {
+      if (shouldStickToBottomRef.current) {
+        scrollToLatest("auto");
+      }
     };
 
-    const animationFrames = [
-      window.requestAnimationFrame(() => scrollToEnd("smooth")),
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => scrollToEnd("smooth"));
-      }),
-    ];
-
-    const timers = [120, 320, 650, 1000].map((delay) =>
-      window.setTimeout(() => scrollToEnd("auto"), delay),
-    );
-
     const images = Array.from(thread.querySelectorAll("img"));
-    const handleImageLoad = () => scrollToEnd("auto");
-
     images.forEach((img) => {
       if (!img.complete) {
-        img.addEventListener("load", handleImageLoad, { once: true });
+        img.addEventListener("load", keepBottomIfNeeded, { once: true });
       }
     });
 
+    const observer = new MutationObserver(keepBottomIfNeeded);
+    observer.observe(thread, {
+      childList: true,
+      subtree: true,
+    });
+
     return () => {
-      animationFrames.forEach((frame) => window.cancelAnimationFrame(frame));
-      timers.forEach((timer) => window.clearTimeout(timer));
-      images.forEach((img) => img.removeEventListener("load", handleImageLoad));
+      observer.disconnect();
+      images.forEach((img) =>
+        img.removeEventListener("load", keepBottomIfNeeded),
+      );
     };
-  }, [messages.length, isLoading, error]);
+  }, [messages.length, isLoading, error, scrollToLatest]);
 
   return (
     <main className="aci-chat-shell">
@@ -1691,6 +1649,7 @@ function AciV2ChatFirstShell({
           ref={threadRef}
           className="aci-chat-thread"
           aria-label="ACI Assist conversation"
+          onScroll={handleThreadScroll}
         >
           {!hasMessages ? (
             <AciV2ChatMessage
@@ -1763,6 +1722,11 @@ function AciV2FullCanvasShell({
   const safeCanvasWidget = safeWidget(widget);
   const canvasType =
     safeCanvasWidget.canvasType || safeCanvasWidget.__rawCanvasType || "";
+  const scopedVehicle = useMemo(
+    () =>
+      mergeVehicle(vehicle, getCanvasScopedVehicle({ data }, safeCanvasWidget)),
+    [data, safeCanvasWidget, vehicle],
+  );
 
   const ScreenComponent =
     ACI_V2_SCREEN_COMPONENTS[screen] ||
@@ -1777,13 +1741,15 @@ function AciV2FullCanvasShell({
 
         <div>
           <strong>{canvasTypeLabel(canvasType)}</strong>
-          <span>{getWidgetTitle(safeCanvasWidget, canvasType, vehicle)}</span>
+          <span>
+            {getWidgetTitle(safeCanvasWidget, canvasType, scopedVehicle)}
+          </span>
         </div>
       </header>
 
       <ScreenComponent
         data={data}
-        vehicle={vehicle}
+        vehicle={scopedVehicle}
         widget={safeCanvasWidget}
         onAction={onAction}
         savedIds={savedIds}
@@ -2381,20 +2347,37 @@ export default function AciAssistV2() {
 
   const openCanvasFromMessage = useCallback(
     (message = {}) => {
-      const widget = message.widget || activeCanvasPayload || {};
+      const widget = safeWidget(message.widget || activeCanvasPayload || {});
       const canvasType =
         message.canvasType ||
         widget.canvasType ||
         widget.__rawCanvasType ||
         sessionContext.lastCanvasType ||
         "";
+      const scopedVehicle = getCanvasScopedVehicle(message, widget);
+      const scopedWidget = withCanvasVehicleContext(widget, scopedVehicle);
+      const normalizedCanvasType = normalizeV2CanvasType(canvasType);
 
       const routedScreen = resolveScreenFromCanvasType(canvasType);
       if (routedScreen && routedScreen !== SCREEN.HOME) {
         setScreen(routedScreen);
       }
 
-      setActiveCanvasPayload(widget);
+      if (scopedVehicle || normalizedCanvasType) {
+        setSessionContext((previous) =>
+          mergeSessionContext(previous, {
+            selectedVehicle: scopedVehicle || previous.selectedVehicle,
+            selectedColor:
+              scopedVehicle?.selectedColor ||
+              scopedWidget.selectedColor ||
+              scopedWidget.contextPatch?.selectedColor ||
+              previous.selectedColor,
+            lastCanvasType: normalizedCanvasType || previous.lastCanvasType,
+          }),
+        );
+      }
+
+      setActiveCanvasPayload(scopedWidget);
       setIsCanvasOpen(true);
     },
     [activeCanvasPayload, sessionContext.lastCanvasType],
@@ -3637,55 +3620,59 @@ export default function AciAssistV2() {
 /* ACI_CHAT_REFERENCE_SHELL_END */
 
 
-/* ACI_INLINE_COLOR_PERFECT_FINAL_START */
+/* ACI_CHAT_SCROLL_AND_WIDGET_FINAL_START */
 
-/* Desktop/laptop chat should behave like chat, not page scroll. */
-@media (min-width: 761px) {
-  .aci-chat-shell {
-    height: 100svh !important;
-    min-height: 100svh !important;
-    max-height: 100svh !important;
-    overflow: hidden !important;
-    display: flex !important;
-    flex-direction: column !important;
-    padding-bottom: 0 !important;
-  }
+/* Chat should behave like ChatGPT: fixed shell, only the thread scrolls. */
+.aci-chat-shell {
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  padding: 10px 12px 0 !important;
+}
 
-  .aci-chat-app-frame {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    height: auto !important;
-    display: flex !important;
-    flex-direction: column !important;
-    overflow: hidden !important;
-    padding-bottom: 0 !important;
-  }
+.aci-chat-app-frame {
+  width: min(430px, calc(100vw - 24px)) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding-bottom: 0 !important;
+}
 
-  .aci-chat-header,
-  .aci-chat-context-pill {
-    flex: 0 0 auto !important;
-  }
+.aci-chat-header,
+.aci-chat-context-pill {
+  flex: 0 0 auto !important;
+}
 
-  .aci-chat-thread {
-    flex: 1 1 auto !important;
-    min-height: 0 !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    overscroll-behavior: contain !important;
-    scroll-behavior: smooth !important;
-    padding-bottom: 152px !important;
-  }
+.aci-chat-thread {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior: contain !important;
+  scroll-behavior: smooth !important;
+  padding: 0 0 calc(132px + env(safe-area-inset-bottom)) !important;
+  scroll-padding-bottom: calc(132px + env(safe-area-inset-bottom)) !important;
+  scrollbar-width: none !important;
+}
+
+.aci-chat-thread::-webkit-scrollbar {
+  display: none !important;
 }
 
 .aci-chat-scroll-anchor {
   width: 100% !important;
-  height: 152px !important;
-  min-height: 152px !important;
-  flex: 0 0 152px !important;
+  height: calc(132px + env(safe-area-inset-bottom)) !important;
+  min-height: calc(132px + env(safe-area-inset-bottom)) !important;
+  flex: 0 0 calc(132px + env(safe-area-inset-bottom)) !important;
   pointer-events: none !important;
 }
 
-/* Chat avatar should be only the glass orb, no extra ring. */
 .aci-chat-orb {
   width: 42px !important;
   height: 42px !important;
@@ -3712,190 +3699,938 @@ export default function AciAssistV2() {
   height: 42px !important;
 }
 
-/* Inline color widget wrapper: no background panel behind cards. */
-.aci-chat-color-result-card {
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-  padding: 0 !important;
+/* Full-width assistant result cards without left clipping. */
+.aci-chat-result-card {
   overflow: visible !important;
 }
 
-.aci-chat-color-result-card .aci-chat-result-rows {
-  width: 100% !important;
-  max-width: 100% !important;
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  align-items: stretch !important;
-  justify-content: flex-start !important;
-  gap: 12px !important;
-  overflow-x: auto !important;
-  overflow-y: visible !important;
-  scroll-snap-type: x mandatory !important;
-  scroll-behavior: smooth !important;
-  padding: 0 2px 2px !important;
-  margin: 0 !important;
-  scrollbar-width: none !important;
-  -webkit-overflow-scrolling: touch !important;
+@media (max-width: 760px) {
+  .aci-chat-message.is-assistant:has(.aci-chat-result-card) {
+    width: 100% !important;
+  }
+
+  .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-assistant-stack {
+    flex: 1 1 auto !important;
+    max-width: calc(100% - 50px) !important;
+    min-width: 0 !important;
+  }
+
+  .aci-chat-result-card {
+    width: calc(100vw - 28px) !important;
+    max-width: 402px !important;
+    margin-left: -50px !important;
+    margin-right: 0 !important;
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+  }
+
+  .aci-chat-result-rows {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-left: 4px !important;
+    padding-right: 8px !important;
+    scroll-padding-left: 4px !important;
+  }
 }
 
-.aci-chat-color-result-card .aci-chat-result-rows::-webkit-scrollbar {
-  display: none !important;
+@media (min-width: 761px) {
+  .aci-chat-shell {
+    padding: 18px 18px 0 !important;
+  }
+
+  .aci-chat-app-frame {
+    width: min(800px, calc(100vw - 44px)) !important;
+  }
 }
 
-/* Mobile/tablet default: two swipe cards. */
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card {
-  position: relative !important;
-  flex: 0 0 calc((100% - 12px) / 2) !important;
-  width: calc((100% - 12px) / 2) !important;
-  min-width: calc((100% - 12px) / 2) !important;
-  max-width: calc((100% - 12px) / 2) !important;
-  height: 232px !important;
-  min-height: 232px !important;
-  padding: 0 !important;
-  display: block !important;
-  scroll-snap-align: start !important;
-  border-radius: 22px !important;
-  border: 1px solid rgba(203, 213, 225, .92) !important;
-  background: linear-gradient(180deg, rgba(255,255,255,.99), rgba(239,247,255,.96)) !important;
-  box-shadow:
-    0 18px 46px -42px rgba(15,23,42,.26),
-    inset 0 1px 0 rgba(255,255,255,1) !important;
+/* Price/variant cards: keep the good size, but stop left/right image cropping. */
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-visual {
   overflow: hidden !important;
+  padding-inline: 4px !important;
 }
 
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card::before,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card::after,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::before,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::after,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::before,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::after,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-image-stage::before,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-image-stage::after,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-shell::before,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-shell::after,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-inner::before,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-car-stage-inner::after {
-  display: none !important;
-}
-
-/* The whole card is the image stage. Name floats at bottom-left. */
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual {
-  position: absolute !important;
-  inset: 0 !important;
-  width: 100% !important;
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-visual img,
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-visual svg {
+  width: 106% !important;
+  max-width: 106% !important;
   height: 100% !important;
-  min-height: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  display: grid !important;
-  place-items: center !important;
-  overflow: hidden !important;
-  border-radius: inherit !important;
-  background:
-    radial-gradient(circle at 50% 42%, rgba(255,255,255,.99), transparent 38%),
-    linear-gradient(180deg, #ffffff 0%, #fbfdff 48%, #eef7ff 100%) !important;
-  box-shadow: none !important;
-}
-
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion {
-  width: 100% !important;
-  height: 100% !important;
-  min-height: 100% !important;
-  padding: 0 !important;
-  margin: 0 !important;
-  border: 0 !important;
-  background: transparent !important;
-  box-shadow: none !important;
-  overflow: hidden !important;
-  display: grid !important;
-  place-items: center !important;
-}
-
-.aci-chat-color-result-card .aci-chat-color-card-image {
-  display: block !important;
-  width: 100% !important;
-  height: 100% !important;
-  max-width: none !important;
-  max-height: none !important;
+  max-height: 100% !important;
   object-fit: contain !important;
   object-position: center center !important;
-  opacity: 1 !important;
-  filter: none !important;
   mix-blend-mode: normal !important;
-  image-rendering: auto !important;
+  filter: none !important;
   transform-origin: var(--chat-car-frame-origin, center center) !important;
   transform:
     translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-    scale(var(--chat-car-frame-scale, 1.34)) !important;
+    scale(var(--chat-car-frame-scale, 1.28)) !important;
 }
 
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy {
-  position: absolute !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 4 !important;
-  min-height: 58px !important;
-  padding: 22px 12px 11px !important;
+
+
+
+/* ACI_CHAT_SAFE_RESTORE_COMPACT_START
+   Safe restore notes:
+   - Keep the older stable renderer: price cards use AciVehicleVisual, colors use direct color images.
+   - Do not use absolute text overlays for pricelist cards.
+   - Hide swipe indicator on laptop/desktop where three cards are visible.
+   - Keep mobile indicator centered only.
+*/
+
+@media (min-width: 761px) {
+  .aci-chat-carousel-indicator {
+    display: none !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .aci-chat-carousel-indicator {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 54px !important;
+    height: 12px !important;
+    margin: 11px auto 0 !important;
+    padding: 0 !important;
+    align-self: center !important;
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    border: 0 !important;
+    background: transparent !important;
+  }
+}
+
+.aci-chat-preview-card:not(.is-color-card) {
   display: flex !important;
-  align-items: flex-end !important;
-  justify-content: flex-start !important;
-  background:
-    linear-gradient(180deg, rgba(248,251,255,0), rgba(248,251,255,.94) 52%, rgba(248,251,255,.99)) !important;
+  flex-direction: column !important;
+  justify-content: stretch !important;
+  overflow: hidden !important;
+}
+
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-visual {
+  flex: 1 1 auto !important;
+  height: auto !important;
+  min-height: 154px !important;
+  margin: 0 !important;
+  padding: 8px 6px 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  overflow: hidden !important;
+}
+
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy {
+  flex: 0 0 auto !important;
+  min-height: 70px !important;
+  padding: 4px 14px 12px !important;
+  display: grid !important;
+  align-content: end !important;
+  gap: 3px !important;
+  background: transparent !important;
   box-shadow: none !important;
 }
 
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy strong {
-  display: -webkit-box !important;
-  -webkit-line-clamp: 2 !important;
-  -webkit-box-orient: vertical !important;
-  overflow: hidden !important;
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy strong {
+  display: block !important;
+  min-height: 0 !important;
+  max-width: 100% !important;
   color: #07112e !important;
-  font-size: 12.7px !important;
-  line-height: 1.15 !important;
-  font-weight: 560 !important;
-  letter-spacing: -0.01em !important;
+  font-size: 14px !important;
+  line-height: 1.05 !important;
+  font-weight: 850 !important;
+  letter-spacing: -0.032em !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy > span {
+  display: block !important;
+  margin: 0 !important;
+  color: #64748b !important;
+  font-size: 10.7px !important;
+  line-height: 1.18 !important;
+  font-weight: 720 !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-row-price {
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+  margin: 2px 0 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  color: var(--aci-blue) !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  letter-spacing: -0.015em !important;
+  font-weight: 800 !important;
+  white-space: nowrap !important;
+}
+
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-price-context {
+  display: inline !important;
+  margin: 0 !important;
+  color: #64748b !important;
+  font-size: 10.6px !important;
+  line-height: 1 !important;
+  font-weight: 760 !important;
+}
+
+.aci-chat-preview-card:not(.is-color-card) .aci-chat-price-amount {
+  display: inline !important;
+  margin: 0 !important;
+  color: var(--aci-blue) !important;
+  font-size: 12px !important;
+  line-height: 1 !important;
+  font-weight: 900 !important;
+}
+
+@media (max-width: 760px) {
+  .aci-chat-preview-card:not(.is-color-card) {
+    min-height: 214px !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-visual {
+    min-height: 134px !important;
+    padding: 6px 4px 0 !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy {
+    min-height: 72px !important;
+    padding: 3px 11px 11px !important;
+    gap: 3px !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy strong {
+    font-size: 12.6px !important;
+    line-height: 1.05 !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy > span {
+    font-size: 10px !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-price,
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-price-amount {
+    font-size: 11.3px !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-price-context {
+    font-size: 9.9px !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-visual {
+    min-height: 126px !important;
+  }
+
+  .aci-chat-preview-card:not(.is-color-card) .aci-chat-row-copy {
+    min-height: 70px !important;
+  }
+}
+
+/* ACI_CHAT_SAFE_RESTORE_COMPACT_END */
+
+/* ACI_CHAT_SCROLL_AND_WIDGET_FINAL_END */
+
+/* ACI_PRICE_CARD_PADDING_TEXT_ALIGN_FIX_START */
+
+/*
+  Pricelist / variant cards only.
+  Adds internal left-right breathing space for the car image
+  and forces all text below the car to stay left-aligned.
+*/
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-preview-card {
   text-align: left !important;
-  white-space: normal !important;
-  text-overflow: clip !important;
+  align-items: stretch !important;
+  justify-content: flex-start !important;
+  overflow: hidden !important;
 }
 
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy span,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-price,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-context,
-.aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-amount {
-  display: none !important;
+/* Add safe inner padding so car does not touch card borders */
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-visual {
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+  padding-top: 12px !important;
+  padding-bottom: 4px !important;
+
+  overflow: hidden !important;
+  display: grid !important;
+  place-items: center !important;
 }
 
-.aci-chat-color-result-card .aci-chat-carousel-indicator {
+/* Ensure the car visual respects the padded area */
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-car-motion {
+  width: 100% !important;
+  height: 100% !important;
+
+  display: grid !important;
+  place-items: center !important;
+
+  overflow: visible !important;
+}
+
+/* Text block below image: left aligned */
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-copy {
+  width: 100% !important;
+
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+
+  text-align: left !important;
+
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  padding-bottom: 13px !important;
+
+  margin: 0 !important;
+}
+
+/* Variant title */
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-copy strong {
+  width: 100% !important;
+
+  display: block !important;
+
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  margin: 0 0 2px !important;
+}
+
+/* Fuel / transmission */
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-copy > span {
+  width: 100% !important;
+
+  display: block !important;
+
+  text-align: left !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+
+  margin: 0 0 0px !important;
+}
+
+/* On-road + price row: both left aligned, same line */
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-price {
+  width: 100% !important;
+
+  display: flex !important;
+  align-items: baseline !important;
+  justify-content: flex-start !important;
+  gap: 5px !important;
+
+  text-align: left !important;
+
+  margin: 0 !important;
+}
+
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-price-context,
+.aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-price-amount {
   display: inline-flex !important;
+  text-align: left !important;
+  white-space: nowrap !important;
 }
 
-/* Desktop/laptop: three cards, still horizontal and stable. */
+/* Laptop / desktop: slightly more generous padding */
+@media (min-width: 901px) {
+  .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-visual {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+    padding-top: 14px !important;
+  }
+
+  .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-copy {
+    padding-left: 10px !important;
+    padding-right: 10px !important;
+  }
+}
+
+/* Mobile: keep padding enough but not wasteful */
+@media (max-width: 900px) {
+  .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-visual {
+    padding-left: 6px !important;
+    padding-right: 6px !important;
+    padding-top: 11px !important;
+  }
+
+  .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-row-copy {
+    padding-left: 4px !important;
+    padding-right: 4px !important;
+    padding-bottom: 12px !important;
+  }
+}
+
+/* ACI_PRICE_CARD_PADDING_TEXT_ALIGN_FIX_END */
+/* ACI_COLOR_CARD_RESPONSIVE_REBUILD_START */
+
+/*
+  Final responsive rebuild:
+  - Laptop color cards stay exactly like the good version.
+  - Mobile price + color cards show exactly 2 cards.
+  - Third card appears only on horizontal swipe.
+  - Mobile color cards use the same merged background/overlay approach as laptop.
+*/
+
+/* -----------------------------
+   LAPTOP COLOR CARDS ONLY
+   ----------------------------- */
 @media (min-width: 761px) {
+  .aci-chat-color-result-card {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: stretch !important;
+    overflow: visible !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-result-rows {
+    width: 100% !important;
+    max-width: 100% !important;
+
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: center !important;
+
+    gap: 12px !important;
+
+    overflow-x: hidden !important;
+    overflow-y: visible !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    scroll-snap-type: none !important;
+  }
+
   .aci-chat-color-result-card .aci-chat-preview-card.is-color-card {
     flex: 0 0 calc((100% - 24px) / 3) !important;
     width: calc((100% - 24px) / 3) !important;
     min-width: calc((100% - 24px) / 3) !important;
     max-width: calc((100% - 24px) / 3) !important;
-    height: 258px !important;
-    min-height: 258px !important;
+
+    height: 226px !important;
+    min-height: 226px !important;
+
+    position: relative !important;
+    display: block !important;
+
+    overflow: hidden !important;
+
     border-radius: 24px !important;
+    border: 1px solid rgba(191, 212, 239, .95) !important;
+
+    background:
+      radial-gradient(circle at 50% 38%, rgba(255,255,255,.98), transparent 42%),
+      linear-gradient(180deg, #ffffff 0%, #fbfdff 58%, #eef6ff 100%) !important;
+
+    box-shadow:
+      0 22px 54px -42px rgba(15, 23, 42, .34),
+      inset 0 1px 0 rgba(255,255,255,1) !important;
+
+    text-align: left !important;
+    scroll-snap-align: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card::before,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card::after,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::before,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::after,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::before,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual {
+    position: absolute !important;
+
+    inset: 0 !important;
+
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    padding: 4px 2px 30px !important;
+    margin: 0 !important;
+
+    overflow: hidden !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    overflow: visible !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-color-card-image {
+    display: block !important;
+
+    width: 112% !important;
+    height: 112% !important;
+
+    max-width: none !important;
+    max-height: none !important;
+
+    object-fit: contain !important;
+    object-position: center center !important;
+
+    opacity: 1 !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+    image-rendering: auto !important;
+
+    transform-origin: var(--chat-car-frame-origin, center center) !important;
+
+    transform:
+      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+      scale(calc(var(--chat-car-frame-scale, 1) * 1.28)) !important;
   }
 
   .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy {
-    min-height: 62px !important;
-    padding: 24px 14px 12px !important;
+    position: absolute !important;
+
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+
+    height: 34px !important;
+    min-height: 34px !important;
+
+    z-index: 4 !important;
+
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+
+    padding: 0 14px 9px !important;
+    margin: 0 !important;
+
+    background:
+      linear-gradient(
+        180deg,
+        rgba(238, 246, 255, 0) 0%,
+        rgba(238, 246, 255, .72) 34%,
+        rgba(238, 246, 255, .98) 100%
+      ) !important;
+
+    box-shadow: none !important;
+
+    text-align: left !important;
   }
 
   .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy strong {
-    font-size: 13.2px !important;
+    width: 100% !important;
+
+    display: block !important;
+
+    color: #07112e !important;
+
+    font-size: 12.2px !important;
+    line-height: 1.12 !important;
+    font-weight: 640 !important;
+    letter-spacing: -.01em !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+
+    text-align: left !important;
+
+    margin: 0 !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy > span,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-price,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-context,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-amount {
+    display: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-carousel-indicator {
+    display: none !important;
   }
 }
 
-/* ACI_INLINE_COLOR_PERFECT_FINAL_END */
+/* -----------------------------
+   MOBILE: PRICE + COLOR CARDS
+   ----------------------------- */
+@media (max-width: 760px) {
+  /*
+    This is the key fix:
+    exactly two cards fit inside the row.
+    The third card will exist, but it will be clipped until swipe.
+  */
+  .aci-chat-result-card .aci-chat-result-rows {
+    width: 100% !important;
+    max-width: 100% !important;
 
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+
+    gap: 12px !important;
+
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+
+    scroll-snap-type: x mandatory !important;
+    scroll-behavior: smooth !important;
+    scrollbar-width: none !important;
+    -webkit-overflow-scrolling: touch !important;
+
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin: 0 !important;
+
+    scroll-padding-left: 0 !important;
+  }
+
+  .aci-chat-result-card .aci-chat-result-rows::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  .aci-chat-result-card .aci-chat-preview-card {
+    flex: 0 0 calc((100% - 12px) / 2) !important;
+    width: calc((100% - 12px) / 2) !important;
+    min-width: calc((100% - 12px) / 2) !important;
+    max-width: calc((100% - 12px) / 2) !important;
+
+    scroll-snap-align: start !important;
+    scroll-snap-stop: always !important;
+  }
+
+  /*
+    Mobile color cards:
+    same premium single-background approach as laptop,
+    but shorter and tuned for two cards.
+  */
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card {
+    height: 202px !important;
+    min-height: 202px !important;
+
+    position: relative !important;
+    display: block !important;
+
+    overflow: hidden !important;
+
+    border-radius: 22px !important;
+    border: 1px solid rgba(191, 212, 239, .95) !important;
+
+    background:
+      radial-gradient(circle at 50% 36%, rgba(255,255,255,.98), transparent 42%),
+      linear-gradient(180deg, #ffffff 0%, #fbfdff 58%, #eef6ff 100%) !important;
+
+    box-shadow:
+      0 18px 44px -36px rgba(15, 23, 42, .32),
+      inset 0 1px 0 rgba(255,255,255,1) !important;
+
+    text-align: left !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card::before,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card::after,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::before,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual::after,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::before,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion::after {
+    content: none !important;
+    display: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-visual {
+    position: absolute !important;
+
+    inset: 0 !important;
+
+    width: auto !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    padding: 4px 4px 32px !important;
+    margin: 0 !important;
+
+    overflow: hidden !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-car-motion {
+    width: 100% !important;
+    height: 100% !important;
+    min-height: 0 !important;
+
+    display: grid !important;
+    place-items: center !important;
+
+    padding: 0 !important;
+    margin: 0 !important;
+
+    overflow: visible !important;
+
+    background: transparent !important;
+    box-shadow: none !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-color-card-image {
+    display: block !important;
+
+    width: 114% !important;
+    height: 114% !important;
+
+    max-width: none !important;
+    max-height: none !important;
+
+    object-fit: contain !important;
+    object-position: center center !important;
+
+    opacity: 1 !important;
+    filter: none !important;
+    mix-blend-mode: normal !important;
+    image-rendering: auto !important;
+
+    transform-origin: var(--chat-car-frame-origin, center center) !important;
+
+    transform:
+      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+      scale(calc(var(--chat-car-frame-scale, 1) * 1.3)) !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy {
+    position: absolute !important;
+
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+
+    height: 36px !important;
+    min-height: 36px !important;
+
+    z-index: 4 !important;
+
+    display: flex !important;
+    align-items: flex-end !important;
+    justify-content: flex-start !important;
+
+    padding: 0 11px 9px !important;
+    margin: 0 !important;
+
+    background:
+      linear-gradient(
+        180deg,
+        rgba(238, 246, 255, 0) 0%,
+        rgba(238, 246, 255, .74) 34%,
+        rgba(238, 246, 255, .98) 100%
+      ) !important;
+
+    box-shadow: none !important;
+
+    text-align: left !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy strong {
+    width: 100% !important;
+
+    display: block !important;
+
+    color: #07112e !important;
+
+    font-size: 11.9px !important;
+    line-height: 1.1 !important;
+    font-weight: 650 !important;
+    letter-spacing: -.01em !important;
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+
+    text-align: left !important;
+
+    margin: 0 !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy > span,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-price,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-context,
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-price-amount {
+    display: none !important;
+  }
+
+  /*
+    Price mobile cards:
+    only width behavior is changed here.
+    Existing price styling remains intact.
+  */
+  .aci-chat-result-card:not(.aci-chat-color-result-card) .aci-chat-preview-card:not(.is-color-card) {
+    flex: 0 0 calc((100% - 12px) / 2) !important;
+    width: calc((100% - 12px) / 2) !important;
+    min-width: calc((100% - 12px) / 2) !important;
+    max-width: calc((100% - 12px) / 2) !important;
+  }
+
+  /*
+    Indicator: same for price and color, centered.
+  */
+  .aci-chat-carousel-indicator {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+
+    width: 54px !important;
+    height: 12px !important;
+
+    margin: 11px auto 0 !important;
+    padding: 0 !important;
+
+    align-self: center !important;
+
+    position: relative !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+
+    border: 0 !important;
+    background: transparent !important;
+  }
+}
+
+/* Smaller mobile */
+@media (max-width: 390px) {
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card {
+    height: 194px !important;
+    min-height: 194px !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-color-card-image {
+    width: 112% !important;
+    height: 112% !important;
+
+    transform:
+      translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
+      scale(calc(var(--chat-car-frame-scale, 1) * 1.18)) !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 10px 8px !important;
+  }
+
+  .aci-chat-color-result-card .aci-chat-preview-card.is-color-card .aci-chat-row-copy strong {
+    font-size: 11.5px !important;
+  }
+}
+
+/* ACI_COLOR_CARD_RESPONSIVE_REBUILD_END */
+
+/* ACI_PRICE_CARD_STAGE_FLATTEN_FIX_START */
+
+/*
+  Price cards only.
+  Removes the inner AciVehicleVisual stage/shell background that looks like a skeleton box.
+  Does not touch color cards.
+*/
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-chat-row-visual,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-chat-row-car-motion,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-image-stage,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-stage-shell,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-stage-inner,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-vehicle-visual,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .vehicle-visual-stage {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+/* Remove any inner glow/ground/floor pseudo layers from AciVehicleVisual */
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-chat-row-visual::before,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-chat-row-visual::after,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-image-stage::before,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-image-stage::after,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-stage-shell::before,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-stage-shell::after,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-stage-glow,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-car-stage-ground {
+  content: none !important;
+  display: none !important;
+}
+
+/* Keep the actual car image clean */
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-chat-row-visual img,
+.aci-chat-result-card:not(.aci-chat-color-result-card)
+  .aci-chat-preview-card:not(.is-color-card)
+  .aci-chat-row-visual svg {
+  background: transparent !important;
+}
+
+/* ACI_PRICE_CARD_STAGE_FLATTEN_FIX_END */
 `}</style>
 
       {!hasStartedChat ? (
