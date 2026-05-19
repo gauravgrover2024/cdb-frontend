@@ -560,7 +560,7 @@ const QuoteCard = ({
           </div>
 
           <div className="flex flex-col items-end gap-1 shrink-0">
-            {!isStandAloneRow ? (
+            {String(row.coverageType || "") !== "Third Party" ? (
               <div>
                 <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                   IDV
@@ -570,19 +570,20 @@ const QuoteCard = ({
                 </p>
               </div>
             ) : null}
-            {!isStandAloneRow && row.payoutPercentage > 0 && (
-              <div className="mt-1 text-right">
-                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
-                  Est. Payout
-                </p>
-                <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
-                  {toINR(
-                    (breakup?.payoutBaseAmount ?? row.payoutBaseAmount ?? 0) *
-                      (row.payoutPercentage / 100),
-                  )}
-                </p>
-              </div>
-            )}
+            {String(row.coverageType || "") !== "Third Party" &&
+              row.payoutPercentage > 0 && (
+                <div className="mt-1 text-right">
+                  <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
+                    Est. Payout
+                  </p>
+                  <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
+                    {toINR(
+                      (breakup?.payoutBaseAmount ?? row.payoutBaseAmount ?? 0) *
+                        (row.payoutPercentage / 100),
+                    )}
+                  </p>
+                </div>
+              )}
           </div>
         </div>
       </div>
@@ -908,25 +909,42 @@ const Step4InsuranceQuotes = ({
   }, [addOnsSource]);
 
   React.useEffect(() => {
-    if (!isStandAloneOd) return;
-    setQuoteDraft((p) => {
-      const needsReset =
-        Number(p.thirdPartyAmount || 0) !== 0 ||
-        Number(p.vehicleIdv || 0) !== 0 ||
-        Number(p.cngIdv || 0) !== 0 ||
-        Number(p.accessoriesIdv || 0) !== 0 ||
-        Number(p.payoutPercentage || 0) !== 0;
-      if (!needsReset) return p;
-      return {
-        ...p,
-        thirdPartyAmount: 0,
-        vehicleIdv: 0,
-        cngIdv: 0,
-        accessoriesIdv: 0,
-        payoutPercentage: 0,
-      };
-    });
-  }, [isStandAloneOd, setQuoteDraft]);
+    if (coverageType === "Stand Alone OD") {
+      setQuoteDraft((p) => {
+        if (Number(p.thirdPartyAmount || 0) === 0) return p;
+        return {
+          ...p,
+          thirdPartyAmount: 0,
+        };
+      });
+    } else if (coverageType === "Third Party") {
+      setQuoteDraft((p) => {
+        const needsReset =
+          Number(p.vehicleIdv || 0) !== 0 ||
+          Number(p.cngIdv || 0) !== 0 ||
+          Number(p.accessoriesIdv || 0) !== 0 ||
+          Number(p.payoutPercentage || 0) !== 0 ||
+          Number(p.odAmount || 0) !== 0 ||
+          Number(p.basicOwnDamage || 0) !== 0 ||
+          Number(p.addOnsAmount || 0) !== 0 ||
+          Object.values(p.addOnsIncluded || {}).some(Boolean);
+
+        if (!needsReset) return p;
+        return {
+          ...p,
+          vehicleIdv: 0,
+          cngIdv: 0,
+          accessoriesIdv: 0,
+          payoutPercentage: 0,
+          odAmount: 0,
+          basicOwnDamage: 0,
+          addOnsAmount: 0,
+          addOnsIncluded: {},
+          addOns: {},
+        };
+      });
+    }
+  }, [coverageType, setQuoteDraft]);
   const acceptedQuoteBreakup = React.useMemo(
     () => (acceptedQuote ? computeQuoteBreakupFromRow(acceptedQuote) : null),
     [acceptedQuote, computeQuoteBreakupFromRow],
@@ -1177,7 +1195,7 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              {!isStandAloneOd ? (
+              {includesOd ? (
                 <FieldBlock label="Payout Percentage (%)">
                   <InputNumber
                     size="large"
@@ -1227,7 +1245,7 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              {!isStandAloneOd ? (
+              {includesOd ? (
                 <>
                   <FieldBlock
                     label="Vehicle IDV (₹)"
@@ -1322,7 +1340,7 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              {!isStandAloneOd ? (
+              {includesTp ? (
                 <FieldBlock label="3rd Party Amount (₹)">
                   <InputNumber
                     size="large"
@@ -1709,7 +1727,7 @@ const Step4InsuranceQuotes = ({
               </p>
             </div>
 
-            {!isStandAloneOd ? (
+            {includesOd ? (
               <>
                 <Divider className="!my-0 !border-slate-100" />
 
@@ -1740,7 +1758,6 @@ const Step4InsuranceQuotes = ({
                 </div>
               </>
             ) : null}
-
           </div>
         </div>
         {/* end RIGHT column */}

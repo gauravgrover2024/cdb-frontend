@@ -25,8 +25,7 @@ import {
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 
-const shellStyle =
-  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
+const shellStyle = "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -249,12 +248,14 @@ const Step3PreviousPolicy = ({
       idv: toPositiveInt(formData.previousIdvAmount),
       ownDamage: toPositiveInt(formData.previousOwnDamageAmount),
       basicOwnDamage: toPositiveInt(
-        formData.previousBasicOwnDamageAmount ?? formData.previousOwnDamageAmount,
+        formData.previousBasicOwnDamageAmount ??
+          formData.previousOwnDamageAmount,
       ),
       ncbAmount: 0,
       thirdParty: toPositiveInt(formData.previousThirdPartyAmount),
       basicThirdParty: toPositiveInt(
-        formData.previousBasicThirdPartyAmount ?? formData.previousThirdPartyAmount,
+        formData.previousBasicThirdPartyAmount ??
+          formData.previousThirdPartyAmount,
       ),
       addOnsTotal: toPositiveInt(formData.previousAddOnsTotal),
       totalPremium: toPositiveInt(formData.previousTotalPremium),
@@ -272,15 +273,13 @@ const Step3PreviousPolicy = ({
   ]);
 
   const comprehensiveDurationOptions = React.useMemo(
-    () =>
-      isNewCar
-        ? [
-            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
-          ]
-        : [{ label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" }],
-    [isNewCar],
+    () => [
+      { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
+      { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+      { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+      { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+    ],
+    [],
   );
 
   const durationSelectOptions =
@@ -303,7 +302,9 @@ const Step3PreviousPolicy = ({
   React.useEffect(() => {
     const policyType = String(formData.previousPolicyType || "").trim();
     if (!policyType) return;
-    const currentDuration = String(formData.previousPolicyDuration || "").trim();
+    const currentDuration = String(
+      formData.previousPolicyDuration || "",
+    ).trim();
 
     if (policyType === "Comprehensive") {
       const allowed = comprehensiveDurationOptions.map((opt) => opt.value);
@@ -434,11 +435,7 @@ const Step3PreviousPolicy = ({
     const gstInclusivePremium = Math.max(0, basePremium) * 1.18;
 
     return Math.round(gstInclusivePremium);
-  }, [
-    quoteDraft.ownDamage,
-    quoteDraft.thirdParty,
-    quoteDraft.addOnsTotal,
-  ]);
+  }, [quoteDraft.ownDamage, quoteDraft.thirdParty, quoteDraft.addOnsTotal]);
 
   React.useEffect(() => {
     if (!isQuoteEditMode) return;
@@ -512,10 +509,7 @@ const Step3PreviousPolicy = ({
     return null;
   }, [formData.dateOfReg, formData.manufactureYear]);
 
-  const showStandaloneAgeWarning =
-    formData.previousPolicyType === "Stand Alone OD" &&
-    standaloneAgeYears != null &&
-    standaloneAgeYears > 3;
+  const showStandaloneAgeWarning = false;
 
   const suggestedNcb = React.useMemo(() => {
     const regDateRaw = String(formData.dateOfReg || "").trim();
@@ -597,7 +591,9 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Type" required>
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={formData.previousPolicyType}
                     onChange={(v) => {
                       setField("previousPolicyType", v);
@@ -605,7 +601,6 @@ const Step3PreviousPolicy = ({
                       setField("previousOdExpiryDate", "");
                       setField("previousTpExpiryDate", "");
                     }}
-                   
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
                       { label: "Stand Alone OD", value: "Stand Alone OD" },
@@ -628,10 +623,11 @@ const Step3PreviousPolicy = ({
                   label="Policy Number"
                   extra={longPolicyNumberPreview}
                 >
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     value={formData.previousPolicyNumber}
                     onChange={handleChange("previousPolicyNumber")}
-                   
                     placeholder="e.g., OG-25-..."
                     title={formData.previousPolicyNumber || ""}
                   />
@@ -642,7 +638,8 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date">
-                  <DatePicker allowClear
+                  <DatePicker
+                    allowClear
                     value={
                       formData.previousPolicyStartDate
                         ? dayjs(formData.previousPolicyStartDate)
@@ -655,7 +652,6 @@ const Step3PreviousPolicy = ({
                           : "",
                       })
                     }
-                   
                     format={["DD/MM/YYYY", "D/M/YYYY"]}
                     placeholder="Select start date"
                     popupClassName="insurance-themed-calendar"
@@ -667,14 +663,15 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Duration">
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={formData.previousPolicyDuration}
                     onChange={(v) =>
                       handlePreviousPolicyStartOrDuration({
                         previousPolicyDuration: v,
                       })
                     }
-                   
                     options={durationSelectOptions}
                     placeholder="Duration"
                     disabled={!formData.previousPolicyType}
@@ -688,10 +685,12 @@ const Step3PreviousPolicy = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="OD Expiry Date">
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         type="date"
                         value={formData.previousOdExpiryDate}
-                        style={{ pointerEvents: 'none', cursor: 'default' }}
+                        style={{ pointerEvents: "none", cursor: "default" }}
                         readOnly
                         tabIndex={-1}
                       />
@@ -701,10 +700,12 @@ const Step3PreviousPolicy = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="TP Expiry Date">
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         type="date"
                         value={formData.previousTpExpiryDate}
-                        style={{ pointerEvents: 'none', cursor: 'default' }}
+                        style={{ pointerEvents: "none", cursor: "default" }}
                         readOnly
                         tabIndex={-1}
                       />
@@ -718,10 +719,12 @@ const Step3PreviousPolicy = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="OD Expiry Date">
-                    <Input size="large" allowClear
+                    <Input
+                      size="large"
+                      allowClear
                       type="date"
                       value={formData.previousOdExpiryDate}
-                      style={{ pointerEvents: 'none', cursor: 'default' }}
+                      style={{ pointerEvents: "none", cursor: "default" }}
                       readOnly
                       tabIndex={-1}
                     />
@@ -734,10 +737,12 @@ const Step3PreviousPolicy = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="TP Expiry Date">
-                    <Input size="large" allowClear
+                    <Input
+                      size="large"
+                      allowClear
                       type="date"
                       value={formData.previousTpExpiryDate}
-                      style={{ pointerEvents: 'none', cursor: 'default' }}
+                      style={{ pointerEvents: "none", cursor: "default" }}
                       readOnly
                       tabIndex={-1}
                     />
@@ -749,12 +754,13 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="NCB Discount (%)">
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={Number(formData.previousNcbDiscount ?? 0)}
                     onChange={(v) =>
                       setField("previousNcbDiscount", Number(v ?? 0))
                     }
-                   
                     options={[
                       { label: "0%", value: 0 },
                       { label: "20%", value: 20 },
@@ -775,7 +781,9 @@ const Step3PreviousPolicy = ({
                   <button
                     type="button"
                     className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
-                    onClick={() => setField("previousNcbDiscount", suggestedNcb)}
+                    onClick={() =>
+                      setField("previousNcbDiscount", suggestedNcb)
+                    }
                   >
                     Use suggested
                   </button>
@@ -786,10 +794,11 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Claim Last Year" required>
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={formData.claimTakenLastYear}
                     onChange={(v) => setField("claimTakenLastYear", v)}
-                   
                     options={[
                       { label: "Yes", value: "Yes" },
                       { label: "No", value: "No" },
@@ -813,10 +822,11 @@ const Step3PreviousPolicy = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Hypothecation">
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={formData.previousHypothecation}
                     onChange={(v) => setField("previousHypothecation", v)}
-                   
                     options={HYPOTHECATION_OPTIONS}
                     showSearch
                     filterOption={(input, option) =>
@@ -831,7 +841,8 @@ const Step3PreviousPolicy = ({
 
             <Col xs={24}>
               <CleanField label="Remarks">
-                <Input.TextArea allowClear
+                <Input.TextArea
+                  allowClear
                   rows={2}
                   value={formData.previousRemarks}
                   onChange={handleChange("previousRemarks")}
@@ -990,14 +1001,13 @@ const Step3PreviousPolicy = ({
                               idv: Number(v || 0),
                             }))
                           }
-                         
                           placeholder="₹ 0"
                           {...amountInputProps}
                         />
                       </CleanField>
                     </div>
 
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                       <div className={fieldWrapClass}>
                         <CleanField label="Own Damage Amount">
                           <InputNumber
@@ -1010,7 +1020,6 @@ const Step3PreviousPolicy = ({
                                 basicOwnDamage: Number(v || 0),
                               }))
                             }
-                           
                             placeholder="₹ 0"
                             {...amountInputProps}
                           />
@@ -1029,7 +1038,6 @@ const Step3PreviousPolicy = ({
                                 basicThirdParty: Number(v || 0),
                               }))
                             }
-                           
                             placeholder="₹ 0"
                             {...amountInputProps}
                           />
@@ -1047,7 +1055,6 @@ const Step3PreviousPolicy = ({
                                 addOnsTotal: Number(v || 0),
                               }))
                             }
-                           
                             placeholder="₹ 0"
                             {...amountInputProps}
                           />
@@ -1063,7 +1070,6 @@ const Step3PreviousPolicy = ({
                         <InputNumber
                           min={0}
                           value={Number(computedEditModeTotalPremium || 0)}
-                         
                           placeholder="₹ 0"
                           disabled
                           {...amountInputProps}
