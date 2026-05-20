@@ -1261,6 +1261,11 @@ const compactActionForChat = (action = {}) => {
 const compactAciChatContext = (context = {}) => {
   if (!isObject(context)) return {};
 
+  const hasExplicitAnchorVariant = Object.prototype.hasOwnProperty.call(
+    context,
+    "anchorVariant",
+  );
+
   const selectedVehicle = compactVehicleForChat(
     context.selectedVehicle ||
       context.vehicle ||
@@ -1280,31 +1285,44 @@ const compactAciChatContext = (context = {}) => {
     context.lastAction || context.action || context.activeAction || {},
   );
 
+  const anchorVariant = compactText(
+    hasExplicitAnchorVariant
+      ? String(context.anchorVariant || "")
+      : selectedVehicle?.variant || selectedVehicle?.variantName,
+    120,
+  );
+
+  const scopedSelectedVehicle = selectedVehicle
+    ? {
+        ...selectedVehicle,
+        variant: anchorVariant,
+        variantName: anchorVariant,
+      }
+    : null;
+
   return {
-    selectedVehicle,
+    selectedVehicle: scopedSelectedVehicle,
     selectedColor,
 
     anchorMake: compactText(
-      context.anchorMake || selectedVehicle?.make || selectedVehicle?.brand,
+      context.anchorMake || scopedSelectedVehicle?.make || scopedSelectedVehicle?.brand,
       80,
     ),
     anchorModel: compactText(
-      context.anchorModel || selectedVehicle?.model,
+      context.anchorModel || scopedSelectedVehicle?.model,
       100,
     ),
-    anchorVariant: compactText(
-      context.anchorVariant ||
-        selectedVehicle?.variant ||
-        selectedVehicle?.variantName,
-      120,
-    ),
+    anchorVariant,
     anchorCity: compactText(
       context.anchorCity ||
-        selectedVehicle?.citySlug ||
-        selectedVehicle?.city ||
+        scopedSelectedVehicle?.citySlug ||
+        scopedSelectedVehicle?.city ||
         "new-delhi",
       80,
     ),
+    selectedComparisonSet: isObject(context.selectedComparisonSet)
+      ? context.selectedComparisonSet
+      : {},
 
     activeScreen: compactText(context.activeScreen || context.screen, 80),
     activeCanvasType: compactText(

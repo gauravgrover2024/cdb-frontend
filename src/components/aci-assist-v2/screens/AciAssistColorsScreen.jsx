@@ -11,8 +11,9 @@ import {
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
-import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
+import { AciComposer, AciLogo, emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 const TOOL_NAME = "vehicle_colors";
 
@@ -595,6 +596,7 @@ function fireColorAction(label, payload = {}, onAction) {
     (vehicle
       ? `${label} ${vehicleTitle}${color ? ` ${colorName}` : ""}`
       : label);
+  const contextVehicle = payload.contextPatch?.selectedVehicle || vehicle;
 
   emitAciAction(
     {
@@ -613,24 +615,12 @@ function fireColorAction(label, payload = {}, onAction) {
         color,
       },
       contextPatch: {
-        selectedVehicle: vehicle,
-        anchorModel: vehicle?.model,
-        anchorMake: vehicle?.make || vehicle?.brand,
-        anchorCity: vehicle?.citySlug || vehicle?.anchorCity || vehicle?.city,
+        ...buildVehicleContextPatch({ vehicle: contextVehicle }),
         selectedColor: color,
         ...(payload.contextPatch || {}),
       },
     },
     onAction,
-  );
-}
-
-function AciMark() {
-  return (
-    <span className="aci-color-logo">
-      <strong>ACI</strong>
-      <em>ASSIST</em>
-    </span>
   );
 }
 
@@ -1077,7 +1067,7 @@ function MobileScreen({
           <ArrowLeft size={27} />
         </button>
 
-        <AciMark />
+        <AciLogo mobile compact onAction={onAction} />
 
         <div>
           <button
@@ -2106,32 +2096,6 @@ const baseStyles = `
       object-fit: cover;
       border-radius: inherit;
       display: block;
-    }
-
-    .aci-color-logo {
-      justify-self: center;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      color: #07112e;
-    }
-
-    .aci-color-logo strong {
-      color: var(--aci-blue);
-      font-size: 28px;
-      line-height: .85;
-      font-weight: 950;
-      letter-spacing: -3px;
-      transform: skewX(-8deg);
-    }
-
-    .aci-color-logo em {
-      color: #07112e;
-      font-size: 12px;
-      line-height: 1;
-      font-style: normal;
-      letter-spacing: 5.6px;
-      font-weight: 760;
     }
 
     .aci-mobile-title {

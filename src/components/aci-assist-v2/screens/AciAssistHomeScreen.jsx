@@ -21,12 +21,14 @@ import {
 import {
   AciAssistantOrb,
   AciComposer,
+  AciLogo,
   AciSavedButton,
   AciVehicleVisual,
   emitAciAction,
   fadeUp,
   stagger,
 } from "../shared/AciAssistShared";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 import { getAciV2PremiumIcon } from "../shared/AciV2PremiumIcons";
 import { fetchAciPopularCars } from "../services/aciAssistV2Api";
 
@@ -382,12 +384,11 @@ const normalizeRecentVehicle = (
 
 const buildPopularContext = (car = {}) => {
   const selectedVehicle = normalizePopularVehicle(car);
-  return {
-    selectedVehicle,
-    anchorMake: selectedVehicle.make || selectedVehicle.brand,
-    anchorModel: selectedVehicle.model,
-    anchorCity: CITY_SLUG,
-  };
+  return buildVehicleContextPatch({
+    vehicle: selectedVehicle,
+    city: CITY_SLUG,
+    includeVariant: false,
+  });
 };
 
 const buildPopularAction = (car = {}, mode = "overview") => {
@@ -538,37 +539,6 @@ const normalizeHomeData = (data = {}) => {
   };
 };
 
-function AciAssistSignatureLogo({ mobile = false, onAction }) {
-  return (
-    <button
-      type="button"
-      className={`aci-signature-logo ${mobile ? "is-mobile" : "is-desktop"}`}
-      onClick={() =>
-        emitAciAction(
-          {
-            label: "ACI Assist Home",
-            query: "ACI Assist Home",
-            type: "go_home",
-          },
-          onAction,
-        )
-      }
-      aria-label="ACI Assist Home"
-    >
-      <span className="aci-signature-mark" aria-hidden="true">
-        <span>A</span>
-        <span>C</span>
-        <span>I</span>
-      </span>
-
-      <span className="aci-signature-copy">
-        <strong>ASSIST</strong>
-        <em>{mobile ? "ONE BOT SOLUTION" : "INTELLIGENT NEW CAR CO-PILOT"}</em>
-      </span>
-    </button>
-  );
-}
-
 function DesktopTrendingSkeletonCard({ index }) {
   return (
     <motion.article
@@ -628,7 +598,7 @@ function DesktopHeader({ data, onAction }) {
       transition={{ duration: 0.45 }}
     >
       <div className="desktop-header-left">
-        <AciAssistSignatureLogo onAction={onAction} />
+        <AciLogo onAction={onAction} />
       </div>
 
       <div className="desktop-header-center">
@@ -1425,7 +1395,7 @@ function MobileHeader({ data, onAction }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
     >
-      <AciAssistSignatureLogo mobile onAction={onAction} />
+      <AciLogo mobile onAction={onAction} />
 
       <div>
         <button
@@ -3549,96 +3519,9 @@ export default function AciAssistHomeScreen({
 
 /* ACI_HOME_MOBILE_HERO_LOGO_HEADING_FINAL_START */
 
-/* Restore premium ACI Assist logo */
-.aci-home-root .aci-signature-logo {
-  border: 0 !important;
-  background: transparent !important;
-  padding: 0 !important;
-  display: inline-flex !important;
-  align-items: center !important;
-  gap: 12px !important;
-  cursor: pointer !important;
-  color: #071126 !important;
-  text-align: left !important;
-}
-
-.aci-home-root .aci-signature-mark {
-  position: relative !important;
-  display: inline-flex !important;
-  align-items: flex-end !important;
-  gap: 0 !important;
-  font-weight: 1000 !important;
-  letter-spacing: -0.16em !important;
-  line-height: .78 !important;
-  font-size: 34px !important;
-  color: #0b5cff !important;
-  transform: skewX(-8deg) !important;
-  filter: drop-shadow(0 12px 18px rgba(11, 92, 255, .13)) !important;
-}
-
-.aci-home-root .aci-signature-mark::after {
-  content: "" !important;
-  position: absolute !important;
-  right: -8px !important;
-  top: -5px !important;
-  width: 7px !important;
-  height: 7px !important;
-  border-radius: 999px !important;
-  background: #0b5cff !important;
-  box-shadow: 0 0 0 5px rgba(11, 92, 255, .12) !important;
-}
-
-.aci-home-root .aci-signature-mark span:nth-child(2) {
-  transform: translateX(-1px) !important;
-}
-
-.aci-home-root .aci-signature-mark span:nth-child(3) {
-  transform: translateX(-3px) !important;
-}
-
-.aci-home-root .aci-signature-copy {
-  display: grid !important;
-  gap: 2px !important;
-}
-
-.aci-home-root .aci-signature-copy strong {
-  color: #071126 !important;
-  font-size: 18px !important;
-  line-height: 1 !important;
-  letter-spacing: .25em !important;
-  font-weight: 900 !important;
-}
-
-.aci-home-root .aci-signature-copy em {
-  color: #64748b !important;
-  font-style: normal !important;
-  font-size: 8.5px !important;
-  line-height: 1 !important;
-  letter-spacing: .23em !important;
-  font-weight: 760 !important;
-}
-
 @media (max-width: 1180px) {
   .aci-home-root .mobile-header {
     margin-bottom: 12px !important;
-  }
-
-  .aci-home-root .aci-signature-logo.is-mobile {
-    gap: 10px !important;
-  }
-
-  .aci-home-root .aci-signature-logo.is-mobile .aci-signature-mark {
-    font-size: 31px !important;
-  }
-
-  .aci-home-root .aci-signature-logo.is-mobile .aci-signature-copy strong {
-    font-size: 16px !important;
-    letter-spacing: .23em !important;
-  }
-
-  .aci-home-root .aci-signature-logo.is-mobile .aci-signature-copy em {
-    font-size: 7.8px !important;
-    letter-spacing: .22em !important;
   }
 }
 

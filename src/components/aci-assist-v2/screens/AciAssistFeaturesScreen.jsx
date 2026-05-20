@@ -29,8 +29,9 @@ import {
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
-import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
+import { AciComposer, AciLogo, emitAciAction } from "../shared/AciAssistShared";
 import { getDisplayCarImage } from "../shared/aciV2Image";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 14, filter: "blur(7px)" },
@@ -745,6 +746,14 @@ const fireFeatureAction = (
     contextPatch = {},
   },
 ) => {
+  const hasPatchVariant = Object.prototype.hasOwnProperty.call(
+    contextPatch || {},
+    "anchorVariant",
+  );
+  const scopedVariant = hasPatchVariant
+    ? contextPatch.anchorVariant
+    : vehicle?.selectedVariant || vehicle?.variant;
+
   emitAciAction(
     {
       id: slugify(`${label}-${query || ""}`, "feature-action"),
@@ -757,26 +766,17 @@ const fireFeatureAction = (
       vehicle,
       payload,
       contextPatch: {
-        selectedVehicle: vehicle,
-        anchorMake: vehicle?.make || vehicle?.brand,
-        anchorModel: vehicle?.model,
-        anchorVariant: vehicle?.selectedVariant || vehicle?.variant,
-        anchorCity: vehicle?.citySlug || vehicle?.city || DEFAULT_CITY,
+        ...buildVehicleContextPatch({
+          vehicle,
+          variant: scopedVariant,
+          city: vehicle?.citySlug || vehicle?.city || DEFAULT_CITY,
+        }),
         ...contextPatch,
       },
     },
     onAction,
   );
 };
-
-function AciMark() {
-  return (
-    <span className="afi-mark" aria-label="ACI Assist">
-      <strong>ACI</strong>
-      <em>ASSIST</em>
-    </span>
-  );
-}
 
 function VehicleImage({ src, title, mobile = false }) {
   const [failed, setFailed] = useState(false);
@@ -1235,7 +1235,7 @@ function DesktopLayout(props) {
             <ArrowLeft size={19} />
             Back
           </button>
-          <AciMark />
+          <AciLogo compact onAction={onAction} />
           <button
             type="button"
             className="afi-bell-button"
@@ -1346,7 +1346,7 @@ function MobileLayout(props) {
           >
             <ArrowLeft size={25} />
           </button>
-          <AciMark />
+          <AciLogo mobile compact onAction={onAction} />
           <button
             type="button"
             onClick={() =>
@@ -1688,10 +1688,6 @@ const styles = `
     margin-bottom: 18px;
   }
 
-  .afi-mark { justify-self: center; display: inline-flex; align-items: center; gap: 9px; color: var(--afi-ink); }
-  .afi-mark strong { color: var(--afi-blue); font-size: 30px; line-height: .85; font-weight: 950; letter-spacing: -3px; transform: skewX(-8deg); }
-  .afi-mark em { color: var(--afi-ink); font-size: 13px; line-height: 1; font-style: normal; letter-spacing: 5.4px; font-weight: 780; }
-
   .afi-back-button,
   .afi-bell-button {
     height: 40px;
@@ -1862,9 +1858,6 @@ const styles = `
     .afi-mobile-header button { position: relative; width: 40px; height: 40px; border: 0; border-radius: 999px; background: transparent; color: #334155; display: grid; place-items: center; }
     .afi-mobile-header button:last-child { justify-self: end; }
     .afi-mobile-header button i { position: absolute; right: 8px; top: 7px; width: 8px; height: 8px; border-radius: 999px; background: var(--afi-blue); border: 2px solid #fff; }
-    .afi-mobile-header .afi-mark { justify-self: center; }
-    .afi-mobile-header .afi-mark strong { font-size: 28px; }
-    .afi-mobile-header .afi-mark em { font-size: 12px; letter-spacing: 5.2px; }
     .afi-mobile-title { padding: 6px 2px 0; }
     .afi-mobile-title span { color: #334155; text-transform: uppercase; letter-spacing: .24em; font-size: 10px; font-weight: 820; }
     .afi-mobile-title h1 { margin: 9px 0 0; color: #050b22; font-family: var(--afi-serif); font-size: 39px; line-height: .9; letter-spacing: -.062em; font-weight: 560; }

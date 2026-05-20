@@ -6,6 +6,7 @@ import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
 import { emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
 import { getDisplayCarImage } from "../shared/aciV2Image";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12, filter: "blur(5px)" },
@@ -214,12 +215,9 @@ export default function AciAssistRecommendationScreen({
                     intent: ACI_INTENTS.OPEN_VEHICLE,
                     canvasType: ACI_CANVAS_TYPES.CAR_OVERVIEW,
                     vehicle: card.vehicle,
-                    contextPatch: {
-                      selectedVehicle: card.vehicle,
-                      anchorModel: card.vehicle.model,
-                      anchorMake: card.vehicle.make || card.vehicle.brand,
-                      anchorCity: card.vehicle.city,
-                    },
+                    contextPatch: buildVehicleContextPatch({
+                      vehicle: card.vehicle,
+                    }),
                   },
                   onAction,
                 )

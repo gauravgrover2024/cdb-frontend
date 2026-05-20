@@ -14,6 +14,7 @@ import {
   Wallet,
   Wrench,
 } from "lucide-react";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 export const ACI_HOME_IMAGES = {
   avatar: "",
@@ -108,10 +109,7 @@ export const buildVehicleAction = (vehicle) =>
     type: "open_vehicle",
     vehicle,
     contextPatch: {
-      anchorModel: vehicle.model,
-      anchorMake: vehicle.make,
-      anchorCity: vehicle.city || "Delhi",
-      selectedVehicle: vehicle,
+      ...buildVehicleContextPatch({ vehicle, includeVariant: false }),
       activeCanvas: {
         type: ACI_CANVAS_TYPES.CAR_OVERVIEW,
         model: vehicle.model,
@@ -127,7 +125,7 @@ export const buildVehicleQuickActions = (vehicle) => [
     intent: ACI_INTENTS.PRICELIST,
     canvasType: ACI_CANVAS_TYPES.PRICELIST,
     vehicle,
-    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+    contextPatch: buildVehicleContextPatch({ vehicle, includeVariant: false }),
   }),
   makeAciAction({
     id: `${vehicle.id}-emi`,
@@ -136,7 +134,7 @@ export const buildVehicleQuickActions = (vehicle) => [
     intent: ACI_INTENTS.EMI,
     canvasType: ACI_CANVAS_TYPES.EMI,
     vehicle,
-    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+    contextPatch: buildVehicleContextPatch({ vehicle, includeVariant: false }),
   }),
   makeAciAction({
     id: `${vehicle.id}-compare`,
@@ -145,7 +143,7 @@ export const buildVehicleQuickActions = (vehicle) => [
     intent: ACI_INTENTS.COMPARISON,
     canvasType: ACI_CANVAS_TYPES.COMPARISON,
     vehicle,
-    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+    contextPatch: buildVehicleContextPatch({ vehicle, includeVariant: false }),
   }),
   makeAciAction({
     id: `${vehicle.id}-colors`,
@@ -154,7 +152,7 @@ export const buildVehicleQuickActions = (vehicle) => [
     intent: ACI_INTENTS.COLORS,
     canvasType: ACI_CANVAS_TYPES.COLORS,
     vehicle,
-    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+    contextPatch: buildVehicleContextPatch({ vehicle, includeVariant: false }),
   }),
   makeAciAction({
     id: `${vehicle.id}-features`,
@@ -163,7 +161,7 @@ export const buildVehicleQuickActions = (vehicle) => [
     intent: ACI_INTENTS.FEATURES,
     canvasType: ACI_CANVAS_TYPES.FEATURES,
     vehicle,
-    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+    contextPatch: buildVehicleContextPatch({ vehicle, includeVariant: false }),
   }),
   makeAciAction({
     id: `${vehicle.id}-quotation`,
@@ -174,7 +172,7 @@ export const buildVehicleQuickActions = (vehicle) => [
     type: "lead",
     tone: "gold",
     vehicle,
-    contextPatch: { selectedVehicle: vehicle, anchorModel: vehicle.model },
+    contextPatch: buildVehicleContextPatch({ vehicle, includeVariant: false }),
   }),
 ];
 

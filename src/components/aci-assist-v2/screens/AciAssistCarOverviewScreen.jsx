@@ -34,6 +34,7 @@ import {
   fadeUp,
   stagger,
 } from "../shared/AciAssistShared";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 const compact = (value) => String(value || "").trim();
 const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
@@ -64,10 +65,12 @@ const getCanvas = (key, fallback) => ACI_CANVAS_TYPES?.[key] || fallback;
 const getIntent = (key, fallback) => ACI_INTENTS?.[key] || fallback;
 
 const buildContextPatch = (vehicle = {}, extra = {}) => ({
-  selectedVehicle: vehicle,
-  anchorModel: vehicle.model || vehicle.name,
-  anchorMake: vehicle.make || vehicle.brand,
-  anchorCity: vehicle.city,
+  ...buildVehicleContextPatch({
+    vehicle,
+    variant: Object.prototype.hasOwnProperty.call(extra, "anchorVariant")
+      ? extra.anchorVariant
+      : extra.variant,
+  }),
   ...extra,
 });
 
@@ -1145,12 +1148,7 @@ function ComparePanel({ vehicle = {}, onAction, mobile = false }) {
     intent: ACI_INTENTS.RECOMMENDATIONS,
     canvasType: ACI_CANVAS_TYPES.RECOMMENDATIONS || "recommendation_results_canvas",
     vehicle,
-    contextPatch: {
-      selectedVehicle: vehicle,
-      anchorModel: vehicle?.model,
-      anchorMake: vehicle?.make || vehicle?.brand,
-      anchorCity: vehicle?.city,
-    },
+    contextPatch: buildVehicleContextPatch({ vehicle }),
   };
 
   const compareAction = compareWith
@@ -1161,12 +1159,7 @@ function ComparePanel({ vehicle = {}, onAction, mobile = false }) {
         intent: ACI_INTENTS.COMPARISON,
         canvasType: ACI_CANVAS_TYPES.COMPARISON,
         vehicle,
-        contextPatch: {
-          selectedVehicle: vehicle,
-          anchorModel: vehicle?.model,
-          anchorMake: vehicle?.make || vehicle?.brand,
-          anchorCity: vehicle?.city,
-        },
+        contextPatch: buildVehicleContextPatch({ vehicle }),
       }
     : findRivalsAction;
 

@@ -11,12 +11,12 @@ import {
   Info,
   MapPin,
   Settings2,
-  Sparkles,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
-import { AciComposer, emitAciAction } from "../shared/AciAssistShared";
+import { AciComposer, AciLogo, emitAciAction } from "../shared/AciAssistShared";
 import CarImageStage from "../shared/CarImageStage";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 const IMAGE_KEYS = [
   "heroImageNormalizedUrl",
@@ -1281,11 +1281,7 @@ function firePriceAction(label, payload = {}, onAction) {
       vehicle,
       payload,
       contextPatch: {
-        selectedVehicle: vehicle,
-        anchorModel: vehicle?.model,
-        anchorMake: vehicle?.make || vehicle?.brand,
-        anchorCity: vehicle?.city,
-        anchorVariant: variant,
+        ...buildVehicleContextPatch({ vehicle, variant }),
         ...(payload.contextPatch || {}),
       },
     },
@@ -1293,26 +1289,10 @@ function firePriceAction(label, payload = {}, onAction) {
   );
 }
 
-function Logo({ mobile = false, onAction }) {
-  return (
-    <button
-      type="button"
-      className={`price-logo ${mobile ? "mobile" : ""}`}
-      onClick={() =>
-        firePriceAction("Home", { type: "go_home", intent: "" }, onAction)
-      }
-    >
-      <span>ACI</span>
-      <strong>ASSIST</strong>
-      {!mobile ? <Sparkles size={14} /> : null}
-    </button>
-  );
-}
-
 function DesktopHeader({ data, onAction }) {
   return (
     <motion.header className="price-desktop-header" variants={fadeUp}>
-      <Logo onAction={onAction} />
+      <AciLogo compact onAction={onAction} />
       <div className="desktop-actions">
         <button
           type="button"
@@ -1883,7 +1863,7 @@ function SideSummary({
 function MobileHeader({ data, onAction }) {
   return (
     <header className="price-mobile-header">
-      <Logo mobile onAction={onAction} />
+      <AciLogo mobile compact onAction={onAction} />
       <div>
         <button
           type="button"
@@ -2683,26 +2663,6 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
 .price-mobile-page { display: none; }
 
-.price-logo {
-  border: 0;
-  background: transparent;
-  padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 11px;
-  color: var(--ink);
-}
-.price-logo span {
-  color: var(--blue);
-  font-size: 32px;
-  line-height: .9;
-  font-weight: 900;
-  letter-spacing: -4px;
-  transform: skewX(-9deg);
-}
-.price-logo strong { font-size: 14px; line-height: 1; letter-spacing: 5px; font-weight: 760; }
-.price-logo svg { color: var(--blue); fill: currentColor; }
-
 .price-desktop-header,
 .price-desktop-page {
   width: min(100%, 1510px);
@@ -3049,8 +3009,6 @@ td .on-road { color: var(--blue); }
     background: #fff;
   }
   .price-mobile-header { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
-  .price-logo.mobile span { font-size: 30px; }
-  .price-logo.mobile strong { font-size: 13px; letter-spacing: 4px; }
   .price-mobile-header > div { display: flex; align-items: center; gap: 8px; }
   .mobile-bell { position: relative; width: 38px; height: 38px; border: 0; background: transparent; display: grid; place-items: center; color: #475569; }
   .mobile-avatar { width: 40px; height: 40px; }

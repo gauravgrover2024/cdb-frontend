@@ -5,7 +5,6 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { motion } from "framer-motion";
 import { ACI_ASSIST_HOME_DATA, ACI_HOME_IMAGES } from "./data/homeScreenData";
 import {
   ACI_V2_SCREENS,
@@ -14,15 +13,19 @@ import {
   resolveScreenFromCanvasType,
 } from "./canvas/aciV2CanvasRegistry";
 import AciAssistStyles from "./shared/AciAssistStyles";
-import {
-  AciAssistantOrb,
-  AciComposer,
-  AciLogo,
-  AciVehicleVisual,
-  normalizeAciAction,
-} from "./shared/AciAssistShared";
+import { normalizeAciAction } from "./shared/AciAssistShared";
 import { askAciAssistV2 } from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
+import AciV2ChatFirstShell from "./chat/AciV2ChatShell";
+import {
+  compactContextForBackend,
+  firstValue,
+  getVehicleId,
+  getVehicleTitle,
+  mergeSessionContext,
+  mergeVehicle,
+  normalizeVehicle,
+} from "./context/aciV2ContextManager";
 
 const SCREEN = ACI_V2_SCREENS;
 
@@ -30,431 +33,6 @@ const isObject = (value) =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
 
 const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
-
-const firstValue = (...values) => {
-  for (const value of values) {
-    if (value !== undefined && value !== null && value !== "") return value;
-  }
-  return "";
-};
-
-const clampNumber = (value, min, max) => Math.min(max, Math.max(min, value));
-
-const frameNumber = (value, fallback) => {
-  const number = Number(value);
-  return Number.isFinite(number) ? number : fallback;
-};
-
-const cssPercent = (value, fallback = 0, min = -18, max = 18) => {
-  const raw =
-    typeof value === "string" && value.trim().endsWith("%")
-      ? Number(value.trim().slice(0, -1))
-      : frameNumber(value, fallback);
-
-  if (!Number.isFinite(raw)) return `${fallback}%`;
-  return `${clampNumber(raw, min, max)}%`;
-};
-
-const getStageFrame = (imageFrame, stageKey = "chatCard") => {
-  if (!imageFrame || typeof imageFrame !== "object") return null;
-
-  const stageFrames = imageFrame.stageFrames || {};
-  const stages = imageFrame.stages || {};
-
-  return (
-    stageFrames?.[stageKey] ||
-    stages?.[stageKey] ||
-    imageFrame?.[stageKey] ||
-    stageFrames?.colorChatCard ||
-    stageFrames?.chatCard ||
-    stageFrames?.colorStudio ||
-    stageFrames?.overviewHero ||
-    stageFrames?.mobileHero ||
-    stageFrames?.homeCard ||
-    stageFrames?.priceSide ||
-    stageFrames?.default ||
-    imageFrame
-  );
-};
-
-const buildChatImageFrameStyle = (imageFrame, stageKey = "chatCard") => {
-  const isColorChat =
-    stageKey === "colorChatCard" || stageKey === "colorStudio";
-  const fallbackScale = isColorChat ? "1.42" : "1";
-
-  const fallback = {
-    "--chat-car-frame-scale": fallbackScale,
-    "--chat-car-frame-x": "0%",
-    "--chat-car-frame-y": "0%",
-    "--chat-car-frame-origin": "center center",
-    "--car-frame-scale": fallbackScale,
-    "--car-frame-x": "0%",
-    "--car-frame-y": "0%",
-    "--car-frame-origin": "center center",
-  };
-
-  const frame = getStageFrame(imageFrame, stageKey);
-  if (!frame || typeof frame !== "object") return fallback;
-
-  const pickFirst = (...values) =>
-    values.find(
-      (value) => value !== undefined && value !== null && value !== "",
-    );
-
-  const readNumber = (...values) => {
-    const value = pickFirst(...values);
-
-    if (typeof value === "string" && value.trim().endsWith("%")) {
-      const parsed = Number(value.trim().slice(0, -1));
-      return Number.isFinite(parsed) ? parsed / 100 : null;
-    }
-
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
-  const clamp = (value, min, max) =>
-    Math.min(max, Math.max(min, Number(value) || 0));
-
-  const cssVars = {
-    ...(imageFrame?.cssVars || {}),
-    ...(frame?.cssVars || {}),
-  };
-
-  const canvasWidth = readNumber(
-    frame.canvas_width,
-    frame.canvasWidth,
-    frame.naturalWidth,
-    frame.imageWidth,
-    frame.sourceWidth,
-    imageFrame?.canvas_width,
-    imageFrame?.canvasWidth,
-    imageFrame?.naturalWidth,
-    imageFrame?.imageWidth,
-    imageFrame?.sourceWidth,
-  );
-
-  const canvasHeight = readNumber(
-    frame.canvas_height,
-    frame.canvasHeight,
-    frame.naturalHeight,
-    frame.imageHeight,
-    frame.sourceHeight,
-    imageFrame?.canvas_height,
-    imageFrame?.canvasHeight,
-    imageFrame?.naturalHeight,
-    imageFrame?.imageHeight,
-    imageFrame?.sourceHeight,
-  );
-
-  const bounds =
-    frame.bounds ||
-    frame.visibleBounds ||
-    frame.visibleBox ||
-    frame.contentBounds ||
-    frame.contentBox ||
-    frame.subjectBounds ||
-    frame.subjectBox ||
-    frame.carBounds ||
-    frame.carBox ||
-    frame.trimBounds ||
-    frame.trimBox ||
-    frame.bbox ||
-    frame;
-
-  const rawLeft = readNumber(bounds.left, bounds.x, bounds.minX);
-  const rawTop = readNumber(bounds.top, bounds.y, bounds.minY);
-  const rawWidth = readNumber(bounds.width, bounds.w);
-  const rawHeight = readNumber(bounds.height, bounds.h);
-
-  const looksNormalized =
-    [rawLeft, rawTop, rawWidth, rawHeight].every((value) =>
-      Number.isFinite(value),
-    ) &&
-    rawLeft >= 0 &&
-    rawTop >= 0 &&
-    rawWidth > 0 &&
-    rawHeight > 0 &&
-    rawLeft <= 1 &&
-    rawTop <= 1 &&
-    rawWidth <= 1 &&
-    rawHeight <= 1;
-
-  let centerX = null;
-  let centerY = null;
-  let widthRatio = null;
-  let heightRatio = null;
-
-  if (looksNormalized) {
-    centerX = rawLeft + rawWidth / 2;
-    centerY = rawTop + rawHeight / 2;
-    widthRatio = rawWidth;
-    heightRatio = rawHeight;
-  } else if (
-    Number.isFinite(canvasWidth) &&
-    Number.isFinite(canvasHeight) &&
-    canvasWidth > 0 &&
-    canvasHeight > 0 &&
-    Number.isFinite(rawLeft) &&
-    Number.isFinite(rawTop) &&
-    Number.isFinite(rawWidth) &&
-    Number.isFinite(rawHeight) &&
-    rawWidth > 0 &&
-    rawHeight > 0
-  ) {
-    centerX = (rawLeft + rawWidth / 2) / canvasWidth;
-    centerY = (rawTop + rawHeight / 2) / canvasHeight;
-    widthRatio = rawWidth / canvasWidth;
-    heightRatio = rawHeight / canvasHeight;
-  }
-
-  const hasBounds =
-    Number.isFinite(centerX) &&
-    Number.isFinite(centerY) &&
-    Number.isFinite(widthRatio) &&
-    Number.isFinite(heightRatio) &&
-    widthRatio > 0 &&
-    heightRatio > 0;
-
-  if (!hasBounds) return fallback;
-
-  const explicitScale = isColorChat
-    ? null
-    : readNumber(
-        cssVars["--chat-car-frame-scale"],
-        cssVars["--car-frame-scale"],
-        frame.scale,
-        frame.zoom,
-      );
-
-  const targetCenterX = 0.5;
-  const targetCenterY = 0.65;
-
-  /*
-  Same principle as Color Studio:
-  center the detected car frame and scale until it fills
-  the padded stage without cropping.
-*/
-  const safeWidthFill = isColorChat ? 0.94 : 0.9;
-  const safeHeightFill = isColorChat ? 0.86 : 0.72;
-
-  const widthScale = safeWidthFill / Math.max(widthRatio, 0.01);
-  const heightScale = safeHeightFill / Math.max(heightRatio, 0.01);
-
-  const fittedScale = clamp(
-    Math.min(widthScale, heightScale),
-    isColorChat ? 0.95 : 0.9,
-    isColorChat ? 2.85 : 2.05,
-  );
-
-  const scale = explicitScale || fittedScale;
-
-  const computedX = (targetCenterX - 0.5 - scale * (centerX - 0.5)) * 100;
-  const computedY = (targetCenterY - 0.5 - scale * (centerY - 0.5)) * 100;
-
-  const x = isColorChat
-    ? ""
-    : pickFirst(
-        cssVars["--chat-car-frame-x"],
-        cssVars["--car-frame-x"],
-        frame.translateXPct,
-        frame.translateXPercent,
-        frame.translateX,
-      );
-
-  const y = isColorChat
-    ? ""
-    : pickFirst(
-        cssVars["--chat-car-frame-y"],
-        cssVars["--car-frame-y"],
-        frame.translateYPct,
-        frame.translateYPercent,
-        frame.translateY,
-      );
-
-  const origin =
-    cssVars["--chat-car-frame-origin"] ||
-    cssVars["--car-frame-origin"] ||
-    frame.transformOrigin ||
-    "center center";
-
-  const xValue =
-    typeof x === "number"
-      ? `${x}%`
-      : x ||
-        `${clamp(computedX, isColorChat ? -28 : -34, isColorChat ? 28 : 34)}%`;
-
-  const yValue =
-    typeof y === "number"
-      ? `${y}%`
-      : y ||
-        `${clamp(computedY, isColorChat ? -34 : -30, isColorChat ? 26 : 30)}%`;
-
-  return {
-    "--chat-car-frame-scale": String(Number(scale).toFixed(4)),
-    "--chat-car-frame-x": xValue,
-    "--chat-car-frame-y": yValue,
-    "--chat-car-frame-origin": origin,
-    "--car-frame-scale": String(Number(scale).toFixed(4)),
-    "--car-frame-x": xValue,
-    "--car-frame-y": yValue,
-    "--car-frame-origin": origin,
-  };
-};
-
-const getVehicleId = (vehicle = {}) =>
-  firstValue(vehicle?.id, vehicle?._id, vehicle?.vehicleId, vehicle?.modelId);
-
-const getVehicleModelKey = (vehicle = {}) =>
-  String(firstValue(vehicle?.model, vehicle?.modelName) || "")
-    .toLowerCase()
-    .replace(/&/g, " and ")
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-const getVehicleTitle = (vehicle = {}) =>
-  firstValue(
-    vehicle?.displayName,
-    vehicle?.name,
-    [vehicle?.brand || vehicle?.make, vehicle?.model].filter(Boolean).join(" "),
-    vehicle?.model,
-  );
-
-const hasVehicleIdentity = (vehicle = {}) =>
-  Boolean(
-    getVehicleId(vehicle) ||
-    vehicle?.model ||
-    vehicle?.name ||
-    vehicle?.displayName,
-  );
-
-const normalizeVehicle = (vehicle) => {
-  if (!isObject(vehicle) || !hasVehicleIdentity(vehicle)) return null;
-
-  const make = firstValue(vehicle.make, vehicle.brand);
-  const brand = firstValue(vehicle.brand, vehicle.make);
-  const model = firstValue(vehicle.model, vehicle.modelName);
-  const displayName = getVehicleTitle({ ...vehicle, make, brand, model });
-
-  return {
-    ...vehicle,
-    id: firstValue(vehicle.id, vehicle._id, vehicle.vehicleId, vehicle.modelId),
-    _id: vehicle._id,
-    make,
-    brand,
-    model,
-    displayName,
-  };
-};
-
-const mergeVehicle = (base, incoming) => {
-  const normalizedBase = normalizeVehicle(base);
-  const normalizedIncoming = normalizeVehicle(incoming);
-
-  if (!normalizedIncoming) return normalizedBase;
-  if (!normalizedBase) return normalizedIncoming;
-
-  const baseId = getVehicleId(normalizedBase);
-  const incomingId = getVehicleId(normalizedIncoming);
-  const baseModel = getVehicleModelKey(normalizedBase);
-  const incomingModel = getVehicleModelKey(normalizedIncoming);
-
-  const isSameVehicle =
-    (baseId && incomingId && String(baseId) === String(incomingId)) ||
-    (baseModel && incomingModel && baseModel === incomingModel);
-
-  return {
-    ...(isSameVehicle ? normalizedBase : {}),
-    ...normalizedIncoming,
-    id: firstValue(
-      normalizedIncoming.id,
-      normalizedIncoming._id,
-      isSameVehicle ? normalizedBase.id : "",
-    ),
-    make: firstValue(
-      normalizedIncoming.make,
-      normalizedIncoming.brand,
-      isSameVehicle ? normalizedBase.make : "",
-    ),
-    brand: firstValue(
-      normalizedIncoming.brand,
-      normalizedIncoming.make,
-      isSameVehicle ? normalizedBase.brand : "",
-    ),
-    model: firstValue(
-      normalizedIncoming.model,
-      isSameVehicle ? normalizedBase.model : "",
-    ),
-    displayName: firstValue(
-      normalizedIncoming.displayName,
-      normalizedIncoming.name,
-      isSameVehicle ? normalizedBase.displayName : "",
-      isSameVehicle ? normalizedBase.name : "",
-    ),
-    imageUrl: firstValue(
-      normalizedIncoming.imageUrl,
-      normalizedIncoming.normalizedImageUrl,
-      normalizedIncoming.cleanImageUrl,
-      normalizedIncoming.heroImageUrl,
-      normalizedIncoming.vehicleImageUrl,
-      isSameVehicle ? normalizedBase.imageUrl : "",
-    ),
-    normalizedImageUrl: firstValue(
-      normalizedIncoming.normalizedImageUrl,
-      normalizedIncoming.cleanImageUrl,
-      isSameVehicle ? normalizedBase.normalizedImageUrl : "",
-    ),
-  };
-};
-
-const mergeSessionContext = (previous = {}, patch = {}) => {
-  const incomingVehicle =
-    patch.selectedVehicle || patch.vehicle || patch.activeVehicle;
-  const selectedVehicle = mergeVehicle(
-    previous.selectedVehicle,
-    incomingVehicle,
-  );
-  const previousVehicleKey = getVehicleModelKey(
-    previous.selectedVehicle || { model: previous.anchorModel },
-  );
-  const selectedVehicleKey = getVehicleModelKey(selectedVehicle);
-  const vehicleChanged =
-    Boolean(incomingVehicle) &&
-    previousVehicleKey &&
-    selectedVehicleKey &&
-    previousVehicleKey !== selectedVehicleKey;
-  const canReusePreviousVehicleAnchors = !vehicleChanged;
-
-  return {
-    ...previous,
-    ...patch,
-    selectedVehicle: selectedVehicle || previous.selectedVehicle || null,
-    anchorMake: firstValue(
-      patch.anchorMake,
-      selectedVehicle?.make,
-      selectedVehicle?.brand,
-      canReusePreviousVehicleAnchors ? previous.anchorMake : "",
-    ),
-    anchorModel: firstValue(
-      patch.anchorModel,
-      selectedVehicle?.model,
-      previous.anchorModel,
-    ),
-    anchorVariant: firstValue(
-      patch.anchorVariant,
-      selectedVehicle?.variant,
-      selectedVehicle?.variantName,
-      canReusePreviousVehicleAnchors ? previous.anchorVariant : "",
-    ),
-    anchorCity: firstValue(
-      patch.anchorCity,
-      selectedVehicle?.city,
-      previous.anchorCity,
-      "Delhi",
-    ),
-  };
-};
 
 const normalizeBackendWidget = (backend = {}) => {
   const widget =
@@ -465,79 +43,150 @@ const normalizeBackendWidget = (backend = {}) => {
     (isObject(backend.data?.widget) && backend.data.widget) ||
     {};
 
-  const rows = toArray(firstValue(backend.rows, widget.rows, backend.data?.rows));
-  const items = toArray(firstValue(backend.items, widget.items, backend.data?.items));
+  const backendData = isObject(backend.data) ? backend.data : {};
+  const widgetData = isObject(widget.data) ? widget.data : {};
+  const rows = toArray(firstValue(backend.rows, widget.rows, backendData.rows, widgetData.rows));
+  const items = toArray(firstValue(backend.items, widget.items, backendData.items, widgetData.items));
   const features = toArray(
     firstValue(
       backend.features,
       widget.features,
       widget.featureList,
-      backend.data?.features,
-      backend.data?.featureList,
+      backendData.features,
+      backendData.featureList,
+      widgetData.features,
+      widgetData.featureList,
     ),
   );
-
   const variantOptions = toArray(
     firstValue(
-      widget.variantOptions,
       backend.variantOptions,
-      backend.data?.variantOptions,
-      widget.data?.variantOptions,
-      widget.variants,
+      widget.variantOptions,
+      backendData.variantOptions,
+      widgetData.variantOptions,
       backend.variants,
+      widget.variants,
+      backendData.variants,
+      widgetData.variants,
     ),
   );
 
   return {
     ...widget,
-
-    intent: firstValue(backend.intent, widget.intent),
-    displayMode: firstValue(backend.displayMode, widget.displayMode),
+    intent: firstValue(backend.intent, widget.intent, backendData.intent, widgetData.intent),
+    displayMode: firstValue(
+      backend.displayMode,
+      widget.displayMode,
+      backendData.displayMode,
+      widgetData.displayMode,
+    ),
     canvasType: firstValue(backend.canvasType, widget.canvasType),
     inlineType: firstValue(backend.inlineType, widget.inlineType),
     title: firstValue(backend.title, widget.title),
     subtitle: firstValue(backend.subtitle, widget.subtitle),
     answer: firstValue(backend.answer, widget.answer),
-
     rows,
     items,
     features,
     featureList: features,
-    colors: toArray(firstValue(backend.colors, widget.colors)),
-    variants: variantOptions.length
-      ? variantOptions
-      : toArray(firstValue(backend.variants, widget.variants)),
+    colors: toArray(firstValue(backend.colors, widget.colors, backendData.colors, widgetData.colors)),
+    variants: variantOptions,
     variantOptions,
-    allVariants: toArray(firstValue(widget.allVariants, backend.allVariants, backend.data?.allVariants)),
-    matchedVariants: toArray(firstValue(widget.matchedVariants, backend.matchedVariants, backend.data?.matchedVariants)),
-
-    featureGroups: toArray(firstValue(widget.featureGroups, backend.featureGroups, backend.data?.featureGroups)),
-    quickSpecs: toArray(firstValue(widget.quickSpecs, backend.quickSpecs, backend.data?.quickSpecs)),
-    highlights: toArray(firstValue(widget.highlights, backend.highlights, backend.data?.highlights)),
-    searchableFeatures: toArray(firstValue(widget.searchableFeatures, backend.searchableFeatures, backend.data?.searchableFeatures)),
-
-    selectedVariant: firstValue(widget.selectedVariant, backend.selectedVariant, backend.data?.selectedVariant),
-    selectedVariantId: firstValue(widget.selectedVariantId, backend.selectedVariantId, backend.data?.selectedVariantId),
-    activeStatusSource: firstValue(widget.activeStatusSource, backend.activeStatusSource, backend.data?.activeStatusSource),
-    activeVariantCount: firstValue(widget.activeVariantCount, backend.activeVariantCount, backend.data?.activeVariantCount),
-    totalRawVariantCount: firstValue(widget.totalRawVariantCount, backend.totalRawVariantCount, backend.data?.totalRawVariantCount),
-    selectedVariantIsActive: firstValue(widget.selectedVariantIsActive, backend.selectedVariantIsActive, backend.data?.selectedVariantIsActive),
-    currentPricelistMatched: firstValue(widget.currentPricelistMatched, backend.currentPricelistMatched, backend.data?.currentPricelistMatched),
-    totalFeatureCount: firstValue(widget.totalFeatureCount, backend.totalFeatureCount, backend.data?.totalFeatureCount),
-    availableFeatureCount: firstValue(widget.availableFeatureCount, backend.availableFeatureCount, backend.data?.availableFeatureCount),
-
+    allVariants: toArray(
+      firstValue(widget.allVariants, backend.allVariants, backendData.allVariants, widgetData.allVariants),
+    ),
+    matchedVariants: toArray(
+      firstValue(
+        widget.matchedVariants,
+        backend.matchedVariants,
+        backendData.matchedVariants,
+        widgetData.matchedVariants,
+      ),
+    ),
+    featureGroups: toArray(
+      firstValue(widget.featureGroups, backend.featureGroups, backendData.featureGroups, widgetData.featureGroups),
+    ),
+    quickSpecs: toArray(
+      firstValue(widget.quickSpecs, backend.quickSpecs, backendData.quickSpecs, widgetData.quickSpecs),
+    ),
+    highlights: toArray(
+      firstValue(widget.highlights, backend.highlights, backendData.highlights, widgetData.highlights),
+    ),
+    searchableFeatures: toArray(
+      firstValue(
+        widget.searchableFeatures,
+        backend.searchableFeatures,
+        backendData.searchableFeatures,
+        widgetData.searchableFeatures,
+      ),
+    ),
+    selectedVariant: firstValue(
+      widget.selectedVariant,
+      backend.selectedVariant,
+      backendData.selectedVariant,
+      widgetData.selectedVariant,
+    ),
+    selectedVariantId: firstValue(
+      widget.selectedVariantId,
+      backend.selectedVariantId,
+      backendData.selectedVariantId,
+      widgetData.selectedVariantId,
+    ),
+    activeStatusSource: firstValue(
+      widget.activeStatusSource,
+      backend.activeStatusSource,
+      backendData.activeStatusSource,
+      widgetData.activeStatusSource,
+    ),
+    activeVariantCount: firstValue(
+      widget.activeVariantCount,
+      backend.activeVariantCount,
+      backendData.activeVariantCount,
+      widgetData.activeVariantCount,
+    ),
+    totalRawVariantCount: firstValue(
+      widget.totalRawVariantCount,
+      backend.totalRawVariantCount,
+      backendData.totalRawVariantCount,
+      widgetData.totalRawVariantCount,
+    ),
+    selectedVariantIsActive: firstValue(
+      widget.selectedVariantIsActive,
+      backend.selectedVariantIsActive,
+      backendData.selectedVariantIsActive,
+      widgetData.selectedVariantIsActive,
+    ),
+    currentPricelistMatched: firstValue(
+      widget.currentPricelistMatched,
+      backend.currentPricelistMatched,
+      backendData.currentPricelistMatched,
+      widgetData.currentPricelistMatched,
+    ),
+    totalFeatureCount: firstValue(
+      widget.totalFeatureCount,
+      backend.totalFeatureCount,
+      backendData.totalFeatureCount,
+      widgetData.totalFeatureCount,
+    ),
+    availableFeatureCount: firstValue(
+      widget.availableFeatureCount,
+      backend.availableFeatureCount,
+      backendData.availableFeatureCount,
+      widgetData.availableFeatureCount,
+    ),
     actions: toArray(firstValue(backend.actions, widget.actions)),
     leadingQuestions: toArray(
       firstValue(backend.leadingQuestions, widget.leadingQuestions),
     ),
-
-    vehicle: widget.vehicle || backend.vehicle || backend.data?.vehicle || null,
+    vehicle: widget.vehicle || backend.vehicle || backendData.vehicle || widgetData.vehicle || null,
     data: {
-      ...(widget.data || {}),
-      ...(backend.data || {}),
+      ...widgetData,
+      ...backendData,
     },
     contextPatch: {
       ...(widget.contextPatch || {}),
+      ...(widgetData.contextPatch || {}),
+      ...(backendData.contextPatch || {}),
       ...(backend.contextPatch || {}),
     },
     raw: backend.raw || widget.raw || null,
@@ -658,120 +307,6 @@ const getActionMessage = (action = {}, targetVehicle = null) => {
   return "";
 };
 
-const MAX_CONTEXT_ITEMS = 20;
-const MAX_CONTEXT_TEXT = 700;
-
-const trimContextText = (value) => {
-  if (typeof value !== "string") return value;
-  return value.length > MAX_CONTEXT_TEXT
-    ? `${value.slice(0, MAX_CONTEXT_TEXT)}…`
-    : value;
-};
-
-const sanitizeRecordForBackendContext = (record) => {
-  if (!isObject(record)) return trimContextText(record);
-
-  const blockedKeys = new Set([
-    "raw",
-    "backendRaw",
-    "html",
-    "descriptionHtml",
-    "imageBase64",
-    "base64",
-    "blob",
-    "file",
-  ]);
-
-  return Object.entries(record).reduce((acc, [key, value]) => {
-    if (blockedKeys.has(key)) return acc;
-
-    if (Array.isArray(value)) {
-      acc[key] = value
-        .slice(0, MAX_CONTEXT_ITEMS)
-        .map(sanitizeRecordForBackendContext);
-      return acc;
-    }
-
-    if (isObject(value)) {
-      acc[key] = sanitizeRecordForBackendContext(value);
-      return acc;
-    }
-
-    acc[key] = trimContextText(value);
-    return acc;
-  }, {});
-};
-
-const sanitizeWidgetForBackendContext = (widget) => {
-  if (!isObject(widget)) return null;
-
-  const allowedScalarKeys = [
-    "canvasType",
-    "__rawCanvasType",
-    "title",
-    "subtitle",
-    "answer",
-    "summary",
-    "selectedVariant",
-    "selectedColor",
-    "model",
-    "make",
-    "brand",
-    "city",
-  ];
-
-  const allowedArrayKeys = [
-    "rows",
-    "items",
-    "variants",
-    "colors",
-    "actions",
-    "leadingQuestions",
-    "suggestions",
-  ];
-
-  const clean = {};
-
-  allowedScalarKeys.forEach((key) => {
-    if (
-      widget[key] !== undefined &&
-      widget[key] !== null &&
-      widget[key] !== ""
-    ) {
-      clean[key] = trimContextText(widget[key]);
-    }
-  });
-
-  allowedArrayKeys.forEach((key) => {
-    const list = toArray(widget[key]);
-    if (list.length) {
-      clean[key] = list
-        .slice(0, MAX_CONTEXT_ITEMS)
-        .map(sanitizeRecordForBackendContext);
-    }
-  });
-
-  return Object.keys(clean).length ? clean : null;
-};
-
-const sanitizeActionForBackendContext = (action) => {
-  if (!isObject(action)) return null;
-
-  return {
-    id: action.id || "",
-    label: action.label || "",
-    query: action.query || "",
-    type: action.type || "",
-    intent: action.intent || "",
-    canvasType: action.canvasType || "",
-    vehicle: normalizeVehicle(action.vehicle),
-    contextPatch: {
-      ...(action.contextPatch || {}),
-      selectedVehicle: normalizeVehicle(action.contextPatch?.selectedVehicle),
-    },
-  };
-};
-
 const buildChatMessageId = (prefix = "msg") =>
   `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
 
@@ -795,1146 +330,6 @@ const getWidgetTitle = (widget = {}, canvasType = "", vehicle = null) => {
     canvasTypeLabel(canvasType),
   );
 };
-
-const getWidgetSubtitle = (widget = {}, vehicle = null) => {
-  const item = safeWidget(widget);
-
-  return firstValue(
-    item.subtitle,
-    item.summary,
-    item.answer,
-    item.city ? `Live ${item.city} data` : "",
-    vehicle?.city ? `Using ${vehicle.city} as city context` : "",
-  );
-};
-
-const getWidgetRows = (widget = {}) => {
-  const item = safeWidget(widget);
-
-  return toArray(item.rows || item.variants || item.items || item.colors).slice(
-    0,
-    3,
-  );
-};
-
-const getWidgetCountText = (widget = {}) => {
-  const item = safeWidget(widget);
-  const rows = toArray(item.rows);
-  const variants = toArray(item.variants);
-  const colors = toArray(item.colors);
-  const items = toArray(item.items);
-
-  if (rows.length) return `${rows.length} results`;
-  if (variants.length) return `${variants.length} variants`;
-  if (colors.length) return `${colors.length} colors`;
-  if (items.length) return `${items.length} items`;
-  return "Live result";
-};
-
-const formatIndianPrice = (value) => {
-  if (value === null || value === undefined || value === "") return "";
-
-  const originalText = String(value).trim();
-  if (!originalText) return "";
-
-  const normalizeNumber = (input) => {
-    const clean = String(input).replace(/[₹,\s]/g, "");
-    const number = Number(clean.replace(/[^\d.]/g, ""));
-    return Number.isFinite(number) ? number : null;
-  };
-
-  const formatSinglePrice = (input, inheritedUnit = "") => {
-    let text = String(input || "").trim();
-    if (!text) return "";
-
-    const explicitUnit =
-      text.match(/lakh|crore/i)?.[0]?.toLowerCase() || inheritedUnit;
-
-    const number = normalizeNumber(text);
-
-    if (number === null) {
-      return text.startsWith("₹") ? text : `₹${text}`;
-    }
-
-    let rupeeValue = number;
-
-    if (explicitUnit === "crore") {
-      rupeeValue = number * 10000000;
-    } else if (explicitUnit === "lakh") {
-      rupeeValue = number * 100000;
-    } else if (number > 0 && number < 1000 && String(text).includes(".")) {
-      rupeeValue = number * 100000;
-    }
-
-    return `₹${Math.round(rupeeValue).toLocaleString("en-IN")}`;
-  };
-
-  const inheritedUnit = /crore/i.test(originalText)
-    ? "crore"
-    : /lakh/i.test(originalText)
-      ? "lakh"
-      : "";
-
-  const parts = originalText
-    .replace(/\s+to\s+/gi, " – ")
-    .split(/\s*(?:–|—|-)\s*/)
-    .filter(Boolean);
-
-  if (parts.length > 1) {
-    return parts
-      .map((part) => formatSinglePrice(part, inheritedUnit))
-      .join(" – ");
-  }
-
-  return formatSinglePrice(originalText, inheritedUnit);
-};
-
-const getQuestionIconType = (label = "", index = 0) => {
-  const text = String(label).toLowerCase();
-
-  if (/automatic|manual|imt|ivt|dct|transmission/.test(text)) return "gear";
-  if (
-    /pricelist|price list|price breakup|breakup|on-road|road tax|insurance|fee/.test(
-      text,
-    )
-  )
-    return "receipt";
-  if (/charge|on-road|road tax|insurance|fee/.test(text)) return "receipt";
-  if (/best value|value|emi|loan|finance|budget|price/.test(text))
-    return "money";
-  if (/compare|comparison|versus|vs/.test(text)) return "compare";
-  if (/petrol|diesel|fuel|cng|ev|electric/.test(text)) return "fuel";
-  if (/city|highway|road|drive|traffic/.test(text)) return "road";
-  if (/seat|seater|family|space/.test(text)) return "people";
-  if (/feature|sunroof|safety|variant/.test(text)) return "spark";
-
-  return ["spark", "gear", "money", "road", "compare"][index % 5];
-};
-
-function AciQuestionIcon({ label = "", index = 0 }) {
-  const type = getQuestionIconType(label, index);
-
-  return (
-    <span className="aci-chat-chip-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none">
-        {type === "gear" ? (
-          <>
-            <path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Z" />
-            <path d="M12 2.8v2.4" />
-            <path d="M12 18.8v2.4" />
-            <path d="M4.2 6.1l1.7 1.7" />
-            <path d="M18.1 16.2l1.7 1.7" />
-            <path d="M2.8 12h2.4" />
-            <path d="M18.8 12h2.4" />
-            <path d="M4.2 17.9l1.7-1.7" />
-            <path d="M18.1 7.8l1.7-1.7" />
-          </>
-        ) : type === "receipt" ? (
-          <>
-            <path d="M7 3h10v18l-2-1.2-2 1.2-2-1.2-2 1.2-2-1.2V3Z" />
-            <path d="M9 8h6" />
-            <path d="M9 12h6" />
-            <path d="M9 16h4" />
-          </>
-        ) : type === "money" ? (
-          <>
-            <path d="M7 5h10" />
-            <path d="M7 9h10" />
-            <path d="M9 5c5 0 5 8 0 8H8l7 6" />
-          </>
-        ) : type === "compare" ? (
-          <>
-            <path d="M7 5v14" />
-            <path d="M17 5v14" />
-            <path d="M4 9h6l-3 5-3-5Z" />
-            <path d="M14 9h6l-3 5-3-5Z" />
-          </>
-        ) : type === "fuel" ? (
-          <>
-            <path d="M6 20V5.8C6 4.8 6.8 4 7.8 4h5.4c1 0 1.8.8 1.8 1.8V20" />
-            <path d="M5 20h11" />
-            <path d="M8 8h5" />
-            <path d="M15 7l3 3v7a1.6 1.6 0 0 0 3.2 0v-4.5L18 9" />
-          </>
-        ) : type === "road" ? (
-          <>
-            <path d="M8 21 11 3" />
-            <path d="M16 21 13 3" />
-            <path d="M12 7v2" />
-            <path d="M12 13v2" />
-            <path d="M12 19v1" />
-          </>
-        ) : type === "people" ? (
-          <>
-            <path d="M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-            <path d="M17 10a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-            <path d="M3.5 20a5.5 5.5 0 0 1 11 0" />
-            <path d="M14 17.5a4.5 4.5 0 0 1 6.5 2.5" />
-          </>
-        ) : (
-          <>
-            <path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7L12 3Z" />
-            <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z" />
-          </>
-        )}
-      </svg>
-    </span>
-  );
-}
-
-const normalizeSuggestionKey = (item = {}) =>
-  String(item.label || item.title || item.query || item.id || "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .trim();
-
-const buildChatSuggestions = ({
-  widget = {},
-  message = {},
-  limit = 4,
-} = {}) => {
-  const merged = [];
-  const seen = new Set();
-
-  [
-    ...toArray(widget.leadingQuestions),
-    ...toArray(message.leadingQuestions),
-    ...toArray(widget.actions),
-    ...toArray(message.actions),
-  ].forEach((item) => {
-    const key = normalizeSuggestionKey(item);
-    if (!key || seen.has(key)) return;
-
-    seen.add(key);
-    merged.push(item);
-  });
-
-  return merged.slice(0, limit);
-};
-
-
-const isFeatureCanvasWidget = (widget = {}, canvasType = "") => {
-  const type = canvasType || widget.canvasType || "";
-  const intent = widget.intent || "";
-  return (
-    type === "features_explorer_canvas" ||
-    type === "feature_match_builder_canvas" ||
-    intent === "vehicle_model_features_explorer" ||
-    intent === "vehicle_feature_discovery"
-  );
-};
-
-const isFeatureAnswerWidget = (message = {}, widget = {}) =>
-  message.inlineType === "feature_answer_card" ||
-  widget.inlineType === "feature_answer_card" ||
-  message.intent === "vehicle_feature_answer" ||
-  widget.intent === "vehicle_feature_answer";
-
-const getFeaturePreviewRows = (widget = {}, canvasType = "") => {
-  if (canvasType === "feature_match_builder_canvas" || widget.intent === "vehicle_feature_discovery") {
-    return toArray(widget.rows || widget.matchedVariants || widget.items).slice(0, 3);
-  }
-
-  const variants = toArray(widget.variantOptions || widget.variants);
-  const selectedVariantId = String(widget.selectedVariantId || "");
-  const selectedVariant = String(widget.selectedVariant || "").toLowerCase();
-
-  const selected = variants.find((variant) => {
-    const id = String(variant.id || variant._id || "");
-    const label = String(variant.label || variant.variant || variant.variantName || "").toLowerCase();
-    return (selectedVariantId && id === selectedVariantId) || (selectedVariant && label === selectedVariant);
-  });
-
-  const ordered = selected
-    ? [selected, ...variants.filter((variant) => variant !== selected)]
-    : variants;
-
-  return ordered.slice(0, 3);
-};
-
-const formatFeaturePreviewPrice = (row = {}) =>
-  firstValue(
-    row.priceLabel,
-    row.exShowroomPriceLabel,
-    row.onRoadPriceLabel,
-    row.priceRange,
-    row.price,
-    row.exShowroomPrice,
-    row.onRoadPrice,
-  );
-
-const getFeatureAnswerRows = (message = {}, widget = {}) =>
-  toArray(widget.rows || widget.items || widget.features || message.rows || message.features).slice(0, 5);
-
-function AciFeatureAnswerCard({ message = {}, selectedVehicle, onAction }) {
-  const widget = safeWidget(message.widget || {});
-  const rows = getFeatureAnswerRows(message, widget);
-  const title = firstValue(widget.title, message.title, "Feature answer");
-  const answer = firstValue(widget.answer, message.answer, message.text);
-  const vehicle = widget.vehicle || message.vehicle || selectedVehicle || {};
-  const feature = firstValue(widget.feature, widget.matchedFeature, message.feature, "");
-
-  return (
-    <article className="aci-feature-inline-card">
-      <header>
-        <span>
-          <AciQuestionIcon label={feature || title} index={0} />
-        </span>
-        <div>
-          <strong>{title}</strong>
-          <small>
-            {firstValue(vehicle.displayName, vehicle.model, message.contextPatch?.anchorModel, "Selected car")}
-          </small>
-        </div>
-      </header>
-
-      {answer ? <p>{answer}</p> : null}
-
-      {rows.length ? (
-        <div className="aci-feature-inline-rows">
-          {rows.slice(0, 4).map((row, index) => {
-            const variant = firstValue(row.variant, row.variantName, row.label, row.name, `Variant ${index + 1}`);
-            const value = firstValue(row.value, row.displayValue, row.featureValue, row.status, row.available === false ? "Not available" : "Available");
-            const available = row.available !== false && !/not available|no|absent/i.test(String(value));
-
-            return (
-              <div key={row.id || row._id || variant || index}>
-                <span className={available ? "is-yes" : "is-no"}>
-                  {available ? "✓" : "–"}
-                </span>
-                <strong>{variant}</strong>
-                <small>{value}</small>
-              </div>
-            );
-          })}
-        </div>
-      ) : null}
-
-      <footer>
-        <button
-          type="button"
-          onClick={() =>
-            onAction?.({
-              id: "feature-inline-open-explorer",
-              label: "Open feature explorer",
-              query: `Show features of ${firstValue(vehicle.model, message.contextPatch?.anchorModel, "")}`,
-              intent: "vehicle_model_features_explorer",
-              canvasType: "features_explorer_canvas",
-              vehicle,
-              contextPatch: {
-                ...(message.contextPatch || {}),
-                selectedVehicle: vehicle,
-                anchorModel: firstValue(vehicle.model, message.contextPatch?.anchorModel),
-                anchorVariant: firstValue(vehicle.variant, message.contextPatch?.anchorVariant),
-                anchorCity: firstValue(vehicle.city, message.contextPatch?.anchorCity, "new-delhi"),
-              },
-            })
-          }
-        >
-          Open feature explorer
-        </button>
-      </footer>
-    </article>
-  );
-}
-
-
-function buildInlineColorFrameStyle(imageFrame = {}) {
-  return buildChatImageFrameStyle(imageFrame, "colorStudio");
-}
-
-function AciV2CanvasPreviewCard({
-  message = {},
-  selectedVehicle,
-  onAction,
-  onOpen,
-}) {
-  const widget = message.widget || {};
-
-  const canvasType =
-    message.canvasType || widget.canvasType || widget.__rawCanvasType || "";
-
-  const isColorResult =
-    widget?.type === "vehicle_colors" ||
-    widget?.tool === "vehicle_colors" ||
-    widget?.toolName === "vehicle_colors" ||
-    widget?.tool_name === "vehicle_colors" ||
-    widget?.canvasType === "color_studio_canvas" ||
-    widget?.canvasType === "colors_canvas" ||
-    widget?.canvasType === "vehicle_colors" ||
-    canvasType === "color_studio_canvas" ||
-    canvasType === "colors_canvas" ||
-    canvasType === "vehicle_colors";
-
-  const isFeatureResult = isFeatureCanvasWidget(widget, canvasType);
-
-  const rows = isColorResult
-    ? toArray(
-        widget.colors || widget.rows || widget.items || widget.records,
-      ).slice(0, 3)
-    : isFeatureResult
-      ? getFeaturePreviewRows(widget, canvasType)
-      : getWidgetRows(widget);
-
-  const hasCanvas = Boolean(canvasType);
-
-  const openCanvasLabel =
-    canvasType === "pricelist_canvas" || canvasType === "price_breakup_canvas"
-      ? "Open Pricelist"
-      : `Open ${canvasTypeLabel(canvasType)}`;
-
-  const actions = buildChatSuggestions
-    ? buildChatSuggestions({ widget, message, limit: 4 })
-    : toArray(
-        widget.leadingQuestions || widget.actions || message.actions,
-      ).slice(0, 4);
-
-  const carouselRef = useRef(null);
-  const [carouselIndex, setCarouselIndex] = useState(0);
-  const maxCarouselIndex = Math.max(0, rows.length - 1);
-  const carouselProgress =
-    maxCarouselIndex > 0 ? carouselIndex / maxCarouselIndex : 0;
-
-  const pickText = (...values) => {
-    for (const value of values) {
-      const text = String(value || "").trim();
-      if (text) return text;
-    }
-    return "";
-  };
-
-  const pickAny = (...values) =>
-    values.find((value) => {
-      if (value === undefined || value === null) return false;
-      if (typeof value === "string") return value.trim() !== "";
-      if (typeof value === "object") return Object.keys(value).length > 0;
-      return true;
-    }) || null;
-
-  const getCarouselStep = () => {
-    const scroller = carouselRef.current;
-    if (!scroller) return 0;
-
-    const firstCard = scroller.querySelector(".aci-chat-preview-card");
-    if (!firstCard) return 0;
-
-    const styles = window.getComputedStyle(scroller);
-    const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
-
-    return firstCard.getBoundingClientRect().width + gap;
-  };
-
-  const handleCarouselScroll = () => {
-    const scroller = carouselRef.current;
-    if (!scroller) return;
-
-    const step = getCarouselStep();
-    if (!step) return;
-
-    const nextIndex = Math.max(
-      0,
-      Math.min(maxCarouselIndex, Math.round(scroller.scrollLeft / step)),
-    );
-
-    setCarouselIndex(nextIndex);
-  };
-
-  const snapCarouselToNearest = () => {
-    const scroller = carouselRef.current;
-    if (!scroller) return;
-
-    const step = getCarouselStep();
-    if (!step) return;
-
-    const nextIndex = Math.max(
-      0,
-      Math.min(maxCarouselIndex, Math.round(scroller.scrollLeft / step)),
-    );
-
-    scroller.scrollTo({
-      left: step * nextIndex,
-      behavior: "smooth",
-    });
-
-    setCarouselIndex(nextIndex);
-  };
-
-  const handleCarouselIndicatorClick = () => {
-    const scroller = carouselRef.current;
-    if (!scroller || maxCarouselIndex <= 0) return;
-
-    const step = getCarouselStep();
-    if (!step) return;
-
-    const nextIndex = carouselIndex >= maxCarouselIndex ? 0 : carouselIndex + 1;
-
-    scroller.scrollTo({
-      left: step * nextIndex,
-      behavior: "smooth",
-    });
-
-    setCarouselIndex(nextIndex);
-  };
-
-  const handleOpenCanvas = () => {
-    if (!hasCanvas || typeof onOpen !== "function") return;
-    onOpen(message);
-  };
-
-  return (
-    <article
-      className={`aci-chat-result-card ${isColorResult ? "aci-chat-color-result-card" : ""}`}
-    >
-      {rows.length ? (
-        <>
-          <div
-            className="aci-chat-result-rows"
-            ref={carouselRef}
-            onScroll={handleCarouselScroll}
-            onTouchEnd={snapCarouselToNearest}
-            onMouseUp={snapCarouselToNearest}
-          >
-            {rows.map((row, index) => {
-              const rowTitle = isColorResult
-                ? pickText(
-                    row.colorName,
-                    row.name,
-                    row.desktopName,
-                    row.mobileName,
-                    row.title,
-                    row.label,
-                    `Color ${index + 1}`,
-                  )
-                : isFeatureResult
-                  ? pickText(
-                      row.variant,
-                      row.variantName,
-                      row.label,
-                      row.name,
-                      row.matchedFeature,
-                      row.feature,
-                      `Feature option ${index + 1}`,
-                    )
-                  : pickText(
-                      row.variant,
-                      row.name,
-                      row.title,
-                      row.label,
-                      row.model,
-                      `Option ${index + 1}`,
-                    );
-
-              const rowSub = isColorResult
-                ? ""
-                : isFeatureResult
-                  ? pickText(
-                      row.section,
-                      row.feature,
-                      row.matchedFeature,
-                      [
-                        row.availableCount ? `${row.availableCount} available` : "",
-                        row.featureCount ? `${row.featureCount} features` : "",
-                      ].filter(Boolean).join(" · "),
-                    )
-                  : pickText(
-                      row.subtitle,
-                      row.fuelTransmission,
-                      [row.fuel, row.transmission].filter(Boolean).join(" · "),
-                    );
-
-              const rowPrice = isColorResult
-                ? ""
-                : isFeatureResult
-                  ? formatFeaturePreviewPrice(row)
-                  : pickText(
-                      row.price,
-                      row.priceRange,
-                      row.onRoadPrice,
-                      row.exShowroomPrice,
-                      row.value,
-                    );
-
-              const rowImageFrame = isColorResult
-                ? pickAny(
-                    row.displayFrameMeta,
-                    row.display_frame_meta,
-                    row.imageFrame,
-                    row.frameMeta,
-                    row.frame_meta,
-                    row.image_frame,
-                    row.carImageFrame,
-                    row.car_image_frame,
-                    row.frame,
-                    row.vehicle?.displayFrameMeta,
-                    row.vehicle?.display_frame_meta,
-                    row.vehicle?.imageFrame,
-                    row.vehicle?.frameMeta,
-                    row.vehicle?.frame_meta,
-                    row.vehicle?.carImageFrame,
-                    row.vehicle?.frame,
-                    selectedVehicle?.displayFrameMeta,
-                    selectedVehicle?.imageFrame,
-                    selectedVehicle?.frameMeta,
-                  )
-                : pickAny(
-                    row.vehicle?.imageFrame,
-                    row.vehicle?.frameMeta,
-                    row.vehicle?.frame_meta,
-                    row.imageFrame,
-                    row.frameMeta,
-                    row.frame_meta,
-                    row.frame,
-                    selectedVehicle?.imageFrame,
-                    selectedVehicle?.frameMeta,
-                    selectedVehicle?.displayFrameMeta,
-                  );
-
-              const rowImageUrl = isColorResult
-                ? pickText(
-                    row.displayNormalizedImageUrl,
-                    row.display_normalized_image_url,
-                    row.vehicle?.displayNormalizedImageUrl,
-                    row.vehicle?.display_normalized_image_url,
-
-                    row.normalizedImageUrl,
-                    row.cleanImageUrl,
-                    row.normalizedImagePngUrl,
-                    row.stagedImageUrl,
-                    row.imageUrl,
-                    row.carImageUrl,
-                    row.sourceImageUrl,
-
-                    row.vehicle?.normalizedImageUrl,
-                    row.vehicle?.cleanImageUrl,
-                    row.vehicle?.normalizedImagePngUrl,
-                    row.vehicle?.stagedImageUrl,
-                    row.vehicle?.imageUrl,
-
-                    selectedVehicle?.displayNormalizedImageUrl,
-                    selectedVehicle?.normalizedImageUrl,
-                    selectedVehicle?.imageUrl,
-                  )
-                : "";
-
-              const frameStyle = isColorResult
-                ? buildInlineColorFrameStyle(rowImageFrame || {})
-                : rowImageFrame
-                  ? buildChatImageFrameStyle(rowImageFrame, "chatCard")
-                  : {};
-
-              const priceContext =
-                row.exShowroomPrice &&
-                !row.onRoadPrice &&
-                !row.price &&
-                !row.priceRange &&
-                !row.value
-                  ? "Ex-showroom"
-                  : "On-road";
-
-              return (
-                <motion.button
-                  type="button"
-                  className={`aci-chat-preview-card ${isColorResult ? "is-color-card" : ""} ${isFeatureResult ? "is-feature-card" : ""}`}
-                  key={row.id || row._id || rowTitle || index}
-                  aria-label={`View ${rowTitle}`}
-                  initial={{ opacity: 0, y: 12, scale: 0.985 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  whileHover={{ y: -3, scale: 1.012 }}
-                  whileTap={{ scale: 0.985 }}
-                  transition={{
-                    duration: 0.38,
-                    ease: [0.22, 1, 0.36, 1],
-                    delay: Math.min(index * 0.045, 0.12),
-                  }}
-                  onClick={() => {
-                    if (hasCanvas && typeof onOpen === "function") {
-                      onOpen({
-                        ...message,
-                        widget: {
-                          ...widget,
-                          selectedRow: row,
-                          selectedRowIndex: index,
-                        },
-                      });
-                      return;
-                    }
-
-                    const nextVehicle = isColorResult
-                      ? {
-                          ...(selectedVehicle || {}),
-                          selectedColor: row,
-                          colorName: rowTitle,
-                          imageUrl: rowImageUrl,
-                          normalizedImageUrl: rowImageUrl,
-                          imageFrame: rowImageFrame,
-                        }
-                      : row.vehicle || selectedVehicle;
-
-                    onAction?.({
-                      id: `chat-preview-row-${index}`,
-                      label: rowTitle,
-                      query: row.query || rowTitle,
-                      vehicle: nextVehicle,
-                      contextPatch: {
-                        selectedVehicle: nextVehicle,
-                        selectedColor: isColorResult ? row : undefined,
-                        anchorModel: selectedVehicle?.model,
-                        anchorCity: selectedVehicle?.city || "Delhi",
-                      },
-                    });
-                  }}
-                >
-                  <div className="aci-chat-row-visual" style={frameStyle}>
-                    <motion.div
-                      className="aci-chat-row-car-motion"
-                      initial={{ opacity: 0, y: 10, scale: 0.94 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{
-                        duration: 0.52,
-                        ease: [0.19, 1, 0.22, 1],
-                        delay: Math.min(index * 0.055, 0.16),
-                      }}
-                    >
-                      {isColorResult && rowImageUrl ? (
-                        <img
-                          className="aci-chat-color-card-image"
-                          src={rowImageUrl}
-                          alt={rowTitle}
-                          loading="lazy"
-                          draggable="false"
-                        />
-                      ) : isFeatureResult ? (
-                        <div className="aci-chat-feature-preview-icon">
-                          <AciQuestionIcon label={rowTitle} index={index} />
-                          <strong>{row.availableCount || row.matchedVariantCount || row.featureCount || "✓"}</strong>
-                        </div>
-                      ) : (
-                        <AciVehicleVisual
-                          vehicle={row.vehicle || row}
-                          height={112}
-                          stage
-                          stageVariant="compact"
-                        />
-                      )}
-                    </motion.div>
-                  </div>
-
-                  <div className="aci-chat-row-copy">
-                    <strong>{rowTitle}</strong>
-                    {!isColorResult && rowSub ? <span>{rowSub}</span> : null}
-                    {!isColorResult && rowPrice ? (
-                      <b className="aci-chat-row-price">
-                        <span className="aci-chat-price-context">
-                          {priceContext}
-                        </span>
-                        <span className="aci-chat-price-amount">
-                          {formatIndianPrice(rowPrice)}
-                        </span>
-                      </b>
-                    ) : null}
-                  </div>
-                </motion.button>
-              );
-            })}
-          </div>
-
-          {rows.length > 2 ? (
-            <button
-              type="button"
-              className="aci-chat-carousel-indicator"
-              style={{ "--aci-carousel-progress": carouselProgress }}
-              onClick={handleCarouselIndicatorClick}
-              aria-label="Show more car options"
-            >
-              <span />
-              <i />
-            </button>
-          ) : null}
-        </>
-      ) : (
-        <div className="aci-chat-result-skeleton">
-          <i />
-          <i />
-          <i />
-        </div>
-      )}
-
-      {hasCanvas || actions.length ? (
-        <footer>
-          {hasCanvas ? (
-            <button
-              type="button"
-              className="aci-chat-open-canvas-pill"
-              onClick={handleOpenCanvas}
-            >
-              <AciQuestionIcon label={openCanvasLabel} index={0} />
-              <span>{openCanvasLabel}</span>
-            </button>
-          ) : null}
-
-          {actions.map((item, index) => {
-            const label =
-              item.label || item.title || item.query || `Next ${index + 1}`;
-
-            return (
-              <button
-                type="button"
-                key={item.id || item.label || item.query || index}
-                onClick={() => onAction?.(item)}
-              >
-                <AciQuestionIcon label={label} index={index + 1} />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-        </footer>
-      ) : null}
-    </article>
-  );
-}
-
-function AciV2ChatMessage({
-  message = {},
-  selectedVehicle,
-  onAction,
-  onOpenCanvas,
-}) {
-  const isUser = message.role === "user";
-  const widget = safeWidget(message.widget || {});
-  const hasCanvas = Boolean(
-    message.canvasType ||
-    widget.canvasType ||
-    widget.__rawCanvasType,
-  );
-  const hasFeatureInline = isFeatureAnswerWidget(message, widget);
-
-  const followups = buildChatSuggestions({
-    widget,
-    message,
-    limit: 4,
-  });
-
-  if (isUser) {
-    return (
-      <article className="aci-chat-message is-user">
-        <div className="aci-chat-bubble">
-          {message.text ? <p>{message.text}</p> : null}
-        </div>
-      </article>
-    );
-  }
-
-  return (
-    <article className="aci-chat-message is-assistant">
-      <div className="aci-chat-orb">
-        <AciAssistantOrb small />
-      </div>
-
-      <div className="aci-chat-assistant-stack">
-        {message.text ? (
-          <div className="aci-chat-bubble">
-            <p>{message.text}</p>
-          </div>
-        ) : null}
-
-        {hasFeatureInline ? (
-          <AciFeatureAnswerCard
-            message={message}
-            selectedVehicle={selectedVehicle}
-            onAction={onAction}
-          />
-        ) : null}
-
-        {hasCanvas ? (
-          <AciV2CanvasPreviewCard
-            message={message}
-            selectedVehicle={selectedVehicle}
-            onOpen={onOpenCanvas}
-            onAction={onAction}
-          />
-        ) : null}
-
-        {message.error ? (
-          <div className="aci-chat-error-note">
-            Live backend not reached. Please try again.
-          </div>
-        ) : null}
-
-        {followups.length && !hasCanvas && !hasFeatureInline ? (
-          <div className="aci-chat-followups">
-            {followups.map((item, index) => {
-              const label =
-                item.label ||
-                item.title ||
-                item.query ||
-                `Suggestion ${index + 1}`;
-
-              return (
-                <button
-                  type="button"
-                  key={item.id || item.label || item.query || index}
-                  onClick={() => onAction?.(item)}
-                >
-                  <AciQuestionIcon label={label} index={index} />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
-        ) : null}
-      </div>
-    </article>
-  );
-}
-
-function AciV2ThinkingMessage() {
-  return (
-    <article className="aci-chat-message is-assistant">
-      <div className="aci-chat-orb">
-        <AciAssistantOrb small />
-      </div>
-
-      <div className="aci-chat-bubble aci-chat-thinking">
-        <span />
-        <span />
-        <span />
-        <p>Checking live ACI data…</p>
-      </div>
-    </article>
-  );
-}
-
-function AciV2ContextPill({ selectedVehicle, sessionContext, onAction }) {
-  const model =
-    selectedVehicle?.displayName ||
-    selectedVehicle?.model ||
-    sessionContext?.anchorModel ||
-    "";
-
-  const city = selectedVehicle?.city || sessionContext?.anchorCity || "Delhi";
-
-  return (
-    <section className="aci-chat-context-pill">
-      <div>
-        <span>{model ? `Working on ${model}` : "Looking for a new car"}</span>
-        <em>{city}</em>
-      </div>
-
-      <button
-        type="button"
-        onClick={() =>
-          onAction?.({
-            id: "change-chat-context",
-            label: "Change",
-            query: "Change my car search context",
-            type: "change_context",
-            contextPatch: selectedVehicle ? { selectedVehicle } : {},
-          })
-        }
-      >
-        Change
-      </button>
-    </section>
-  );
-}
-
-function AciV2ChatFirstShell({
-  homeData,
-  messages,
-  isLoading,
-  error,
-  selectedVehicle,
-  sessionContext,
-  onAction,
-  onOpenCanvas,
-  onGoHome,
-}) {
-  const hasMessages = Array.isArray(messages) && messages.length > 0;
-  const activeVehicle = selectedVehicle || homeData?.selectedVehicle || null;
-  const threadRef = useRef(null);
-  const threadEndRef = useRef(null);
-  const shouldStickToBottomRef = useRef(true);
-
-  const scrollToLatest = useCallback((behavior = "auto") => {
-    const thread = threadRef.current;
-    const anchor = threadEndRef.current;
-    if (!thread || !anchor) return;
-
-    anchor.scrollIntoView({
-      block: "end",
-      inline: "nearest",
-      behavior,
-    });
-  }, []);
-
-  const handleThreadScroll = useCallback(() => {
-    const thread = threadRef.current;
-    if (!thread) return;
-
-    const distanceFromBottom =
-      thread.scrollHeight - thread.scrollTop - thread.clientHeight;
-
-    shouldStickToBottomRef.current = distanceFromBottom < 140;
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    shouldStickToBottomRef.current = true;
-    scrollToLatest("auto");
-
-    const frame = window.requestAnimationFrame(() => {
-      scrollToLatest("smooth");
-    });
-
-    const timers = [80, 220, 520].map((delay) =>
-      window.setTimeout(() => scrollToLatest("auto"), delay),
-    );
-
-    return () => {
-      window.cancelAnimationFrame(frame);
-      timers.forEach((timer) => window.clearTimeout(timer));
-    };
-  }, [messages.length, scrollToLatest]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return undefined;
-
-    const thread = threadRef.current;
-    if (!thread) return undefined;
-
-    const keepBottomIfNeeded = () => {
-      if (shouldStickToBottomRef.current) {
-        scrollToLatest("auto");
-      }
-    };
-
-    const images = Array.from(thread.querySelectorAll("img"));
-    images.forEach((img) => {
-      if (!img.complete) {
-        img.addEventListener("load", keepBottomIfNeeded, { once: true });
-      }
-    });
-
-    const observer = new MutationObserver(keepBottomIfNeeded);
-    observer.observe(thread, {
-      childList: true,
-      subtree: true,
-    });
-
-    return () => {
-      observer.disconnect();
-      images.forEach((img) =>
-        img.removeEventListener("load", keepBottomIfNeeded),
-      );
-    };
-  }, [messages.length, isLoading, error, scrollToLatest]);
-
-  return (
-    <main className="aci-chat-shell">
-      <section className="aci-chat-app-frame">
-        <header className="aci-chat-header">
-          <button
-            type="button"
-            className="aci-chat-back"
-            onClick={onGoHome}
-            aria-label="Back home"
-          >
-            <span>‹</span>
-          </button>
-
-          <AciLogo compact onAction={onAction} />
-
-          <div className="aci-chat-header-actions">
-            <button
-              type="button"
-              className="aci-chat-bell"
-              aria-label="Notifications"
-            >
-              <span />
-            </button>
-
-            <button
-              type="button"
-              className="aci-chat-avatar"
-              aria-label="Profile"
-            >
-              {homeData?.avatarUrl ? (
-                <img src={homeData.avatarUrl} alt="Profile" />
-              ) : null}
-            </button>
-          </div>
-        </header>
-
-        <AciV2ContextPill
-          selectedVehicle={activeVehicle}
-          sessionContext={sessionContext}
-          onAction={onAction}
-        />
-
-        <section
-          ref={threadRef}
-          className="aci-chat-thread"
-          aria-label="ACI Assist conversation"
-          onScroll={handleThreadScroll}
-        >
-          {!hasMessages ? (
-            <AciV2ChatMessage
-              message={{
-                id: "welcome",
-                role: "assistant",
-                text: "Ask me about price, EMI, colors, features, comparison or quotation. I’ll keep the car and city context while answering.",
-              }}
-              selectedVehicle={activeVehicle}
-              onAction={onAction}
-              onOpenCanvas={onOpenCanvas}
-            />
-          ) : null}
-
-          {messages.map((message, index) => (
-            <AciV2ChatMessage
-              key={message.id || `${message.role || "assistant"}-${index}`}
-              message={message}
-              selectedVehicle={activeVehicle}
-              onAction={onAction}
-              onOpenCanvas={onOpenCanvas}
-            />
-          ))}
-
-          {isLoading ? <AciV2ThinkingMessage /> : null}
-
-          {error && !isLoading ? (
-            <AciV2ChatMessage
-              message={{
-                id: "backend-error",
-                role: "assistant",
-                text: error,
-                error: true,
-              }}
-              selectedVehicle={activeVehicle}
-              onAction={onAction}
-              onOpenCanvas={onOpenCanvas}
-            />
-          ) : null}
-
-          <div
-            ref={threadEndRef}
-            className="aci-chat-scroll-anchor"
-            aria-hidden="true"
-          />
-        </section>
-      </section>
-
-      <AciComposer
-        onAction={onAction}
-        selectedVehicle={activeVehicle}
-        placeholder="Ask ACI Assist anything…"
-        disabled={isLoading}
-        showDisclaimer
-      />
-    </main>
-  );
-}
 
 function AciV2FullCanvasShell({
   screen,
@@ -1985,107 +380,6 @@ function AciV2FullCanvasShell({
     </main>
   );
 }
-
-const compactColorForBackend = (color = {}) => {
-  if (!isObject(color)) return null;
-
-  const name = firstValue(
-    color.colorName,
-    color.name,
-    color.desktopName,
-    color.mobileName,
-  );
-
-  if (!name && !color.hex) return null;
-
-  return {
-    id: firstValue(color.id, color._id),
-    colorName: name,
-    name,
-    hex: color.hex || "",
-  };
-};
-
-const compactVehicleForBackend = (vehicle = {}) => {
-  const normalized = normalizeVehicle(vehicle);
-  if (!normalized) return null;
-
-  const selectedColor = compactColorForBackend(
-    normalized.selectedColor || vehicle.selectedColor,
-  );
-
-  return {
-    id: firstValue(
-      normalized.id,
-      normalized._id,
-      normalized.vehicleId,
-      normalized.modelId,
-    ),
-    make: firstValue(normalized.make, normalized.brand),
-    brand: firstValue(normalized.brand, normalized.make),
-    model: normalized.model || "",
-    displayName: normalized.displayName || "",
-    variant: firstValue(normalized.variant, normalized.variantName),
-    variantName: firstValue(normalized.variantName, normalized.variant),
-    city: firstValue(normalized.city, normalized.cityName),
-    citySlug: normalized.citySlug || "",
-    colorName: firstValue(normalized.colorName, selectedColor?.colorName),
-    selectedColor,
-  };
-};
-
-const compactContextForBackend = ({
-  effectiveContext = {},
-  action = {},
-  screen = "",
-  activeCanvasPayload = null,
-  lastAction = null,
-} = {}) => {
-  const selectedVehicle = compactVehicleForBackend(
-    effectiveContext.selectedVehicle,
-  );
-
-  const selectedColor = compactColorForBackend(
-    effectiveContext.selectedColor ||
-      selectedVehicle?.selectedColor ||
-      action.selectedColor ||
-      action.contextPatch?.selectedColor,
-  );
-
-  return {
-    selectedVehicle,
-    anchorMake: firstValue(
-      effectiveContext.anchorMake,
-      selectedVehicle?.make,
-      selectedVehicle?.brand,
-    ),
-    anchorModel: firstValue(
-      effectiveContext.anchorModel,
-      selectedVehicle?.model,
-    ),
-    anchorVariant: firstValue(
-      effectiveContext.anchorVariant,
-      selectedVehicle?.variant,
-      selectedVehicle?.variantName,
-    ),
-    anchorCity: firstValue(
-      effectiveContext.anchorCity,
-      selectedVehicle?.citySlug,
-      selectedVehicle?.city,
-      "new-delhi",
-    ),
-    selectedColor,
-    activeScreen: screen,
-    activeCanvasType: firstValue(
-      activeCanvasPayload?.canvasType,
-      activeCanvasPayload?.__rawCanvasType,
-      effectiveContext.lastCanvasType,
-    ),
-    lastIntent: firstValue(action.intent, lastAction?.intent),
-    lastActionLabel: firstValue(action.label, lastAction?.label),
-    lastActionQuery: firstValue(action.query, lastAction?.query),
-  };
-};
 
 export default function AciAssistV2() {
   const requestSeqRef = useRef(0);
@@ -2232,8 +526,8 @@ export default function AciAssistV2() {
         mergeSessionContext(previous, {
           ...contextPatch,
           selectedVehicle:
-            backendVehicle ||
             contextPatch.selectedVehicle ||
+            backendVehicle ||
             previous.selectedVehicle,
           lastCanvasType: canvasType || previous.lastCanvasType,
         }),
@@ -2634,138 +928,9 @@ export default function AciAssistV2() {
       <AciAssistStyles />
 
       <style>{`
-/* ACI_FEATURE_CHAT_INTEGRATION_START */
-
-.aci-feature-inline-card {
-  width: min(100%, 560px);
-  border: 1px solid rgba(219, 230, 244, 0.9);
-  border-radius: 22px;
-  background:
-    radial-gradient(circle at 16% 0%, rgba(37, 99, 235, 0.08), transparent 32%),
-    linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
-  box-shadow:
-    0 26px 76px -62px rgba(15,23,42,0.52),
-    inset 0 1px 0 rgba(255,255,255,0.92);
-  padding: 15px;
-}
-
-.aci-feature-inline-card header {
-  display: grid;
-  grid-template-columns: 42px 1fr;
-  align-items: center;
-  gap: 11px;
-}
-
-.aci-feature-inline-card header > span {
-  width: 42px;
-  height: 42px;
-  border-radius: 15px;
-  display: grid;
-  place-items: center;
-  color: var(--aci-blue);
-  background: #eff6ff;
-  border: 1px solid #dbeafe;
-}
-
-.aci-feature-inline-card header strong {
-  display: block;
-  color: #071126;
-  font-size: 13.5px;
-  line-height: 1.15;
-  font-weight: 780;
-}
-
-.aci-feature-inline-card header small {
-  display: block;
-  margin-top: 3px;
-  color: #667085;
-  font-size: 11px;
-  font-weight: 560;
-}
-
-.aci-feature-inline-card > p {
-  margin: 12px 0 0;
-  color: #334155;
-  font-size: 12.5px;
-  line-height: 1.45;
-  font-weight: 500;
-}
-
-.aci-feature-inline-rows {
-  margin-top: 12px;
-  display: grid;
-  gap: 8px;
-}
-
-.aci-feature-inline-rows > div {
-  min-height: 38px;
-  border: 1px solid rgba(226,232,240,0.95);
-  border-radius: 14px;
-  background: rgba(255,255,255,0.9);
-  display: grid;
-  grid-template-columns: 24px 1fr auto;
-  align-items: center;
-  gap: 9px;
-  padding: 8px 10px;
-}
-
-.aci-feature-inline-rows span {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-size: 12px;
-  font-weight: 900;
-}
-
-.aci-feature-inline-rows span.is-yes {
-  color: #fff;
-  background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
-}
-
-.aci-feature-inline-rows span.is-no {
-  color: #64748b;
-  background: #f1f5f9;
-}
-
-.aci-feature-inline-rows strong {
-  min-width: 0;
-  color: #111827;
-  font-size: 12px;
-  font-weight: 760;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.aci-feature-inline-rows small {
-  color: #64748b;
-  font-size: 11px;
-  font-weight: 620;
-  white-space: nowrap;
-}
-
-.aci-feature-inline-card footer {
-  margin-top: 12px;
-  display: flex;
-}
-
-.aci-feature-inline-card footer button {
-  height: 36px;
-  border: 0;
-  border-radius: 999px;
-  padding: 0 14px;
-  background: linear-gradient(135deg, var(--aci-blue), var(--aci-blue-dark));
-  color: #fff;
-  font-size: 11.5px;
-  font-weight: 820;
-  box-shadow: 0 16px 34px -24px rgba(37,99,235,0.7);
-}
-
-.aci-chat-preview-card.is-feature-card .aci-chat-row-visual {
-  background:
-    radial-gradient(circle at 35% 22%, #ffffff, transparent 28%),
+	.aci-chat-preview-card.is-feature-card .aci-chat-row-visual {
+	  background:
+	    radial-gradient(circle at 35% 22%, #ffffff, transparent 28%),
     linear-gradient(180deg, #f8fbff, #eff6ff);
 }
 
@@ -2795,27 +960,7 @@ export default function AciAssistV2() {
   font-weight: 900;
 }
 
-@media (max-width: 640px) {
-  .aci-feature-inline-card {
-    width: 100%;
-    border-radius: 20px;
-    padding: 13px;
-  }
-
-  .aci-feature-inline-rows > div {
-    grid-template-columns: 23px 1fr;
-  }
-
-  .aci-feature-inline-rows small {
-    grid-column: 2;
-    white-space: normal;
-  }
-}
-
-/* ACI_FEATURE_CHAT_INTEGRATION_END */
-
-
-/* ACI_CHAT_REFERENCE_SHELL_START */
+	/* ACI_CHAT_REFERENCE_SHELL_START */
 
 .heart-button.is-saved,
 .mobile-heart.is-saved,
@@ -4074,8 +2219,8 @@ export default function AciAssistV2() {
   overflow-x: hidden !important;
   overscroll-behavior: contain !important;
   scroll-behavior: smooth !important;
-  padding: 0 0 calc(132px + env(safe-area-inset-bottom)) !important;
-  scroll-padding-bottom: calc(132px + env(safe-area-inset-bottom)) !important;
+  padding: 0 0 calc(176px + env(safe-area-inset-bottom)) !important;
+  scroll-padding-bottom: calc(176px + env(safe-area-inset-bottom)) !important;
   scrollbar-width: none !important;
 }
 
@@ -4085,9 +2230,9 @@ export default function AciAssistV2() {
 
 .aci-chat-scroll-anchor {
   width: 100% !important;
-  height: calc(132px + env(safe-area-inset-bottom)) !important;
-  min-height: calc(132px + env(safe-area-inset-bottom)) !important;
-  flex: 0 0 calc(132px + env(safe-area-inset-bottom)) !important;
+  height: calc(176px + env(safe-area-inset-bottom)) !important;
+  min-height: calc(176px + env(safe-area-inset-bottom)) !important;
+  flex: 0 0 calc(176px + env(safe-area-inset-bottom)) !important;
   pointer-events: none !important;
 }
 

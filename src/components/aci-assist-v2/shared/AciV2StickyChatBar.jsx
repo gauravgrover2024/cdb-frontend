@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Mic, SendHorizontal, Sparkles } from "lucide-react";
+import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 
 const buildDefaultPlaceholder = (mobile, selectedVehicle) => {
   if (mobile) {
@@ -27,6 +28,9 @@ export default function AciV2StickyChatBar({
     if (typeof onAction === "function") onAction(detail);
   };
 
+  const selectedVehicleContextPatch = () =>
+    buildVehicleContextPatch({ vehicle: selectedVehicle });
+
   const submit = () => {
     const query = String(text || "").trim();
     if (!query || disabled) return;
@@ -41,19 +45,7 @@ export default function AciV2StickyChatBar({
       query,
       type: "ask",
       vehicle: selectedVehicle || null,
-      contextPatch: selectedVehicle
-        ? {
-            selectedVehicle,
-            anchorMake: selectedVehicle.make || selectedVehicle.brand || "",
-            anchorModel: selectedVehicle.model || "",
-            anchorVariant:
-              selectedVehicle.variant ||
-              selectedVehicle.selectedVariant ||
-              selectedVehicle.variantName ||
-              "",
-            anchorCity: selectedVehicle.city || "Delhi",
-          }
-        : {},
+      contextPatch: selectedVehicle ? selectedVehicleContextPatch() : {},
       source: "aci_v2_sticky_chatbar",
     });
 
@@ -211,7 +203,7 @@ export default function AciV2StickyChatBar({
               query: "",
               type: "open_assistant",
               vehicle: selectedVehicle || null,
-              contextPatch: selectedVehicle ? { selectedVehicle } : {},
+              contextPatch: selectedVehicle ? selectedVehicleContextPatch() : {},
               source: "aci_v2_sticky_chatbar",
             })
           }
@@ -245,7 +237,7 @@ export default function AciV2StickyChatBar({
               query: "",
               type: "voice_input",
               vehicle: selectedVehicle || null,
-              contextPatch: selectedVehicle ? { selectedVehicle } : {},
+              contextPatch: selectedVehicle ? selectedVehicleContextPatch() : {},
               source: "aci_v2_sticky_chatbar",
             })
           }
