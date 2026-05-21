@@ -1,15 +1,19 @@
 /* ========================================================================
-   ACI ASSIST V2 — CARO PREMIUM FIXED CHAT SHELL
+   ACI ASSIST V2 — CARO PREMIUM CHAT SHELL
    ------------------------------------------------------------------------
-   FINAL HEADER VERSION
+   FINAL SAFE SCROLL + WIDTH VERSION
    ------------------------------------------------------------------------
-   ✓ Clear fixed header
+   ✓ Normal page scroll restored
+   ✓ Fixed clear header
+   ✓ Context fixed below header
+   ✓ Chat starts below header/context
    ✓ No top veil / no overlay
-   ✓ Separate floating context line below header
+   ✓ No nested scroll container
+   ✓ No 100vw right-side clipping
+   ✓ Mobile UI remains portrait-width in landscape
+   ✓ Only two modes: Mobile UI + Laptop UI
    ✓ Solid vibrant blue plus button
-   ✓ Restores old chat-shell compatibility classes
    ✓ Does not change chat message rendering
-   ✓ Mobile + laptop optimized
    ======================================================================== */
 
 import React, { useCallback, useEffect, useRef } from "react";
@@ -53,18 +57,27 @@ export default function AciV2ChatShell({
 
   const contextLabel = `${model} • ${city}`;
 
+  const latestExchangeRef = useRef(null);
   const threadEndRef = useRef(null);
 
   const scrollToLatest = useCallback((behavior = "smooth") => {
-    threadEndRef.current?.scrollIntoView({
+    const target = latestExchangeRef.current || threadEndRef.current;
+
+    target?.scrollIntoView({
       behavior,
-      block: "end",
+      block: "start",
       inline: "nearest",
     });
   }, []);
 
   useEffect(() => {
-    scrollToLatest();
+    const frame = window.requestAnimationFrame(() => {
+      scrollToLatest();
+      window.setTimeout(() => scrollToLatest(), 120);
+      window.setTimeout(() => scrollToLatest(), 320);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [messages?.length, isLoading, error, scrollToLatest]);
 
   const handleLogoClick = () => {
@@ -129,6 +142,17 @@ export default function AciV2ChatShell({
     });
   };
 
+  const latestExchangeIndex = (() => {
+    if (!hasMessages) return -1;
+
+    const list = Array.isArray(messages) ? messages : [];
+    for (let index = list.length - 1; index >= 0; index -= 1) {
+      if (list[index]?.role === "user") return index;
+    }
+
+    return list.length - 1;
+  })();
+
   return (
     <>
       <style>{`
@@ -144,17 +168,19 @@ export default function AciV2ChatShell({
     sans-serif;
 
   --caro-blue: #0457ff;
-  --caro-blue-soft: rgba(4, 87, 255, .08);
   --caro-ink: #071226;
   --caro-muted: #7c8798;
+
+  --caro-stage-w: 1480px;
 
   --caro-header-top: 8px;
   --caro-header-h: 44px;
   --caro-context-gap: 7px;
   --caro-context-h: 28px;
   --caro-after-context-gap: 22px;
+  --caro-composer-space: calc(126px + env(safe-area-inset-bottom));
 
-  --caro-content-top: calc(
+  --caro-top-space: calc(
     var(--caro-header-top) +
     var(--caro-header-h) +
     var(--caro-context-gap) +
@@ -162,17 +188,28 @@ export default function AciV2ChatShell({
     var(--caro-after-context-gap)
   );
 }
+
 /* ========================================================================
-   SHELL
+   SHELL — NORMAL PAGE SCROLL
    ======================================================================== */
 
 .aci-shell,
 .aci-chat-shell {
   position: relative;
 
-  min-height: 100vh;
+  width: 100%;
 
-  overflow-x: hidden;
+  height: 100vh !important;
+  height: 100dvh !important;
+  min-height: 100vh !important;
+  min-height: 100dvh !important;
+  max-height: 100dvh !important;
+
+  overflow: hidden !important;
+
+  display: block !important;
+
+  padding: 0 !important;
 
   font-family: var(--caro-font);
 
@@ -197,7 +234,7 @@ export default function AciV2ChatShell({
     );
 }
 
-/* IMPORTANT: remove old veil / overlay completely */
+/* remove any previous veil */
 .aci-shell::before,
 .aci-chat-shell::before {
   display: none !important;
@@ -219,9 +256,17 @@ export default function AciV2ChatShell({
 
   pointer-events: none;
 
+  background: transparent;
+}
+
+.aci-fixed-top-stage {
+  width: min(100%, var(--caro-stage-w));
+
+  margin: 0 auto;
+
   padding-top: var(--caro-header-top);
 
-  background: transparent;
+  pointer-events: none;
 }
 
 /* ========================================================================
@@ -231,7 +276,7 @@ export default function AciV2ChatShell({
 .aci-header {
   pointer-events: auto;
 
-  width: min(calc(100vw - 20px), 760px);
+  width: min(calc(100% - 20px), 760px);
 
   height: var(--caro-header-h);
 
@@ -332,8 +377,7 @@ export default function AciV2ChatShell({
 
   gap: 2px;
 
-  padding:
-    1px;
+  padding: 1px;
 
   border-radius: 999px;
 
@@ -382,6 +426,12 @@ export default function AciV2ChatShell({
     0 8px 18px rgba(15,23,42,.06);
 }
 
+.aci-action-btn:active,
+.aci-logo-button:active,
+.aci-floating-context-inner:active {
+  transform: scale(.96);
+}
+
 .aci-action-btn--primary {
   color: #ffffff;
 
@@ -411,7 +461,7 @@ export default function AciV2ChatShell({
 
   height: var(--caro-context-h);
 
-  margin-top: 7px;
+  margin-top: var(--caro-context-gap);
 
   display: flex;
 
@@ -431,7 +481,7 @@ export default function AciV2ChatShell({
 
   height: var(--caro-context-h);
 
-  max-width: calc(100vw - 36px);
+  max-width: min(calc(100% - 44px), 360px);
 
   padding:
     0
@@ -448,7 +498,7 @@ export default function AciV2ChatShell({
   border-radius: 999px;
 
   background:
-    rgba(255,255,255,.76);
+    rgba(255,255,255,.72);
 
   backdrop-filter:
     blur(14px)
@@ -459,8 +509,8 @@ export default function AciV2ChatShell({
     saturate(160%);
 
   box-shadow:
-    0 7px 18px rgba(15,23,42,.035),
-    inset 0 1px 0 rgba(255,255,255,.88);
+    0 6px 16px rgba(15,23,42,.03),
+    inset 0 1px 0 rgba(255,255,255,.86);
 
   cursor: pointer;
 }
@@ -527,63 +577,208 @@ export default function AciV2ChatShell({
    ======================================================================== */
 
 .aci-shell-inner {
-  width: 100%;
-
-  max-width: 1480px;
+  width: min(100%, var(--caro-stage-w));
 
   margin: 0 auto;
 
   padding:
-    var(--caro-content-top)
+    var(--caro-top-space)
     32px
-    160px;
+    0;
 
   position: relative;
 
   z-index: 1;
+
+  height: 100%;
+  height: 100dvh;
+
+  display: flex;
+  flex-direction: column;
+
+  min-height: 0;
+
+  overflow: hidden;
 }
 
 /* ========================================================================
-   THREAD — DO NOT CHANGE CHAT RENDERING
+   THREAD — DO NOT CHANGE MESSAGE LOGIC
    ======================================================================== */
 
 .aci-thread,
 .aci-chat-thread {
   width: min(100%, 1120px);
 
+  max-width: 100%;
+
   margin: 0 auto;
 
-  padding-top: 0;
+  padding:
+    0
+    0
+    var(--caro-composer-space) !important;
+
+  scroll-padding:
+    14px
+    0
+    var(--caro-composer-space) !important;
+
+  flex: 1 1 auto !important;
+
+  min-height: 0 !important;
+
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+
+  overscroll-behavior: contain;
+
+  scrollbar-width: none;
+}
+
+.aci-thread::-webkit-scrollbar,
+.aci-chat-thread::-webkit-scrollbar {
+  display: none;
 }
 
 .aci-thread .aci-chat-message,
 .aci-chat-thread .aci-chat-message {
+  max-width: 100%;
+
   margin-bottom: 22px;
+
+  scroll-margin-top: 14px;
+}
+
+.aci-chat-message-scroll-target {
+  min-width: 0;
+  max-width: 100%;
+  scroll-margin-top: 14px;
 }
 
 /* ========================================================================
-   MOBILE
+   BOX SIZING ONLY — NO GLOBAL MAX-WIDTH CLIPPING
    ======================================================================== */
 
-@media (max-width: 768px) {
+.aci-chat-shell,
+.aci-shell,
+.aci-shell-inner,
+.aci-thread,
+.aci-chat-thread,
+.aci-chat-shell *,
+.aci-shell * {
+  box-sizing: border-box;
+}
+
+/* keep direct message wrappers inside the phone width */
+.aci-chat-thread .aci-chat-message,
+.aci-thread .aci-chat-message,
+.aci-chat-thread .aci-chat-message > *,
+.aci-thread .aci-chat-message > * {
+  min-width: 0;
+
+  max-width: 100%;
+}
+
+/* user bubble visibility safety */
+.aci-chat-shell .aci-chat-message--user .aci-chat-bubble,
+.aci-chat-shell .aci-chat-message[data-role="user"] .aci-chat-bubble,
+.aci-chat-shell .aci-chat-message.user .aci-chat-bubble {
+  background: #0457ff !important;
+
+  color: #ffffff !important;
+
+  border-color: rgba(4,87,255,.18) !important;
+
+  box-shadow:
+    0 10px 26px rgba(4,87,255,.22) !important;
+}
+
+.aci-chat-shell .aci-chat-message--user *,
+.aci-chat-shell .aci-chat-message[data-role="user"] *,
+.aci-chat-shell .aci-chat-message.user * {
+  color: inherit;
+}
+
+/* Full-width cards should use the chat rail, not 100vw math. */
+.aci-chat-shell .aci-chat-message.is-assistant {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.aci-chat-shell .aci-chat-message.is-assistant .aci-chat-assistant-stack {
+  flex: 1 1 auto !important;
+  min-width: 0 !important;
+  max-width: calc(100% - 52px) !important;
+}
+
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card),
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) {
+  position: relative;
+  display: block !important;
+}
+
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-orb {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+}
+
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-assistant-stack,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack {
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-left: 0 !important;
+}
+
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-bubble {
+  max-width: calc(100% - 52px) !important;
+  margin-left: 52px !important;
+}
+
+.aci-chat-shell .aci-chat-result-card,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-feature-inline-card-v4 {
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.aci-chat-shell .aci-chat-scroll-anchor {
+  width: 100%;
+  height: var(--caro-composer-space) !important;
+  min-height: var(--caro-composer-space) !important;
+  flex: 0 0 var(--caro-composer-space) !important;
+  pointer-events: none;
+}
+
+/* ========================================================================
+   MOBILE UI
+   Mobile portrait + mobile landscape both stay portrait-width.
+   ======================================================================== */
+
+@media (max-width: 768px),
+  (hover: none) and (pointer: coarse) and (max-width: 1024px),
+  (max-width: 950px) and (max-height: 500px) {
   :root {
+    --caro-stage-w: 414px;
+
     --caro-header-top: 8px;
     --caro-header-h: 44px;
     --caro-context-gap: 6px;
     --caro-context-h: 27px;
     --caro-after-context-gap: 18px;
+    --caro-composer-space: calc(132px + env(safe-area-inset-bottom));
   }
 
+  .aci-fixed-top-stage,
   .aci-shell-inner {
-    padding:
-      var(--caro-content-top)
-      12px
-      150px;
+    width: min(100%, var(--caro-stage-w));
   }
-}
 
   .aci-header {
-    width: calc(100vw - 20px);
+    width: calc(100% - 20px);
 
     height: var(--caro-header-h);
 
@@ -613,12 +808,10 @@ export default function AciV2ChatShell({
     height: 30px;
   }
 
-  .aci-floating-context {
-    margin-top: 6px;
-  }
-
   .aci-floating-context-inner {
     height: var(--caro-context-h);
+
+    max-width: calc(100% - 44px);
 
     padding:
       0
@@ -639,19 +832,33 @@ export default function AciV2ChatShell({
 
   .aci-shell-inner {
     padding:
-      var(--caro-content-top)
+      var(--caro-top-space)
       12px
-      150px;
+      0;
   }
 
   .aci-thread,
-.aci-chat-thread {
-  width: min(100%, 1120px);
+  .aci-chat-thread {
+    width: 100%;
 
-  margin: 0 auto;
+    max-width: 100%;
 
-  padding-top: 0;
+    margin: 0 auto;
 
+    padding-top: 0;
+
+    overflow-x: visible;
+  }
+
+  .aci-chat-shell .aci-chat-result-card,
+  .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-feature-inline-card-v4 {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
 }
 
 /* ========================================================================
@@ -659,6 +866,10 @@ export default function AciV2ChatShell({
    ======================================================================== */
 
 @media (max-width: 390px) {
+  :root {
+    --caro-stage-w: 100%;
+  }
+
   .aci-logo-wrap {
     transform:
       translateY(1px)
@@ -675,77 +886,80 @@ export default function AciV2ChatShell({
   }
 }
 
+
       `}</style>
 
       <main className="aci-chat-shell aci-shell">
         {/* FIXED HEADER + CONTEXT */}
         <div className="aci-fixed-top">
-          <header className="aci-header" aria-label="CARO header">
-            <button
-              type="button"
-              className="aci-logo-button"
-              onClick={handleLogoClick}
-              aria-label="Go home"
-            >
-              <div className="aci-logo-wrap">
-                <CaroLogo size={58} />
+          <div className="aci-fixed-top-stage">
+            <header className="aci-header" aria-label="CARO header">
+              <button
+                type="button"
+                className="aci-logo-button"
+                onClick={handleLogoClick}
+                aria-label="Go home"
+              >
+                <div className="aci-logo-wrap">
+                  <CaroLogo size={58} />
+                </div>
+              </button>
+
+              <div className="aci-actions">
+                <button
+                  type="button"
+                  className="aci-action-btn aci-action-btn--primary"
+                  onClick={handleNewChat}
+                  aria-label="Start new chat"
+                  title="Start new chat"
+                >
+                  <Plus size={15} strokeWidth={2.7} />
+                </button>
+
+                <button
+                  type="button"
+                  className="aci-action-btn"
+                  onClick={handleNotifications}
+                  aria-label="Notifications"
+                  title="Notifications"
+                >
+                  <Bell size={16} strokeWidth={2.15} />
+                </button>
+
+                <button
+                  type="button"
+                  className="aci-action-btn"
+                  onClick={handleProfile}
+                  aria-label="Profile"
+                  title="Profile"
+                >
+                  <User2 size={16} strokeWidth={2.15} />
+                </button>
               </div>
-            </button>
+            </header>
 
-            <div className="aci-actions">
+            <div className="aci-floating-context">
               <button
                 type="button"
-                className="aci-action-btn aci-action-btn--primary"
-                onClick={handleNewChat}
-                aria-label="Start new chat"
-                title="Start new chat"
+                className="aci-floating-context-inner"
+                onClick={handleChangeContext}
+                aria-label="Change car context"
               >
-                <Plus size={15} strokeWidth={2.7} />
-              </button>
+                <span className="aci-context-aura" />
 
-              <button
-                type="button"
-                className="aci-action-btn"
-                onClick={handleNotifications}
-                aria-label="Notifications"
-                title="Notifications"
-              >
-                <Bell size={16} strokeWidth={2.15} />
-              </button>
+                <span className="aci-floating-context-text">
+                  {contextLabel}
+                </span>
 
-              <button
-                type="button"
-                className="aci-action-btn"
-                onClick={handleProfile}
-                aria-label="Profile"
-                title="Profile"
-              >
-                <User2 size={16} strokeWidth={2.15} />
+                <ChevronDown size={11} strokeWidth={2.4} color="#8d97ab" />
+
+                <span className="aci-floating-context-change">Change</span>
               </button>
             </div>
-          </header>
-
-          <div className="aci-floating-context">
-            <button
-              type="button"
-              className="aci-floating-context-inner"
-              onClick={handleChangeContext}
-              aria-label="Change car context"
-            >
-              <span className="aci-context-aura" />
-
-              <span className="aci-floating-context-text">{contextLabel}</span>
-
-              <ChevronDown size={11} strokeWidth={2.4} color="#8d97ab" />
-
-              <span className="aci-floating-context-change">Change</span>
-            </button>
           </div>
         </div>
 
         <section className="aci-shell-inner">
-          {/* THREAD */}
-
           <section
             className="aci-chat-thread aci-thread"
             aria-label="CARO conversation"
@@ -764,13 +978,18 @@ export default function AciV2ChatShell({
             ) : null}
 
             {messages?.map((message, index) => (
-              <AciV2ChatMessage
+              <div
                 key={message.id || `${message.role || "assistant"}-${index}`}
-                message={message}
-                selectedVehicle={activeVehicle}
-                onAction={onAction}
-                onOpenCanvas={onOpenCanvas}
-              />
+                ref={index === latestExchangeIndex ? latestExchangeRef : null}
+                className="aci-chat-message-scroll-target"
+              >
+                <AciV2ChatMessage
+                  message={message}
+                  selectedVehicle={activeVehicle}
+                  onAction={onAction}
+                  onOpenCanvas={onOpenCanvas}
+                />
+              </div>
             ))}
 
             {isLoading ? <AciV2ThinkingMessage /> : null}
@@ -789,7 +1008,7 @@ export default function AciV2ChatShell({
               />
             ) : null}
 
-            <div ref={threadEndRef} />
+            <div ref={threadEndRef} className="aci-chat-scroll-anchor" />
           </section>
         </section>
 
