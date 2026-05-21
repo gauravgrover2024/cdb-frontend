@@ -122,7 +122,7 @@ const getPatchVehicle = (patch = {}) =>
   patch?.selectedVehicle || patch?.vehicle || patch?.activeVehicle || null;
 
 export const mergeSessionContext = (previous = {}, patch = {}) => {
-  const patchSelectedVehicle = getPatchVehicle(patch);
+  const rawPatchSelectedVehicle = getPatchVehicle(patch);
   const patchHasAnchorVariant = hasOwn(patch, "anchorVariant");
   const patchHasAnchorModel =
     hasOwn(patch, "anchorModel") && Boolean(String(patch.anchorModel || "").trim());
@@ -133,6 +133,13 @@ export const mergeSessionContext = (previous = {}, patch = {}) => {
   const patchModelKey = patchHasAnchorModel
     ? getVehicleModelKey({ model: patch.anchorModel })
     : "";
+  const rawPatchVehicleKey = getVehicleModelKey(rawPatchSelectedVehicle);
+  const patchVehicleConflictsAnchor = Boolean(
+    patchModelKey && rawPatchVehicleKey && patchModelKey !== rawPatchVehicleKey,
+  );
+  const patchSelectedVehicle = patchVehicleConflictsAnchor
+    ? null
+    : rawPatchSelectedVehicle;
   const patchVehicleKey = getVehicleModelKey(patchSelectedVehicle);
 
   const patchModelChangedVehicle = Boolean(
@@ -380,3 +387,44 @@ export const buildVehicleContextPatch = ({
   };
 };
 
+export const getDisplayVehicleFromContext = (context = {}) => {
+  const anchorModel = firstValue(context.anchorModel, context.model);
+  const anchorMake = firstValue(context.anchorMake, context.anchorBrand, context.make);
+  const anchorVariant = hasOwn(context, "anchorVariant")
+    ? String(context.anchorVariant || "")
+    : firstValue(context.variant);
+  const selectedVehicle = normalizeVehicle(context.selectedVehicle);
+  const anchorKey = getVehicleModelKey({ model: anchorModel });
+  const selectedKey = getVehicleModelKey(selectedVehicle);
+  const selectedMatchesAnchor =
+    !anchorKey || !selectedKey || anchorKey === selectedKey;
+
+  if (selectedVehicle && selectedMatchesAnchor) {
+    return {
+      ...selectedVehicle,
+      make: firstValue(selectedVehicle.make, selectedVehicle.brand, anchorMake),
+      brand: firstValue(selectedVehicle.brand, selectedVehicle.make, anchorMake),
+      model: firstValue(anchorModel, selectedVehicle.model),
+      displayName: firstValue(anchorModel, selectedVehicle.displayName, selectedVehicle.model),
+      variant: anchorVariant,
+      variantName: anchorVariant,
+      selectedVariant: anchorVariant,
+    };
+  }
+
+  if (!anchorModel) return null;
+
+  return {
+    make: anchorMake,
+    brand: anchorMake,
+    model: anchorModel,
+    modelName: anchorModel,
+    displayName: anchorModel,
+    fullModel: firstValue(context.anchorFullModel, anchorMake && anchorModel ? `${anchorMake} ${anchorModel}` : anchorModel),
+    variant: anchorVariant,
+    variantName: anchorVariant,
+    selectedVariant: anchorVariant,
+    city: firstValue(context.anchorCity, context.city, "new-delhi"),
+    citySlug: firstValue(context.anchorCity, context.citySlug, "new-delhi"),
+  };
+};

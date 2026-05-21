@@ -21,6 +21,7 @@ import {
   compactContextForBackend,
   firstValue,
   getVehicleId,
+  getVehicleModelKey,
   getVehicleTitle,
   mergeSessionContext,
   mergeVehicle,
@@ -195,16 +196,24 @@ const normalizeBackendWidget = (backend = {}) => {
 
 const safeWidget = (widget) => (isObject(widget) ? widget : {});
 
-const buildContextPatchFromBackend = (backend = {}, widget = {}) => ({
-  ...(widget.contextPatch || {}),
-  ...(backend.contextPatch || {}),
-  selectedVehicle:
-    backend.contextPatch?.selectedVehicle ||
-    widget.contextPatch?.selectedVehicle ||
-    backend.vehicle ||
-    widget.vehicle ||
-    null,
-});
+const buildContextPatchFromBackend = (backend = {}, widget = {}) => {
+  const contextPatch = {
+    ...(widget.contextPatch || {}),
+    ...(backend.contextPatch || {}),
+  };
+  const responseVehicle = firstVehicle(backend.vehicle, widget.vehicle);
+  const patchVehicle = firstVehicle(contextPatch.selectedVehicle);
+  const selectedVehicle =
+    mergeVehicle(patchVehicle, responseVehicle) ||
+    responseVehicle ||
+    patchVehicle ||
+    null;
+
+  return {
+    ...contextPatch,
+    selectedVehicle,
+  };
+};
 
 const firstVehicle = (...values) => {
   for (const value of values) {
@@ -517,18 +526,29 @@ export default function AciAssistV2() {
       );
 
       const contextPatch = buildContextPatchFromBackend(backend, widget);
-      const backendVehicle = mergeVehicle(
-        targetVehicle || selectedVehicle,
-        contextPatch.selectedVehicle || backend.vehicle || widget.vehicle,
+      const backendVehicle = firstVehicle(
+        contextPatch.selectedVehicle,
+        backend.vehicle,
+        widget.vehicle,
       );
+      const contextModelKey = getVehicleModelKey({
+        model: contextPatch.anchorModel,
+      });
+      const fallbackVehicle = firstVehicle(targetVehicle, selectedVehicle);
+      const fallbackVehicleKey = getVehicleModelKey(fallbackVehicle);
+      const canUseFallbackVehicle = Boolean(
+        fallbackVehicle &&
+          (!contextModelKey ||
+            !fallbackVehicleKey ||
+            contextModelKey === fallbackVehicleKey),
+      );
+      const scopedVehicle =
+        backendVehicle || (canUseFallbackVehicle ? fallbackVehicle : null);
 
       setSessionContext((previous) =>
         mergeSessionContext(previous, {
           ...contextPatch,
-          selectedVehicle:
-            contextPatch.selectedVehicle ||
-            backendVehicle ||
-            previous.selectedVehicle,
+          selectedVehicle: scopedVehicle || contextPatch.selectedVehicle || null,
           lastCanvasType: canvasType || previous.lastCanvasType,
         }),
       );
@@ -543,15 +563,11 @@ export default function AciAssistV2() {
           widget,
           backendRaw: backend.raw,
         },
-        vehicle: backendVehicle || targetVehicle || selectedVehicle,
+        vehicle: scopedVehicle,
         contextPatch: {
           ...(action.contextPatch || {}),
           ...contextPatch,
-          selectedVehicle:
-            backendVehicle ||
-            contextPatch.selectedVehicle ||
-            targetVehicle ||
-            selectedVehicle,
+          selectedVehicle: scopedVehicle || contextPatch.selectedVehicle || null,
         },
       };
 
@@ -587,7 +603,7 @@ export default function AciAssistV2() {
           contextPatch,
           sourceTransparency: backend.sourceTransparency || null,
           runtimeResultsMeta: backend.runtimeResultsMeta || [],
-          vehicle: backendVehicle || targetVehicle || selectedVehicle,
+          vehicle: scopedVehicle,
         },
       ]);
 
@@ -1341,6 +1357,16 @@ export default function AciAssistV2() {
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+}
+
+.aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack {
+  flex: 1 1 auto;
+}
+
+.aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-feature-inline-card-v4 {
+  width: calc(100% + 50px);
+  max-width: min(800px, calc(100vw - 44px));
+  margin-left: -50px;
 }
 
 .aci-chat-result-card::before,
@@ -2285,6 +2311,22 @@ export default function AciAssistV2() {
     margin-right: 0 !important;
     padding-left: 4px !important;
     padding-right: 4px !important;
+  }
+
+  .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) {
+    width: 100% !important;
+  }
+
+  .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack {
+    flex: 1 1 auto !important;
+    max-width: calc(100% - 50px) !important;
+    min-width: 0 !important;
+  }
+
+  .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-feature-inline-card-v4 {
+    width: calc(100vw - 28px) !important;
+    max-width: 402px !important;
+    margin-left: -50px !important;
   }
 
   .aci-chat-result-rows {
