@@ -1,5 +1,5 @@
 import React from "react";
-import { Car, Check, ChevronRight, Grid2X2, Lightbulb, X } from "lucide-react";
+import { Car, Check, ChevronRight, Grid2X2, X } from "lucide-react";
 import { buildChatImageFrameStyle } from "../chat/aciV2ChatWidgetUtils";
 import {
   buildVehicleContextPatch,
@@ -272,35 +272,45 @@ const shouldPlaceHeroImageFirst = (...sources) => {
   return false;
 };
 
-const whyItMattersText = ({ widget = {}, data = {}, feature = "" }) => {
-  const explicit = firstValue(
-    widget.whyItMatters,
-    data.whyItMatters,
-    widget.why,
-    data.why,
-    widget.insight,
-    data.insight,
-  );
+const clampNumber = (value, min, max, fallback) => {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, number));
+};
 
-  if (explicit) return explicit;
+const clampPercentValue = (value, min, max, fallback = "0%") => {
+  const text = String(value ?? "").trim();
+  const number = Number(text.endsWith("%") ? text.slice(0, -1) : text);
+  if (!Number.isFinite(number)) return fallback;
+  return `${Math.min(max, Math.max(min, number)).toFixed(2)}%`;
+};
 
-  const label = cleanFeatureLabel(feature);
+const buildFeatureHeroFrameStyle = (frame) => {
+  const base = frame
+    ? buildChatImageFrameStyle(frame, "featureInlineHero")
+    : {
+        "--chat-car-frame-scale": "1",
+        "--chat-car-frame-x": "0%",
+        "--chat-car-frame-y": "0%",
+        "--chat-car-frame-origin": "center center",
+      };
 
-  if (/sunroof/.test(label))
-    return "Sunroofs make the cabin feel more open and premium.";
-  if (/airbag|abs|safety|esc|stability|brak/.test(label)) {
-    return "Safety features help you compare variants more confidently.";
-  }
-  if (/camera|parking/.test(label))
-    return "Camera features make tight parking and city driving easier.";
-  if (/speaker|audio|music|infotainment|touchscreen/.test(label)) {
-    return "Infotainment features improve the daily cabin experience.";
-  }
-  if (/climate|ac|vent/.test(label)) {
-    return "Comfort features can make daily drives feel more relaxed.";
-  }
-
-  return `${prettyFeatureLabel(feature)} helps separate must-have variants from optional upgrades.`;
+  return {
+    ...base,
+    "--chat-car-frame-scale": String(
+      clampNumber(base["--chat-car-frame-scale"], 0.78, 1.28, 1),
+    ),
+    "--chat-car-frame-x": clampPercentValue(
+      base["--chat-car-frame-x"],
+      -13,
+      13,
+    ),
+    "--chat-car-frame-y": clampPercentValue(
+      base["--chat-car-frame-y"],
+      -12,
+      12,
+    ),
+  };
 };
 
 const buildPremiumFeatureSuggestions = ({
@@ -311,53 +321,58 @@ const buildPremiumFeatureSuggestions = ({
 } = {}) => {
   const car = model || "this car";
   const feature = featureLabel || "this feature";
-  const displayFeature = displayFeatureLabel || feature;
   const suggestions = [];
 
-  if (answerTone === "no") {
-    suggestions.push({
-      label: `Show variants that add ${displayFeature}`,
-      query: `Which variants of ${car} have ${feature}?`,
-    });
-  } else {
-    suggestions.push({
-      label: `See every variant with ${displayFeature}`,
-      query: `Which variants of ${car} have ${feature}?`,
-    });
-  }
-
   if (/sunroof/.test(feature)) {
-    suggestions.push({
-      label: "Find the most premium sunroof variant",
-      query: `Which ${car} variant with sunroof is the best value?`,
-    });
+    suggestions.push(
+      {
+        label: "Compare sunroof variants by price",
+        query: `Compare ${car} sunroof variants by on-road price`,
+      },
+      {
+        label: "Check panoramic sunroof options",
+        query: `Which ${car} variants have panoramic sunroof?`,
+      },
+    );
   } else if (/abs|airbag|adas|safety|brak/.test(feature)) {
-    suggestions.push({
-      label: "Compare the safest variants",
-      query: `Compare ${car} variants by safety features`,
-    });
+    suggestions.push(
+      {
+        label: "Compare safety across variants",
+        query: `Compare ${car} variants by safety features`,
+      },
+      {
+        label: "Find the best safety value",
+        query: `Which ${car} variant gives the best safety value?`,
+      },
+    );
   } else if (/mileage|kmpl|arai/.test(feature)) {
-    suggestions.push({
-      label: "Find the best mileage variant",
-      query: `Which ${car} variant has the best mileage?`,
-    });
+    suggestions.push(
+      {
+        label: "Find the best mileage variant",
+        query: `Which ${car} variant has the best mileage?`,
+      },
+      {
+        label: "Compare mileage with price",
+        query: `Compare ${car} mileage with on-road price`,
+      },
+    );
   } else {
-    suggestions.push({
-      label: "Compare the better-equipped variants",
-      query: `Compare ${car} variants with ${feature}`,
-    });
+    suggestions.push(
+      {
+        label: "Compare better-equipped variants",
+        query: `Compare ${car} variants with ${feature}`,
+      },
+      {
+        label: "Find the best value upgrade",
+        query: `Which ${car} variant is the best value upgrade?`,
+      },
+    );
   }
 
-  suggestions.push(
-    {
-      label: "Pair features with on-road price",
-      query: `Show ${car} price with key features`,
-    },
-    {
-      label: "Build a shortlist worth test-driving",
-      query: `Which ${car} variant should I shortlist?`,
-    },
-  );
+  suggestions.push({
+    label: `Open ${car} colours`,
+    query: `Show ${car} colours`,
+  });
 
   const seen = new Set();
   return suggestions.filter((item) => {
@@ -365,7 +380,7 @@ const buildPremiumFeatureSuggestions = ({
     if (!key || seen.has(key)) return false;
     seen.add(key);
     return true;
-  }).slice(0, 4);
+  }).slice(0, 3);
 };
 
 const buildDisplayRows = ({
@@ -571,9 +586,7 @@ export default function AciV2FeatureInlineCard({
     allRows[0],
   );
 
-  const heroFrameStyle = heroFrame
-    ? buildChatImageFrameStyle(heroFrame, "featureInlineHero")
-    : {};
+  const heroFrameStyle = buildFeatureHeroFrameStyle(heroFrame);
 
   const openExplorer = () => {
     onAction?.({
@@ -654,15 +667,17 @@ export default function AciV2FeatureInlineCard({
         : "Available";
   const previewCount = displayRows.length;
   const previewLabel = previewCount
-    ? `${previewCount} key variant${previewCount === 1 ? "" : "s"} previewed`
+    ? `${previewCount} key variant${previewCount === 1 ? "" : "s"}`
     : availableCount
       ? `${availableCount} available variant${availableCount === 1 ? "" : "s"}`
       : "Variant availability";
   const heroCopy = (
     <div className="aci-feature-v4-copy">
-      <div className="aci-feature-v4-kicker">{displayFeatureLabel}</div>
       <strong>{vehicleName}</strong>
-      <span>{statusLabel}</span>
+      <div className="aci-feature-v4-meta">
+        <span>{displayFeatureLabel}</span>
+        <em>{statusLabel}</em>
+      </div>
       <small>{previewLabel}</small>
     </div>
   );
@@ -678,7 +693,7 @@ export default function AciV2FeatureInlineCard({
     >
       <style>{`
         .aci-feature-inline-card-v4 {
-          width: min(100%, 560px);
+          width: min(100%, 600px);
           color: #071142;
           font-family:
             Inter,
@@ -694,28 +709,28 @@ export default function AciV2FeatureInlineCard({
           position: relative;
           overflow: hidden;
           border: 1px solid rgba(211, 222, 240, 0.96);
-          border-radius: 24px;
+          border-radius: 22px;
           background:
             linear-gradient(180deg, rgba(255,255,255,0.99), rgba(250,253,255,0.98));
           box-shadow:
-            0 30px 80px -60px rgba(8, 26, 66, 0.58),
-            0 10px 34px -28px rgba(7, 88, 248, 0.32),
+            0 24px 60px -48px rgba(8, 26, 66, 0.52),
+            0 8px 26px -24px rgba(7, 88, 248, 0.28),
             inset 0 1px 0 rgba(255,255,255,0.98);
-          padding: 18px 18px 17px;
+          padding: 14px;
         }
 
         .aci-feature-v4-hero {
           display: grid;
-          grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
+          grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
           align-items: center;
-          gap: 14px;
-          min-height: 188px;
-          margin-bottom: 18px;
+          gap: 8px;
+          min-height: 154px;
+          margin-bottom: 13px;
           padding: 0;
         }
 
         .aci-feature-inline-card-v4.is-image-first .aci-feature-v4-hero {
-          grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
+          grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
         }
 
         .aci-feature-inline-card-v4.no-image .aci-feature-v4-hero {
@@ -728,32 +743,13 @@ export default function AciV2FeatureInlineCard({
           align-self: center;
         }
 
-        .aci-feature-v4-kicker {
-          display: inline-flex;
-          align-items: center;
-          max-width: 100%;
-          margin: 0 0 10px;
-          border: 1px solid rgba(210, 222, 242, 0.9);
-          border-radius: 999px;
-          background: rgba(255, 255, 255, 0.92);
-          padding: 5px 10px;
-          color: #0758f8;
-          font-size: 11.5px;
-          line-height: 1;
-          font-weight: 720;
-          letter-spacing: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
         .aci-feature-v4-copy strong {
           display: block;
           margin: 0;
-          max-width: 13em;
+          max-width: 11em;
           color: #071142;
-          font-size: clamp(23px, 2.1vw, 31px);
-          line-height: 0.98;
+          font-size: clamp(22px, 2vw, 29px);
+          line-height: 1;
           font-weight: 780;
           letter-spacing: 0;
           overflow: hidden;
@@ -761,11 +757,30 @@ export default function AciV2FeatureInlineCard({
           white-space: normal;
         }
 
-        .aci-feature-v4-copy span {
+        .aci-feature-v4-meta {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 7px;
+          margin-top: 10px;
+        }
+
+        .aci-feature-v4-meta span {
+          min-width: 0;
+          color: #5d6988;
+          font-size: 12.5px;
+          line-height: 1.1;
+          font-weight: 700;
+          letter-spacing: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        .aci-feature-v4-meta em {
           display: inline-flex;
           align-items: center;
           min-height: 30px;
-          margin-top: 13px;
           border-radius: 999px;
           padding: 0 12px;
           color: ${answerTone === "no" ? "#dc2639" : answerTone === "mixed" ? "#b45309" : "#08a95d"};
@@ -774,11 +789,12 @@ export default function AciV2FeatureInlineCard({
           line-height: 1;
           font-weight: 710;
           letter-spacing: 0;
+          font-style: normal;
         }
 
         .aci-feature-v4-copy small {
           display: block;
-          margin-top: 8px;
+          margin-top: 9px;
           color: #5d6988;
           font-size: 13px;
           line-height: 1.25;
@@ -788,7 +804,7 @@ export default function AciV2FeatureInlineCard({
 
         .aci-feature-v4-car {
           position: relative;
-          min-height: 188px;
+          min-height: 154px;
           display: grid;
           place-items: center;
           overflow: visible;
@@ -804,7 +820,7 @@ export default function AciV2FeatureInlineCard({
           left: 12%;
           right: 9%;
           bottom: 9%;
-          height: 14px;
+          height: 12px;
           border-radius: 999px;
           background: radial-gradient(ellipse, rgba(15, 23, 42, 0.15), transparent 72%);
           filter: blur(6px);
@@ -813,27 +829,28 @@ export default function AciV2FeatureInlineCard({
         .aci-feature-v4-car img {
           position: relative;
           z-index: 1;
-          width: min(218%, 390px);
+          width: min(124%, 286px);
           max-width: none;
+          max-height: 154px;
           height: auto;
           object-fit: contain;
           transform:
             translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-            scale(calc(var(--chat-car-frame-scale, 1) * 1.08));
+            scale(calc(var(--chat-car-frame-scale, 1) * 1.02));
           transform-origin: var(--chat-car-frame-origin, center center);
           filter: drop-shadow(0 18px 16px rgba(15, 23, 42, 0.15));
         }
 
         .aci-feature-v4-table {
           overflow: hidden;
-          border-radius: 18px;
+          border-radius: 16px;
           border: 1px solid rgba(214, 224, 241, 0.96);
           background: rgba(255, 255, 255, 0.94);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.95);
         }
 
         .aci-feature-v4-row {
-          min-height: 50px;
+          min-height: 46px;
           display: grid;
           grid-template-columns: minmax(0, 1fr) auto;
           align-items: center;
@@ -888,14 +905,14 @@ export default function AciV2FeatureInlineCard({
         }
 
         .aci-feature-v4-actions {
-          margin-top: 15px;
+          margin-top: 12px;
           display: grid;
           grid-template-columns: repeat(2, minmax(0, 1fr));
           gap: 10px;
         }
 
         .aci-feature-v4-action {
-          min-height: 46px;
+          min-height: 43px;
           border: 1px solid rgba(210, 222, 242, 0.96);
           border-radius: 16px;
           padding: 0 12px;
@@ -946,61 +963,10 @@ export default function AciV2FeatureInlineCard({
           color: #071142;
         }
 
-        .aci-feature-v4-why {
-          margin-top: 13px;
-          min-height: 64px;
-          border: 1px solid rgba(219, 228, 244, 0.94);
-          border-radius: 19px;
-          background: rgba(255,255,255,0.96);
-          display: grid;
-          grid-template-columns: 36px minmax(0, 1fr) auto;
-          align-items: center;
-          gap: 10px;
-          padding: 12px 14px;
-        }
-
-        .aci-feature-v4-why-icon {
-          width: 34px;
-          height: 34px;
-          display: grid;
-          place-items: center;
-          border-radius: 999px;
-          color: #0758f8;
-          background: #eef5ff;
-        }
-
-        .aci-feature-v4-why-icon svg {
-          width: 18px;
-          height: 18px;
-        }
-
-        .aci-feature-v4-why strong {
-          display: block;
-          color: #071142;
-          font-size: 13px;
-          font-weight: 730;
-          letter-spacing: 0;
-        }
-
-        .aci-feature-v4-why p {
-          margin: 3px 0 0;
-          color: #667292;
-          font-size: 12.5px;
-          line-height: 1.32;
-          font-weight: 520;
-          letter-spacing: 0;
-        }
-
-        .aci-feature-v4-why > svg {
-          width: 16px;
-          height: 16px;
-          color: #667292;
-        }
-
         .aci-feature-v4-suggestions {
-          margin-top: 12px;
+          margin-top: 10px;
           display: grid;
-          grid-template-columns: repeat(2, minmax(0, 1fr));
+          grid-template-columns: repeat(3, minmax(0, 1fr));
           gap: 8px;
           overflow: visible;
         }
@@ -1008,13 +974,13 @@ export default function AciV2FeatureInlineCard({
         .aci-feature-v4-suggestion {
           width: 100%;
           min-width: 0;
-          min-height: 32px;
+          min-height: 34px;
           border: 1px solid rgba(210, 222, 242, 0.96);
           border-radius: 999px;
-          padding: 7px 12px;
+          padding: 7px 11px;
           background: rgba(248, 251, 255, 0.96);
           color: #002caa;
-          font-size: 12px;
+          font-size: 11.5px;
           line-height: 1.15;
           font-weight: 620;
           letter-spacing: 0;
@@ -1023,45 +989,39 @@ export default function AciV2FeatureInlineCard({
           text-align: center;
         }
 
-        .aci-feature-v4-suggestion:last-child:nth-child(odd) {
-          grid-column: 1 / -1;
-        }
-
         @media (max-width: 720px) {
           .aci-feature-inline-card-v4 {
             width: 100%;
           }
 
           .aci-feature-v4-main {
-            border-radius: 22px;
-            padding: 15px;
+            border-radius: 21px;
+            padding: 13px;
           }
 
           .aci-feature-v4-hero {
-            grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr);
-            min-height: 164px;
+            grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+            min-height: 146px;
             gap: 10px;
-            margin-bottom: 14px;
+            margin-bottom: 12px;
           }
 
           .aci-feature-inline-card-v4.is-image-first .aci-feature-v4-hero {
-            grid-template-columns: minmax(0, 1.18fr) minmax(0, 0.82fr);
-          }
-
-          .aci-feature-v4-kicker {
-            margin-bottom: 7px;
-            padding: 5px 9px;
-            font-size: 11px;
+            grid-template-columns: minmax(0, 1.08fr) minmax(0, 0.92fr);
           }
 
           .aci-feature-v4-copy strong {
-            font-size: clamp(21px, 6.1vw, 28px);
+            font-size: clamp(20px, 5.7vw, 26px);
           }
 
-          .aci-feature-v4-copy span {
-            min-height: 26px;
+          .aci-feature-v4-meta {
             margin-top: 8px;
+          }
+
+          .aci-feature-v4-meta em {
+            min-height: 26px;
             padding: 0 10px;
+            font-size: 11.5px;
           }
 
           .aci-feature-v4-copy small {
@@ -1069,14 +1029,15 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-car {
-            min-height: 164px;
+            min-height: 146px;
           }
 
           .aci-feature-v4-car img {
-            width: min(238%, 315px);
+            width: min(132%, 246px);
+            max-height: 146px;
             transform:
               translate(var(--chat-car-frame-x, 0%), var(--chat-car-frame-y, 0%))
-              scale(calc(var(--chat-car-frame-scale, 1) * 1.03));
+              scale(var(--chat-car-frame-scale, 1));
           }
 
           .aci-feature-v4-table {
@@ -1107,6 +1068,10 @@ export default function AciV2FeatureInlineCard({
           .aci-feature-v4-action {
             min-height: 41px;
           }
+
+          .aci-feature-v4-suggestions {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
         }
 
         @media (max-width: 420px) {
@@ -1115,11 +1080,11 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-hero {
-            grid-template-columns: minmax(0, 0.76fr) minmax(0, 1.24fr);
+            grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
           }
 
           .aci-feature-inline-card-v4.is-image-first .aci-feature-v4-hero {
-            grid-template-columns: minmax(0, 1.24fr) minmax(0, 0.76fr);
+            grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
           }
 
           .aci-feature-v4-copy strong {
@@ -1127,21 +1092,12 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-car {
-            min-height: 152px;
+            min-height: 138px;
           }
 
           .aci-feature-v4-car img {
-            width: 292px;
-          }
-
-          .aci-feature-v4-why {
-            grid-template-columns: 32px minmax(0, 1fr) auto;
-            padding: 11px 12px;
-          }
-
-          .aci-feature-v4-why-icon {
-            width: 31px;
-            height: 31px;
+            width: 228px;
+            max-height: 138px;
           }
 
           .aci-feature-v4-suggestions {
@@ -1209,17 +1165,6 @@ export default function AciV2FeatureInlineCard({
             <ChevronRight aria-hidden="true" />
           </button>
         </div>
-      </section>
-
-      <section className="aci-feature-v4-why">
-        <span className="aci-feature-v4-why-icon">
-          <Lightbulb aria-hidden="true" />
-        </span>
-        <div>
-          <strong>Why it matters</strong>
-          <p>{whyItMattersText({ widget, data, feature })}</p>
-        </div>
-        <ChevronRight aria-hidden="true" />
       </section>
 
       <div className="aci-feature-v4-suggestions">
