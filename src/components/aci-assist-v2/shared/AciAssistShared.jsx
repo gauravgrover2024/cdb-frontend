@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
-import { Heart, Sparkles } from "lucide-react";
+import { ChevronLeft, Heart, Sparkles } from "lucide-react";
+import CaroLogo from "../../brand/CaroLogo";
 import CarImageStage from "./CarImageStage";
 import { getDisplayCarImage, isUsableImageUrl } from "./aciV2Image";
 import AciV2StickyChatBar from "./AciV2StickyChatBar";
@@ -74,28 +75,56 @@ export function emitAciAction(action, onAction, extra = {}) {
   return detail;
 }
 
-export function AciLogo({ mobile = false, compact = false, onAction }) {
+export function AciLogo({
+  mobile = false,
+  compact = false,
+  onAction,
+  showBack = false,
+  onBack,
+  backLabel = "Back",
+}) {
+  const handleLogoClick = () =>
+    emitAciAction({ label: "Home", type: "go_home" }, onAction);
+  const handleBackClick = () => {
+    if (typeof onBack === "function") {
+      onBack();
+      return;
+    }
+
+    emitAciAction({ label: backLabel, type: "go_home" }, onAction);
+  };
+
   return (
-    <motion.button
-      type="button"
+    <motion.div
       className={`aci-logo ${mobile ? "mobile" : ""} ${
         compact ? "compact" : ""
-      }`}
-      onClick={() =>
-        emitAciAction({ label: "Home", type: "go_home" }, onAction)
-      }
+      } ${showBack ? "has-back" : ""}`}
       whileHover={{ y: -1 }}
       whileTap={{ scale: 0.98 }}
     >
-      <span className="aci-mark">ACI</span>
+      {showBack ? (
+        <button
+          type="button"
+          className="aci-logo-back"
+          onClick={handleBackClick}
+          aria-label={backLabel}
+          title={backLabel}
+        >
+          <ChevronLeft size={mobile ? 23 : 20} strokeWidth={2.35} />
+        </button>
+      ) : null}
 
-      <span className="aci-logo-copy">
-        <strong>ASSIST</strong>
-        {!compact ? <em>One bot solution</em> : null}
-      </span>
+      <button
+        type="button"
+        className="aci-logo-wordmark"
+        onClick={handleLogoClick}
+        aria-label="CARO home"
+      >
+        <CaroLogo size={mobile ? 48 : compact ? 46 : 54} />
 
-      {!mobile ? <Sparkles size={13} /> : null}
-    </motion.button>
+        {!mobile ? <Sparkles size={13} /> : null}
+      </button>
+    </motion.div>
   );
 }
 

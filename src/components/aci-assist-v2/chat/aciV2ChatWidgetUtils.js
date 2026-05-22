@@ -12,6 +12,69 @@ export const firstValue = (...values) => {
 
 export const safeWidget = (widget) => (isObject(widget) ? widget : {});
 
+const normalizeText = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const variantLabelForFuel = (row = {}) =>
+  firstValue(row.variant, row.variantName, row.label, row.name, row.title);
+
+const hasFuelSignal = (row = {}) => {
+  const text = normalizeText(
+    firstValue(
+      row.fuel,
+      row.fuelType,
+      row.fuel_type,
+      row.engineType,
+      row.engine_type,
+      row.powertrain,
+      row.fuelTransmission,
+      variantLabelForFuel(row),
+    ),
+  );
+
+  return /diesel|cng|electric| ev |bev|hybrid|petrol|gasoline|lpg/.test(
+    ` ${text} `,
+  );
+};
+
+const fuelCategoryForRow = (row = {}) => {
+  const text = normalizeText(
+    firstValue(
+      row.fuel,
+      row.fuelType,
+      row.fuel_type,
+      row.engineType,
+      row.engine_type,
+      row.powertrain,
+      row.fuelTransmission,
+      variantLabelForFuel(row),
+    ),
+  );
+
+  if (/diesel/.test(text)) return "diesel";
+  if (/cng/.test(text)) return "cng";
+  if (/electric| ev |bev/.test(` ${text} `)) return "electric";
+  if (/hybrid|strong hybrid|mhev/.test(text)) return "hybrid";
+  if (/lpg/.test(text)) return "lpg";
+  if (/petrol|gasoline/.test(text)) return "petrol";
+  return "petrol";
+};
+
+const keepOneFuelFamily = (rows = [], preferredRow = null) => {
+  const list = toArray(rows);
+  if (!list.some(hasFuelSignal)) return list;
+
+  const preferredFuel = fuelCategoryForRow(preferredRow || list[0]);
+  const filtered = list.filter((row) => fuelCategoryForRow(row) === preferredFuel);
+
+  return filtered.length ? filtered : list;
+};
+
 const getStageFrame = (imageFrame, stageKey = "chatCard") => {
   if (!imageFrame || typeof imageFrame !== "object") return null;
 
@@ -277,10 +340,9 @@ export const getWidgetTitle = (widget = {}, canvasType = "", vehicle = null) => 
 export const getWidgetRows = (widget = {}) => {
   const item = safeWidget(widget);
 
-  return toArray(item.rows || item.variants || item.items || item.colors).slice(
-    0,
-    3,
-  );
+  return keepOneFuelFamily(
+    toArray(item.rows || item.variants || item.items || item.colors),
+  ).slice(0, 3);
 };
 
 export const formatIndianPrice = (value) => {
@@ -390,7 +452,9 @@ export const getFeaturePreviewRows = (widget = {}, canvasType = "") => {
     canvasType === "feature_match_builder_canvas" ||
     widget.intent === "vehicle_feature_discovery"
   ) {
-    return toArray(widget.rows || widget.matchedVariants || widget.items).slice(0, 3);
+    return keepOneFuelFamily(
+      toArray(widget.rows || widget.matchedVariants || widget.items),
+    ).slice(0, 3);
   }
 
   const variants = toArray(widget.variantOptions || widget.variants);
@@ -407,7 +471,7 @@ export const getFeaturePreviewRows = (widget = {}, canvasType = "") => {
     ? [selected, ...variants.filter((variant) => variant !== selected)]
     : variants;
 
-  return ordered.slice(0, 3);
+  return keepOneFuelFamily(ordered, selected).slice(0, 3);
 };
 
 export const formatFeaturePreviewPrice = (row = {}) =>

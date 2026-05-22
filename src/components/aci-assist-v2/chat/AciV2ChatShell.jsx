@@ -18,11 +18,10 @@
 
 import React, { useCallback, useEffect, useRef } from "react";
 
-import { Bell, ChevronDown, Plus, User2 } from "lucide-react";
-
-import CaroLogo from "../../brand/CaroLogo";
+import { ChevronDown } from "lucide-react";
 
 import { AciComposer } from "../shared/AciAssistShared";
+import AciV2PortalHeader from "../shared/AciV2PortalHeader";
 
 import { getDisplayVehicleFromContext } from "../context/aciV2ContextManager";
 
@@ -147,7 +146,7 @@ export default function AciV2ChatShell({
 
     const list = Array.isArray(messages) ? messages : [];
     for (let index = list.length - 1; index >= 0; index -= 1) {
-      if (list[index]?.role === "user") return index;
+      if (list[index]?.role === "assistant") return index;
     }
 
     return list.length - 1;
@@ -178,7 +177,7 @@ export default function AciV2ChatShell({
   --caro-context-gap: 7px;
   --caro-context-h: 28px;
   --caro-after-context-gap: 22px;
-  --caro-composer-space: calc(126px + env(safe-area-inset-bottom));
+  --caro-composer-space: calc(166px + env(safe-area-inset-bottom));
 
   --caro-top-space: calc(
     var(--caro-header-top) +
@@ -607,7 +606,7 @@ export default function AciV2ChatShell({
 
 .aci-thread,
 .aci-chat-thread {
-  width: min(100%, 1120px);
+  width: min(100%, 760px);
 
   max-width: 100%;
 
@@ -644,7 +643,7 @@ export default function AciV2ChatShell({
 .aci-chat-thread .aci-chat-message {
   max-width: 100%;
 
-  margin-bottom: 22px;
+  margin-bottom: 14px;
 
   scroll-margin-top: 14px;
 }
@@ -769,7 +768,7 @@ export default function AciV2ChatShell({
     --caro-context-gap: 6px;
     --caro-context-h: 27px;
     --caro-after-context-gap: 18px;
-    --caro-composer-space: calc(132px + env(safe-area-inset-bottom));
+    --caro-composer-space: calc(176px + env(safe-area-inset-bottom));
   }
 
   .aci-fixed-top-stage,
@@ -893,50 +892,14 @@ export default function AciV2ChatShell({
         {/* FIXED HEADER + CONTEXT */}
         <div className="aci-fixed-top">
           <div className="aci-fixed-top-stage">
-            <header className="aci-header" aria-label="CARO header">
-              <button
-                type="button"
-                className="aci-logo-button"
-                onClick={handleLogoClick}
-                aria-label="Go home"
-              >
-                <div className="aci-logo-wrap">
-                  <CaroLogo size={58} />
-                </div>
-              </button>
-
-              <div className="aci-actions">
-                <button
-                  type="button"
-                  className="aci-action-btn aci-action-btn--primary"
-                  onClick={handleNewChat}
-                  aria-label="Start new chat"
-                  title="Start new chat"
-                >
-                  <Plus size={15} strokeWidth={2.7} />
-                </button>
-
-                <button
-                  type="button"
-                  className="aci-action-btn"
-                  onClick={handleNotifications}
-                  aria-label="Notifications"
-                  title="Notifications"
-                >
-                  <Bell size={16} strokeWidth={2.15} />
-                </button>
-
-                <button
-                  type="button"
-                  className="aci-action-btn"
-                  onClick={handleProfile}
-                  aria-label="Profile"
-                  title="Profile"
-                >
-                  <User2 size={16} strokeWidth={2.15} />
-                </button>
-              </div>
-            </header>
+            <AciV2PortalHeader
+              onLogoClick={handleLogoClick}
+              logoLabel="Go home"
+              logoTitle="Go home"
+              onNewChat={handleNewChat}
+              onNotifications={handleNotifications}
+              onProfile={handleProfile}
+            />
 
             <div className="aci-floating-context">
               <button

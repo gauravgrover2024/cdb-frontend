@@ -14,6 +14,7 @@ import {
 } from "./canvas/aciV2CanvasRegistry";
 import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
+import AciV2PortalHeader from "./shared/AciV2PortalHeader";
 import { askAciAssistV2 } from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
 import AciV2ChatFirstShell from "./chat/AciV2ChatShell";
@@ -35,6 +36,15 @@ const isObject = (value) =>
 
 const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
+const firstArray = (...values) => {
+  for (const value of values) {
+    const list = toArray(value);
+    if (list.length) return list;
+  }
+
+  return [];
+};
+
 const normalizeBackendWidget = (backend = {}) => {
   const widget =
     (isObject(backend.widget) && backend.widget) ||
@@ -46,30 +56,33 @@ const normalizeBackendWidget = (backend = {}) => {
 
   const backendData = isObject(backend.data) ? backend.data : {};
   const widgetData = isObject(widget.data) ? widget.data : {};
-  const rows = toArray(firstValue(backend.rows, widget.rows, backendData.rows, widgetData.rows));
-  const items = toArray(firstValue(backend.items, widget.items, backendData.items, widgetData.items));
-  const features = toArray(
-    firstValue(
-      backend.features,
-      widget.features,
-      widget.featureList,
-      backendData.features,
-      backendData.featureList,
-      widgetData.features,
-      widgetData.featureList,
-    ),
+  const rows = firstArray(backend.rows, widget.rows, backendData.rows, widgetData.rows);
+  const items = firstArray(backend.items, widget.items, backendData.items, widgetData.items);
+  const searchableFeatures = firstArray(
+    widget.searchableFeatures,
+    backend.searchableFeatures,
+    backendData.searchableFeatures,
+    widgetData.searchableFeatures,
   );
-  const variantOptions = toArray(
-    firstValue(
-      backend.variantOptions,
-      widget.variantOptions,
-      backendData.variantOptions,
-      widgetData.variantOptions,
-      backend.variants,
-      widget.variants,
-      backendData.variants,
-      widgetData.variants,
-    ),
+  const features = firstArray(
+    backend.features,
+    widget.features,
+    widget.featureList,
+    backendData.features,
+    backendData.featureList,
+    widgetData.features,
+    widgetData.featureList,
+    searchableFeatures,
+  );
+  const variantOptions = firstArray(
+    backend.variantOptions,
+    widget.variantOptions,
+    backendData.variantOptions,
+    widgetData.variantOptions,
+    backend.variants,
+    widget.variants,
+    backendData.variants,
+    widgetData.variants,
   );
 
   return {
@@ -90,37 +103,44 @@ const normalizeBackendWidget = (backend = {}) => {
     items,
     features,
     featureList: features,
-    colors: toArray(firstValue(backend.colors, widget.colors, backendData.colors, widgetData.colors)),
+    colors: firstArray(backend.colors, widget.colors, backendData.colors, widgetData.colors),
     variants: variantOptions,
     variantOptions,
-    allVariants: toArray(
-      firstValue(widget.allVariants, backend.allVariants, backendData.allVariants, widgetData.allVariants),
+    allVariants: firstArray(
+      widget.allVariants,
+      backend.allVariants,
+      backendData.allVariants,
+      widgetData.allVariants,
     ),
-    matchedVariants: toArray(
-      firstValue(
-        widget.matchedVariants,
-        backend.matchedVariants,
-        backendData.matchedVariants,
-        widgetData.matchedVariants,
-      ),
+    matchedVariants: firstArray(
+      widget.matchedVariants,
+      backend.matchedVariants,
+      backendData.matchedVariants,
+      widgetData.matchedVariants,
     ),
-    featureGroups: toArray(
-      firstValue(widget.featureGroups, backend.featureGroups, backendData.featureGroups, widgetData.featureGroups),
+    featureGroups: firstArray(
+      widget.featureGroups,
+      widget.groups,
+      backend.featureGroups,
+      backend.groups,
+      backendData.featureGroups,
+      backendData.groups,
+      widgetData.featureGroups,
+      widgetData.groups,
     ),
-    quickSpecs: toArray(
-      firstValue(widget.quickSpecs, backend.quickSpecs, backendData.quickSpecs, widgetData.quickSpecs),
+    quickSpecs: firstArray(
+      widget.quickSpecs,
+      backend.quickSpecs,
+      backendData.quickSpecs,
+      widgetData.quickSpecs,
     ),
-    highlights: toArray(
-      firstValue(widget.highlights, backend.highlights, backendData.highlights, widgetData.highlights),
+    highlights: firstArray(
+      widget.highlights,
+      backend.highlights,
+      backendData.highlights,
+      widgetData.highlights,
     ),
-    searchableFeatures: toArray(
-      firstValue(
-        widget.searchableFeatures,
-        backend.searchableFeatures,
-        backendData.searchableFeatures,
-        widgetData.searchableFeatures,
-      ),
-    ),
+    searchableFeatures,
     selectedVariant: firstValue(
       widget.selectedVariant,
       backend.selectedVariant,
@@ -175,10 +195,8 @@ const normalizeBackendWidget = (backend = {}) => {
       backendData.availableFeatureCount,
       widgetData.availableFeatureCount,
     ),
-    actions: toArray(firstValue(backend.actions, widget.actions)),
-    leadingQuestions: toArray(
-      firstValue(backend.leadingQuestions, widget.leadingQuestions),
-    ),
+    actions: firstArray(backend.actions, widget.actions),
+    leadingQuestions: firstArray(backend.leadingQuestions, widget.leadingQuestions),
     vehicle: widget.vehicle || backend.vehicle || backendData.vehicle || widgetData.vehicle || null,
     data: {
       ...widgetData,
@@ -327,19 +345,6 @@ const canvasTypeLabel = (canvasType = "") =>
     .trim()
     .replace(/\b\w/g, (char) => char.toUpperCase()) || "Result";
 
-const getWidgetTitle = (widget = {}, canvasType = "", vehicle = null) => {
-  const item = safeWidget(widget);
-
-  return firstValue(
-    item.title,
-    item.heading,
-    item.model,
-    item.displayName,
-    vehicle?.displayName,
-    canvasTypeLabel(canvasType),
-  );
-};
-
 function AciV2FullCanvasShell({
   screen,
   data,
@@ -351,8 +356,6 @@ function AciV2FullCanvasShell({
   onBack,
 }) {
   const safeCanvasWidget = safeWidget(widget);
-  const canvasType =
-    safeCanvasWidget.canvasType || safeCanvasWidget.__rawCanvasType || "";
   const scopedVehicle = useMemo(
     () =>
       mergeVehicle(vehicle, getCanvasScopedVehicle({ data }, safeCanvasWidget)),
@@ -363,20 +366,46 @@ function AciV2FullCanvasShell({
     ACI_V2_SCREEN_COMPONENTS[screen] ||
     ACI_V2_SCREEN_COMPONENTS[SCREEN.CAR_OVERVIEW];
 
+  const handleCanvasNewChat = () => {
+    const payload = {
+      id: "reset-session",
+      type: "reset_session",
+      action: "RESET_SESSION",
+      label: "New chat",
+      preserveHome: true,
+      clearMessages: true,
+      clearContext: true,
+      resetConversation: true,
+      startFresh: true,
+    };
+
+    onAction?.(payload);
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(
+        new CustomEvent("aci-assist:new-chat", {
+          detail: payload,
+        }),
+      );
+    }
+  };
+
   return (
     <main className="aci-full-canvas-shell">
-      <header className="aci-full-canvas-header">
-        <button type="button" onClick={onBack}>
-          Back to chat
-        </button>
-
-        <div>
-          <strong>{canvasTypeLabel(canvasType)}</strong>
-          <span>
-            {getWidgetTitle(safeCanvasWidget, canvasType, scopedVehicle)}
-          </span>
-        </div>
-      </header>
+      <div className="aci-full-canvas-topbar">
+        <AciV2PortalHeader
+          compact
+          onBack={onBack}
+          onLogoClick={onBack}
+          logoLabel="Back to chat"
+          logoTitle="Back to chat"
+          onNewChat={handleCanvasNewChat}
+          onNotifications={() =>
+            onAction?.({ id: "canvas-notifications", label: "Notifications" })
+          }
+          onProfile={() => onAction?.({ id: "canvas-profile", label: "Profile" })}
+        />
+      </div>
 
       <ScreenComponent
         data={data}
@@ -595,9 +624,17 @@ export default function AciAssistV2() {
           canvasType,
           inlineType: firstValue(backend.inlineType, widget.inlineType),
           widget,
-          rows: toArray(firstValue(backend.rows, widget.rows)),
-          items: toArray(firstValue(backend.items, widget.items)),
-          features: toArray(firstValue(backend.features, widget.features)),
+          rows: firstArray(widget.data?.rows, backend.data?.rows, backend.rows, widget.rows),
+          items: firstArray(backend.items, widget.items),
+          features: firstArray(
+            backend.features,
+            widget.features,
+            widget.featureList,
+            widget.searchableFeatures,
+            widget.data?.features,
+            widget.data?.featureList,
+            widget.data?.searchableFeatures,
+          ),
           actions: toArray(widget.actions),
           leadingQuestions: toArray(widget.leadingQuestions),
           contextPatch,
@@ -1704,55 +1741,49 @@ export default function AciAssistV2() {
 
 .aci-full-canvas-shell {
   min-height: 100dvh;
+  padding-bottom: calc(140px + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 0% 0%, rgba(7, 88, 248, 0.06), transparent 28%),
     linear-gradient(180deg, #fff 0%, #f8fbff 100%);
 }
 
-.aci-full-canvas-header {
+.aci-full-canvas-topbar {
   position: sticky;
   top: 0;
   z-index: 250;
-  min-height: 62px;
-  padding: 10px 18px;
-  border-bottom: 1px solid rgba(222, 231, 244, 0.9);
-  background: rgba(255, 255, 255, 0.9);
+  padding: 8px 0 8px;
+  background:
+    linear-gradient(180deg, rgba(248,251,255,0.96), rgba(248,251,255,0.72) 72%, transparent);
   backdrop-filter: blur(18px);
   -webkit-backdrop-filter: blur(18px);
-  display: flex;
-  align-items: center;
-  gap: 13px;
 }
 
-.aci-full-canvas-header button {
-  height: 36px;
-  border-radius: 999px;
-  border: 1px solid #dbe3ef;
-  background: #fff;
-  color: var(--aci-blue);
-  padding: 0 13px;
-  font-size: 12px;
-  font-weight: 780;
+.aci-full-canvas-shell .desktop-header,
+.aci-full-canvas-shell .mobile-header,
+.aci-full-canvas-shell .aci-mobile-topbar,
+.aci-full-canvas-shell .price-desktop-header,
+.aci-full-canvas-shell .price-mobile-header,
+.aci-full-canvas-shell .afi-desktop-header,
+.aci-full-canvas-shell .afi-mobile-header {
+  display: none !important;
 }
 
-.aci-full-canvas-header div {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
+.aci-full-canvas-shell .aci-colors-mobile {
+  padding-bottom: calc(196px + env(safe-area-inset-bottom)) !important;
 }
 
-.aci-full-canvas-header strong {
-  color: var(--aci-blue);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+.aci-full-canvas-shell .aci-colors-desktop,
+.aci-full-canvas-shell .price-desktop-page,
+.aci-full-canvas-shell .desktop-page,
+.aci-full-canvas-shell .afi-desktop,
+.aci-full-canvas-shell .afi-mobile {
+  padding-bottom: calc(154px + env(safe-area-inset-bottom)) !important;
 }
 
-.aci-full-canvas-header span {
-  color: #0f172a;
-  font-size: 14px;
-  font-weight: 820;
+@media (max-width: 900px) {
+  .aci-full-canvas-shell {
+    padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  }
 }
 
 /* Hover */

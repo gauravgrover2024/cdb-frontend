@@ -29,19 +29,99 @@ const normalizeText = (value = "") =>
     .replace(/\s+/g, " ")
     .trim();
 
+const rowIdentity = (row = {}) => {
+  if (!isObject(row)) return "";
+  return normalizeText(
+    firstValue(
+      row.id,
+      row._id,
+      row.variantId,
+      row.variant_id,
+      rowVariantLabel(row),
+    ),
+  );
+};
+
+const mergeRowsByVariant = (...sources) => {
+  const keys = [];
+  const byKey = new Map();
+
+  sources.flatMap(toArray).forEach((row) => {
+    if (!isObject(row)) return;
+    const key = rowIdentity(row) || `row-${keys.length}`;
+    if (!byKey.has(key)) {
+      byKey.set(key, row);
+      keys.push(key);
+      return;
+    }
+
+    byKey.set(key, {
+      ...byKey.get(key),
+      ...row,
+    });
+  });
+
+  return keys.map((key) => byKey.get(key)).filter(Boolean);
+};
+
 const featureRowsFrom = (message = {}, widget = {}) => {
   const data = isObject(widget.data) ? widget.data : {};
 
-  return toArray(
-    widget.rows ||
-      data.rows ||
-      widget.items ||
-      data.items ||
-      widget.features ||
-      data.features ||
-      message.rows ||
-      message.features,
+  // IMPORTANT:
+  // rows/items should be treated as the ordered master list.
+  // availableRows/unavailableRows should only be fallback data.
+  const orderedRows = mergeRowsByVariant(
+    data.rows,
+    widget.rows,
+    message.rows,
+    data.items,
+    widget.items,
+    message.items,
   );
+
+  if (orderedRows.length) return orderedRows;
+
+  // Fallback only if backend did not send a full ordered rows array.
+  // Putting unavailable before available helps feature-start questions,
+  // but this is still less reliable than proper ordered rows.
+  return mergeRowsByVariant(
+    data.unavailableRows,
+    widget.unavailableRows,
+    message.unavailableRows,
+    data.availableRows,
+    widget.availableRows,
+    message.availableRows,
+  );
+};
+
+const featureAvailabilityRowsFrom = ({
+  allRows = [],
+  dataRows,
+  widgetRows,
+  fallback,
+  available = true,
+} = {}) => {
+  const explicitRows = mergeRowsByVariant(dataRows, widgetRows, fallback);
+  if (explicitRows.length) return explicitRows;
+
+  return allRows.filter((row) =>
+    available ? rowLooksAvailable(row) : !rowLooksAvailable(row),
+  );
+};
+
+const makeAvailabilityResolver = ({
+  availableRows = [],
+  unavailableRows = [],
+} = {}) => {
+  const availableKeys = new Set(availableRows.map(rowIdentity).filter(Boolean));
+  const unavailableKeys = new Set(unavailableRows.map(rowIdentity).filter(Boolean));
+
+  return (row) => {
+    const key = rowIdentity(row);
+    if (key && availableKeys.has(key)) return true;
+    if (key && unavailableKeys.has(key)) return false;
+    return rowLooksAvailable(row);
+  };
 };
 
 const rowValue = (row = {}) => {
@@ -52,6 +132,51 @@ const rowValue = (row = {}) => {
     safeRow.featureValue,
     safeRow.status,
     safeRow.available === false ? "Not available" : "Available",
+  );
+};
+
+const formatIndianPrice = (value) => {
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return "";
+    if (/₹|rs\.?|lakh|lac|cr|crore/i.test(trimmed)) return trimmed;
+  }
+
+  const number = Number(String(value || "").replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(number) || number <= 0) return "";
+
+  if (number >= 10000000) {
+    return `₹${(number / 10000000).toFixed(2)}Cr`;
+  }
+
+  if (number >= 100000) {
+    return `₹${(number / 100000).toFixed(2)}L`;
+  }
+
+  return `₹${number.toLocaleString("en-IN")}`;
+};
+
+const rowExShowroomPrice = (row = {}) => {
+  const safeRow = isObject(row) ? row : {};
+  const priceObject = isObject(safeRow.price) ? safeRow.price : {};
+
+  return formatIndianPrice(
+    firstValue(
+      safeRow.exShowroomPriceLabel,
+      safeRow.exShowroomPriceText,
+      safeRow.exShowroomLabel,
+      safeRow.ex_showroom_price_label,
+      safeRow.exShowroomPrice,
+      safeRow.ex_showroom_price,
+      safeRow.exShowroom,
+      safeRow.ex_showroom,
+      safeRow.exshowroom,
+      priceObject.exShowroomPriceLabel,
+      priceObject.exShowroomPrice,
+      priceObject.ex_showroom_price,
+      priceObject.exShowroom,
+      priceObject.ex_showroom,
+    ),
   );
 };
 
@@ -67,6 +192,36 @@ const rowVariantLabel = (row = {}, fallback = "") => {
     fallback,
   );
 };
+
+const rowFuelCategory = (row = {}) => {
+  const safeRow = isObject(row) ? row : {};
+  const text = normalizeText(
+    firstValue(
+      safeRow.fuel,
+      safeRow.fuelType,
+      safeRow.fuel_type,
+      safeRow.engineType,
+      safeRow.engine_type,
+      safeRow.powertrain,
+      safeRow.fuelTransmission,
+      rowVariantLabel(safeRow),
+    ),
+  );
+
+  if (/diesel/.test(text)) return "diesel";
+  if (/cng/.test(text)) return "cng";
+  if (/electric| ev |bev/.test(` ${text} `)) return "electric";
+  if (/hybrid|strong hybrid|mhev/.test(text)) return "hybrid";
+  if (/lpg/.test(text)) return "lpg";
+  if (/petrol|gasoline/.test(text)) return "petrol";
+
+  // Most Indian variant lists omit "Petrol" in the label and only suffix
+  // alternate fuels like Diesel/CNG. Keep the comparison family useful.
+  return "petrol";
+};
+
+const fuelCategoryFromValue = (value = "") =>
+  value ? rowFuelCategory({ fuel: value }) : "";
 
 const rowLooksAvailable = (row = {}) => {
   const safeRow = isObject(row) ? row : {};
@@ -358,12 +513,63 @@ const FeatureSuggestionIcon = ({ type = "spark" }) => {
     );
   }
 
+  if (type === "car") {
+    return (
+      <svg {...common}>
+        <path d="M5.2 14.2h13.6l-1.1-3.4c-.3-.9-1.1-1.4-2-1.4H8.3c-.9 0-1.7.5-2 1.4l-1.1 3.4Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M7 14.2v2.2M17 14.2v2.2M8.2 17.2h.1M15.7 17.2h.1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (type === "grid") {
+    return (
+      <svg {...common}>
+        <path d="M5 5.5h5.2v5.2H5V5.5ZM13.8 5.5H19v5.2h-5.2V5.5ZM5 14h5.2v4.5H5V14ZM13.8 14H19v4.5h-5.2V14Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
+  if (type === "compare") {
+    return (
+      <svg {...common}>
+        <path d="M7 5v14M17 5v14" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+        <path d="M10 8H4l2-2M4 8l2 2M14 16h6l-2-2M20 16l-2 2" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...common}>
       <path d="M12 3.5 13.8 9l5.7 1.8-5.7 1.8L12 18l-1.8-5.4-5.7-1.8L10.2 9 12 3.5Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
       <path d="M18.2 16.2v3.2M16.6 17.8h3.2" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   );
+};
+
+const inferSuggestionIcon = (suggestion = {}) => {
+  const explicit = typeof suggestion === "string" ? "" : suggestion.icon;
+  const text = normalizeText(
+    typeof suggestion === "string"
+      ? suggestion
+      : [
+          suggestion.label,
+          suggestion.title,
+          suggestion.query,
+          suggestion.prompt,
+          suggestion.intent,
+          suggestion.canvasType,
+        ].filter(Boolean).join(" "),
+  );
+
+  if (/price|on road|emi|finance|cost|budget|value/.test(text)) return "price";
+  if (/colour|color|paint|shade/.test(text)) return "palette";
+  if (/profile|overview|open car|view car/.test(text)) return "car";
+  if (/feature|explore|equipment|spec/.test(text)) return "grid";
+  if (/compare|versus|difference| vs /.test(text)) return "compare";
+  if (/safety|airbag|abs|adas|brake|braking/.test(text)) return "shield";
+
+  return explicit || "spark";
 };
 
 const buildPremiumFeatureSuggestions = ({
@@ -377,12 +583,12 @@ const buildPremiumFeatureSuggestions = ({
   if (/sunroof/.test(feature)) {
     suggestions.push(
       {
-        label: "Compare sunroof variants by price",
+        label: "Sunroof prices",
         query: `Compare ${car} sunroof variants by on-road price`,
         icon: "price",
       },
       {
-        label: "Check panoramic sunroof options",
+        label: "Panoramic options",
         query: `Which ${car} variants have panoramic sunroof?`,
         icon: "spark",
       },
@@ -390,12 +596,12 @@ const buildPremiumFeatureSuggestions = ({
   } else if (/abs|airbag|adas|safety|brak/.test(feature)) {
     suggestions.push(
       {
-        label: "Compare safety across variants",
+        label: "Safety variants",
         query: `Compare ${car} variants by safety features`,
         icon: "shield",
       },
       {
-        label: "Find the best safety value",
+        label: "Best safety value",
         query: `Which ${car} variant gives the best safety value?`,
         icon: "price",
       },
@@ -403,12 +609,12 @@ const buildPremiumFeatureSuggestions = ({
   } else if (/mileage|kmpl|arai/.test(feature)) {
     suggestions.push(
       {
-        label: "Find the best mileage variant",
+        label: "Best mileage",
         query: `Which ${car} variant has the best mileage?`,
         icon: "spark",
       },
       {
-        label: "Compare mileage with price",
+        label: "Mileage vs price",
         query: `Compare ${car} mileage with on-road price`,
         icon: "price",
       },
@@ -416,12 +622,12 @@ const buildPremiumFeatureSuggestions = ({
   } else {
     suggestions.push(
       {
-        label: "Compare better-equipped variants",
+        label: "Compare trims",
         query: `Compare ${car} variants with ${feature}`,
         icon: "spark",
       },
       {
-        label: "Find the best value upgrade",
+        label: "Best upgrade",
         query: `Which ${car} variant is the best value upgrade?`,
         icon: "price",
       },
@@ -429,7 +635,7 @@ const buildPremiumFeatureSuggestions = ({
   }
 
   suggestions.push({
-    label: `Open ${car} colours`,
+    label: "Colours",
     query: `Show ${car} colours`,
     icon: "palette",
   });
@@ -493,119 +699,278 @@ const buildDisplayRows = ({
 const rowAt = (rows = [], index = 0) =>
   index >= 0 && index < rows.length ? rows[index] : null;
 
-const buildDecisionRows = ({
+const buildDecisionCards = ({
   rows = [],
+  availableRows = [],
+  unavailableRows = [],
   variant = "",
   answerTone = "",
+  preferredFuel = "",
+  isAvailable = rowLooksAvailable,
 } = {}) => {
-  const selectedNorm = normalizeText(variant);
-  const targetIndex = selectedNorm
-    ? rows.findIndex((row) => {
-        const label = normalizeText(rowVariantLabel(row));
-        return (
-          label === selectedNorm ||
-          label.includes(selectedNorm) ||
-          selectedNorm.includes(label)
-        );
-      })
-    : -1;
+  const preferredFuelRows = preferredFuel
+    ? rows.filter((row) => rowFuelCategory(row) === preferredFuel)
+    : [];
+  const scopedRows = preferredFuelRows.length ? preferredFuelRows : rows;
+  const startIndex = scopedRows.findIndex(isAvailable);
 
-  const firstAvailableIndex = rows.findIndex(rowLooksAvailable);
-  const centerIndex =
-    targetIndex >= 0
-      ? targetIndex
-      : firstAvailableIndex >= 0
-        ? firstAvailableIndex
-        : 0;
+  if (startIndex < 0) {
+    if (variant) {
+      return [
+        {
+          role: "selected",
+          label: "Selected variant",
+          row: {
+            id: `selected-${variant}`,
+            variant,
+            available: answerTone === "yes",
+            value: answerTone === "yes" ? "Yes" : "Not Available",
+          },
+        },
+      ];
+    }
 
-  const picked = [rowAt(rows, centerIndex - 1), rowAt(rows, centerIndex), rowAt(rows, centerIndex + 1)]
-    .filter(Boolean);
-
-  if (!picked.length && variant) {
-    picked.push({
-      id: `selected-${variant}`,
-      variant,
-      available: answerTone === "yes",
-      value: answerTone === "yes" ? "Yes" : "Not Available",
-    });
+    return [];
   }
 
+  const startRow = rowAt(scopedRows, startIndex) || availableRows[0] || null;
+  const startKey = rowIdentity(startRow);
+  const resolvedFuel = preferredFuel || rowFuelCategory(startRow);
+  const sameFuelRows = scopedRows.filter(
+    (row) => rowFuelCategory(row) === resolvedFuel,
+  );
+  const sameFuelStartIndex = sameFuelRows.findIndex(
+    (row) => rowIdentity(row) === startKey,
+  );
+
+  const beforeRow =
+    rowAt(sameFuelRows, sameFuelStartIndex - 1) ||
+    [...unavailableRows]
+      .reverse()
+      .find((row) => rowFuelCategory(row) === resolvedFuel) ||
+    null;
+
+  const nextRow =
+    scopedRows.find(
+      (row, index) =>
+        index > startIndex &&
+        rowFuelCategory(row) === resolvedFuel &&
+        isAvailable(row) &&
+        rowIdentity(row) !== startKey,
+    ) ||
+    availableRows.find(
+      (row) =>
+        rowFuelCategory(row) === resolvedFuel && rowIdentity(row) !== startKey,
+    ) ||
+    null;
+
+  const cards = [
+    beforeRow
+      ? {
+          role: "before",
+          label: "Last without it",
+          row: beforeRow,
+        }
+      : null,
+
+    startRow
+      ? {
+          role: "start",
+          label: "Recommended start",
+          row: startRow,
+        }
+      : null,
+
+    nextRow
+      ? {
+          role: "upgrade",
+          label: "Next upgrade",
+          row: nextRow,
+        }
+      : null,
+  ].filter(Boolean);
+
   const seen = new Set();
-  return picked.filter((row) => {
-    const key = normalizeText(rowVariantLabel(row) || JSON.stringify(row));
+
+  return cards.filter((card) => {
+    const key = normalizeText(
+      rowVariantLabel(card.row) || JSON.stringify(card.row),
+    );
+
     if (!key || seen.has(key)) return false;
+
     seen.add(key);
     return true;
   });
 };
 
-const buildDecisionCopy = ({
-  rows = [],
-  decisionRows = [],
-  availableRows = [],
-  unavailableRows = [],
+const cleanDisplayText = (value = "") =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const buildFeatureAnswerCopy = ({
+  feature = "",
+  vehicleName = "",
+  variant = "",
+  selectedRow = null,
+  selectedAvailable = null,
+  firstAvailableRow = null,
   availableCount = 0,
   skippedCount = 0,
-  variant = "",
-  featureLabel = "",
+  answer = "",
 } = {}) => {
-  const selectedNorm = normalizeText(variant);
-  const targetRow =
-    selectedNorm &&
-    rows.find((row) => {
-      const label = normalizeText(rowVariantLabel(row));
-      return (
-        label === selectedNorm ||
-        label.includes(selectedNorm) ||
-        selectedNorm.includes(label)
-      );
-    });
-  const targetAvailable = targetRow ? rowLooksAvailable(targetRow) : null;
-  const startRow = availableRows[0] || null;
-  const startLabel = rowVariantLabel(startRow);
-  const featureName = featureLabel || "this feature";
+  const featureText = cleanDisplayText(feature || "This feature");
+  const car = cleanDisplayText(vehicleName || "This car");
+  const selectedVariantLabel = cleanDisplayText(
+    selectedRow ? rowVariantLabel(selectedRow, variant) : variant,
+  );
+  const firstAvailableLabel = cleanDisplayText(
+    firstAvailableRow ? rowVariantLabel(firstAvailableRow) : "",
+  );
 
-  if (targetRow) {
-    return {
-      headline: targetAvailable ? "This variant includes it" : "This variant skips it",
-      subline: targetAvailable
-        ? `${rowVariantLabel(targetRow)} has ${featureName}.`
-        : startLabel
-          ? `${featureName} starts from ${startLabel}.`
-          : `${featureName} is not listed on the checked variants.`,
-    };
+  let headline = "";
+
+  if (selectedVariantLabel) {
+    if (selectedAvailable === true) {
+      headline = `${selectedVariantLabel} includes ${featureText}`;
+    } else if (selectedAvailable === false && firstAvailableLabel) {
+      headline = `${selectedVariantLabel} does not include ${featureText}`;
+    } else if (selectedAvailable === false) {
+      headline = `${selectedVariantLabel} does not include ${featureText}`;
+    }
   }
 
-  if (availableRows.length && !unavailableRows.length) {
-    return {
-      headline: "Available from the start",
-      subline: `Every checked variant includes ${featureName}.`,
-    };
+  if (!headline && firstAvailableLabel) {
+    headline = pickCopyVariant(
+      [
+        `${featureText} starts at ${firstAvailableLabel}`,
+        `${featureText} begins at ${firstAvailableLabel}`,
+        `${firstAvailableLabel} is the first trim with ${featureText}`,
+        `Move to ${firstAvailableLabel} for ${featureText}`,
+        `${firstAvailableLabel} unlocks ${featureText}`,
+      ],
+      `${vehicleName}-${featureText}-${firstAvailableLabel}`,
+    );
   }
 
-  if (availableRows.length && unavailableRows.length) {
-    return {
-      headline: startLabel ? `Starts at ${startLabel}` : "Available on select variants",
-      subline: decisionRows.length
-        ? "The trim ladder below shows the choice point clearly."
-        : `${availableRows.length} variants include ${featureName}.`,
-    };
+  if (!headline) {
+    headline = `${featureText} is not available`;
   }
 
-  if (!availableRows.length && availableCount > 0 && unavailableRows.length) {
-    return {
-      headline: "Available above these trims",
-      subline:
-        skippedCount > 0
-          ? `${skippedCount} checked trim${skippedCount === 1 ? "" : "s"} skip ${featureName}; higher variants include it.`
-          : `The checked trims skip ${featureName}; higher variants include it.`,
-    };
+  let subline = cleanDisplayText(answer);
+
+  if (!subline) {
+    if (availableCount > 0 && skippedCount > 0) {
+      subline = `${car} offers ${featureText.toLowerCase()} on ${availableCount} current variants. ${skippedCount} variants skip it.`;
+    } else if (availableCount > 0) {
+      subline = `${car} offers ${featureText.toLowerCase()} on ${availableCount} current variants.`;
+    } else {
+      subline = `${car} does not offer ${featureText.toLowerCase()} on the current variants shown.`;
+    }
   }
 
   return {
-    headline: "Not listed right now",
-    subline: `${featureName} is not showing on the checked variants.`,
+    headline,
+    subline,
   };
+};
+
+const stableHash = (value = "") => {
+  const text = String(value || "");
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+};
+
+const pickCopyVariant = (variants = [], seed = "") => {
+  if (!variants.length) return "";
+  return variants[stableHash(seed) % variants.length];
+};
+
+const buildVariedFeatureFactText = ({
+  vehicleName = "",
+  feature = "",
+  availableCount = 0,
+  skippedCount = 0,
+  totalCount = 0,
+  selectedVariant = "",
+  selectedAvailable = null,
+} = {}) => {
+  const car = cleanDisplayText(vehicleName || "This car");
+  const featureText = cleanDisplayText(feature || "this feature");
+  const featureLower = featureText.toLowerCase();
+  const total =
+    Number(totalCount) > 0 ? Number(totalCount) : availableCount + skippedCount;
+
+  const seed = `${car}-${featureText}-${availableCount}-${skippedCount}-${selectedVariant}-${selectedAvailable}`;
+
+  if (selectedVariant && selectedAvailable === true) {
+    return pickCopyVariant(
+      [
+        `${selectedVariant} gets ${featureText}.`,
+        `Yes, ${selectedVariant} includes ${featureText}.`,
+        `${featureText} is available in ${selectedVariant}.`,
+        `${selectedVariant} comes equipped with ${featureText}.`,
+        `Good news — ${selectedVariant} has ${featureText}.`,
+      ],
+      seed,
+    );
+  }
+
+  if (selectedVariant && selectedAvailable === false && availableCount > 0) {
+    return pickCopyVariant(
+      [
+        `${selectedVariant} skips ${featureText}, but ${availableCount} current ${car} variants offer it.`,
+        `${featureText} is not available in ${selectedVariant}; ${availableCount} other current variants include it.`,
+        `${selectedVariant} does not get ${featureText}. You will need to move up to a variant that includes it.`,
+        `Not on ${selectedVariant}. ${car} offers ${featureLower} on ${availableCount} current variants.`,
+        `${selectedVariant} misses out on ${featureText}, while ${availableCount} current variants have it.`,
+      ],
+      seed,
+    );
+  }
+
+  if (availableCount > 0 && skippedCount > 0) {
+    return pickCopyVariant(
+      [
+        `${car} offers ${featureLower} on ${availableCount} of ${total} current variants. ${skippedCount} variants skip it.`,
+        `${availableCount} out of ${total} current ${car} variants include ${featureLower}; ${skippedCount} do not.`,
+        `${featureText} is available on ${availableCount} current ${car} variants, while ${skippedCount} variants miss it.`,
+        `Most ${car} variants get ${featureLower}: ${availableCount} include it and ${skippedCount} skip it.`,
+        `${car} includes ${featureLower} across ${availableCount} current variants. Only ${skippedCount} variants do not get it.`,
+      ],
+      seed,
+    );
+  }
+
+  if (availableCount > 0 && skippedCount === 0) {
+    return pickCopyVariant(
+      [
+        `All ${availableCount} current ${car} variants get ${featureText}.`,
+        `${featureText} is standard across all ${availableCount} current ${car} variants.`,
+        `Every current ${car} variant includes ${featureText}.`,
+        `${car} offers ${featureLower} across the full current variant range.`,
+        `No need to upgrade for this — all current ${car} variants include ${featureText}.`,
+      ],
+      seed,
+    );
+  }
+
+  return pickCopyVariant(
+    [
+      `${car} does not offer ${featureLower} on the current variants shown.`,
+      `${featureText} is not available on the current ${car} variant range.`,
+      `None of the current ${car} variants shown include ${featureText}.`,
+      `${car} currently skips ${featureLower} across the variants shown.`,
+      `This feature is not available in the current ${car} variants shown.`,
+    ],
+    seed,
+  );
 };
 
 export default function AciV2FeatureInlineCard({
@@ -616,8 +981,24 @@ export default function AciV2FeatureInlineCard({
   const widget = isObject(message.widget) ? message.widget : {};
   const data = isObject(widget.data) ? widget.data : {};
   const allRows = featureRowsFrom(message, widget);
-  const availableRows = allRows.filter(rowLooksAvailable);
-  const unavailableRows = allRows.filter((row) => !availableRows.includes(row));
+  const availableRows = featureAvailabilityRowsFrom({
+    allRows,
+    dataRows: data.availableRows,
+    widgetRows: widget.availableRows,
+    fallback: message.availableRows,
+    available: true,
+  });
+  const unavailableRows = featureAvailabilityRowsFrom({
+    allRows,
+    dataRows: data.unavailableRows,
+    widgetRows: widget.unavailableRows,
+    fallback: message.unavailableRows,
+    available: false,
+  });
+  const isRowAvailable = makeAvailabilityResolver({
+    availableRows,
+    unavailableRows,
+  });
   const contextVehicle =
     message.contextPatch?.selectedVehicle ||
     widget.contextPatch?.selectedVehicle ||
@@ -732,27 +1113,90 @@ export default function AciV2FeatureInlineCard({
 
   const featureLabel = cleanFeatureLabel(feature || title);
 
+  const selectedVariantNorm = normalizeText(variant);
+
+  const selectedFeatureRow = selectedVariantNorm
+    ? allRows.find((row) => {
+        const label = normalizeText(rowVariantLabel(row));
+        return (
+          label === selectedVariantNorm ||
+          label.includes(selectedVariantNorm) ||
+          selectedVariantNorm.includes(label)
+        );
+      })
+    : null;
+
+  const selectedFeatureAvailable = selectedFeatureRow
+    ? isRowAvailable(selectedFeatureRow)
+    : null;
+  const requestedFuelCategory = fuelCategoryFromValue(
+    firstValue(
+      widget.selectedFuel,
+      data.selectedFuel,
+      widget.fuel,
+      data.fuel,
+      widget.filters?.fuel,
+      data.filters?.fuel,
+      message.filters?.fuel,
+      widget.entities?.fuel,
+      data.entities?.fuel,
+    ),
+  );
+  const decisionFuelCategory =
+    requestedFuelCategory ||
+    (selectedFeatureRow ? rowFuelCategory(selectedFeatureRow) : "");
+
+  const firstAvailableRow =
+    allRows.find(
+      (row) =>
+        (!decisionFuelCategory ||
+          rowFuelCategory(row) === decisionFuelCategory) &&
+        isRowAvailable(row),
+    ) ||
+    availableRows.find(
+      (row) =>
+        !decisionFuelCategory || rowFuelCategory(row) === decisionFuelCategory,
+    ) ||
+    null;
+
+  const firstAvailableKey = rowIdentity(firstAvailableRow);
+
+  const answerCopy = buildFeatureAnswerCopy({
+    feature,
+    vehicleName,
+    variant,
+    selectedRow: selectedFeatureRow,
+    selectedAvailable: selectedFeatureAvailable,
+    firstAvailableRow,
+    availableCount,
+    skippedCount,
+    answer:
+      answer ||
+      buildVariedFeatureFactText({
+        vehicleName,
+        feature,
+        availableCount,
+        skippedCount,
+        totalCount: allRows.length,
+        selectedVariant: variant,
+        selectedAvailable: selectedFeatureAvailable,
+      }),
+  });
+
   const displayRows = buildDisplayRows({
     rows: allRows,
     variant,
     answerTone,
   });
 
-  const decisionRows = buildDecisionRows({
+  const decisionCards = buildDecisionCards({
     rows: allRows,
-    variant,
-    answerTone,
-  });
-
-  const decisionCopy = buildDecisionCopy({
-    rows: allRows,
-    decisionRows,
     availableRows,
     unavailableRows,
-    availableCount,
-    skippedCount,
     variant,
-    featureLabel,
+    answerTone,
+    preferredFuel: decisionFuelCategory,
+    isAvailable: isRowAvailable,
   });
 
   const heroFrame = pickImageFrame(
@@ -795,8 +1239,27 @@ export default function AciV2FeatureInlineCard({
   const heroFrameStyle = buildFeatureHeroFrameStyle(heroFrame);
 
   const askSuggestion = (suggestion) => {
-    const query = typeof suggestion === "string" ? suggestion : suggestion?.query;
-    const label = typeof suggestion === "string" ? suggestion : suggestion?.label;
+    const query =
+      typeof suggestion === "string"
+        ? suggestion
+        : firstValue(
+            suggestion?.query,
+            suggestion?.prompt,
+            suggestion?.text,
+            suggestion?.value,
+            suggestion?.label,
+          );
+
+    const label =
+      typeof suggestion === "string"
+        ? suggestion
+        : firstValue(
+            suggestion?.label,
+            suggestion?.title,
+            suggestion?.text,
+            suggestion?.query,
+            suggestion?.prompt,
+          );
 
     if (!query) return;
 
@@ -812,10 +1275,24 @@ export default function AciV2FeatureInlineCard({
     });
   };
 
-  const suggestions = buildPremiumFeatureSuggestions({
-    model,
-    featureLabel,
-  });
+  const explicitSuggestions = toArray(
+    widget.suggestions ||
+      data.suggestions ||
+      message.suggestions ||
+      widget.leadingQuestions ||
+      data.leadingQuestions ||
+      message.leadingQuestions ||
+      widget.quickReplies ||
+      data.quickReplies ||
+      message.quickReplies,
+  );
+
+  const suggestions = explicitSuggestions.length
+    ? explicitSuggestions.slice(0, 3)
+    : buildPremiumFeatureSuggestions({
+        model,
+        featureLabel,
+      });
 
   const hasImage = Boolean(heroImage);
   const heroCar = heroImage ? (
@@ -826,11 +1303,11 @@ export default function AciV2FeatureInlineCard({
 
   return (
     <article
-      className={`aci-feature-inline-card-v4 is-${answerTone} ${hasImage ? "has-image" : "no-image"}`}
+      className={`aci-feature-inline-card-v4 is-${answerTone} ${hasImage ? "has-image" : "no-image"} cards-${Math.min(decisionCards.length, 3)}`}
     >
       <style>{`
         .aci-feature-inline-card-v4 {
-          width: min(100%, 560px);
+          width: min(100%, 720px);
           color: #071142;
           font-family:
             Inter,
@@ -844,30 +1321,31 @@ export default function AciV2FeatureInlineCard({
 
         .aci-feature-v4-main {
           position: relative;
-          overflow: hidden;
+          overflow: clip;
           border: 1px solid rgba(213, 223, 239, 0.86);
-          border-radius: 30px;
+          border-radius: 28px;
           background:
             linear-gradient(180deg, rgba(255,255,255,0.99), rgba(247,250,255,0.97));
           box-shadow:
             0 30px 88px -60px rgba(8, 26, 66, 0.58),
             0 14px 36px -34px rgba(7, 88, 248, 0.38),
             inset 0 1px 0 rgba(255,255,255,0.98);
-          padding: 18px;
+          padding: 17px;
         }
 
         .aci-feature-v4-hero {
-          margin: 8px 0 16px;
+          margin: 6px 0 15px;
         }
 
         .aci-feature-v4-car {
           position: relative;
-          height: clamp(180px, 28vw, 230px);
+          height: clamp(196px, 26vw, 260px);
           display: grid;
           place-items: center;
-          overflow: hidden;
+          overflow: visible;
           border-radius: 24px;
           background: transparent;
+          isolation: isolate;
         }
 
         .aci-feature-v4-car::before {
@@ -889,12 +1367,13 @@ export default function AciV2FeatureInlineCard({
         .aci-feature-v4-car img {
           position: relative;
           z-index: 1;
-          width: 100%;
-          height: 100%;
+          width: min(92%, 430px);
+          height: auto;
+          max-height: 92%;
           object-fit: contain;
           object-position:
-            var(--feature-car-position-x, 50%)
-            var(--feature-car-position-y, 50%);
+  var(--feature-car-position-x, center)
+  var(--feature-car-position-y, center);
           transform: none;
           filter: drop-shadow(0 18px 16px rgba(15, 23, 42, 0.14));
           max-width: 100%;
@@ -902,33 +1381,42 @@ export default function AciV2FeatureInlineCard({
         }
 
         .aci-feature-v4-answer {
-          position: relative;
-          z-index: 2;
-          margin: 0 0 4px;
-          display: grid;
-          grid-template-columns: minmax(0, 1fr) auto;
-          gap: 12px;
-          align-items: center;
-        }
+  position: relative;
+  z-index: 2;
+  margin: 0 0 12px;
+  display: block;
+}
 
-        .aci-feature-v4-answer strong {
-          display: block;
-          color: #071142;
-          font-size: clamp(28px, 4.4vw, 40px);
-          line-height: 0.96;
-          font-weight: 790;
-          letter-spacing: 0;
-        }
+.aci-feature-v4-kicker {
+  display: inline-flex;
+  margin-bottom: 7px;
+  color: #0758f8;
+  font-size: 10px;
+  line-height: 1;
+  font-weight: 780;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
 
-        .aci-feature-v4-answer p {
-          margin: 7px 0 0;
-          max-width: 420px;
-          color: #52607f;
-          font-size: 13.5px;
-          line-height: 1.42;
-          font-weight: 590;
-          letter-spacing: 0;
-        }
+.aci-feature-v4-answer strong {
+  display: block;
+  max-width: 560px;
+  color: #071142;
+  font-size: clamp(19px, 2.1vw, 25px);
+  line-height: 1.08;
+  font-weight: 780;
+  letter-spacing: -0.035em;
+}
+
+.aci-feature-v4-answer p {
+  margin: 8px 0 0;
+  max-width: 560px;
+  color: #53627f;
+  font-size: 13.2px;
+  line-height: 1.45;
+  font-weight: 590;
+  letter-spacing: 0;
+}
 
         .aci-feature-v4-status {
           flex: 0 0 auto;
@@ -950,176 +1438,297 @@ export default function AciV2FeatureInlineCard({
         }
 
         .aci-feature-v4-table {
-          position: relative;
-          z-index: 2;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 9px;
-          margin: 0;
-        }
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 8px;
+  margin: 0;
+}
 
-        .aci-feature-v4-row {
-          min-width: 0;
-          min-height: 76px;
-          display: flex;
-          flex-direction: column;
-          justify-content: space-between;
-          gap: 9px;
-          padding: 12px;
-          border: 1px solid rgba(216, 226, 241, 0.92);
-          border-radius: 20px;
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.94), rgba(248,251,255,0.92));
-          backdrop-filter: blur(16px);
-          box-shadow:
-            0 12px 28px -26px rgba(8, 26, 66, 0.48),
-            inset 0 1px 0 rgba(255,255,255,0.9);
-        }
+.aci-feature-v4-row {
+  min-width: 0;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 11px;
+  border: 1px solid rgba(217, 226, 241, 0.86);
+  border-radius: 17px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,0.97),
+      rgba(248,251,255,0.94)
+    );
+  box-shadow:
+    0 12px 28px -30px rgba(8, 26, 66, 0.34),
+    inset 0 1px 0 rgba(255,255,255,0.92);
+}
 
-        .aci-feature-v4-row.is-available {
-          border-color: rgba(89, 205, 147, 0.34);
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(239,253,246,0.88));
-        }
+.aci-feature-v4-row.is-before {
+  opacity: 0.9;
+}
 
-        .aci-feature-v4-row.is-unavailable {
-          border-color: rgba(238, 166, 176, 0.34);
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255,246,247,0.88));
-        }
+.aci-feature-v4-row.is-start {
+  border-color: rgba(7, 88, 248, 0.28);
+  background:
+    radial-gradient(
+      circle at top right,
+      rgba(7,88,248,0.08),
+      transparent 46%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,0.99),
+      rgba(244,248,255,0.98)
+    );
+  box-shadow:
+    0 20px 46px -38px rgba(7, 88, 248, 0.36),
+    inset 0 1px 0 rgba(255,255,255,0.96);
+}
 
-        .aci-feature-v4-row em {
-          display: block;
-          color: #6c7895;
-          font-size: 10.4px;
-          line-height: 1;
-          font-weight: 760;
-          letter-spacing: 0.02em;
-          font-style: normal;
-          text-transform: uppercase;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
+.aci-feature-v4-row-copy {
+  min-width: 0;
+}
 
-        .aci-feature-v4-row strong {
-          min-width: 0;
-          color: #071142;
-          font-size: 13.4px;
-          line-height: 1.18;
-          font-weight: 740;
-          letter-spacing: 0;
-          overflow: hidden;
-          white-space: normal;
-          text-overflow: ellipsis;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-        }
+.aci-feature-v4-row-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #0758f8;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 780;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-        .aci-feature-v4-pill {
-          flex: 0 0 auto;
-          min-width: 28px;
-          width: 28px;
-          height: 28px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          align-self: flex-start;
-          padding: 0;
-          font-size: 0;
-        }
+.aci-feature-v4-row strong {
+  display: block;
+  min-width: 0;
+  color: #071142;
+  font-size: 13.2px;
+  line-height: 1.18;
+  font-weight: 760;
+  letter-spacing: -0.01em;
+  overflow: visible;
+  white-space: normal;
+  word-break: normal;
+}
 
-        .aci-feature-v4-pill.is-yes {
-          color: #08a95d;
-          background: rgba(235, 253, 244, 0.98);
-          box-shadow: inset 0 0 0 1px rgba(8, 169, 93, 0.08);
-        }
+.aci-feature-v4-row small {
+  display: block;
+  margin-top: 5px;
+  color: #687694;
+  font-size: 10.8px;
+  line-height: 1.22;
+  font-weight: 620;
+}
 
-        .aci-feature-v4-pill.is-no {
-          color: #eb3b50;
-          background: rgba(255, 238, 240, 0.98);
-          box-shadow: inset 0 0 0 1px rgba(235, 59, 80, 0.08);
-        }
+.aci-feature-v4-row-price {
+  display: block;
+  margin-top: 4px;
+  color: #0758f8;
+  font-size: 11px;
+  line-height: 1.15;
+  font-weight: 780;
+  letter-spacing: -0.01em;
+}
 
-        .aci-feature-v4-pill svg {
-          width: 14px;
-          height: 14px;
-        }
+.aci-feature-v4-row.is-available small {
+  color: #3a6a5a;
+}
+
+.aci-feature-v4-row.is-unavailable small {
+  color: #7b7180;
+}
+
+.aci-feature-v4-pill {
+  flex: 0 0 auto;
+  min-width: 29px;
+  width: 29px;
+  height: 29px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  padding: 0;
+  font-size: 0;
+}
+
+.aci-feature-v4-pill.is-yes {
+  color: #0758f8;
+  background: rgba(238, 245, 255, 0.98);
+  box-shadow: inset 0 0 0 1px rgba(7, 88, 248, 0.1);
+}
+
+.aci-feature-v4-pill.is-no {
+  color: #8a94aa;
+  background: rgba(244, 247, 251, 0.98);
+  box-shadow: inset 0 0 0 1px rgba(138, 148, 170, 0.1);
+}
+
+.aci-feature-v4-pill svg {
+  width: 14px;
+  height: 14px;
+}
 
         .aci-feature-v4-suggestions {
-          margin-top: 10px;
-          display: grid;
-          grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 8px;
-          overflow: visible;
-        }
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow: visible;
+}
 
-        .aci-feature-v4-suggestion {
-          width: 100%;
-          min-width: 0;
-          min-height: 42px;
-          border: 1px solid rgba(210, 222, 242, 0.96);
-          border-radius: 16px;
-          padding: 7px 10px 7px 7px;
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.95));
-          color: #071142;
-          display: inline-flex;
-          align-items: center;
-          justify-content: flex-start;
-          gap: 8px;
-          font-size: 11.8px;
-          line-height: 1.15;
-          font-weight: 690;
-          letter-spacing: 0;
-          cursor: pointer;
-          white-space: normal;
-          text-align: left;
-          box-shadow: 0 12px 30px -28px rgba(7, 88, 248, 0.5);
-          transition:
-            border-color 180ms ease,
-            box-shadow 180ms ease,
-            background 180ms ease;
-        }
+.aci-feature-v4-suggestion {
+  width: auto;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  flex: 0 0 auto;
+  border: 1px solid rgba(214, 224, 240, 0.82);
+  border-radius: 999px;
+  padding: 6px 10px 6px 6px;
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,0.98),
+      rgba(248,251,255,0.96)
+    );
+  color: #071142;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 7px;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 710;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  white-space: nowrap;
+  text-align: left;
+  box-shadow:
+    0 12px 28px -28px rgba(7, 88, 248, 0.38);
+  transition:
+    transform 180ms ease,
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
 
-        .aci-feature-v4-suggestion:hover,
-        .aci-feature-v4-suggestion:focus-visible {
-          border-color: rgba(92, 136, 255, 0.62);
-          background: #fff;
-          box-shadow: 0 18px 36px -30px rgba(7, 88, 248, 0.62);
-          outline: none;
-        }
+.aci-feature-v4-suggestion:hover,
+.aci-feature-v4-suggestion:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(7, 88, 248, 0.22);
+  background: #fff;
+  box-shadow:
+    0 18px 38px -32px rgba(7, 88, 248, 0.52);
+  outline: none;
+}
 
-        .aci-feature-v4-suggestion-icon {
-          flex: 0 0 auto;
-          width: 28px;
-          height: 28px;
-          display: grid;
-          place-items: center;
-          border-radius: 999px;
-          color: #0758f8;
-          background:
-            radial-gradient(circle at 32% 22%, #ffffff 0 12%, transparent 34%),
-            #eef5ff;
-        }
+.aci-feature-v4-suggestion-icon {
+  flex: 0 0 auto;
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  color: #0758f8;
+  background:
+    radial-gradient(circle at 32% 22%, #ffffff 0 12%, transparent 34%),
+    #eef5ff;
+}
 
-        .aci-feature-v4-suggestion-icon svg {
-          width: 16px;
-          height: 16px;
-        }
+.aci-feature-v4-suggestion-icon svg {
+  width: 13px;
+  height: 13px;
+}
 
-        .aci-feature-v4-suggestion > span:last-child {
-          min-width: 0;
-        }
+.aci-feature-v4-suggestion > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
-        .aci-feature-v4-suggestion > svg {
-          flex: 0 0 auto;
-          width: 14px;
-          height: 14px;
-          margin-left: auto;
-          color: #6e7a99;
+.aci-feature-v4-suggestion > svg {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 13px;
+  margin-left: 2px;
+  color: #71809d;
+}
+.aci-feature-v4-suggestion > span:last-child {
+  min-width: 0;
+}
+
+.aci-feature-v4-suggestion > svg {
+  flex: 0 0 auto;
+  width: 14px;
+  height: 14px;
+  margin-left: auto;
+  color: #71809d;
+}
+
+        @media (min-width: 900px) {
+          .aci-feature-inline-card-v4 {
+            width: min(100%, 760px);
+          }
+
+          .aci-feature-v4-main {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.9fr) minmax(300px, 1.1fr);
+  grid-template-areas:
+    "answer answer"
+    "rows hero";
+  column-gap: 18px;
+  row-gap: 8px;
+  align-items: center;
+  padding: 18px 22px;
+}
+
+          .aci-feature-v4-answer {
+            grid-area: answer;
+            margin-bottom: 0;
+          }
+
+          .aci-feature-v4-answer strong {
+            font-size: 20px;
+          }
+
+          .aci-feature-v4-hero {
+            grid-area: hero;
+            margin: 0;
+          }
+
+          .aci-feature-v4-car {
+  height: 232px;
+}
+
+.aci-feature-v4-car img {
+  width: min(98%, 455px);
+  max-height: 94%;
+}
+
+          .aci-feature-v4-table {
+            grid-area: rows;
+            grid-template-columns: minmax(0, 1fr);
+            align-self: center;
+            gap: 7px;
+          }
+
+          .aci-feature-v4-row {
+  min-height: 51px;
+  padding: 8px 11px;
+}
+
+          .aci-feature-v4-pill {
+            align-self: center;
+          }
         }
 
         @media (max-width: 720px) {
@@ -1128,20 +1737,29 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-main {
-            border-radius: 28px;
-            padding: 16px;
-          }
+  border-radius: 26px;
+  padding: 14px;
+}
 
           .aci-feature-v4-hero {
             margin: 6px 0 14px;
           }
 
           .aci-feature-v4-car {
-            height: 178px;
+            height: 200px;
           }
 
           .aci-feature-v4-table {
-            gap: 7px;
+            gap: 6px;
+            grid-template-columns: minmax(0, 1fr);
+          }
+
+          .aci-feature-inline-card-v4.cards-2 .aci-feature-v4-table {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+          }
+
+          .aci-feature-inline-card-v4.cards-3 .aci-feature-v4-table {
+            grid-template-columns: repeat(3, minmax(0, 1fr));
           }
 
           .aci-feature-v4-answer {
@@ -1149,41 +1767,103 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-answer strong {
-            font-size: 32px;
-          }
+  font-size: 23px;
+  line-height: 1.08;
+  letter-spacing: -0.04em;
+}
 
           .aci-feature-v4-answer p {
             font-size: 13px;
           }
 
           .aci-feature-v4-row {
-            min-height: 72px;
-            padding: 10px;
-            border-radius: 18px;
+            min-height: 74px;
+            grid-template-columns: minmax(0, 1fr);
+            align-items: start;
+            padding: 10px 9px;
+            border-color: rgba(217, 226, 241, 0.86);
+            border-radius: 17px;
+            background:
+              linear-gradient(
+                180deg,
+                rgba(255,255,255,0.97),
+                rgba(248,251,255,0.94)
+              );
+            box-shadow:
+              0 12px 28px -30px rgba(8, 26, 66, 0.34),
+              inset 0 1px 0 rgba(255,255,255,0.92);
+          }
+
+          .aci-feature-v4-row.is-start {
+            grid-column: auto;
+            border-color: rgba(7, 88, 248, 0.28);
+            background:
+              radial-gradient(
+                circle at top right,
+                rgba(7,88,248,0.08),
+                transparent 46%
+              ),
+              linear-gradient(
+                180deg,
+                rgba(255,255,255,0.99),
+                rgba(244,248,255,0.98)
+              );
+            box-shadow:
+              0 20px 46px -38px rgba(7, 88, 248, 0.36),
+              inset 0 1px 0 rgba(255,255,255,0.96);
+          }
+
+          .aci-feature-v4-row-label {
+            margin-bottom: 6px;
+            color: #0758f8;
+            font-size: 8.4px;
+            letter-spacing: 0.105em;
+          }
+
+          .aci-feature-v4-row.is-start .aci-feature-v4-row-label {
+            color: #0758f8;
           }
 
           .aci-feature-v4-row strong {
-            font-size: 12.4px;
+            color: #071142;
+            font-size: 11.7px;
+            line-height: 1.14;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+          }
+
+          .aci-feature-v4-row small {
+            display: none;
+          }
+
+          .aci-feature-v4-row-price {
+            margin-top: 5px;
+            font-size: 10.4px;
+            line-height: 1.1;
+            color: #0758f8;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
           }
 
           .aci-feature-v4-pill {
-            min-width: 27px;
-            width: 27px;
-            height: 26px;
+            display: none;
           }
 
           .aci-feature-v4-suggestions {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 6px;
           }
         }
 
         @media (max-width: 420px) {
           .aci-feature-v4-main {
-            padding: 15px;
+            padding: 13px;
           }
 
           .aci-feature-v4-car {
-            height: 166px;
+            height: 178px;
           }
 
           .aci-feature-v4-answer {
@@ -1192,8 +1872,9 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-answer strong {
-            font-size: 30px;
-          }
+  font-size: 21px;
+  line-height: 1.1;
+}
 
           .aci-feature-v4-status {
             min-width: 40px;
@@ -1203,59 +1884,82 @@ export default function AciV2FeatureInlineCard({
           .aci-feature-v4-table {
             margin-left: 0;
             margin-right: 0;
+          }
+
+          .aci-feature-inline-card-v4.cards-3 .aci-feature-v4-table {
             grid-template-columns: repeat(3, minmax(0, 1fr));
           }
 
+          .aci-feature-v4-row {
+            min-height: 66px;
+            padding: 9px 7px;
+          }
+
+          .aci-feature-v4-row strong {
+            font-size: 11.2px;
+          }
+
           .aci-feature-v4-suggestions {
-            grid-template-columns: minmax(0, 1fr);
+            display: flex;
           }
         }
       `}</style>
 
       <section className="aci-feature-v4-main">
-        {heroCar ? <div className="aci-feature-v4-hero">{heroCar}</div> : null}
-
         <div className="aci-feature-v4-answer">
-          <div>
-            <strong>{decisionCopy.headline}</strong>
-            <p>{decisionCopy.subline}</p>
-          </div>
-          <span
-            className="aci-feature-v4-status"
-            aria-label={answerTone === "no" ? "Not available" : "Available"}
-          >
-            {answerTone === "no" ? (
-              <X aria-hidden="true" strokeWidth={2.5} />
-            ) : (
-              <Check aria-hidden="true" strokeWidth={2.5} />
-            )}
-          </span>
+          <span className="aci-feature-v4-kicker">{vehicleName}</span>
+
+          <strong>{answerCopy.headline}</strong>
         </div>
 
-        {decisionRows.length ? (
+        {heroCar ? <div className="aci-feature-v4-hero">{heroCar}</div> : null}
+
+        {decisionCards.length ? (
           <div className="aci-feature-v4-table">
-            {decisionRows.map((row, index) => {
+            {decisionCards.map((card, index) => {
+              const row = card.row;
               const rowVariant = rowVariantLabel(row, `Variant ${index + 1}`);
-              const available = rowLooksAvailable(row);
-              const firstAvailable = availableRows[0] === row;
-              const rowTag = firstAvailable
-                ? "Starts here"
-                : available
-                  ? "Includes it"
-                  : "Skips it";
+              const exShowroomPrice = rowExShowroomPrice(row);
+              const available = isRowAvailable(row);
+              const key = rowIdentity(row);
+              const startsHere = firstAvailableKey && key === firstAvailableKey;
 
               return (
                 <div
-                  className={`aci-feature-v4-row ${available ? "is-available" : "is-unavailable"}`}
+                  className={`aci-feature-v4-row is-${card.role} ${
+                    available ? "is-available" : "is-unavailable"
+                  } ${startsHere ? "is-start" : ""}`}
                   key={row.id || row._id || rowVariant || index}
                 >
-                  <div>
-                    <em>{rowTag}</em>
+                  <div className="aci-feature-v4-row-copy">
+                    <span className="aci-feature-v4-row-label">
+                      {card.role === "before"
+                        ? "Before"
+                        : card.role === "start"
+                          ? "Starts here"
+                        : card.role === "upgrade"
+                            ? "Next with it"
+                            : card.label}
+                    </span>
+
                     <strong>{rowVariant}</strong>
+
+                    <small>
+                      {available ? "Included" : "Not included"}
+                    </small>
+
+                    {exShowroomPrice ? (
+                      <span className="aci-feature-v4-row-price">
+                        Ex-showroom {exShowroomPrice}
+                      </span>
+                    ) : null}
                   </div>
+
                   <span
-                    className={`aci-feature-v4-pill ${available ? "is-yes" : "is-no"}`}
-                    aria-label={available ? "Yes" : "No"}
+                    className={`aci-feature-v4-pill ${
+                      available ? "is-yes" : "is-no"
+                    }`}
+                    aria-label={available ? "Available" : "Not available"}
                   >
                     {available ? (
                       <Check aria-hidden="true" strokeWidth={2.5} />
@@ -1271,20 +1975,31 @@ export default function AciV2FeatureInlineCard({
       </section>
 
       <div className="aci-feature-v4-suggestions">
-        {suggestions.map((suggestion) => (
-          <button
-            className="aci-feature-v4-suggestion"
-            type="button"
-            key={suggestion.query || suggestion.label}
-            onClick={() => askSuggestion(suggestion)}
-          >
-            <span className="aci-feature-v4-suggestion-icon">
-              <FeatureSuggestionIcon type={suggestion.icon} />
-            </span>
-            <span>{suggestion.label || suggestion.query}</span>
-            <ChevronRight aria-hidden="true" />
-          </button>
-        ))}
+        {suggestions.map((suggestion) => {
+          const suggestionLabel =
+            typeof suggestion === "string"
+              ? suggestion
+              : suggestion.label || suggestion.title || suggestion.query;
+
+          return (
+            <button
+              className="aci-feature-v4-suggestion"
+              type="button"
+              key={
+                typeof suggestion === "string"
+                  ? suggestion
+                  : suggestion.query || suggestion.label || suggestion.title
+              }
+              onClick={() => askSuggestion(suggestion)}
+            >
+              <span className="aci-feature-v4-suggestion-icon">
+                <FeatureSuggestionIcon type={inferSuggestionIcon(suggestion)} />
+              </span>
+              <span>{suggestionLabel}</span>
+              <ChevronRight aria-hidden="true" />
+            </button>
+          );
+        })}
       </div>
     </article>
   );

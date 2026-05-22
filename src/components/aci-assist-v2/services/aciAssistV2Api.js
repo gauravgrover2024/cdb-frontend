@@ -26,6 +26,15 @@ const throwIfAborted = (signal) => {
 
 const toSafeList = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
+const firstSafeList = (...values) => {
+  for (const value of values) {
+    const list = toSafeList(value);
+    if (list.length) return list;
+  }
+
+  return [];
+};
+
 
 const cleanJoin = (base = "", path = "") => {
   if (!base) return path;
@@ -173,6 +182,31 @@ const looksLikeColorRow = (item) => {
   );
 
   return hasName && hasColorValue;
+};
+
+const looksLikeFeatureRow = (item) => {
+  if (!isObject(item)) return false;
+
+  const keys = Object.keys(item).map(normalizeKey);
+  const hasName = keys.some((key) =>
+    ["feature", "featurename", "name", "label", "title"].includes(key),
+  );
+  const hasFeatureSignal = keys.some((key) =>
+    [
+      "value",
+      "displayvalue",
+      "available",
+      "present",
+      "included",
+      "category",
+      "section",
+      "group",
+      "availability",
+      "status",
+    ].includes(key),
+  );
+
+  return hasName && hasFeatureSignal;
 };
 
 const looksLikeVehicle = (item) => {
@@ -869,18 +903,37 @@ const preserveStableAciBackendContract = (body = {}) => {
     (Array.isArray(body.widgets) && isObject(body.widgets[0]) && body.widgets[0]) ||
     {};
 
-  const rows = toSafeList(
-    body.rows ||
-      body.items ||
-      body.features ||
-      body.data?.rows ||
-      body.data?.items ||
-      body.data?.features ||
-      widget.rows ||
-      widget.items ||
-      widget.features ||
-      widget.matchedVariants,
-  );
+  const rowCandidates = [
+    body.data?.rows,
+    widget.data?.rows,
+    body.rows,
+    body.items,
+    body.data?.items,
+    widget.rows,
+    widget.items,
+    widget.matchedVariants,
+  ].map(toSafeList);
+  const featureRowFallbacks = [
+    body.features,
+    body.featureList,
+    body.searchableFeatures,
+    body.data?.features,
+    body.data?.featureList,
+    body.data?.searchableFeatures,
+    widget.features,
+    widget.featureList,
+    widget.searchableFeatures,
+  ].map(toSafeList);
+  const bestRowCandidate =
+    rowCandidates
+      .slice()
+      .sort((left, right) => right.length - left.length)[0] || [];
+  const rows =
+    bestRowCandidate.length
+      ? bestRowCandidate
+      : featureRowFallbacks
+          .slice()
+          .sort((left, right) => right.length - left.length)[0] || [];
 
   const enrichedWidget = {
     ...widget,
@@ -890,16 +943,51 @@ const preserveStableAciBackendContract = (body = {}) => {
     inlineType: body.inlineType || widget.inlineType || "",
     title: body.title || widget.title,
     answer: body.answer || widget.answer,
-    rows: toSafeList(widget.rows || rows),
-    items: toSafeList(widget.items || rows),
-    features: toSafeList(widget.features || widget.featureList || body.features || body.data?.features),
-    featureList: toSafeList(widget.featureList || widget.features || body.features || body.data?.features),
-    variants: toSafeList(widget.variantOptions || widget.variants || body.variants || body.data?.variants),
-    variantOptions: toSafeList(widget.variantOptions || body.variantOptions || body.data?.variantOptions || widget.variants),
-    matchedVariants: toSafeList(widget.matchedVariants || body.matchedVariants || body.data?.matchedVariants),
-    featureGroups: toSafeList(widget.featureGroups || body.featureGroups || body.data?.featureGroups),
-    quickSpecs: toSafeList(widget.quickSpecs || body.quickSpecs || body.data?.quickSpecs),
-    highlights: toSafeList(widget.highlights || body.highlights || body.data?.highlights),
+    rows: rows.length >= toSafeList(widget.rows).length ? rows : toSafeList(widget.rows),
+    items: rows.length >= toSafeList(widget.items).length ? rows : toSafeList(widget.items),
+    features: firstSafeList(
+      widget.features,
+      widget.featureList,
+      widget.searchableFeatures,
+      widget.data?.features,
+      widget.data?.featureList,
+      widget.data?.searchableFeatures,
+      body.features,
+      body.featureList,
+      body.searchableFeatures,
+      body.data?.features,
+      body.data?.featureList,
+      body.data?.searchableFeatures,
+    ),
+    featureList: firstSafeList(
+      widget.featureList,
+      widget.features,
+      widget.searchableFeatures,
+      widget.data?.featureList,
+      widget.data?.features,
+      widget.data?.searchableFeatures,
+      body.featureList,
+      body.features,
+      body.searchableFeatures,
+      body.data?.featureList,
+      body.data?.features,
+      body.data?.searchableFeatures,
+    ),
+    variants: firstSafeList(widget.variantOptions, widget.variants, body.variants, body.data?.variants),
+    variantOptions: firstSafeList(widget.variantOptions, body.variantOptions, body.data?.variantOptions, widget.variants),
+    matchedVariants: firstSafeList(widget.matchedVariants, body.matchedVariants, body.data?.matchedVariants),
+    featureGroups: firstSafeList(
+      widget.featureGroups,
+      widget.groups,
+      widget.data?.featureGroups,
+      widget.data?.groups,
+      body.featureGroups,
+      body.groups,
+      body.data?.featureGroups,
+      body.data?.groups,
+    ),
+    quickSpecs: firstSafeList(widget.quickSpecs, body.quickSpecs, body.data?.quickSpecs),
+    highlights: firstSafeList(widget.highlights, body.highlights, body.data?.highlights),
     vehicle: widget.vehicle || body.vehicle || body.data?.vehicle || null,
     data: {
       ...(widget.data || {}),
@@ -912,11 +1000,16 @@ const preserveStableAciBackendContract = (body = {}) => {
     widget: enrichedWidget,
     widgets: [enrichedWidget],
     rows,
-    items: toSafeList(body.items || rows),
-    features: toSafeList(body.features || body.data?.features || enrichedWidget.features),
-    variants: toSafeList(body.variants || body.data?.variants || enrichedWidget.variantOptions || enrichedWidget.variants),
-    actions: toSafeList(body.actions || enrichedWidget.actions),
-    leadingQuestions: toSafeList(body.leadingQuestions || enrichedWidget.leadingQuestions),
+    items: firstSafeList(body.items, rows),
+    features: firstSafeList(body.features, body.data?.features, enrichedWidget.features),
+    featureGroups: firstSafeList(
+      body.featureGroups,
+      body.data?.featureGroups,
+      enrichedWidget.featureGroups,
+    ),
+    variants: firstSafeList(body.variants, body.data?.variants, enrichedWidget.variantOptions, enrichedWidget.variants),
+    actions: firstSafeList(body.actions, enrichedWidget.actions),
+    leadingQuestions: firstSafeList(body.leadingQuestions, enrichedWidget.leadingQuestions),
   };
 };
 
@@ -1034,6 +1127,55 @@ const normalizeAciBackendResponse = (raw) => {
 
   const deepColors = firstMatchingArray(container, looksLikeColorRow);
   const colors = knownColors.length ? knownColors : deepColors;
+
+  const featureGroups = firstArrayFromKnownPaths(
+    root.featureGroups,
+    root.groups,
+    root.data?.featureGroups,
+    root.data?.groups,
+    root.widget?.featureGroups,
+    root.widget?.groups,
+    knownWidget.featureGroups,
+    knownWidget.groups,
+    knownWidget.data?.featureGroups,
+    knownWidget.data?.groups,
+    canvas.featureGroups,
+    canvas.groups,
+    container.featureGroups,
+    container.groups,
+    container.data?.featureGroups,
+    container.data?.groups,
+  );
+
+  const knownFeatures = firstArrayFromKnownPaths(
+    root.features,
+    root.featureList,
+    root.searchableFeatures,
+    root.data?.features,
+    root.data?.featureList,
+    root.data?.searchableFeatures,
+    root.widget?.features,
+    root.widget?.featureList,
+    root.widget?.searchableFeatures,
+    knownWidget.features,
+    knownWidget.featureList,
+    knownWidget.searchableFeatures,
+    knownWidget.data?.features,
+    knownWidget.data?.featureList,
+    knownWidget.data?.searchableFeatures,
+    canvas.features,
+    canvas.featureList,
+    canvas.searchableFeatures,
+    container.features,
+    container.featureList,
+    container.searchableFeatures,
+    container.data?.features,
+    container.data?.featureList,
+    container.data?.searchableFeatures,
+  );
+
+  const deepFeatures = firstMatchingArray(container, looksLikeFeatureRow);
+  const features = knownFeatures.length ? knownFeatures : deepFeatures;
 
   const contextPatch =
     root.contextPatch ||
@@ -1154,6 +1296,14 @@ const normalizeAciBackendResponse = (raw) => {
       __rawCanvasType: canvasType,
       ...(rows.length ? { rows } : {}),
       ...(colors.length ? { colors } : {}),
+      ...(features.length
+        ? {
+            features,
+            featureList: features,
+            searchableFeatures: features,
+          }
+        : {}),
+      ...(featureGroups.length ? { featureGroups } : {}),
       contextPatch,
       actions,
       leadingQuestions,
@@ -1167,6 +1317,8 @@ const normalizeAciBackendResponse = (raw) => {
     },
     rows,
     colors,
+    features,
+    featureGroups,
   };
 };
 

@@ -14,14 +14,11 @@ import {
   Gauge,
   Info,
   Layers3,
-  Mic,
   Music2,
   Route,
   Search,
   ShieldCheck,
-  SlidersHorizontal,
   Sparkles,
-  Star,
   Wand2,
   Wind,
   Armchair,
@@ -95,6 +92,15 @@ const asArray = (value) => {
   return [value].filter(Boolean);
 };
 
+const firstArray = (...values) => {
+  for (const value of values) {
+    const list = asArray(value);
+    if (list.length) return list;
+  }
+
+  return [];
+};
+
 const slugify = (value = "", fallback = "item") =>
   cleanText(value)
     .toLowerCase()
@@ -110,15 +116,48 @@ const normalizeKey = (value = "") =>
     .replace(/\s+/g, " ")
     .trim();
 
-const valueFrom = (object, keys = [], fallback = "") => {
-  if (!object || typeof object !== "object") return fallback;
+const normalizeLookupKey = (value = "") =>
+  cleanText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
 
-  for (const key of keys) {
-    const value = object[key];
-    if (value !== undefined && value !== null && value !== "") return value;
+const getMatrixValueForVariant = (item = {}, selectedVariant = {}) => {
+  const values = item?.values;
+  if (!values || typeof values !== "object" || Array.isArray(values)) {
+    return null;
   }
 
-  return fallback;
+  const candidates = [
+    selectedVariant?.variantKey,
+    selectedVariant?.key,
+    selectedVariant?.id,
+    normalizeLookupKey(selectedVariant?.label),
+    normalizeLookupKey(selectedVariant?.variant),
+    normalizeLookupKey(selectedVariant?.variantName),
+  ].filter(Boolean);
+
+  for (const key of candidates) {
+    if (values[key]) return values[key];
+  }
+
+  const selectedName = normalizeKey(
+    selectedVariant?.label ||
+      selectedVariant?.variant ||
+      selectedVariant?.variantName ||
+      "",
+  );
+
+  if (!selectedName) return null;
+
+  return (
+    Object.values(values).find(
+      (entry) =>
+        normalizeKey(entry?.variant || entry?.variantName || entry?.label) ===
+        selectedName,
+    ) || null
+  );
 };
 
 const getResolvedWidget = ({ widget, data, message }) =>
@@ -246,10 +285,14 @@ const getVehicleTitle = (vehicle = {}, widget = {}) => {
 };
 
 const getFeatureCategory = (feature = {}) => {
-  const category = normalizeKey(feature.category || feature.type || "");
+  const category = normalizeKey(
+    feature.category || feature.type || feature.groupKey || "",
+  );
   if (category) return slugify(category, "other");
 
-  const section = normalizeKey(feature.section || feature.group || "");
+  const section = normalizeKey(
+    feature.section || feature.group || feature.groupLabel || "",
+  );
   if (section.includes("safety")) return "safety";
   if (
     section.includes("comfort") ||
@@ -320,34 +363,55 @@ const normalizeFeature = (item = {}, index = 0, selectedVariant = {}) => {
 
   if (!item || typeof item !== "object") return null;
 
+  const hasVariantMatrix =
+    item.values && typeof item.values === "object" && !Array.isArray(item.values);
+  const variantValue = getMatrixValueForVariant(item, selectedVariant);
   const name = cleanText(
-    item.name || item.label || item.title || item.feature || item.featureName,
+    item.name ||
+      item.label ||
+      item.title ||
+      item.feature ||
+      item.featureName ||
+      item.displayName,
   );
   if (!name) return null;
 
   const value = cleanText(
-    item.displayValue || item.value || item.status || item.availability || "",
+    variantValue?.displayValue ||
+      variantValue?.value ||
+    variantValue?.status ||
+      variantValue?.availability ||
+      (hasVariantMatrix ? "" : item.displayValue) ||
+      (hasVariantMatrix ? "" : item.value) ||
+      (hasVariantMatrix ? "" : item.status) ||
+      (hasVariantMatrix ? "" : item.availability) ||
+      "",
   );
-  const available =
-    item.available === false ||
-    item.present === false ||
-    item.included === false ||
-    item.isAvailable === false ||
-    isUnavailableValue(value)
+  const explicitAvailable =
+    (variantValue
+      ? (variantValue.available ??
+        variantValue.present ??
+        variantValue.included)
+      : undefined) ??
+    (hasVariantMatrix
       ? false
-      : true;
+      : (item.available ?? item.present ?? item.included ?? item.isAvailable));
+  const available =
+    explicitAvailable === false || isUnavailableValue(value) ? false : true;
 
   const feature = {
     ...item,
     id:
-      cleanText(item.id || item.key || item.slug) ||
+      cleanText(item.id || item.key || item.slug || item.featureKey) ||
       slugify(
         `${selectedVariant.id || selectedVariant.label || "variant"}-${name}-${index}`,
         `feature-${index}`,
       ),
     name,
     label: name,
-    section: cleanText(item.section || item.group || "Features"),
+    section: cleanText(
+      item.section || item.group || item.groupLabel || "Features",
+    ),
     category: getFeatureCategory(item),
     value,
     displayValue: value || (available ? "Available" : "Not available"),
@@ -355,7 +419,9 @@ const normalizeFeature = (item = {}, index = 0, selectedVariant = {}) => {
     present: available,
     included: available,
     variant: cleanText(
-      item.variant ||
+      variantValue?.variant ||
+        variantValue?.variantName ||
+        item.variant ||
         item.variantName ||
         selectedVariant.label ||
         selectedVariant.variant ||
@@ -376,8 +442,16 @@ const normalizeFeatureGroup = (group = {}, index = 0, features = []) => {
   const label = cleanText(
     group.label || group.name || group.section || `Group ${index + 1}`,
   );
-  const id = cleanText(group.id) || slugify(label, `group-${index}`);
-  const groupFeatures = asArray(group.features)
+  const id =
+    cleanText(group.id || group.key || group.slug) ||
+    slugify(label, `group-${index}`);
+  const groupFeatures = firstArray(
+    group.features,
+    group.featureList,
+    group.searchableFeatures,
+    group.rows,
+    group.items,
+  )
     .map((item, featureIndex) => normalizeFeature(item, featureIndex))
     .filter(Boolean);
 
@@ -398,7 +472,9 @@ const normalizeFeatureGroup = (group = {}, index = 0, features = []) => {
     label,
     name: label,
     category:
-      cleanText(group.category) || allGroupFeatures[0]?.category || "other",
+      cleanText(group.category || group.key) ||
+      allGroupFeatures[0]?.category ||
+      "other",
     availableCount,
     totalCount,
     unavailableCount: Number(
@@ -406,6 +482,46 @@ const normalizeFeatureGroup = (group = {}, index = 0, features = []) => {
     ),
     features: allGroupFeatures,
   };
+};
+
+const featureRowsFromGroups = (groups = []) =>
+  asArray(groups).flatMap((group) => {
+    if (!group || typeof group !== "object") return [];
+
+    const groupLabel = cleanText(
+      group.label || group.name || group.section || group.group || "Features",
+    );
+    const groupCategory = cleanText(group.category || group.type || "");
+
+    return firstArray(
+      group.features,
+      group.featureList,
+      group.searchableFeatures,
+      group.rows,
+      group.items,
+    ).map((item) => {
+      if (!item || typeof item !== "object") return item;
+
+      return {
+        ...item,
+        section: item.section || item.group || groupLabel,
+        group: item.group || item.section || groupLabel,
+        category: item.category || item.type || groupCategory,
+      };
+    });
+  });
+
+const uniqueFeatures = (features = []) => {
+  const seen = new Set();
+
+  return features.filter((feature) => {
+    const key = normalizeKey(
+      `${feature.id || ""} ${feature.section || ""} ${feature.name || feature.label || ""}`,
+    );
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 };
 
 const groupFeaturesFromRows = (features = []) => {
@@ -486,19 +602,56 @@ const collectVariants = (widget = {}, vehicle = {}) => {
     ...asArray(widget.data?.variantOptions),
     ...asArray(widget.variants),
     ...asArray(widget.data?.variants),
+    ...asArray(widget.allVariants),
+    ...asArray(widget.data?.allVariants),
     ...asArray(vehicle.variants),
   ];
 
-  const seen = new Set();
-  const variants = raw
+  const byKey = new Map();
+  raw
     .map(normalizeVariant)
     .filter(Boolean)
-    .filter((variant) => {
+    .forEach((variant) => {
       const key = cleanText(variant.id) || normalizeKey(variant.label);
-      if (!key || seen.has(key)) return false;
-      seen.add(key);
-      return true;
+      if (!key) return;
+
+      const existing = byKey.get(key);
+      if (!existing) {
+        byKey.set(key, variant);
+        return;
+      }
+
+      byKey.set(key, {
+        ...variant,
+        ...existing,
+        features: firstArray(
+          existing.features,
+          existing.featureList,
+          existing.searchableFeatures,
+          variant.features,
+          variant.featureList,
+          variant.searchableFeatures,
+        ),
+        featureList: firstArray(
+          existing.featureList,
+          existing.features,
+          existing.searchableFeatures,
+          variant.featureList,
+          variant.features,
+          variant.searchableFeatures,
+        ),
+        featureGroups: firstArray(
+          existing.featureGroups,
+          existing.groups,
+          variant.featureGroups,
+          variant.groups,
+        ),
+        quickSpecs: firstArray(existing.quickSpecs, variant.quickSpecs),
+        highlights: firstArray(existing.highlights, variant.highlights),
+      });
     });
+
+  const variants = [...byKey.values()];
 
   const selectedName = cleanText(
     widget.selectedVariant ||
@@ -521,8 +674,22 @@ const collectVariants = (widget = {}, vehicle = {}) => {
       label: selectedName,
       variant: selectedName,
       variantName: selectedName,
-      features: asArray(widget.features || widget.rows),
-      featureGroups: asArray(widget.featureGroups),
+      features: firstArray(
+        widget.features,
+        widget.featureList,
+        widget.searchableFeatures,
+        widget.rows,
+        widget.items,
+        widget.data?.features,
+        widget.data?.featureList,
+        widget.data?.searchableFeatures,
+      ),
+      featureGroups: firstArray(
+        widget.featureGroups,
+        widget.groups,
+        widget.data?.featureGroups,
+        widget.data?.groups,
+      ),
     });
   }
 
@@ -553,35 +720,56 @@ const getSelectedVariantId = (widget = {}, vehicle = {}, variants = []) => {
 };
 
 const getVariantFeatureRows = ({ widget, selectedVariant }) => {
-  const selectedRows = asArray(
-    selectedVariant?.features ||
-      selectedVariant?.featureList ||
-      selectedVariant?.rows ||
-      selectedVariant?.items,
+  const selectedRows = firstArray(
+    selectedVariant?.features,
+    selectedVariant?.featureList,
+    selectedVariant?.searchableFeatures,
+    selectedVariant?.rows,
+    selectedVariant?.items,
+    featureRowsFromGroups(
+      firstArray(
+        selectedVariant?.featureGroups,
+        selectedVariant?.groups,
+      ),
+    ),
   )
     .map((item, index) => normalizeFeature(item, index, selectedVariant))
     .filter(Boolean);
 
-  if (selectedRows.length) return selectedRows;
+  if (selectedRows.length) return uniqueFeatures(selectedRows);
 
-  return asArray(
-    widget.features ||
-      widget.featureList ||
-      widget.rows ||
-      widget.items ||
-      widget.data?.features ||
-      widget.data?.featureList,
+  const widgetRows = firstArray(
+    widget.features,
+    widget.featureList,
+    widget.searchableFeatures,
+    widget.rows,
+    widget.items,
+    widget.data?.features,
+    widget.data?.featureList,
+    widget.data?.searchableFeatures,
+    featureRowsFromGroups(
+      firstArray(
+        widget.featureGroups,
+        widget.groups,
+        widget.data?.featureGroups,
+        widget.data?.groups,
+      ),
+    ),
   )
     .map((item, index) => normalizeFeature(item, index, selectedVariant))
     .filter(Boolean);
+
+  return uniqueFeatures(widgetRows);
 };
 
 const getVariantGroups = ({ widget, selectedVariant, features }) => {
-  const rawGroups = asArray(
-    selectedVariant?.featureGroups ||
-      selectedVariant?.groups ||
-      widget.featureGroups ||
-      widget.data?.featureGroups,
+  const rawGroups = firstArray(
+    selectedVariant?.featureGroups,
+    selectedVariant?.groups,
+    widget.featureGroups,
+    widget.groups,
+    widget.data?.featureGroups,
+    widget.data?.groups,
   );
   const groups = rawGroups
     .map((group, index) => normalizeFeatureGroup(group, index, features))
@@ -590,8 +778,10 @@ const getVariantGroups = ({ widget, selectedVariant, features }) => {
 };
 
 const getQuickSpecs = ({ widget, selectedVariant }) => {
-  const raw = asArray(
-    selectedVariant?.quickSpecs || widget.quickSpecs || widget.data?.quickSpecs,
+  const raw = firstArray(
+    selectedVariant?.quickSpecs,
+    widget.quickSpecs,
+    widget.data?.quickSpecs,
   );
 
   return raw
@@ -613,11 +803,11 @@ const getQuickSpecs = ({ widget, selectedVariant }) => {
 };
 
 const getHighlights = ({ widget, selectedVariant, features }) => {
-  const raw = asArray(
-    selectedVariant?.highlights ||
-      widget.highlights ||
-      widget.data?.highlights ||
-      widget.whyThisVariant,
+  const raw = firstArray(
+    selectedVariant?.highlights,
+    widget.highlights,
+    widget.data?.highlights,
+    widget.whyThisVariant,
   );
   const provided = raw
     .map((item, index) => {
@@ -963,7 +1153,7 @@ function FeatureTable({
               ? "All features"
               : `${activeTab?.label || "Selected"} features`}
           </h2>
-          <p>{filteredFeatures.length} matching feature records</p>
+          <p>{filteredFeatures.length} features in this view</p>
         </div>
         <span>
           {filteredFeatures.filter((feature) => feature.available).length}{" "}
@@ -985,8 +1175,8 @@ function FeatureTable({
               className="afi-empty-features"
             >
               <Search size={25} />
-              <strong>No feature found</strong>
-              <p>Try searching another feature or switch category.</p>
+              <strong>No matching feature</strong>
+              <p>Try another search term or switch category.</p>
             </motion.div>
           )}
         </AnimatePresence>
@@ -1060,19 +1250,19 @@ function SuggestedQuestions({
 
   const questions = [
     {
-      label: "Does it have sunroof?",
-      query: `Does ${prefix} have sunroof?`,
-      icon: "☀️",
+      label: "Find sunroof variants",
+      query: `Which ${model} variants have sunroof?`,
+      Icon: Camera,
     },
     {
-      label: "How many airbags?",
-      query: `How many airbags does ${prefix} have?`,
-      icon: "🛡️",
+      label: "Compare safety kit",
+      query: `Compare airbags, ABS and safety features in ${prefix}`,
+      Icon: ShieldCheck,
     },
     {
-      label: "Show ADAS variants",
-      query: `Which ${model} variants have ADAS?`,
-      icon: "✨",
+      label: "Show connected tech",
+      query: `Show infotainment and connected car features in ${prefix}`,
+      Icon: Smartphone,
       discovery: true,
     },
   ];
@@ -1087,36 +1277,42 @@ function SuggestedQuestions({
         <Info size={16} />
       </div>
       <div className="afi-question-list">
-        {questions.map((question) => (
-          <button
-            key={question.query}
-            type="button"
-            onClick={() =>
-              fireFeatureAction(onAction, {
-                label: question.label,
-                query: question.query,
-                type: question.discovery
-                  ? "feature_discovery"
-                  : "feature_answer",
-                intent: question.discovery
-                  ? "vehicle_feature_discovery"
-                  : "vehicle_feature_answer",
-                canvasType: question.discovery
-                  ? "feature_match_builder_canvas"
-                  : "",
-                vehicle,
-                contextPatch: {
-                  anchorVariant: variant,
-                  feature: question.label,
-                },
-              })
-            }
-          >
-            <span>{question.icon}</span>
-            <strong>{question.label}</strong>
-            <ChevronRight size={16} />
-          </button>
-        ))}
+        {questions.map((question) => {
+          const Icon = question.Icon || Sparkles;
+
+          return (
+            <button
+              key={question.query}
+              type="button"
+              onClick={() =>
+                fireFeatureAction(onAction, {
+                  label: question.label,
+                  query: question.query,
+                  type: question.discovery
+                    ? "feature_discovery"
+                    : "feature_answer",
+                  intent: question.discovery
+                    ? "vehicle_feature_discovery"
+                    : "vehicle_feature_answer",
+                  canvasType: question.discovery
+                    ? "feature_match_builder_canvas"
+                    : "",
+                  vehicle,
+                  contextPatch: {
+                    anchorVariant: variant,
+                    feature: question.label,
+                  },
+                })
+              }
+            >
+              <span>
+                <Icon size={16} strokeWidth={1.9} />
+              </span>
+              <strong>{question.label}</strong>
+              <ChevronRight size={16} />
+            </button>
+          );
+        })}
       </div>
     </motion.section>
   );
@@ -1314,6 +1510,7 @@ function MobileLayout(props) {
     setQuery,
     tabs,
     activeTab,
+    features,
     filteredFeatures,
     quickSpecs,
     highlights,
@@ -1322,6 +1519,10 @@ function MobileLayout(props) {
   } = props;
 
   const exShowroom = getVariantPriceLabel(selectedVariant);
+  const availableCount =
+    selectedVariant?.availableCount ||
+    features.filter((feature) => feature.available).length;
+  const totalFeatureCount = selectedVariant?.featureCount || features.length;
 
   return (
     <section className="afi-mobile-shell">
@@ -1381,9 +1582,7 @@ function MobileLayout(props) {
               </p>
             ) : null}
             <span>
-              {selectedVariant?.availableCount || 0}/
-              {selectedVariant?.featureCount || filteredFeatures.length}{" "}
-              available
+              {availableCount}/{totalFeatureCount} available
             </span>
           </div>
         </motion.section>
@@ -1622,6 +1821,7 @@ export default function AciAssistFeaturesScreen({
     setQuery,
     tabs,
     activeTab,
+    features,
     filteredFeatures,
     quickSpecs,
     highlights,
@@ -1678,7 +1878,7 @@ const styles = `
   .afi-mobile-shell { display: none; }
 
   .afi-desktop-shell { display: block; }
-  .afi-desktop-page { width: min(100%, 1530px); margin: 0 auto; padding: 26px 42px 116px; }
+  .afi-desktop-page { width: min(100%, 1280px); margin: 0 auto; padding: 24px 32px 124px; }
 
   .afi-desktop-header {
     height: 54px;
@@ -1708,17 +1908,17 @@ const styles = `
 
   .afi-desktop-hero {
     position: relative;
-    min-height: 360px;
+    min-height: 330px;
     overflow: hidden;
     border-radius: 32px;
     border: 1px solid rgba(219, 227, 239, .92);
     background: linear-gradient(135deg, #f5f9ff 0%, #ffffff 46%, #edf5ff 100%);
     box-shadow: 0 34px 96px -68px rgba(15, 23, 42, .56), inset 0 1px 0 rgba(255,255,255,.96);
     display: grid;
-    grid-template-columns: 47% 53%;
+    grid-template-columns: 43% 57%;
     align-items: center;
-    gap: 26px;
-    padding: 30px 38px;
+    gap: 24px;
+    padding: 28px 34px;
   }
 
   .afi-hero-glow {
@@ -1735,15 +1935,15 @@ const styles = `
   .afi-hero-image-wrap {
     position: relative;
     z-index: 2;
-    min-height: 280px;
+    min-height: 250px;
     display: grid;
     place-items: center;
   }
 
   .afi-car-image {
     display: block;
-    width: min(100%, 680px);
-    max-height: 300px;
+    width: min(100%, 620px);
+    max-height: 270px;
     object-fit: contain;
     mix-blend-mode: multiply;
     filter: drop-shadow(0 28px 26px rgba(15,23,42,.16));
@@ -1789,7 +1989,7 @@ const styles = `
   .afi-search-box input { min-width: 0; border: 0; background: transparent; outline: none; color: #172033; font-size: 13px; font-weight: 500; }
   .afi-search-box input::placeholder { color: #94a3b8; }
 
-  .afi-main-grid { margin-top: 24px; display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 24px; align-items: start; }
+  .afi-main-grid { margin-top: 22px; display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 20px; align-items: start; }
   .afi-main-left { min-width: 0; display: grid; gap: 16px; }
   .afi-side-rail { position: sticky; top: 18px; display: grid; gap: 14px; }
 
@@ -1808,13 +2008,14 @@ const styles = `
   .afi-section-head > span { height: 32px; display: inline-flex; align-items: center; padding: 0 11px; border-radius: 999px; background: #eff6ff; color: var(--afi-blue); font-size: 11.5px; font-weight: 820; }
 
   .afi-feature-list { margin-top: 15px; overflow: hidden; border-radius: 20px; border: 1px solid #e2e8f0; background: #fff; }
-  .afi-feature-row { display: grid; grid-template-columns: 54px minmax(0, 1fr) minmax(90px, 160px) 34px; align-items: center; gap: 12px; min-height: 64px; padding: 10px 14px; border-bottom: 1px solid #e8eef7; }
+  .afi-feature-row { display: grid; grid-template-columns: 50px minmax(0, 1fr) minmax(90px, 160px) 34px; align-items: center; gap: 12px; min-height: 60px; padding: 9px 13px; border-bottom: 1px solid #e8eef7; }
+  .afi-feature-row:hover { background: #f8fbff; }
   .afi-feature-row:last-child { border-bottom: 0; }
   .afi-feature-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 15px; border: 1px solid #dbeafe; background: #f1f6ff; color: var(--afi-blue); }
   .afi-feature-main { min-width: 0; }
   .afi-feature-main strong { display: block; color: #07102b; font-size: 14px; line-height: 1.12; font-weight: 710; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .afi-feature-main small { display: block; margin-top: 4px; color: #94a3b8; font-size: 10.8px; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .afi-feature-value { justify-self: start; max-width: 160px; color: #475569; font-size: 12.2px; line-height: 1.2; font-weight: 650; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .afi-feature-value { justify-self: start; max-width: 160px; color: #475569; font-size: 12px; line-height: 1.2; font-weight: 690; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border: 1px solid #e6edf8; background: #f8fbff; border-radius: 999px; padding: 5px 9px; }
   .afi-feature-state { color: #94a3b8; display: grid; place-items: center; }
 
   .afi-card { padding: 16px; }
@@ -1830,6 +2031,7 @@ const styles = `
   .afi-highlight-list svg { margin-top: 1px; padding: 3px; color: #fff; background: var(--afi-blue); border-radius: 999px; }
   .afi-question-list { margin-top: 13px; display: grid; gap: 8px; }
   .afi-question-list button { min-height: 46px; border: 1px solid #e2e8f0; border-radius: 15px; background: #fff; display: grid; grid-template-columns: 28px 1fr 18px; gap: 8px; align-items: center; padding: 8px 10px; text-align: left; color: #0f172a; }
+  .afi-question-list button span { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 999px; background: #eff6ff; color: var(--afi-blue); }
   .afi-question-list strong { font-size: 12px; line-height: 1.15; font-weight: 760; }
 
   .afi-empty-features { min-height: 180px; display: grid; place-items: center; text-align: center; padding: 30px; color: #94a3b8; }
@@ -1853,19 +2055,19 @@ const styles = `
     .afi-desktop-shell { display: none; }
     .afi-mobile-shell { display: block; }
     .afi-root { background: linear-gradient(180deg, #fff 0%, #f8fbff 100%); }
-    .afi-mobile-page { width: 100%; max-width: 430px; min-height: 100vh; margin: 0 auto; padding: 16px 14px calc(112px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 14px; }
+    .afi-mobile-page { width: 100%; max-width: 430px; min-height: 100vh; margin: 0 auto; padding: 14px 14px calc(142px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 13px; }
     .afi-mobile-header { height: 48px; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; gap: 8px; }
     .afi-mobile-header button { position: relative; width: 40px; height: 40px; border: 0; border-radius: 999px; background: transparent; color: #334155; display: grid; place-items: center; }
     .afi-mobile-header button:last-child { justify-self: end; }
     .afi-mobile-header button i { position: absolute; right: 8px; top: 7px; width: 8px; height: 8px; border-radius: 999px; background: var(--afi-blue); border: 2px solid #fff; }
     .afi-mobile-title { padding: 6px 2px 0; }
     .afi-mobile-title span { color: #334155; text-transform: uppercase; letter-spacing: .24em; font-size: 10px; font-weight: 820; }
-    .afi-mobile-title h1 { margin: 9px 0 0; color: #050b22; font-family: var(--afi-serif); font-size: 39px; line-height: .9; letter-spacing: -.062em; font-weight: 560; }
+    .afi-mobile-title h1 { margin: 9px 0 0; color: #050b22; font-family: var(--afi-serif); font-size: 36px; line-height: .92; letter-spacing: -.055em; font-weight: 560; }
     .afi-mobile-title p { margin: 7px 0 0; color: #64748b; font-size: 17px; line-height: 1.05; font-weight: 520; }
-    .afi-mobile-hero { position: relative; min-height: 234px; overflow: hidden; border-radius: 27px; border: 1px solid rgba(219,227,239,.94); background: linear-gradient(135deg, #f5f9ff 0%, #ffffff 48%, #edf4ff 100%); box-shadow: 0 28px 78px -62px rgba(15,23,42,.58), inset 0 1px 0 #fff; padding: 18px; display: grid; grid-template-columns: 48% 52%; gap: 8px; align-items: center; }
+    .afi-mobile-hero { position: relative; min-height: 210px; overflow: hidden; border-radius: 27px; border: 1px solid rgba(219,227,239,.94); background: linear-gradient(135deg, #f5f9ff 0%, #ffffff 48%, #edf4ff 100%); box-shadow: 0 28px 78px -62px rgba(15,23,42,.58), inset 0 1px 0 #fff; padding: 16px; display: grid; grid-template-columns: 48% 52%; gap: 8px; align-items: center; }
     .afi-mobile-car-wrap { min-width: 0; display: grid; place-items: center; }
     .afi-car-placeholder.mobile { height: 150px; width: 100%; border-radius: 22px; }
-    .afi-mobile-hero .afi-car-image { width: 124%; max-height: 165px; transform: translateX(-8%); filter: drop-shadow(0 18px 18px rgba(15,23,42,.15)); }
+    .afi-mobile-hero .afi-car-image { width: 116%; max-height: 152px; transform: translateX(-5%); filter: drop-shadow(0 18px 18px rgba(15,23,42,.15)); }
     .afi-mobile-hero-copy { min-width: 0; position: relative; z-index: 2; }
     .afi-mobile-hero-copy strong { display: block; margin-top: 9px; color: var(--afi-blue); font-size: 22px; line-height: 1; letter-spacing: -.04em; font-weight: 820; }
     .afi-mobile-hero-copy p { margin: 10px 0 0; color: #07102b; font-size: 17px; line-height: 1; font-weight: 760; }
