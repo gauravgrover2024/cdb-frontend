@@ -2357,6 +2357,1811 @@ function AciV2ColorPreviewArea({
   );
 }
 
+const aciFeatureInlineMotion = {
+  hidden: {
+    opacity: 0,
+    y: 10,
+    scale: 0.992,
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    transition: {
+      duration: 0.42,
+      ease: [0.22, 1, 0.36, 1],
+      staggerChildren: 0.055,
+      delayChildren: 0.04,
+    },
+  },
+};
+
+const aciFeatureInlineItemMotion = {
+  hidden: {
+    opacity: 0,
+    y: 8,
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.36,
+      ease: [0.22, 1, 0.36, 1],
+    },
+  },
+};
+
+const aciFeatureCarMotion = {
+  hidden: {
+    opacity: 0,
+    y: 14,
+    scale: 0.975,
+    filter: "blur(4px) saturate(1.08)",
+  },
+  show: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: "blur(0px) saturate(1)",
+    transition: {
+      duration: 0.58,
+      ease: [0.19, 1, 0.22, 1],
+    },
+  },
+};
+
+const aciFeatureVariantChangeMotion = {
+  initial: {
+    opacity: 0.96,
+    filter: "saturate(1.14) brightness(1.04) contrast(1.02)",
+  },
+  animate: {
+    opacity: 1,
+    filter: "saturate(1) brightness(1) contrast(1)",
+  },
+  transition: {
+    duration: 0.28,
+    ease: [0.22, 1, 0.36, 1],
+  },
+};
+
+const cleanFeatureText = (value = "") =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const getFeatureVariantLabel = (row = {}, fallback = "Variant") =>
+  pickText(
+    row.variant,
+    row.variantName,
+    row.variantLabel,
+    row.version,
+    row.versionName,
+    row.trim,
+    row.name,
+    row.title,
+    row.label,
+    row.vehicle?.variant,
+    row.vehicle?.variantName,
+    row.vehicle?.version,
+    fallback,
+  );
+
+const getFeatureVariantMeta = (row = {}) =>
+  pickText(
+    row.subtitle,
+    row.fuelTransmission,
+    [row.fuel, row.transmission].filter(Boolean).join(" · "),
+    row.engineTransmission,
+    row.engine,
+    row.powertrain,
+    row.vehicle?.fuelTransmission,
+    [row.vehicle?.fuel, row.vehicle?.transmission].filter(Boolean).join(" · "),
+    row.vehicle?.engine,
+  );
+
+const getFeatureVehicleForRow = ({
+  row = {},
+  widget = {},
+  message = {},
+  selectedVehicle,
+}) =>
+  pickAny(
+    row.vehicle,
+    row.selectedVehicle,
+    widget.vehicle,
+    message.vehicle,
+    selectedVehicle,
+    row,
+  ) || {};
+
+const isInlineUnavailableFeatureValue = (value) =>
+  /^(no|na|n\/a|not available|unavailable|absent|nil|false|-)$/i.test(
+    cleanFeatureText(value),
+  );
+
+const asInlineArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [value].filter(Boolean);
+};
+
+const firstInlineArray = (...values) => {
+  for (const value of values) {
+    const list = asInlineArray(value);
+    if (list.length) return list;
+  }
+
+  return [];
+};
+
+const featuresFromInlineMap = (featuresByKey = {}, selectedVariant = {}) => {
+  if (
+    !featuresByKey ||
+    typeof featuresByKey !== "object" ||
+    Array.isArray(featuresByKey)
+  ) {
+    return [];
+  }
+
+  return Object.entries(featuresByKey)
+    .map(([featureKey, feature]) => {
+      if (!feature || typeof feature !== "object") return null;
+
+      return {
+        ...feature,
+        id: feature.id || feature.key || feature.featureKey || featureKey,
+        key: feature.key || featureKey,
+        featureKey,
+        name: feature.name || feature.label || feature.displayName,
+        label: feature.label || feature.displayName || feature.name,
+        section: feature.section || feature.groupLabel,
+        category: feature.category || feature.groupKey,
+        variant:
+          selectedVariant?.label ||
+          selectedVariant?.variant ||
+          selectedVariant?.variantName ||
+          "",
+      };
+    })
+    .filter(Boolean);
+};
+
+const featureRowsFromInlineGroups = (groups = []) =>
+  asInlineArray(groups).flatMap((group) => {
+    if (!group || typeof group !== "object") return [];
+
+    const groupLabel = cleanFeatureText(
+      group.label || group.name || group.section || group.group || "Features",
+    );
+
+    const groupCategory = cleanFeatureText(group.category || group.type || "");
+
+    return firstInlineArray(
+      group.features,
+      group.featureList,
+      group.searchableFeatures,
+      group.rows,
+      group.items,
+    ).map((item) => {
+      if (!item || typeof item !== "object") return item;
+
+      return {
+        ...item,
+        section: item.section || item.group || groupLabel,
+        group: item.group || item.section || groupLabel,
+        category: item.category || item.type || groupCategory,
+      };
+    });
+  });
+
+const normalizeInlineFeature = (item = {}, index = 0, selectedVariant = {}) => {
+  if (typeof item === "string") {
+    const name = cleanFeatureText(item);
+    if (!name) return null;
+
+    return {
+      id: `${normalizeInlineFeatureKey(name) || "feature"}-${index}`,
+      name,
+      label: name,
+      section: "Highlights",
+      category: "highlights",
+      value: "Available",
+      displayValue: "Available",
+      available: true,
+      searchableText: normalizeInlineFeatureKey(name),
+    };
+  }
+
+  if (!item || typeof item !== "object") return null;
+
+  const name = cleanFeatureText(
+    item.name ||
+      item.label ||
+      item.title ||
+      item.feature ||
+      item.featureName ||
+      item.displayName ||
+      item.matchedFeature,
+  );
+
+  if (!name) return null;
+
+  const value = cleanFeatureText(
+    item.displayValue ||
+      item.value ||
+      item.status ||
+      item.availability ||
+      item.text ||
+      "",
+  );
+
+  const explicitAvailable =
+    item.available ?? item.present ?? item.included ?? item.isAvailable;
+
+  const available =
+    explicitAvailable === false || isInlineUnavailableFeatureValue(value)
+      ? false
+      : true;
+
+  const section = cleanFeatureText(
+    item.section ||
+      item.group ||
+      item.groupLabel ||
+      item.category ||
+      item.type ||
+      "Highlights",
+  );
+
+  return {
+    ...item,
+    id:
+      cleanFeatureText(item.id || item.key || item.slug || item.featureKey) ||
+      `${normalizeInlineFeatureKey(
+        selectedVariant?.label || selectedVariant?.variant || "variant",
+      )}-${normalizeInlineFeatureKey(name)}-${index}`,
+    name,
+    label: name,
+    section,
+    category: section,
+    value,
+    displayValue: value || (available ? "Available" : "Not available"),
+    available,
+    searchableText: normalizeInlineFeatureKey(
+      `${section} ${name} ${value} ${item.category || ""}`,
+    ),
+  };
+};
+
+const findInlineMatchingVariant = ({
+  option = {},
+  widget = {},
+  selectedVehicle,
+}) => {
+  const target = normalizeInlineFeatureKey(
+    option.label ||
+      option.row?.label ||
+      option.row?.variant ||
+      option.row?.variantName ||
+      selectedVehicle?.variant ||
+      selectedVehicle?.selectedVariant,
+  );
+
+  if (!target) return null;
+
+  const candidates = [
+    ...asInlineArray(widget.variantOptions),
+    ...asInlineArray(widget.data?.variantOptions),
+    ...asInlineArray(widget.variants),
+    ...asInlineArray(widget.data?.variants),
+    ...asInlineArray(widget.allVariants),
+    ...asInlineArray(widget.data?.allVariants),
+    ...asInlineArray(selectedVehicle?.variants),
+  ];
+
+  return (
+    candidates.find((variant) => {
+      const label = normalizeInlineFeatureKey(
+        variant?.label ||
+          variant?.variant ||
+          variant?.variantName ||
+          variant?.name ||
+          variant?.title,
+      );
+
+      return label && label === target;
+    }) || null
+  );
+};
+
+const getInlineFeatureRowsForOption = ({
+  option = {},
+  widget = {},
+  message = {},
+  selectedVehicle,
+}) => {
+  const selectedRow = option.row || {};
+  const matchedVariant = findInlineMatchingVariant({
+    option,
+    widget,
+    selectedVehicle,
+  });
+
+  const selectedSpecificRows = [
+    ...firstInlineArray(
+      selectedRow.features,
+      selectedRow.featureList,
+      selectedRow.searchableFeatures,
+      selectedRow.rows,
+      selectedRow.items,
+      featuresFromInlineMap(selectedRow.featuresByKey, selectedRow),
+      featureRowsFromInlineGroups(
+        firstInlineArray(selectedRow.featureGroups, selectedRow.groups),
+      ),
+    ),
+    ...firstInlineArray(
+      matchedVariant?.features,
+      matchedVariant?.featureList,
+      matchedVariant?.searchableFeatures,
+      matchedVariant?.rows,
+      matchedVariant?.items,
+      featuresFromInlineMap(matchedVariant?.featuresByKey, matchedVariant),
+      featureRowsFromInlineGroups(
+        firstInlineArray(matchedVariant?.featureGroups, matchedVariant?.groups),
+      ),
+    ),
+  ];
+
+  const widgetRows = firstInlineArray(
+    widget.features,
+    widget.featureList,
+    widget.searchableFeatures,
+    widget.rows,
+    widget.items,
+    widget.data?.features,
+    widget.data?.featureList,
+    widget.data?.searchableFeatures,
+    message.widget?.features,
+    message.widget?.featureList,
+    featuresFromInlineMap(widget.featuresByKey || widget.data?.featuresByKey),
+    featureRowsFromInlineGroups(
+      firstInlineArray(
+        widget.featureGroups,
+        widget.groups,
+        widget.data?.featureGroups,
+        widget.data?.groups,
+      ),
+    ),
+  );
+
+  const rawRows = selectedSpecificRows.length
+    ? selectedSpecificRows
+    : widgetRows;
+  const seen = new Set();
+
+  return rawRows
+    .map((item, index) =>
+      normalizeInlineFeature(item, index, matchedVariant || selectedRow),
+    )
+    .filter(Boolean)
+    .filter((feature) => {
+      const key = normalizeInlineFeatureKey(
+        `${feature.id || ""} ${feature.section || ""} ${feature.name || ""}`,
+      );
+
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const highlightFromInlineText = (item, index = 0) => {
+  const label = cleanFeatureText(
+    item?.label || item?.text || item?.name || item,
+  );
+
+  if (!label) return null;
+
+  return {
+    key:
+      cleanFeatureText(item?.id) ||
+      `${normalizeInlineFeatureKey(label)}-${index}`,
+    label: "Highlight",
+    value: label,
+  };
+};
+
+const featureToInlineHighlight = (feature = {}, index = 0) => {
+  const value = cleanFeatureText(feature.displayValue || feature.value);
+  const hasUsefulValue = value && !/^(yes|available)$/i.test(value);
+
+  return {
+    key:
+      cleanFeatureText(feature.id) ||
+      `${normalizeInlineFeatureKey(feature.name)}-${index}`,
+    label: cleanFeatureText(feature.section || feature.category || "Highlight"),
+    value: hasUsefulValue
+      ? `${feature.name}: ${value}`
+      : `${feature.name} available`,
+  };
+};
+
+const buildFeatureHighlights = ({
+  option = {},
+  widget = {},
+  message = {},
+  selectedVehicle,
+}) => {
+  const selectedRow = option.row || {};
+
+  const providedHighlights = [
+    ...firstInlineArray(selectedRow.highlights),
+    ...firstInlineArray(selectedRow.whyThisVariant),
+    ...firstInlineArray(option.highlightsRaw),
+    ...firstInlineArray(widget.highlights),
+    ...firstInlineArray(widget.data?.highlights),
+    ...firstInlineArray(widget.whyThisVariant),
+    ...firstInlineArray(message.widget?.highlights),
+  ]
+    .map(highlightFromInlineText)
+    .filter(Boolean)
+    .slice(0, 5);
+
+  if (providedHighlights.length) return providedHighlights;
+
+  const features = getInlineFeatureRowsForOption({
+    option,
+    widget,
+    message,
+    selectedVehicle,
+  });
+
+  const premiumFeatureRegex =
+    /sunroof|airbag|adas|camera|360|ventilated|wireless|climate|alloy|cruise|touchscreen|apple|android|speaker|abs|esc|hill|tpms|parking|led|drl/i;
+
+  const premiumHighlights = features
+    .filter(
+      (feature) =>
+        feature.available &&
+        premiumFeatureRegex.test(`${feature.name} ${feature.section}`),
+    )
+    .slice(0, 5)
+    .map(featureToInlineHighlight);
+
+  if (premiumHighlights.length) return premiumHighlights;
+
+  const availableFallback = features
+    .filter((feature) => feature.available)
+    .slice(0, 5)
+    .map(featureToInlineHighlight);
+
+  if (availableFallback.length) return availableFallback;
+
+  const directFeature = cleanFeatureText(
+    selectedRow.matchedFeature ||
+      selectedRow.feature ||
+      selectedRow.featureName ||
+      selectedRow.name,
+  );
+
+  if (directFeature) {
+    return [
+      {
+        key: normalizeInlineFeatureKey(directFeature),
+        label: "Feature match",
+        value: directFeature,
+      },
+    ];
+  }
+
+  return [];
+};
+
+const normalizeInlineFeatureText = (value = "") =>
+  String(value || "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const normalizeInlineFeatureKey = (value = "") =>
+  normalizeInlineFeatureText(value)
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const slugInlineFeature = (value = "", fallback = "item") =>
+  normalizeInlineFeatureKey(value).replace(/\s+/g, "-") || fallback;
+
+const inlineArray = (value) => {
+  if (!value) return [];
+  if (Array.isArray(value)) return value.filter(Boolean);
+  return [value].filter(Boolean);
+};
+
+const getInlineVariantIdentity = (variant = {}) =>
+  normalizeInlineFeatureKey(
+    variant.label ||
+      variant.variant ||
+      variant.variantName ||
+      variant.name ||
+      variant.title ||
+      variant.displayName ||
+      variant.fullName ||
+      "",
+  );
+
+const normalizeInlineDbVariant = (variant = {}, index = 0) => {
+  if (!variant || typeof variant !== "object") return null;
+
+  const label = normalizeInlineFeatureText(
+    variant.label ||
+      variant.variant ||
+      variant.variantName ||
+      variant.name ||
+      variant.title ||
+      variant.displayName,
+  );
+
+  if (!label) return null;
+
+  return {
+    ...variant,
+    id:
+      normalizeInlineFeatureText(variant.id || variant._id || variant.key) ||
+      slugInlineFeature(label, `variant-${index}`),
+    label,
+    variant: label,
+    variantName: label,
+    priceLabel:
+      normalizeInlineFeatureText(variant.priceLabel) ||
+      normalizeInlineFeatureText(variant.exShowroomPriceLabel) ||
+      formatIndianPrice(
+        variant.exShowroomPrice || variant.price || variant.onRoadPrice || "",
+      ),
+  };
+};
+
+const collectInlineDbVariants = ({ widget = {}, selectedVehicle = {} }) => {
+  const raw = [
+    ...inlineArray(widget.variantOptions),
+    ...inlineArray(widget.data?.variantOptions),
+    ...inlineArray(widget.variants),
+    ...inlineArray(widget.data?.variants),
+    ...inlineArray(widget.allVariants),
+    ...inlineArray(widget.data?.allVariants),
+    ...inlineArray(selectedVehicle?.variants),
+    ...inlineArray(selectedVehicle?.variantOptions),
+  ];
+
+  const map = new Map();
+
+  raw
+    .map(normalizeInlineDbVariant)
+    .filter(Boolean)
+    .forEach((variant) => {
+      const key = getInlineVariantIdentity(variant);
+      if (!key || map.has(key)) return;
+      map.set(key, variant);
+    });
+
+  return Array.from(map.values());
+};
+
+const findInlineDbVariantForOption = ({
+  option = {},
+  row = {},
+  dbVariants = [],
+}) => {
+  const targetKeys = [
+    option.label,
+    option.variant,
+    option.variantName,
+    option.name,
+    row.label,
+    row.variant,
+    row.variantName,
+    row.name,
+    row.title,
+    row.vehicle?.variant,
+    row.vehicle?.variantName,
+  ]
+    .map(normalizeInlineFeatureKey)
+    .filter(Boolean);
+
+  if (!targetKeys.length) return null;
+
+  return (
+    dbVariants.find((variant) => {
+      const variantKey = getInlineVariantIdentity(variant);
+      return targetKeys.includes(variantKey);
+    }) || null
+  );
+};
+
+const normalizeInlineHighlight = (item, index = 0) => {
+  if (!item) return null;
+
+  if (typeof item === "string" || typeof item === "number") {
+    const label = normalizeInlineFeatureText(item);
+    if (!label) return null;
+
+    return {
+      id: slugInlineFeature(label, `highlight-${index}`),
+      label,
+    };
+  }
+
+  if (typeof item !== "object") return null;
+
+  const label = normalizeInlineFeatureText(
+    item.label ||
+      item.text ||
+      item.name ||
+      item.title ||
+      item.feature ||
+      item.featureName ||
+      item.displayName ||
+      item.value,
+  );
+
+  if (!label) return null;
+
+  return {
+    ...item,
+    id:
+      normalizeInlineFeatureText(item.id || item.key || item._id) ||
+      slugInlineFeature(label, `highlight-${index}`),
+    label,
+  };
+};
+
+const getVariantWiseInlineHighlights = ({
+  option = {},
+  row = {},
+  dbVariant = {},
+  widget = {},
+  message = {},
+  selectedVehicle,
+}) => {
+  const exactVariantHighlights = [
+    ...inlineArray(dbVariant?.highlights),
+    ...inlineArray(dbVariant?.whyThisVariant),
+    ...inlineArray(dbVariant?.topHighlights),
+    ...inlineArray(dbVariant?.featureHighlights),
+    ...inlineArray(row?.highlights),
+    ...inlineArray(row?.whyThisVariant),
+    ...inlineArray(option?.highlightsRaw),
+  ]
+    .map(normalizeInlineHighlight)
+    .filter(Boolean);
+
+  if (exactVariantHighlights.length) {
+    return exactVariantHighlights.slice(0, 8);
+  }
+
+  const featureScreenLikeFallback = buildFeatureHighlights({
+    option: {
+      ...option,
+      row,
+    },
+    widget,
+    message,
+    selectedVehicle,
+  })
+    .map((item, index) => {
+      const label = normalizeInlineFeatureText(
+        item?.value || item?.label || item?.text || item?.name || item,
+      );
+
+      if (!label || /^highlight$/i.test(label)) return null;
+
+      return {
+        id:
+          normalizeInlineFeatureText(item?.id || item?.key || item?._id) ||
+          slugInlineFeature(label, `highlight-${index}`),
+        label,
+      };
+    })
+    .filter(Boolean);
+
+  if (featureScreenLikeFallback.length) {
+    return featureScreenLikeFallback.slice(0, 8);
+  }
+
+  /**
+   * Last fallback only.
+   * This should rarely run if DB has variant-wise highlights.
+   * We do NOT use widget.highlights first because that can become model-level
+   * and may show wrong highlights for the selected variant.
+   */
+  const fallbackFeatures = inlineArray(dbVariant?.features)
+    .concat(inlineArray(dbVariant?.featureList))
+    .concat(inlineArray(dbVariant?.searchableFeatures))
+    .filter(Boolean);
+
+  const premiumRegex =
+    /sunroof|airbag|adas|camera|360|ventilated|wireless|climate|alloy|cruise|touchscreen|apple|android|speaker|abs|esc|hill|tpms|parking|led|drl/i;
+
+  return fallbackFeatures
+    .map((feature, index) => {
+      const name = normalizeInlineFeatureText(
+        feature?.name ||
+          feature?.label ||
+          feature?.title ||
+          feature?.feature ||
+          feature?.featureName ||
+          feature,
+      );
+
+      const value = normalizeInlineFeatureText(
+        feature?.displayValue || feature?.value || feature?.status || "",
+      );
+
+      if (!name) return null;
+      if (!premiumRegex.test(`${name} ${feature?.section || ""}`)) return null;
+
+      return {
+        id: slugInlineFeature(`${name}-${index}`, `highlight-${index}`),
+        label:
+          value && !/^(yes|available)$/i.test(value)
+            ? `${name}: ${value}`
+            : `${name} available`,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 8);
+};
+
+const getInlineVariantPriceLabel = (variant = {}) =>
+  pickText(
+    variant.priceLabel,
+    variant.exShowroomPriceLabel,
+    variant.ex_showroom_price_label,
+    variant.onRoadPriceLabel,
+    variant.on_road_price_label,
+    getExShowroomPriceLabel(variant),
+    formatFeaturePreviewPrice(variant),
+  );
+
+const buildFeatureVariantOptions = ({
+  rows = [],
+  widget = {},
+  message = {},
+  selectedVehicle,
+}) => {
+  const map = new Map();
+  const dbVariants = collectInlineDbVariants({ widget, selectedVehicle });
+
+  toArray(rows).forEach((row = {}, index) => {
+    const vehicle = getFeatureVehicleForRow({
+      row,
+      widget,
+      message,
+      selectedVehicle,
+    });
+
+    const label = getFeatureVariantLabel(
+      row,
+      pickText(
+        vehicle.variant,
+        vehicle.variantName,
+        widget.variant,
+        message.contextPatch?.anchorVariant,
+        dbVariants[index]?.label,
+        `Variant ${index + 1}`,
+      ),
+    );
+
+    const key = normalizeInlineFeatureKey(label) || `variant-${index}`;
+
+    if (!map.has(key)) {
+      const tempOption = {
+        id: pickText(row.id, row._id) || key.replace(/[^a-z0-9]+/g, "-"),
+        label,
+        meta: getFeatureVariantMeta(row),
+        price: formatFeaturePreviewPrice(row),
+        row,
+        rows: [],
+        vehicle,
+      };
+
+      const dbVariant = findInlineDbVariantForOption({
+        option: tempOption,
+        row,
+        dbVariants,
+      });
+
+      map.set(key, {
+        ...tempOption,
+        dbVariant,
+        label: dbVariant?.label || label,
+        meta:
+          getFeatureVariantMeta(dbVariant) ||
+          getFeatureVariantMeta(row) ||
+          tempOption.meta,
+        price: getInlineVariantPriceLabel(dbVariant) || tempOption.price,
+      });
+    }
+
+    map.get(key).rows.push(row);
+  });
+
+  /**
+   * Important:
+   * If preview rows only have 2-3 variants but widget has full DB variant list,
+   * we still keep the inline selector accurate by merging the DB variants.
+   */
+  dbVariants.forEach((variant, index) => {
+    const key = getInlineVariantIdentity(variant) || `db-variant-${index}`;
+    if (!key || map.has(key)) return;
+
+    map.set(key, {
+      id: variant.id || slugInlineFeature(variant.label, `variant-${index}`),
+      label: variant.label,
+      meta: getFeatureVariantMeta(variant),
+      price: getInlineVariantPriceLabel(variant),
+      row: variant,
+      rows: [variant],
+      vehicle: {
+        ...(selectedVehicle || {}),
+        variant: variant.label,
+        variantName: variant.label,
+      },
+      dbVariant: variant,
+    });
+  });
+
+  return Array.from(map.values()).map((option) => {
+    const row = option.row || {};
+    const dbVariant =
+      option.dbVariant ||
+      findInlineDbVariantForOption({
+        option,
+        row,
+        dbVariants,
+      });
+
+    return {
+      ...option,
+      dbVariant,
+      highlights: getVariantWiseInlineHighlights({
+        option,
+        row,
+        dbVariant,
+        widget,
+        message,
+        selectedVehicle,
+      }),
+    };
+  });
+};
+
+const getInlineHighlightDisplay = (item = {}) =>
+  normalizeInlineFeatureText(item.value || item.label || item.text || item.name);
+
+const getInitialFeatureOptionId = ({
+  featureOptions = [],
+  widget = {},
+  message = {},
+  selectedVehicle,
+}) => {
+  if (!featureOptions.length) return "";
+
+  const target = normalizeInlineFeatureKey(
+    pickText(
+      widget.selectedVariant?.label,
+      widget.selectedVariant?.variant,
+      widget.selectedVariant?.variantName,
+      widget.selectedVariant,
+      widget.data?.selectedVariant?.label,
+      widget.data?.selectedVariant?.variant,
+      widget.data?.selectedVariant?.variantName,
+      widget.data?.selectedVariant,
+      widget.variant,
+      widget.variantName,
+      message.contextPatch?.anchorVariant,
+      message.contextPatch?.selectedVehicle?.variant,
+      message.contextPatch?.selectedVehicle?.variantName,
+      selectedVehicle?.selectedVariant,
+      selectedVehicle?.variant,
+      selectedVehicle?.variantName,
+    ),
+  );
+
+  if (!target) return featureOptions[0]?.id || "";
+
+  return (
+    featureOptions.find((option) => getInlineVariantIdentity(option) === target)
+      ?.id ||
+    featureOptions.find((option) =>
+      getInlineVariantIdentity(option).includes(target),
+    )?.id ||
+    featureOptions[0]?.id ||
+    ""
+  );
+};
+
+const getRepresentativeFeatureOptions = (featureOptions = []) => {
+  if (featureOptions.length <= 3) return featureOptions;
+
+  const lastIndex = featureOptions.length - 1;
+  const middleIndex = Math.floor(lastIndex / 2);
+  const indexes = Array.from(new Set([0, middleIndex, lastIndex]));
+
+  return indexes.map((index) => featureOptions[index]).filter(Boolean);
+};
+
+const isDuplicateFeatureExplorerAction = (item = {}) => {
+  const text = normalizeInlineFeatureKey(
+    `${item.label || ""} ${item.title || ""} ${item.query || ""}`,
+  );
+
+  if (!text) return false;
+
+  return (
+    /show all .* features/.test(text) ||
+    /show .* all .* features/.test(text) ||
+    /show .* features/.test(text) ||
+    /open .* feature .* explorer/.test(text) ||
+    /features explorer/.test(text) ||
+    /full feature list/.test(text)
+  );
+};
+
+function AciV2FeaturePreviewArea({
+  message = {},
+  widget = {},
+  rows = [],
+  selectedVehicle,
+  hasCanvas = false,
+  openCanvasLabel = "Open Features",
+  actions = [],
+  onOpen,
+  onAction,
+}) {
+  const featureOptions = buildFeatureVariantOptions({
+    rows,
+    widget,
+    message,
+    selectedVehicle,
+  });
+
+  const [selectedFeatureId, setSelectedFeatureId] = useState(
+    () =>
+      getInitialFeatureOptionId({
+        featureOptions,
+        widget,
+        message,
+        selectedVehicle,
+      }),
+  );
+
+  if (!featureOptions.length) return null;
+
+  const selectedOption =
+    featureOptions.find((item) => item.id === selectedFeatureId) ||
+    featureOptions[0];
+
+  const selectedRow = selectedOption.row || {};
+  const selectedVehicleForFeature =
+    selectedOption.vehicle || selectedVehicle || widget.vehicle || {};
+
+  const vehicleName = pickText(
+    widget.vehicle?.displayName,
+    widget.vehicle?.fullModel,
+    widget.vehicle?.model,
+    widget.displayName,
+    widget.model,
+    widget.title,
+    message.contextPatch?.selectedVehicle?.displayName,
+    message.contextPatch?.selectedVehicle?.model,
+    message.contextPatch?.anchorModel,
+    selectedVehicle?.displayName,
+    selectedVehicle?.fullModel,
+    selectedVehicle?.model,
+    selectedVehicleForFeature.displayName,
+    selectedVehicleForFeature.fullModel,
+    selectedVehicleForFeature.model,
+    "Selected car",
+  );
+
+  const heroFrame = pickPriceImageFrame(
+    selectedVehicleForFeature,
+    selectedRow.vehicle,
+    selectedRow,
+    widget.vehicle,
+    widget,
+    message,
+    selectedVehicle,
+  );
+
+  const heroImage = pickPriceHeroImage(
+    selectedVehicleForFeature,
+    selectedRow.vehicle,
+    selectedRow,
+    widget.vehicle,
+    widget,
+    message,
+    selectedVehicle,
+  );
+
+  const heroFrameStyle = buildPriceHeroFrameStyle(heroFrame);
+
+  const selectedVariantLabel = pickText(
+    selectedOption.label,
+    "Variant",
+  );
+
+  const visibleOptions = getRepresentativeFeatureOptions(featureOptions);
+
+  const handleOpenFeatures = () => {
+    if (!hasCanvas || typeof onOpen !== "function") return;
+
+    onOpen({
+      ...message,
+      widget: {
+        ...widget,
+        selectedRow,
+        selectedRowIndex: rows.findIndex((item) => item === selectedRow),
+        selectedVariant: selectedOption,
+      },
+      contextPatch: {
+        ...(message.contextPatch || {}),
+        selectedVehicle: selectedVehicleForFeature,
+      },
+    });
+  };
+
+  const filteredFeatureActions = actions.filter(
+    (item) => !isDuplicateFeatureExplorerAction(item),
+  );
+
+  const leadItems = [
+    hasCanvas
+      ? {
+          id: "open-feature-explorer",
+          label: openCanvasLabel,
+          iconIndex: 0,
+          onClick: handleOpenFeatures,
+        }
+      : null,
+    ...filteredFeatureActions.map((item, index) => ({
+      ...item,
+      iconIndex: index + 1,
+      onClick: () => onAction?.(item),
+    })),
+  ].filter(Boolean);
+
+  return (
+    <>
+      <style>{`
+        .aci-feature-inline-card {
+          width: min(100%, 760px);
+          color: #071142;
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+        }
+
+        .aci-feature-inline-main {
+          position: relative;
+          overflow: clip;
+          border: 1px solid rgba(213, 223, 239, 0.86);
+          border-radius: 28px;
+          background:
+            radial-gradient(circle at 72% 28%, rgba(7,88,248,0.075), transparent 34%),
+            linear-gradient(180deg, rgba(255,255,255,0.99), rgba(247,250,255,0.97));
+          box-shadow:
+            0 30px 88px -60px rgba(8, 26, 66, 0.58),
+            0 14px 36px -34px rgba(7, 88, 248, 0.38),
+            inset 0 1px 0 rgba(255,255,255,0.98);
+          padding: 17px;
+        }
+
+        .aci-feature-inline-answer {
+          position: relative;
+          z-index: 2;
+          margin: 0 0 4px;
+        }
+
+          .aci-feature-inline-kicker {
+          display: inline-flex;
+          margin-bottom: 0;
+          color: #0758f8;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 780;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+        }
+
+        .aci-feature-inline-hero {
+          position: relative;
+          z-index: 1;
+          margin: 4px 0 13px;
+        }
+
+        .aci-feature-inline-car {
+          position: relative;
+          height: clamp(204px, 27vw, 270px);
+          display: grid;
+          place-items: center;
+          overflow: visible;
+          border-radius: 26px;
+          isolation: isolate;
+          background:
+            radial-gradient(circle at 50% 42%, rgba(255,255,255,.84), transparent 27%),
+            radial-gradient(circle at 50% 80%, rgba(218,230,248,.40), transparent 32%),
+            linear-gradient(180deg, rgba(247,250,255,.34), rgba(247,250,255,.08));
+        }
+
+        .aci-feature-inline-car::before {
+          content: "";
+          position: absolute;
+          width: 76%;
+          height: 42%;
+          left: 12%;
+          bottom: 6%;
+          border-radius: 999px;
+          background:
+            radial-gradient(ellipse, rgba(7,88,248,0.13), transparent 60%),
+            radial-gradient(ellipse, rgba(15,23,42,0.09), transparent 72%);
+          filter: blur(22px);
+          opacity: .9;
+        }
+
+        .aci-feature-inline-car::after {
+          content: "";
+          position: absolute;
+          left: 19%;
+          right: 19%;
+          bottom: 7%;
+          height: 12px;
+          border-radius: 999px;
+          background: radial-gradient(ellipse, rgba(15, 23, 42, 0.14), transparent 72%);
+          filter: blur(7px);
+        }
+
+        .aci-feature-inline-car img {
+          position: relative;
+          z-index: 2;
+          width: min(101%, 470px);
+          height: auto;
+          max-height: 95%;
+          object-fit: contain;
+          object-position:
+            var(--price-car-position-x, center)
+            var(--price-car-position-y, center);
+          filter: drop-shadow(0 20px 18px rgba(15, 23, 42, 0.14));
+          user-select: none;
+          max-width: 100%;
+          min-width: 0;
+        }
+
+        .aci-feature-inline-car > .aci-feature-fallback-visual {
+          position: relative;
+          z-index: 2;
+          transform: scale(1.05);
+        }
+
+        .aci-feature-inline-panel {
+          position: relative;
+          z-index: 2;
+          display: grid;
+          gap: 12px;
+        }
+
+        .aci-feature-inline-selected {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0;
+}
+
+        .aci-feature-inline-selected span {
+          display: inline-flex;
+          align-items: center;
+          margin: 0 0 0 7px;
+          color: #0758f8;
+          font-size: 8.8px;
+          line-height: 1;
+          font-weight: 820;
+          letter-spacing: 0.11em;
+          text-transform: uppercase;
+        }
+
+        .aci-feature-inline-selected strong {
+          display: inline-flex;
+          align-items: baseline;
+          color: #071142;
+          font-size: 17px;
+          line-height: 1.12;
+          font-weight: 800;
+          letter-spacing: -0.035em;
+        }
+
+        .aci-feature-inline-selected-title {
+          min-width: 0;
+          display: flex;
+          align-items: baseline;
+          flex-wrap: wrap;
+        }
+
+        .aci-feature-inline-selected small {
+  display: block;
+  margin-top: 4px;
+  color: #687694;
+  font-size: 10.8px;
+  line-height: 1.22;
+  font-weight: 640;
+}
+
+        .aci-feature-inline-price {
+          flex: 0 0 auto;
+          color: #0758f8;
+          font-size: 12px;
+          line-height: 1;
+          font-weight: 830;
+          letter-spacing: -0.02em;
+          white-space: nowrap;
+          font-variant-numeric: tabular-nums;
+          padding-top: 3px;
+        }
+
+        .aci-feature-inline-highlights-card {
+  position: relative;
+  overflow: visible;
+  border-radius: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.aci-feature-inline-highlights-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.aci-feature-inline-highlights-head span {
+  color: #0758f8;
+  font-size: 9.5px;
+  line-height: 1;
+  font-weight: 880;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.aci-feature-inline-highlights-head strong {
+  color: #071142;
+  font-size: 15px;
+  line-height: 1;
+  font-weight: 880;
+  letter-spacing: -0.02em;
+}
+
+.aci-feature-inline-highlight-list {
+  margin-top: 0;
+  display: grid;
+  gap: 9px;
+}
+
+.aci-feature-inline-highlight-item {
+  min-width: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: start;
+  gap: 7px;
+  color: #475569;
+  font-size: 12.2px;
+  line-height: 1.35;
+  font-weight: 660;
+  letter-spacing: 0;
+}
+
+.aci-feature-inline-check {
+  width: 14px;
+  height: 14px;
+  margin-top: 1px;
+  border-radius: 999px;
+  display: grid;
+  place-items: center;
+  background: #0758f8;
+  color: #ffffff;
+  font-size: 8px;
+  line-height: 1;
+  font-weight: 900;
+  box-shadow: none;
+}
+
+.aci-feature-inline-empty-highlight {
+  margin: 0;
+  color: #71809d;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 640;
+}
+
+        .aci-feature-inline-variants-block {
+          display: grid;
+          gap: 8px;
+          margin-top: 1px;
+        }
+
+        .aci-feature-inline-variants-title {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          color: #53627f;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 780;
+          letter-spacing: 0.13em;
+          text-transform: uppercase;
+        }
+
+        .aci-feature-inline-variants {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 7px;
+        }
+
+        .aci-feature-inline-variant {
+          min-width: 0;
+          max-width: 100%;
+          min-height: 32px;
+          border: 1px solid rgba(214, 224, 240, 0.74);
+          border-radius: 999px;
+          padding: 7px 10px;
+          background: rgba(255,255,255,0.62);
+          color: #071142;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 11.5px;
+          line-height: 1;
+          font-weight: 720;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow:
+            0 12px 28px -30px rgba(7, 88, 248, 0.34),
+            inset 0 1px 0 rgba(255,255,255,0.84);
+          transition:
+            transform 180ms ease,
+            border-color 180ms ease,
+            background 180ms ease,
+            color 180ms ease;
+        }
+
+        .aci-feature-inline-variant:hover,
+        .aci-feature-inline-variant:focus-visible {
+          transform: translateY(-1px);
+          outline: none;
+          border-color: rgba(7, 88, 248, 0.24);
+        }
+
+        .aci-feature-inline-variant.is-active {
+          border-color: rgba(7, 88, 248, 0.42);
+          background:
+            radial-gradient(circle at top right, rgba(7,88,248,0.10), transparent 52%),
+            rgba(255,255,255,0.92);
+          color: #0758f8;
+          font-weight: 830;
+          box-shadow:
+            0 16px 36px -30px rgba(7, 88, 248, 0.46),
+            inset 0 1px 0 rgba(255,255,255,0.92);
+        }
+
+        .aci-feature-inline-view-all {
+          width: fit-content;
+          border: 0;
+          padding: 0;
+          margin: 1px 0 0;
+          background: transparent;
+          color: #0758f8;
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 5px;
+          font-size: 12px;
+          line-height: 1.2;
+          font-weight: 820;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+        }
+
+        .aci-feature-inline-leads {
+          margin-top: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          overflow: visible;
+        }
+
+        .aci-feature-inline-lead {
+          width: auto;
+          max-width: 100%;
+          min-width: 0;
+          min-height: 36px;
+          flex: 0 0 auto;
+          border: 1px solid rgba(214, 224, 240, 0.82);
+          border-radius: 999px;
+          padding: 6px 10px 6px 6px;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
+          color: #071142;
+          display: inline-flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 7px;
+          font-size: 12px;
+          line-height: 1;
+          font-weight: 710;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          white-space: nowrap;
+          text-align: left;
+          box-shadow:
+            0 12px 28px -28px rgba(7, 88, 248, 0.38);
+        }
+
+        .aci-feature-inline-lead-icon {
+          flex: 0 0 auto;
+          width: 23px;
+          height: 23px;
+          display: grid;
+          place-items: center;
+          border-radius: 999px;
+          color: #0758f8;
+          background:
+            radial-gradient(circle at 32% 22%, #ffffff 0 12%, transparent 34%),
+            #eef5ff;
+        }
+
+        .aci-feature-inline-lead-arrow {
+          flex: 0 0 auto;
+          margin-left: 2px;
+          color: #71809d;
+          font-size: 16px;
+          line-height: 1;
+        }
+
+        @media (min-width: 900px) {
+          .aci-feature-inline-main {
+            display: grid;
+            grid-template-columns: minmax(270px, 0.9fr) minmax(300px, 1.1fr);
+            grid-template-areas:
+              "answer answer"
+              "panel hero";
+            column-gap: 18px;
+            row-gap: 8px;
+            align-items: center;
+            padding: 18px 22px;
+          }
+
+          .aci-feature-inline-answer {
+            grid-area: answer;
+            margin-bottom: 0;
+          }
+
+          .aci-feature-inline-hero {
+            grid-area: hero;
+            margin: 0;
+          }
+
+          .aci-feature-inline-car {
+            height: 232px;
+          }
+
+          .aci-feature-inline-panel {
+            grid-area: panel;
+            align-self: start;
+            gap: 11px;
+          }
+
+        }
+
+        @media (max-width: 720px) {
+          .aci-feature-inline-card {
+            width: 100%;
+          }
+
+          .aci-feature-inline-main {
+            border-radius: 26px;
+            padding: 14px;
+          }
+
+          .aci-feature-inline-answer {
+            margin-bottom: 4px;
+          }
+
+          .aci-feature-inline-hero {
+            margin: 0 0 8px;
+          }
+
+          .aci-feature-inline-car {
+            height: 196px;
+            align-items: end;
+            border-radius: 24px;
+          }
+
+          .aci-feature-inline-car img {
+            width: min(112%, 420px);
+            max-height: 98%;
+          }
+
+          .aci-feature-inline-panel {
+            gap: 11px;
+          }
+
+          .aci-feature-inline-selected {
+            padding-top: 0;
+          }
+
+          .aci-feature-inline-selected strong {
+            font-size: 15.5px;
+          }
+
+          .aci-feature-inline-highlights-card {
+  padding: 0;
+}
+
+.aci-feature-inline-highlights-head {
+  margin-bottom: 8px;
+}
+
+.aci-feature-inline-highlights-head strong {
+  font-size: 14px;
+}
+
+.aci-feature-inline-highlight-list {
+  gap: 6px;
+}
+
+.aci-feature-inline-highlight-item {
+  grid-template-columns: 16px minmax(0, 1fr);
+  gap: 7px;
+  font-size: 11.7px;
+  line-height: 1.32;
+}
+
+.aci-feature-inline-check {
+  width: 14px;
+  height: 14px;
+  font-size: 8px;
+}
+
+          .aci-feature-inline-variants {
+            gap: 6px;
+          }
+
+          .aci-feature-inline-variant {
+            min-height: 30px;
+            padding: 7px 9px;
+            font-size: 11px;
+          }
+
+          .aci-feature-inline-leads {
+            gap: 7px;
+          }
+
+          .aci-feature-inline-lead {
+            min-height: 34px;
+            padding: 6px 9px 6px 6px;
+            font-size: 11.5px;
+          }
+        }
+
+        @media (max-width: 390px) {
+          .aci-feature-inline-main {
+            padding: 13px;
+          }
+
+          .aci-feature-inline-car {
+            height: 184px;
+          }
+
+          .aci-feature-inline-highlight-item {
+  font-size: 11.2px;
+}
+
+          .aci-feature-inline-variant {
+            font-size: 10.6px;
+            padding-inline: 8px;
+          }
+        }
+      `}</style>
+
+      <motion.article
+        className="aci-feature-inline-card"
+        variants={aciFeatureInlineMotion}
+        initial="hidden"
+        animate="show"
+      >
+        <section className="aci-feature-inline-main">
+          <motion.div
+            className="aci-feature-inline-answer"
+            variants={aciFeatureInlineItemMotion}
+          >
+            <span className="aci-feature-inline-kicker">
+              Feature intelligence
+            </span>
+          </motion.div>
+
+          <motion.div
+            className="aci-feature-inline-hero"
+            variants={aciFeatureCarMotion}
+          >
+            <div className="aci-feature-inline-car" style={heroFrameStyle}>
+              <motion.div
+                key={selectedOption.id}
+                initial={aciFeatureVariantChangeMotion.initial}
+                animate={aciFeatureVariantChangeMotion.animate}
+                transition={aciFeatureVariantChangeMotion.transition}
+              >
+                {heroImage ? (
+                  <img
+                    src={heroImage}
+                    alt={`${vehicleName} ${selectedVariantLabel}`}
+                    loading="lazy"
+                    draggable="false"
+                  />
+                ) : (
+                  <div className="aci-feature-fallback-visual">
+                    <AciVehicleVisual
+                      vehicle={selectedVehicleForFeature}
+                      height={180}
+                      stage
+                      stageVariant="compact"
+                    />
+                  </div>
+                )}
+              </motion.div>
+            </div>
+          </motion.div>
+
+          <motion.div
+            className="aci-feature-inline-panel"
+            variants={aciFeatureInlineItemMotion}
+          >
+            <div className="aci-feature-inline-selected">
+              <div>
+                <div className="aci-feature-inline-selected-title">
+                  <strong>{selectedVariantLabel}</strong>
+                </div>
+                {selectedOption.meta ? (
+                  <small>{selectedOption.meta}</small>
+                ) : null}
+              </div>
+
+              {selectedOption.price ? (
+                <b className="aci-feature-inline-price">
+                  {formatIndianPrice(selectedOption.price)}
+                </b>
+              ) : null}
+            </div>
+
+            {selectedOption.highlights.length ? (
+              <motion.div
+                className="aci-feature-inline-highlights-card"
+                variants={aciFeatureInlineItemMotion}
+              >
+                <div className="aci-feature-inline-highlights-head">
+                  <span>Highlights</span>
+                  
+                </div>
+
+                <div className="aci-feature-inline-highlight-list">
+                  {selectedOption.highlights.slice(0, 6).map((item, index) => (
+                    <motion.div
+                      className="aci-feature-inline-highlight-item"
+                      key={item.id || item.key || item.label || index}
+                      variants={aciFeatureInlineItemMotion}
+                    >
+                      <span className="aci-feature-inline-check">✓</span>
+                      <span>{getInlineHighlightDisplay(item)}</span>
+                    </motion.div>
+                  ))}
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div
+                className="aci-feature-inline-highlights-card is-empty"
+                variants={aciFeatureInlineItemMotion}
+              >
+                <div className="aci-feature-inline-highlights-head">
+                  <span>Why it stands out</span>
+                  <strong>Highlights</strong>
+                </div>
+
+                <div className="aci-feature-inline-empty-highlight">
+                  Variant highlights are not available for this variant yet.
+                </div>
+              </motion.div>
+            )}
+
+            {featureOptions.length > 1 ? (
+              <div className="aci-feature-inline-variants-block">
+                <div className="aci-feature-inline-variants-title">
+                  <span>Choose variant</span>
+                </div>
+
+                <div className="aci-feature-inline-variants">
+                  {visibleOptions.map((option) => {
+                    const active = option.id === selectedOption.id;
+
+                    return (
+                      <button
+                        type="button"
+                        key={option.id}
+                        className={`aci-feature-inline-variant ${
+                          active ? "is-active" : ""
+                        }`}
+                        onClick={() => setSelectedFeatureId(option.id)}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
+
+            
+          </motion.div>
+        </section>
+
+        {leadItems.length ? (
+          <div className="aci-feature-inline-leads">
+            {leadItems.map((item, index) => {
+              const label =
+                item.label || item.title || item.query || `Next ${index + 1}`;
+
+              return (
+                <button
+                  className="aci-feature-inline-lead"
+                  type="button"
+                  key={item.id || item.label || item.query || index}
+                  onClick={item.onClick}
+                >
+                  <span className="aci-feature-inline-lead-icon">
+                    <AciV2QuestionIcon
+                      label={label}
+                      index={item.iconIndex ?? index}
+                    />
+                  </span>
+
+                  <span>{label}</span>
+
+                  <span
+                    className="aci-feature-inline-lead-arrow"
+                    aria-hidden="true"
+                  >
+                    ›
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+      </motion.article>
+    </>
+  );
+}
 
   const getCanvasRows = ({
     widget,
@@ -2376,6 +4181,7 @@ function AciV2ColorPreviewArea({
 
     return getWidgetRows(widget);
   };
+
 
   
 
@@ -2506,6 +4312,18 @@ export default function AciV2CanvasPreviewCard({
               rows={rows}
               selectedVehicle={selectedVehicle}
               hasCanvas={hasCanvas}
+              actions={actions}
+              onOpen={onOpen}
+              onAction={onAction}
+            />
+          ) : isFeatureResult ? (
+            <AciV2FeaturePreviewArea
+              message={message}
+              widget={widget}
+              rows={rows}
+              selectedVehicle={selectedVehicle}
+              hasCanvas={hasCanvas}
+              openCanvasLabel={openCanvasLabel}
               actions={actions}
               onOpen={onOpen}
               onAction={onAction}
@@ -2808,7 +4626,10 @@ export default function AciV2CanvasPreviewCard({
         </div>
       )}
 
-      {!isPriceResult && !isColorResult && (hasCanvas || actions.length) ? (
+      {!isPriceResult &&
+      !isColorResult &&
+      !isFeatureResult &&
+      (hasCanvas || actions.length) ? (
         <footer>
           {hasCanvas ? (
             <button

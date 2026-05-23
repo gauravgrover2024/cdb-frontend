@@ -7,13 +7,8 @@ import React, {
 } from "react";
 import { motion } from "framer-motion";
 import {
-  Bell,
-  ChevronDown,
   ChevronRight,
-  CircleCheck,
-  Flame,
   MapPin,
-  Search,
   Sparkles,
   TrendingUp,
 } from "lucide-react";
@@ -21,13 +16,13 @@ import {
 import {
   AciAssistantOrb,
   AciComposer,
-  AciLogo,
   AciSavedButton,
   AciVehicleVisual,
   emitAciAction,
   fadeUp,
   stagger,
 } from "../shared/AciAssistShared";
+import AciV2PortalHeader from "../shared/AciV2PortalHeader";
 import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
 import { getAciV2PremiumIcon } from "../shared/AciV2PremiumIcons";
 import { fetchAciPopularCars } from "../services/aciAssistV2Api";
@@ -573,95 +568,44 @@ function DesktopTrendingSkeletonCard({ index }) {
   );
 }
 
-function DesktopHeader({ data, onAction }) {
-  const [searchText, setSearchText] = useState("");
-
-  const submitSearch = () => {
-    const query = String(searchText || "").trim();
-    if (!query) return;
-
-    emitAciAction({ label: query, query, type: "ask" }, onAction);
-    setSearchText("");
-  };
-
-  const handleSearchKeyDown = (event) => {
-    if (event.key !== "Enter") return;
-    event.preventDefault();
-    submitSearch();
-  };
-
+function DesktopHeader({ onAction }) {
   return (
-    <motion.header
+    <motion.div
       className="desktop-header"
       initial={{ opacity: 0, y: -14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
     >
-      <div className="desktop-header-left">
-        <AciLogo onAction={onAction} />
-      </div>
-
-      <div className="desktop-header-center">
-        <label className="desktop-search">
-          <Search size={18} />
-          <input
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder={data.header.searchPlaceholder}
-          />
-          <button
-            type="button"
-            onClick={submitSearch}
-            aria-label="Search ACI Assist"
-          >
-            ⌘ K
-          </button>
-        </label>
-      </div>
-
-      <div className="desktop-header-right">
-        <button
-          type="button"
-          className="bell-button"
-          onClick={() =>
-            emitAciAction(
-              { label: "Notifications", query: "Notifications" },
-              onAction,
-            )
-          }
-          aria-label="Notifications"
-        >
-          <Bell size={22} />
-          <i />
-        </button>
-
-        <button
-          type="button"
-          className="avatar-button"
-          onClick={() =>
-            emitAciAction({ label: "Profile", query: "Profile" }, onAction)
-          }
-          aria-label="Profile"
-        >
-          <img src={data.avatarUrl} alt="Profile" />
-        </button>
-
-        <button
-          type="button"
-          className="plain-button"
-          onClick={() =>
-            emitAciAction(
-              { label: "Profile menu", query: "Profile menu" },
-              onAction,
-            )
-          }
-          aria-label="Profile menu"
-        >
-          <ChevronDown size={16} />
-        </button>
-      </div>
-    </motion.header>
+      <AciV2PortalHeader
+        onLogoClick={() =>
+          emitAciAction({ label: "CARO home", query: "CARO home" }, onAction)
+        }
+        onNewChat={() =>
+          emitAciAction(
+            {
+              id: "home-new-chat",
+              type: "reset_session",
+              action: "RESET_SESSION",
+              label: "New chat",
+              clearMessages: true,
+              clearContext: true,
+              resetConversation: true,
+              startFresh: true,
+            },
+            onAction,
+          )
+        }
+        onNotifications={() =>
+          emitAciAction(
+            { label: "Notifications", query: "Notifications" },
+            onAction,
+          )
+        }
+        onProfile={() =>
+          emitAciAction({ label: "Profile", query: "Profile" }, onAction)
+        }
+      />
+    </motion.div>
   );
 }
 
@@ -1162,7 +1106,7 @@ function LiveTrendingSection({
                   className={activePage === index ? "is-active" : ""}
                   onClick={() => scrollToTrendingPage(index)}
                   aria-label={`Show trending cars page ${index + 1}`}
-                  aria-selected={activePage === index}
+                  aria-current={activePage === index ? "page" : undefined}
                 >
                   <span>Page {index + 1}</span>
                 </button>
@@ -1250,7 +1194,6 @@ function DesktopRightRail({ data, onAction, recentCars = [] }) {
   const popularAsks = Array.isArray(data?.rightRail?.popularAsks)
     ? data.rightRail.popularAsks
     : [];
-  const help = Array.isArray(data?.rightRail?.help) ? data.rightRail.help : [];
 
   return (
     <aside className="desktop-right-rail aci-reference-rail">
@@ -1387,44 +1330,44 @@ function DesktopHomePage({
   );
 }
 
-function MobileHeader({ data, onAction }) {
+function MobileHeader({ onAction }) {
   return (
-    <motion.header
+    <motion.div
       className="mobile-header"
       initial={{ opacity: 0, y: -14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
     >
-      <AciLogo mobile onAction={onAction} />
-
-      <div>
-        <button
-          type="button"
-          className="mobile-bell"
-          onClick={() =>
-            emitAciAction(
-              { label: "Notifications", query: "Notifications" },
-              onAction,
-            )
-          }
-          aria-label="Notifications"
-        >
-          <Bell size={27} />
-          <i />
-        </button>
-
-        <button
-          type="button"
-          className="mobile-avatar"
-          onClick={() =>
-            emitAciAction({ label: "Profile", query: "Profile" }, onAction)
-          }
-          aria-label="Profile"
-        >
-          <img src={data.avatarUrl} alt="Profile" />
-        </button>
-      </div>
-    </motion.header>
+      <AciV2PortalHeader
+        onLogoClick={() =>
+          emitAciAction({ label: "CARO home", query: "CARO home" }, onAction)
+        }
+        onNewChat={() =>
+          emitAciAction(
+            {
+              id: "home-new-chat",
+              type: "reset_session",
+              action: "RESET_SESSION",
+              label: "New chat",
+              clearMessages: true,
+              clearContext: true,
+              resetConversation: true,
+              startFresh: true,
+            },
+            onAction,
+          )
+        }
+        onNotifications={() =>
+          emitAciAction(
+            { label: "Notifications", query: "Notifications" },
+            onAction,
+          )
+        }
+        onProfile={() =>
+          emitAciAction({ label: "Profile", query: "Profile" }, onAction)
+        }
+      />
+    </motion.div>
   );
 }
 
@@ -1767,7 +1710,14 @@ export default function AciAssistHomeScreen({
   }
 
   .aci-home-root .desktop-header {
-    display: grid !important;
+    display: block !important;
+    width: min(calc(100% - 20px), 760px) !important;
+    margin: 16px auto 10px !important;
+    padding: 0 !important;
+  }
+
+  .aci-home-root .desktop-header .aci-v2-portal-header {
+    width: 100% !important;
   }
 
   .aci-home-root .desktop-home-page {
@@ -1814,13 +1764,12 @@ export default function AciAssistHomeScreen({
     justify-content: space-between !important;
     gap: 12px !important;
     margin: 0 0 14px !important;
-    padding: 0 2px !important;
+    padding: 0 !important;
+    width: 100% !important;
   }
 
   .aci-home-root .mobile-header > div {
-    display: flex !important;
-    align-items: center !important;
-    gap: 9px !important;
+    width: 100% !important;
   }
 
   .aci-home-root .mobile-bell,

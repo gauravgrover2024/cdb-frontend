@@ -159,23 +159,54 @@ const formatIndianPrice = (value) => {
 const rowExShowroomPrice = (row = {}) => {
   const safeRow = isObject(row) ? row : {};
   const priceObject = isObject(safeRow.price) ? safeRow.price : {};
+  const pricingObject = isObject(safeRow.pricing) ? safeRow.pricing : {};
+  const pricesObject = isObject(safeRow.prices) ? safeRow.prices : {};
 
   return formatIndianPrice(
     firstValue(
       safeRow.exShowroomPriceLabel,
       safeRow.exShowroomPriceText,
       safeRow.exShowroomLabel,
+      safeRow.exShowroomPriceFormatted,
       safeRow.ex_showroom_price_label,
       safeRow.exShowroomPrice,
       safeRow.ex_showroom_price,
       safeRow.exShowroom,
       safeRow.ex_showroom,
       safeRow.exshowroom,
+      safeRow.exshowroomPrice,
+      safeRow.exShowroomMin,
+      safeRow.exShowroomPriceMin,
       priceObject.exShowroomPriceLabel,
+      priceObject.exShowroomPriceText,
       priceObject.exShowroomPrice,
       priceObject.ex_showroom_price,
       priceObject.exShowroom,
       priceObject.ex_showroom,
+      pricingObject.exShowroomPriceLabel,
+      pricingObject.exShowroomPrice,
+      pricingObject.exShowroom,
+      pricesObject.exShowroomPriceLabel,
+      pricesObject.exShowroomPrice,
+      pricesObject.exShowroom,
+      safeRow.exShowroomPriceMin,
+      safeRow.ex_showroom_price_min,
+      safeRow.exShowroomRange,
+      safeRow.ex_showroom_range,
+      safeRow.minExShowroomPrice,
+      safeRow.priceMinExShowroom,
+      safeRow.priceLabel,
+      safeRow.priceText,
+      safeRow.priceMin,
+      safeRow.minPrice,
+      priceObject.priceMin,
+      priceObject.minPrice,
+      priceObject.label,
+      priceObject.text,
+      pricingObject.priceMin,
+      pricingObject.minPrice,
+      pricingObject.label,
+      pricingObject.text,
     ),
   );
 };
@@ -707,6 +738,7 @@ const buildDecisionCards = ({
   answerTone = "",
   preferredFuel = "",
   isAvailable = rowLooksAvailable,
+  allIncluded = false,
 } = {}) => {
   const preferredFuelRows = preferredFuel
     ? rows.filter((row) => rowFuelCategory(row) === preferredFuel)
@@ -742,9 +774,54 @@ const buildDecisionCards = ({
   const sameFuelStartIndex = sameFuelRows.findIndex(
     (row) => rowIdentity(row) === startKey,
   );
+  const sameFuelAvailableRows = sameFuelRows.filter(isAvailable);
+  const sameFuelUnavailableRows = sameFuelRows.filter(
+    (row) => !isAvailable(row),
+  );
+  const allSameFuelRowsAvailable =
+    sameFuelRows.length > 0 &&
+    sameFuelAvailableRows.length === sameFuelRows.length;
+
+  if (allIncluded || allSameFuelRowsAvailable) {
+    const selectedNorm = normalizeText(variant);
+    const selectedAvailableRow =
+      selectedNorm &&
+      sameFuelAvailableRows.find((row) => {
+        const label = normalizeText(rowVariantLabel(row));
+        return (
+          label === selectedNorm ||
+          label.includes(selectedNorm) ||
+          selectedNorm.includes(label)
+        );
+      });
+    const primaryRow = selectedAvailableRow || startRow;
+    const primaryKey = rowIdentity(primaryRow);
+    const nextIncludedRow =
+      sameFuelAvailableRows.find((row) => rowIdentity(row) !== primaryKey) ||
+      availableRows.find((row) => rowIdentity(row) !== primaryKey) ||
+      null;
+
+    return [
+      primaryRow
+        ? {
+            role: "start",
+            label: selectedAvailableRow ? "Selected variant" : "Included from",
+            row: primaryRow,
+          }
+        : null,
+      nextIncludedRow
+        ? {
+            role: "upgrade",
+            label: "Next with it",
+            row: nextIncludedRow,
+          }
+        : null,
+    ].filter(Boolean);
+  }
 
   const beforeRow =
     rowAt(sameFuelRows, sameFuelStartIndex - 1) ||
+    [...sameFuelUnavailableRows].reverse()[0] ||
     [...unavailableRows]
       .reverse()
       .find((row) => rowFuelCategory(row) === resolvedFuel) ||
@@ -819,6 +896,7 @@ const buildFeatureAnswerCopy = ({
   availableCount = 0,
   skippedCount = 0,
   answer = "",
+  allIncluded = false,
 } = {}) => {
   const featureText = cleanDisplayText(feature || "This feature");
   const car = cleanDisplayText(vehicleName || "This car");
@@ -841,14 +919,23 @@ const buildFeatureAnswerCopy = ({
     }
   }
 
+  if (!headline && allIncluded) {
+    headline = pickCopyVariant(
+      [
+        `${featureText} is standard across ${car} variants`,
+        `Every current ${car} variant includes ${featureText}`,
+        `${car} includes ${featureText} across the current range`,
+      ],
+      `${vehicleName}-${featureText}-standard-${availableCount}`,
+    );
+  }
+
   if (!headline && firstAvailableLabel) {
     headline = pickCopyVariant(
       [
-        `${featureText} starts at ${firstAvailableLabel}`,
-        `${featureText} begins at ${firstAvailableLabel}`,
+        `${featureText} starts from ${firstAvailableLabel}`,
+        `${featureText} is available from ${firstAvailableLabel}`,
         `${firstAvailableLabel} is the first trim with ${featureText}`,
-        `Move to ${firstAvailableLabel} for ${featureText}`,
-        `${firstAvailableLabel} unlocks ${featureText}`,
       ],
       `${vehicleName}-${featureText}-${firstAvailableLabel}`,
     );
@@ -1129,6 +1216,12 @@ export default function AciV2FeatureInlineCard({
   const selectedFeatureAvailable = selectedFeatureRow
     ? isRowAvailable(selectedFeatureRow)
     : null;
+  const allRowsAvailable =
+    allRows.length > 0 && allRows.every((row) => isRowAvailable(row));
+  const allIncluded =
+    availableCount > 0 &&
+    skippedCount === 0 &&
+    (allRows.length === 0 || allRowsAvailable || unavailableRows.length === 0);
   const requestedFuelCategory = fuelCategoryFromValue(
     firstValue(
       widget.selectedFuel,
@@ -1170,6 +1263,7 @@ export default function AciV2FeatureInlineCard({
     firstAvailableRow,
     availableCount,
     skippedCount,
+    allIncluded,
     answer:
       answer ||
       buildVariedFeatureFactText({
@@ -1197,6 +1291,7 @@ export default function AciV2FeatureInlineCard({
     answerTone,
     preferredFuel: decisionFuelCategory,
     isAvailable: isRowAvailable,
+    allIncluded,
   });
 
   const heroFrame = pickImageFrame(
@@ -1539,6 +1634,14 @@ export default function AciV2FeatureInlineCard({
   letter-spacing: -0.01em;
 }
 
+.aci-feature-v4-row-price-label {
+  font-weight: 700;
+}
+
+.aci-feature-v4-row-price-amount {
+  font-weight: 820;
+}
+
 .aci-feature-v4-row.is-available small {
   color: #3a6a5a;
 }
@@ -1840,12 +1943,19 @@ export default function AciV2FeatureInlineCard({
 
           .aci-feature-v4-row-price {
             margin-top: 5px;
-            font-size: 10.4px;
-            line-height: 1.1;
+            display: grid;
+            gap: 1px;
+            font-size: 10px;
+            line-height: 1.08;
             color: #0758f8;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            white-space: normal;
+            overflow: visible;
+            text-overflow: clip;
+          }
+
+          .aci-feature-v4-row-price-label,
+          .aci-feature-v4-row-price-amount {
+            display: block;
           }
 
           .aci-feature-v4-pill {
@@ -1891,7 +2001,7 @@ export default function AciV2FeatureInlineCard({
           }
 
           .aci-feature-v4-row {
-            min-height: 66px;
+            min-height: 72px;
             padding: 9px 7px;
           }
 
@@ -1950,7 +2060,12 @@ export default function AciV2FeatureInlineCard({
 
                     {exShowroomPrice ? (
                       <span className="aci-feature-v4-row-price">
-                        Ex-showroom {exShowroomPrice}
+                        <span className="aci-feature-v4-row-price-label">
+                          Ex-showroom
+                        </span>
+                        <span className="aci-feature-v4-row-price-amount">
+                          {exShowroomPrice}
+                        </span>
                       </span>
                     ) : null}
                   </div>
