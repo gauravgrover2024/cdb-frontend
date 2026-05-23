@@ -472,7 +472,20 @@ const isCompletedPolicy = (c) => {
     policyNo !== "" && policyNo.toLowerCase() !== "not issued";
   if (hasPolicyNo) return true;
 
-  // 3. Accepted Quote or Insurer assigned
+  // 3. Payment recorded
+  const payTotal = paymentReceivedNum(c);
+  if (payTotal > 0) return true;
+
+  // 4. Strict Draft Override
+  // If the form tracks currentStep and it's less than 8, it is definitely a draft.
+  // (Prevents new drafts from being marked completed just because they have an accepted quote)
+  if (c?.currentStep !== undefined && c?.currentStep !== null) {
+    const step = Number(c.currentStep);
+    if (step < 8) return false;
+    return true;
+  }
+
+  // 5. Legacy Heuristics (for old cases without currentStep)
   if (
     c?.acceptedQuoteId ||
     c?.accepted_quote_id ||
@@ -481,12 +494,6 @@ const isCompletedPolicy = (c) => {
     return true;
   }
 
-  // 4. Payment recorded
-  const payTotal = paymentReceivedNum(c);
-  if (payTotal > 0) return true;
-
-  // 5. Lifecycle pulse states (Already Renewed, Active, Expiring Soon, Expired)
-  // If it has a captured expiry, it means it's a real policy, not a draft entry.
   const days = daysUntilExpiry(c);
   if (c?.alreadyRenewed) return true;
   if (days !== null && Number.isFinite(days)) return true;
@@ -968,7 +975,9 @@ const PolicyCard = ({
   onDocs,
   onPolicyBreakup,
 }) => {
-  const isCompleted = isCompletedPolicy(policy);
+  // Use pre-computed isCompleted from transformedPolicies to ensure exact sync with filters,
+  // falling back to isCompletedPolicy if called with a raw record
+  const isCompleted = policy.isCompleted ?? isCompletedPolicy(policy);
   const isDraft = !isCompleted;
   const openDues = policy.openDues || 0;
   const pulseDays = Number.isFinite(Number(policy.expiryDays))
@@ -1053,6 +1062,12 @@ const PolicyCard = ({
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700">
                 {policy.caseId}
+              </span>
+
+              <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                {["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) 
+                  ? "EW Policy" 
+                  : (String(policy.policyCategory || policy.policyTypeSelector || "Insurance").replace(" Policy", ""))}
               </span>
 
               <span
@@ -1224,32 +1239,13 @@ const PolicyCard = ({
                     </span>
                   </div>
                   {policy.referenceName || policy.referencePhone ? (
-                    <div className="space-y-1">
-                      {policy.referenceName ? (
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                          <span className="font-bold uppercase tracking-wider text-slate-400">
-                            Reference:
-                          </span>
-                          <span className="truncate font-semibold text-slate-700">
-                            {policy.referenceName}
-                          </span>
-                        </div>
-                      ) : null}
-                      {policy.referencePhone ? (
-                        <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                          <span className="font-bold uppercase tracking-wider text-slate-400">
-                            Ref No:
-                          </span>
-                          <span
-                            className="truncate font-semibold text-slate-700"
-                            style={{
-                              fontFamily: "var(--default-mono-font-family)",
-                            }}
-                          >
-                            {policy.referencePhone}
-                          </span>
-                        </div>
-                      ) : null}
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      <span className="font-bold uppercase tracking-wider text-slate-400">
+                        Reference:
+                      </span>
+                      <span className="truncate font-semibold text-slate-700">
+                        {[policy.referenceName, policy.referencePhone].filter(Boolean).join(" · ")}
+                      </span>
                     </div>
                   ) : null}
                   {shouldShowInsuranceChannelBadge(policy) &&
@@ -1366,14 +1362,18 @@ const PolicyCard = ({
                     className="text-[13px] font-semibold text-slate-900 mt-1 truncate"
                     title={policy.insurer}
                   >
-                    {policy.insurer || "—"}
+                    {policy.insurer === "—" && isDraft
+                      ? "Draft Policy"
+                      : policy.insurer || "—"}
                   </p>
                   <p
                     className="text-[11px] text-slate-500 truncate"
                     title={policy.policyNumber}
                     style={{ fontFamily: "var(--default-mono-font-family)" }}
                   >
-                    {policy.policyNumber || "Not issued"}
+                    {policy.insurer === "—" && isDraft
+                      ? "Details pending"
+                      : policy.policyNumber || "Not issued"}
                   </p>
                 </div>
               </div>
@@ -1381,9 +1381,17 @@ const PolicyCard = ({
 
             {/* Body */}
             <div className="p-3 space-y-3">
-              {/* IDV / NCB row */}
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
+              {policy.insurer === "—" && isDraft ? (
+                <div className="flex items-center py-2">
+                  <span className="text-[11px] font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-md border border-slate-100">
+                    Draft • Complete form to generate
+                  </span>
+                </div>
+              ) : (
+                <>
+                  {/* IDV / NCB row */}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
                   IDV {policy.idvInline}
                 </span>
                 <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
@@ -1394,23 +1402,20 @@ const PolicyCard = ({
                     {policy.policyOriginType}
                   </span>
                 ) : null}
+                {policy.policyType ? (
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                    {policy.policyType}
+                  </span>
+                ) : null}
               </div>
 
-              {/* Hypothecation and expiry */}
+              {/* Hypothecation */}
               <div className="space-y-1">
                 <p
                   className="text-[11px] text-slate-500 truncate"
                   title={policy.hypothecation}
                 >
                   Hypothecation: {policy.hypothecation || "—"}
-                </p>
-                <p className="text-[11px] text-slate-500 truncate">
-                  Expiry: {policy.expiryLabel || "—"}
-                  {Number.isFinite(Number(policy.expiryDays))
-                    ? Number(policy.expiryDays) < 0
-                      ? ` · Expired ${Math.abs(Number(policy.expiryDays))}d ago`
-                      : ` · ${Number(policy.expiryDays)}d left`
-                    : ""}
                 </p>
                 {policy.policyIssuedByDetail &&
                 policy.policyIssuedByDetail !== "—" ? (
@@ -1441,15 +1446,17 @@ const PolicyCard = ({
                     Issued by: —
                   </p>
                 )}
-                {policy.renewalFollowUpStatus ? (
+                {policy.renewalFollowUpStatus && policy.renewalFollowUpStatus !== "not_applicable" ? (
                   <p className="text-[11px] text-slate-500 truncate">
                     Follow-up: {policy.renewalFollowUpStatus}
                   </p>
                 ) : null}
               </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
+      </div>
+    </div>
 
         {/* Column 3 Payment Flow */}
         <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
@@ -1622,7 +1629,7 @@ const PolicyCard = ({
                     Workflow
                   </p>
                 </div>
-                {!isDraft && (
+                {!isDraft && !["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && (
                   <span
                     className="px-3 py-1.5 rounded-full text-[11px] font-black uppercase shadow-sm"
                     style={{
@@ -1646,16 +1653,9 @@ const PolicyCard = ({
                     {policy.createdLabel}
                   </span>
                 </div>
-
-                <div className="flex justify-between gap-2">
-                  <span className="text-slate-600">Expiry</span>
-                  <span className="font-semibold text-slate-900 text-right truncate">
-                    {policy.expiryLabel}
-                  </span>
-                </div>
               </div>
 
-              {!isDraft && (
+              {!isDraft && !["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && (
                 <div>
                   <div
                     className="rounded-xl border px-2.5 py-2"
@@ -1911,10 +1911,18 @@ const InsuranceDashboardPage = () => {
       const haystack = [
         c.caseId,
         c._id,
+        c.customerId,
         snap.customerName,
         snap.companyName,
         snap.contactPersonName,
         snap.primaryMobile,
+        c.customerName,
+        c.companyName,
+        c.contactPersonName,
+        c.mobile,
+        c.primaryMobile,
+        c.email,
+        c.referencePhone,
         c.registrationNumber,
         c.vehicleNumber,
         c.vehicleMake,
@@ -1922,6 +1930,9 @@ const InsuranceDashboardPage = () => {
         c.vehicleVariant,
         c.newInsuranceCompany,
         c.newPolicyNumber,
+        c.previousPolicyNumber,
+        c.newPolicyType,
+        c.previousPolicyType,
         c.source,
         c.sourceOrigin,
         c.sourceName,
@@ -2109,9 +2120,7 @@ const InsuranceDashboardPage = () => {
           ? brokerName
           : policyDoneByLower === "showroom"
             ? showroomName
-            : isIndirectSource
-              ? dealerChannelName
-              : "";
+            : "";
       const policyIssuedByDetail =
         channelPartnerName ||
         (policyDoneByLower === "broker"
@@ -2182,6 +2191,14 @@ const InsuranceDashboardPage = () => {
             .filter(([, included]) => Boolean(included))
             .map(([name]) => name)
         : [];
+      const policyType = String(
+        record.newPolicyType ||
+          record.coverageType ||
+          acceptedQuote?.coverageType ||
+          record.previousPolicyType ||
+          record.policyType ||
+          "",
+      ).trim();
 
       // Status & dates
       const st = normalizeStatus(record.status);
@@ -2384,8 +2401,12 @@ const InsuranceDashboardPage = () => {
           !renewedCaseIds.has(String(id)),
         createdLabel,
         vehicleType: record.vehicleType || "4W",
-        typesOfVehicle: record.typesOfVehicle || "4W",
+        policyCategory: record.policyCategory || "",
+        policyTypeSelector: record.policyTypeSelector || "",
+        typesOfVehicle: record.typesOfVehicle || "",
+        policyType,
         paymentTimeline: paymentTimelineRows,
+        isCompleted: isCompletedPolicy(record),
         paymentPercent,
         openDues: openDuesFromAcRecovery,
         alreadyRenewed: renewedCaseIds.has(String(id)),

@@ -231,6 +231,8 @@ const Step3PreviousPolicy = ({
     formData.previousInsuranceCompany || "Previous Insurance Co.";
 
   const previewPolicyType = formData.previousPolicyType || "—";
+  const isStandAloneOd =
+    String(formData.previousPolicyType || "").trim() === "Stand Alone OD";
 
   const previewDuration = formData.previousPolicyDuration || "—";
 
@@ -273,30 +275,32 @@ const Step3PreviousPolicy = ({
 
   const comprehensiveDurationOptions = React.useMemo(
     () => [
-      { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
-      { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-      { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-      { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+      { label: "1+1", value: "1yr OD + 1yr TP" },
+      { label: "1+3", value: "1yr OD + 3yr TP" },
+      { label: "2+3", value: "2yr OD + 3yr TP" },
+      { label: "3+3", value: "3yr OD + 3yr TP" },
     ],
     [],
   );
 
-  const durationSelectOptions =
-    formData.previousPolicyType === "Comprehensive"
-      ? comprehensiveDurationOptions
-      : formData.previousPolicyType === "Stand Alone OD"
+  const durationSelectOptions = React.useMemo(() => {
+    const policyType = String(formData.previousPolicyType || "").trim();
+    const comprehensiveVisible = comprehensiveDurationOptions.map((opt) => ({
+      ...opt,
+      disabled: policyType !== "Comprehensive",
+    }));
+
+    const yearOptions =
+      policyType === "Stand Alone OD" || policyType === "Third Party"
         ? [
             { label: "1 Year", value: "1 Year" },
             { label: "2 Years", value: "2 Years" },
             { label: "3 Years", value: "3 Years" },
           ]
-        : formData.previousPolicyType === "Third Party"
-          ? [
-              { label: "1 Year", value: "1 Year" },
-              { label: "2 Years", value: "2 Years" },
-              { label: "3 Years", value: "3 Years" },
-            ]
-          : [];
+        : [];
+
+    return [...comprehensiveVisible, ...yearOptions];
+  }, [comprehensiveDurationOptions, formData.previousPolicyType]);
 
   React.useEffect(() => {
     const policyType = String(formData.previousPolicyType || "").trim();
@@ -1012,24 +1016,26 @@ const Step3PreviousPolicy = ({
                         </CleanField>
                       </div>
 
-                      <div className={fieldWrapClass}>
-                        <CleanField label="Third Party Amount">
-                          <InputNumber
-                            min={0}
-                            value={Number(quoteDraft.thirdParty || 0)}
-                            onChange={(v) =>
-                              setQuoteDraft((prev) => ({
-                                ...prev,
-                                thirdParty: Number(v || 0),
-                                basicThirdParty: Number(v || 0),
-                              }))
-                            }
-                           
-                            placeholder="₹ 0"
-                            {...amountInputProps}
-                          />
-                        </CleanField>
-                      </div>
+                      {!isStandAloneOd && (
+                        <div className={fieldWrapClass}>
+                          <CleanField label="Third Party Amount">
+                            <InputNumber
+                              min={0}
+                              value={Number(quoteDraft.thirdParty || 0)}
+                              onChange={(v) =>
+                                setQuoteDraft((prev) => ({
+                                  ...prev,
+                                  thirdParty: Number(v || 0),
+                                  basicThirdParty: Number(v || 0),
+                                }))
+                              }
+                             
+                              placeholder="₹ 0"
+                              {...amountInputProps}
+                            />
+                          </CleanField>
+                        </div>
+                      )}
 
                       <div className={fieldWrapClass}>
                         <CleanField label="Add-ons Total">
@@ -1053,7 +1059,11 @@ const Step3PreviousPolicy = ({
                     <div className={fieldWrapClass}>
                       <CleanField
                         label="Total Premium"
-                        hint="Auto-calculated: (OD + TP + Add-ons) × 1.18"
+                        hint={
+                          isStandAloneOd
+                            ? "Auto-calculated: (OD + Add-ons) × 1.18"
+                            : "Auto-calculated: (OD + TP + Add-ons) × 1.18"
+                        }
                       >
                         <InputNumber
                           min={0}
@@ -1129,17 +1139,21 @@ const Step3PreviousPolicy = ({
                       muted
                     />
 
-                    <BreakupRow
-                      label="Third Party"
-                      value={formatCurrency(activeQuote.thirdParty)}
-                      bold
-                    />
-                    <BreakupRow
-                      label="Basic Third Party"
-                      value={formatCurrency(activeQuote.basicThirdParty)}
-                      indent
-                      muted
-                    />
+                    {!isStandAloneOd && (
+                      <>
+                        <BreakupRow
+                          label="Third Party"
+                          value={formatCurrency(activeQuote.thirdParty)}
+                          bold
+                        />
+                        <BreakupRow
+                          label="Basic Third Party"
+                          value={formatCurrency(activeQuote.basicThirdParty)}
+                          indent
+                          muted
+                        />
+                      </>
+                    )}
 
                     {activeQuote.selectedAddOns.length > 0 && (
                       <>
@@ -1219,12 +1233,14 @@ const Step3PreviousPolicy = ({
                   value={formatDisplayDate(formData.previousOdExpiryDate)}
                   tone="sage"
                 />
-                <MiniDateCard
-                  icon={<BankOutlined />}
-                  label="TP Expiry"
-                  value={formatDisplayDate(formData.previousTpExpiryDate)}
-                  tone="slate"
-                />
+                {!isStandAloneOd && (
+                  <MiniDateCard
+                    icon={<BankOutlined />}
+                    label="TP Expiry"
+                    value={formatDisplayDate(formData.previousTpExpiryDate)}
+                    tone="slate"
+                  />
+                )}
                 <MiniDateCard
                   icon={<InfoCircleOutlined />}
                   label="Claim Last Year"

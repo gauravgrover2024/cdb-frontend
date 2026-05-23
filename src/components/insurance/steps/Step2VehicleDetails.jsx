@@ -244,27 +244,32 @@ const Step2VehicleDetails = ({
       ),
       children: (
         <div className="pt-3">
-          <div className="flex justify-end mb-4">
-            <button
-              type="button"
-              onClick={() => {
-                setField("vehicleMake", "");
-                setField("vehicleModel", "");
-                setField("vehicleVariant", "");
-                setField("registrationNumber", "");
-                setField("fuelType", "");
-                setField("cubicCapacity", "");
-                setField("seatingCapacity", "");
-                setField("grossVehicleWeight", "");
-                setField("engineNumber", "");
-                setField("chassisNumber", "");
-                setField("registrationAllotted", "Yes");
-              }}
-              className="group flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg hover:bg-rose-100 hover:border-rose-200 transition-all shadow-sm"
-            >
-              <RotateLeftOutlined className="text-[12px] group-hover:rotate-[-45deg] transition-transform" />
-              Clear Selection
-            </button>
+          <div className="mb-4 rounded-xl border border-slate-200/80 bg-gradient-to-r from-slate-50/95 to-white px-3 py-2.5 sm:px-4">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Registration Lookup
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setField("vehicleMake", "");
+                  setField("vehicleModel", "");
+                  setField("vehicleVariant", "");
+                  setField("registrationNumber", "");
+                  setField("fuelType", "");
+                  setField("cubicCapacity", "");
+                  setField("seatingCapacity", "");
+                  setField("grossVehicleWeight", "");
+                  setField("engineNumber", "");
+                  setField("chassisNumber", "");
+                  setField("registrationAllotted", "Yes");
+                }}
+                className="group inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-all hover:border-rose-300 hover:bg-rose-100 sm:w-auto sm:justify-start"
+              >
+                <RotateLeftOutlined className="text-[12px] transition-transform group-hover:rotate-[-45deg]" />
+                Clear Selection
+              </button>
+            </div>
           </div>
           <Row gutter={[16, 16]}>
             {isNewCar ? (
@@ -302,12 +307,22 @@ const Step2VehicleDetails = ({
                 <CleanField
                   label="Registration Number"
                   required
+                  extra={
+                    <span className="text-[11px] text-slate-400">
+                      Search and select registration to auto-fill vehicle
+                      details.
+                    </span>
+                  }
                 >
                   {regDisabled ? (
-                    <Input size="large" allowClear
+                    <Input
+                      size="large"
+                      allowClear
                       value={formData.registrationNumber}
                       readOnly
-                     
+                      prefix={
+                        <SearchOutlined className="text-slate-400" />
+                      }
                       status={
                         showErrors && step2Errors.registrationNumber
                           ? "error"
@@ -371,7 +386,7 @@ const Step2VehicleDetails = ({
                           });
                         }
                       }}
-                      style={{ marginTop: 8, width: "100%" }}
+                      style={{ width: "100%" }}
                       notFoundContent={
                         registrationLookupLoading
                           ? "Searching..."
@@ -379,6 +394,8 @@ const Step2VehicleDetails = ({
                       }
                     >
                       <Input
+                        size="large"
+                        prefix={<SearchOutlined className="text-slate-400" />}
                         style={controlStyle}
                         status={
                           showErrors && step2Errors.registrationNumber
@@ -446,6 +463,54 @@ const Step2VehicleDetails = ({
               >
                 Include discontinued
               </Checkbox>
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Manufacture Month" required>
+                  <Input size="large" allowClear
+                    value={formData.manufactureMonth}
+                    onChange={handleChange("manufactureMonth")}
+                    status={
+                      showErrors && step2Errors.manufactureMonth ? "error" : ""
+                    }
+                    placeholder="e.g. 07"
+                  />
+                </CleanField>
+              </div>
+              {showErrors && step2Errors.manufactureMonth ? (
+                <Text type="danger">{step2Errors.manufactureMonth}</Text>
+              ) : null}
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Manufacture Year" required>
+                  <Input size="large" allowClear
+                    value={formData.manufactureYear}
+                    onChange={handleChange("manufactureYear")}
+                    status={
+                      showErrors && step2Errors.manufactureYear ? "error" : ""
+                    }
+                    placeholder="e.g. 2026"
+                  />
+                </CleanField>
+              </div>
+              {showErrors && step2Errors.manufactureYear ? (
+                <Text type="danger">{step2Errors.manufactureYear}</Text>
+              ) : null}
+            </Col>
+
+            <Col xs={24} md={8}>
+              <div className={fieldWrapClass}>
+                <CleanField label="Date of Reg">
+                  <Input size="large" allowClear
+                    type="date"
+                    value={formData.dateOfReg}
+                    onChange={handleChange("dateOfReg")}
+                  />
+                </CleanField>
+              </div>
             </Col>
 
             <Col xs={24} md={8}>
@@ -624,7 +689,7 @@ const Step2VehicleDetails = ({
               Identity & registration
             </div>
             <div className="text-xs text-slate-500">
-              Engine, chassis, manufacture and hypothecation details
+              Engine, chassis and hypothecation details
             </div>
           </div>
         </div>
@@ -668,57 +733,6 @@ const Step2VehicleDetails = ({
               {showErrors && step2Errors.chassisNumber ? (
                 <Text type="danger">{step2Errors.chassisNumber}</Text>
               ) : null}
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Manufacture Month" required>
-                  <Input size="large" allowClear
-                    value={formData.manufactureMonth}
-                    onChange={handleChange("manufactureMonth")}
-                   
-                    status={
-                      showErrors && step2Errors.manufactureMonth ? "error" : ""
-                    }
-                    placeholder="e.g. 07"
-                  />
-                </CleanField>
-              </div>
-              {showErrors && step2Errors.manufactureMonth ? (
-                <Text type="danger">{step2Errors.manufactureMonth}</Text>
-              ) : null}
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Manufacture Year" required>
-                  <Input size="large" allowClear
-                    value={formData.manufactureYear}
-                    onChange={handleChange("manufactureYear")}
-                   
-                    status={
-                      showErrors && step2Errors.manufactureYear ? "error" : ""
-                    }
-                    placeholder="e.g. 2026"
-                  />
-                </CleanField>
-              </div>
-              {showErrors && step2Errors.manufactureYear ? (
-                <Text type="danger">{step2Errors.manufactureYear}</Text>
-              ) : null}
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Date of Reg">
-                  <Input size="large" allowClear
-                    type="date"
-                    value={formData.dateOfReg}
-                    onChange={handleChange("dateOfReg")}
-                   
-                  />
-                </CleanField>
-              </div>
             </Col>
 
             {shouldShowEwExtra ? (
@@ -1054,9 +1068,16 @@ const Step2VehicleDetails = ({
                   </p>
                 ) : (
                   <div className="flex flex-col gap-1.5">
-                    {visibleCustomerVehicleRows.map((row) => (
+                    {visibleCustomerVehicleRows.map((row, idx) => (
                       <button
-                        key={String(row?._id || row?.registrationNumber || "")}
+                        key={String(
+                          row?._id ||
+                            row?.registrationNumber ||
+                            row?.regNo ||
+                            row?.chassisNumber ||
+                            row?.engineNumber ||
+                            `vehicle-${idx}`,
+                        )}
                         type="button"
                         onClick={() => handleUseCustomerVehicle(row)}
                         className="group w-full rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
@@ -1064,7 +1085,9 @@ const Step2VehicleDetails = ({
                         <div className="flex items-center justify-between gap-2">
                           <div>
                             <p className="m-0 text-xs font-semibold text-slate-800">
-                              {row?.registrationNumber || "—"}
+                              {row?.registrationNumber ||
+                                row?.regNo ||
+                                "No registration"}
                             </p>
                             <p className="m-0 text-[11px] text-slate-500">
                               {[row?.make, row?.model, row?.variant]
@@ -1147,11 +1170,16 @@ const Step2VehicleDetails = ({
                     {Array.isArray(vehiclePotentialMatches) &&
                     vehiclePotentialMatches.length > 1 ? (
                       <div className="mt-2 flex flex-col gap-1.5">
-                        {vehiclePotentialMatches.slice(1, 3).map((row) => (
+                        {vehiclePotentialMatches.slice(1, 3).map((row, idx) => (
                           <button
                             type="button"
                             key={String(
-                              row?._id || row?.registrationNumber || "",
+                              row?._id ||
+                                row?.registrationNumber ||
+                                row?.regNo ||
+                                row?.chassisNumber ||
+                                row?.engineNumber ||
+                                `match-${idx}`,
                             )}
                             onClick={() => onMergeVehicleMatch?.(row)}
                             className="w-full rounded-xl border border-amber-200/80 bg-white px-3 py-2 text-left transition hover:border-amber-300"
@@ -1159,7 +1187,9 @@ const Step2VehicleDetails = ({
                             <div className="flex items-center justify-between gap-2">
                               <div>
                                 <p className="m-0 text-xs font-semibold text-slate-700">
-                                  {row?.registrationNumber || "—"}
+                                  {row?.registrationNumber ||
+                                    row?.regNo ||
+                                    "No registration"}
                                 </p>
                                 <p className="m-0 text-[11px] text-slate-500">
                                   {[row?.make, row?.model, row?.variant]
@@ -1207,9 +1237,16 @@ const Step2VehicleDetails = ({
       >
         {filteredCustomerVehicleRows.length ? (
           <div className="flex flex-col gap-2">
-            {filteredCustomerVehicleRows.map((row) => (
+            {filteredCustomerVehicleRows.map((row, idx) => (
               <button
-                key={`drawer-${String(row?._id || row?.registrationNumber || "")}`}
+                key={`drawer-${String(
+                  row?._id ||
+                    row?.registrationNumber ||
+                    row?.regNo ||
+                    row?.chassisNumber ||
+                    row?.engineNumber ||
+                    `vehicle-${idx}`,
+                )}`}
                 type="button"
                 onClick={() => {
                   handleUseCustomerVehicle(row);
@@ -1220,7 +1257,9 @@ const Step2VehicleDetails = ({
                 <div className="flex items-center justify-between gap-2">
                   <div>
                     <p className="m-0 text-xs font-semibold text-slate-800">
-                      {row?.registrationNumber || "—"}
+                      {row?.registrationNumber ||
+                        row?.regNo ||
+                        "No registration"}
                     </p>
                     <p className="m-0 text-[11px] text-slate-500">
                       {[row?.make, row?.model, row?.variant]

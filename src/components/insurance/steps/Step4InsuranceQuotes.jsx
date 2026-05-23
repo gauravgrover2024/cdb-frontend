@@ -4,6 +4,7 @@ import React from "react";
 import {
   AutoComplete,
   Button,
+  Checkbox,
   Divider,
   Input,
   InputNumber,
@@ -23,6 +24,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import { addOnCatalog } from "./allSteps";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
@@ -436,6 +438,9 @@ const QuoteCard = ({
   onShareQuote,
   onDownloadQuote,
   previousPolicyContext,
+  isIssued,
+  isSelected,
+  onSelectQuote,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
   const [showInsightModal, setShowInsightModal] = React.useState(false);
@@ -560,29 +565,21 @@ const QuoteCard = ({
           </div>
 
           <div className="flex flex-col items-end gap-1 shrink-0">
+            <Checkbox 
+              checked={isSelected}
+              onChange={(e) => onSelectQuote?.(rid, e.target.checked)}
+              className="mb-1"
+            />
             {String(row.coverageType || "") !== "Third Party" ? (
               <div>
-                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400 text-right">
                   IDV
                 </p>
-                <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                <p className="m-0 text-sm font-black tabular-nums text-slate-800 text-right">
                   {formatStoredOrComputedIdv(row)}
                 </p>
               </div>
             ) : null}
-            {String(row.coverageType || "") !== "Third Party" && row.payoutPercentage > 0 && (
-              <div className="mt-1 text-right">
-                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
-                  Est. Payout
-                </p>
-                <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
-                  {toINR(
-                    (breakup?.payoutBaseAmount ?? row.payoutBaseAmount ?? 0) *
-                      (row.payoutPercentage / 100),
-                  )}
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -693,13 +690,6 @@ const QuoteCard = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onShareQuote?.(row)}
-            className="flex-1 rounded-xl border-0 bg-slate-50 py-2 text-[12px] font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100 cursor-pointer"
-          >
-            Share Quote
-          </button>
-          <button
-            type="button"
             onClick={() => onDownloadQuote?.(row)}
             className="flex-1 rounded-xl border-0 bg-indigo-50 py-2 text-[12px] font-bold text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 cursor-pointer"
           >
@@ -710,13 +700,16 @@ const QuoteCard = ({
           <button
             type="button"
             onClick={() => acceptQuote(rid)}
+            disabled={isIssued || isAccepted}
             className={`
                 flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide
-                transition-all cursor-pointer border-0 shadow-sm
+                transition-all border-0 shadow-sm
                 ${
-                  isAccepted
-                    ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
+                  isIssued 
+                    ? "opacity-50 cursor-not-allowed bg-slate-300 text-white" 
+                    : isAccepted
+                      ? "opacity-80 cursor-not-allowed bg-emerald-500 text-white"
+                      : "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
                 }
               `}
           >
@@ -825,6 +818,7 @@ const Step4InsuranceQuotes = ({
   formatStoredOrComputedPremium,
   onResetQuoteDraft,
   previousPolicyContext = {},
+  isIssued = false,
 }) => {
   const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] =
     React.useState(false);
@@ -1193,26 +1187,6 @@ const Step4InsuranceQuotes = ({
                   options={NCB_OPTIONS}
                 />
               </FieldBlock>
-
-              {includesOd ? (
-                <FieldBlock label="Payout Percentage (%)">
-                  <InputNumber
-                    size="large"
-                    min={0}
-                    max={100}
-                    value={quoteDraft.payoutPercentage || 0}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        payoutPercentage: Number(v || 0),
-                      }))
-                    }
-                    addonAfter="%"
-                    className="w-full quote-control"
-                    placeholder="0"
-                  />
-                </FieldBlock>
-              ) : null}
 
               <FieldBlock
                 label="Hypothecation"
@@ -1823,6 +1797,7 @@ const Step4InsuranceQuotes = ({
                 onShareQuote={handleShareQuote}
                 onDownloadQuote={handleDownloadQuote}
                 previousPolicyContext={previousPolicyContext}
+                isIssued={isIssued}
               />
             ))}
           </div>
