@@ -4,6 +4,7 @@ import React from "react";
 import {
   AutoComplete,
   Button,
+  Checkbox,
   Divider,
   Input,
   InputNumber,
@@ -23,6 +24,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   EyeOutlined,
+  ShareAltOutlined,
 } from "@ant-design/icons";
 import { addOnCatalog } from "./allSteps";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
@@ -170,9 +172,9 @@ const buildPremiumChangeInsight = ({
   const currentNcb = Number(quote?.ncbDiscount || 0);
   const currentIdv = Number(
     quote?.totalIdv ||
-      Number(quote?.vehicleIdv || 0) +
-        Number(quote?.cngIdv || 0) +
-        Number(quote?.accessoriesIdv || 0),
+    Number(quote?.vehicleIdv || 0) +
+    Number(quote?.cngIdv || 0) +
+    Number(quote?.accessoriesIdv || 0),
   );
   const currentCoverageType = String(quote?.coverageType || "").trim();
   const currentInsurer = String(quote?.insuranceCompany || "").trim();
@@ -204,8 +206,8 @@ const buildPremiumChangeInsight = ({
     previousPolicyContext?.previousSelectedAddOns,
   )
     ? previousPolicyContext.previousSelectedAddOns
-        .map((name) => String(name || "").trim())
-        .filter(Boolean)
+      .map((name) => String(name || "").trim())
+      .filter(Boolean)
     : [];
   const currentAddOnNames = getIncludedAddonNames(quote);
 
@@ -255,12 +257,10 @@ const buildPremiumChangeInsight = ({
       removed.length
     ) {
       reasons.push(
-        `Add-ons moved ${toINR(previousAddOns)} → ${toINR(currentAddOns)}${
-          added.length || removed.length
-            ? ` (${added.length ? `+${added.join(", ")}` : ""}${
-                added.length && removed.length ? " | " : ""
-              }${removed.length ? `-${removed.join(", ")}` : ""})`
-            : ""
+        `Add-ons moved ${toINR(previousAddOns)} → ${toINR(currentAddOns)}${added.length || removed.length
+          ? ` (${added.length ? `+${added.join(", ")}` : ""}${added.length && removed.length ? " | " : ""
+          }${removed.length ? `-${removed.join(", ")}` : ""})`
+          : ""
         }`,
       );
     }
@@ -288,7 +288,7 @@ const buildPremiumChangeInsight = ({
     previousInsurer &&
     currentInsurer &&
     normalizeInsurerName(previousInsurer) !==
-      normalizeInsurerName(currentInsurer)
+    normalizeInsurerName(currentInsurer)
   ) {
     reasons.push(`Insurer changed (${previousInsurer} → ${currentInsurer})`);
   }
@@ -307,8 +307,8 @@ const buildPremiumChangeInsight = ({
     diff === 0
       ? `Premium is unchanged vs previous baseline (${toINR(currentPremium)}).`
       : `Premium ${diff > 0 ? "increased" : "decreased"} by ${toINR(
-          Math.abs(diff),
-        )}${changePct != null ? ` (${changePct}%)` : ""} vs previous baseline.`;
+        Math.abs(diff),
+      )}${changePct != null ? ` (${changePct}%)` : ""} vs previous baseline.`;
 
   return {
     summary,
@@ -344,15 +344,13 @@ const FieldBlock = ({
 // ── TickerRow ──
 const TickerRow = ({ label, value, valueClass = "text-slate-800", bold }) => (
   <div
-    className={`flex items-center justify-between py-1 ${
-      bold ? "border-t border-slate-100 pt-2" : ""
-    }`}
+    className={`flex items-center justify-between py-1 ${bold ? "border-t border-slate-100 pt-2" : ""
+      }`}
   >
     <span className="text-xs text-slate-500">{label}</span>
     <span
-      className={`text-sm tabular-nums font-semibold ${valueClass} ${
-        bold ? "font-bold" : ""
-      }`}
+      className={`text-sm tabular-nums font-semibold ${valueClass} ${bold ? "font-bold" : ""
+        }`}
     >
       {value}
     </span>
@@ -368,24 +366,22 @@ const BreakupRow = ({ label, value, bold, muted, indent }) => (
     `}
   >
     <span
-      className={`text-[12px] ${
-        bold
+      className={`text-[12px] ${bold
           ? "font-bold text-slate-800"
           : muted
             ? "text-slate-500"
             : "text-slate-500"
-      }`}
+        }`}
     >
       {label}
     </span>
     <span
-      className={`tabular-nums text-[12px] ${
-        bold
+      className={`tabular-nums text-[12px] ${bold
           ? "font-black text-slate-900"
           : muted
             ? "text-slate-500"
             : "font-semibold text-slate-700"
-      }`}
+        }`}
     >
       {value}
     </span>
@@ -436,6 +432,9 @@ const QuoteCard = ({
   onShareQuote,
   onDownloadQuote,
   previousPolicyContext,
+  isIssued,
+  isSelected,
+  onSelectQuote,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
   const [showInsightModal, setShowInsightModal] = React.useState(false);
@@ -488,10 +487,9 @@ const QuoteCard = ({
     <div
       className={`
         relative flex flex-col rounded-2xl bg-white transition-all duration-200
-        ${
-          isAccepted
-            ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#9FC0FF]"
-            : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)]"
+        ${isAccepted
+          ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#9FC0FF]"
+          : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)]"
         }
       `}
     >
@@ -517,11 +515,10 @@ const QuoteCard = ({
           <div className="flex items-start gap-2.5 min-w-0">
             <div
               className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
-                  ${
-                    isAccepted
-                      ? "bg-[#9FC0FF]/70 text-slate-800 ring-[#9FC0FF]"
-                      : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
-                  }
+                  ${isAccepted
+                  ? "bg-[#9FC0FF]/70 text-slate-800 ring-[#9FC0FF]"
+                  : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
+                }
                 `}
             >
               {logoUrl ? (
@@ -560,30 +557,21 @@ const QuoteCard = ({
           </div>
 
           <div className="flex flex-col items-end gap-1 shrink-0">
+            <Checkbox
+              checked={isSelected}
+              onChange={(e) => onSelectQuote?.(rid, e.target.checked)}
+              className="mb-1"
+            />
             {String(row.coverageType || "") !== "Third Party" ? (
               <div>
-                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400 text-right">
                   IDV
                 </p>
-                <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                <p className="m-0 text-sm font-black tabular-nums text-slate-800 text-right">
                   {formatStoredOrComputedIdv(row)}
                 </p>
               </div>
             ) : null}
-            {String(row.coverageType || "") !== "Third Party" &&
-              row.payoutPercentage > 0 && (
-                <div className="mt-1 text-right">
-                  <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-emerald-500">
-                    Est. Payout
-                  </p>
-                  <p className="m-0 text-xs font-bold tabular-nums text-emerald-600">
-                    {toINR(
-                      (breakup?.payoutBaseAmount ?? row.payoutBaseAmount ?? 0) *
-                        (row.payoutPercentage / 100),
-                    )}
-                  </p>
-                </div>
-              )}
           </div>
         </div>
       </div>
@@ -620,51 +608,50 @@ const QuoteCard = ({
 
         {(includedAddons.length > 0 ||
           Number(breakup?.addOnsTotal || 0) > 0) && (
-          <>
-            <BreakupRow
-              label="Add Ons"
-              value={toINR(breakup?.addOnsTotal ?? 0)}
-              bold
-            />
-            {includedAddons.length > 0 ? (
-              <>
-                {visibleAddons.map(({ name, amt }) => (
-                  <BreakupRow
-                    key={name}
-                    label={name}
-                    value={amt > 0 ? toINR(amt) : "included"}
-                    indent
-                    muted
-                  />
-                ))}
-                {includedAddons.length > 4 && (
-                  <button
-                    onClick={() => setShowAllAddons((p) => !p)}
-                    className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
-                  >
-                    <span
-                      className={`inline-block transition-transform duration-200 ${
-                        showAllAddons ? "rotate-180" : ""
-                      }`}
-                    >
-                      ▾
-                    </span>
-                    {showAllAddons
-                      ? "Show Less"
-                      : `+${includedAddons.length - 4} More Add-ons`}
-                  </button>
-                )}
-              </>
-            ) : (
+            <>
               <BreakupRow
-                label="Add-ons Amount (Total)"
+                label="Add Ons"
                 value={toINR(breakup?.addOnsTotal ?? 0)}
-                indent
-                muted
+                bold
               />
-            )}
-          </>
-        )}
+              {includedAddons.length > 0 ? (
+                <>
+                  {visibleAddons.map(({ name, amt }) => (
+                    <BreakupRow
+                      key={name}
+                      label={name}
+                      value={amt > 0 ? toINR(amt) : "included"}
+                      indent
+                      muted
+                    />
+                  ))}
+                  {includedAddons.length > 4 && (
+                    <button
+                      onClick={() => setShowAllAddons((p) => !p)}
+                      className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
+                    >
+                      <span
+                        className={`inline-block transition-transform duration-200 ${showAllAddons ? "rotate-180" : ""
+                          }`}
+                      >
+                        ▾
+                      </span>
+                      {showAllAddons
+                        ? "Show Less"
+                        : `+${includedAddons.length - 4} More Add-ons`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <BreakupRow
+                  label="Add-ons Amount (Total)"
+                  value={toINR(breakup?.addOnsTotal ?? 0)}
+                  indent
+                  muted
+                />
+              )}
+            </>
+          )}
       </div>
 
       {/* Dashed separator */}
@@ -677,9 +664,8 @@ const QuoteCard = ({
             Total Amount
           </span>
           <span
-            className={`text-xl font-black tabular-nums ${
-              isAccepted ? "text-slate-800" : "text-slate-900"
-            }`}
+            className={`text-xl font-black tabular-nums ${isAccepted ? "text-slate-800" : "text-slate-900"
+              }`}
           >
             {formatStoredOrComputedPremium(row)}
           </span>
@@ -694,13 +680,6 @@ const QuoteCard = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onShareQuote?.(row)}
-            className="flex-1 rounded-xl border-0 bg-slate-50 py-2 text-[12px] font-bold text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100 cursor-pointer"
-          >
-            Share Quote
-          </button>
-          <button
-            type="button"
             onClick={() => onDownloadQuote?.(row)}
             className="flex-1 rounded-xl border-0 bg-indigo-50 py-2 text-[12px] font-bold text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 cursor-pointer"
           >
@@ -711,14 +690,16 @@ const QuoteCard = ({
           <button
             type="button"
             onClick={() => acceptQuote(rid)}
+            disabled={isIssued || isAccepted}
             className={`
                 flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide
-                transition-all cursor-pointer border-0 shadow-sm
-                ${
-                  isAccepted
-                    ? "bg-emerald-500 text-white hover:bg-emerald-600"
-                    : "bg-blue-600 text-white hover:bg-blue-700"
-                }
+                transition-all border-0 shadow-sm
+                ${isIssued
+                ? "opacity-50 cursor-not-allowed bg-slate-300 text-white"
+                : isAccepted
+                  ? "opacity-80 cursor-not-allowed bg-emerald-500 text-white"
+                  : "bg-blue-600 text-white hover:bg-blue-700 cursor-pointer"
+              }
               `}
           >
             {isAccepted ? "✓ Accepted" : "Accept"}
@@ -826,6 +807,7 @@ const Step4InsuranceQuotes = ({
   formatStoredOrComputedPremium,
   onResetQuoteDraft,
   previousPolicyContext = {},
+  isIssued = false,
 }) => {
   const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] =
     React.useState(false);
@@ -1163,7 +1145,7 @@ const Step4InsuranceQuotes = ({
                       {Number(suggestedNcbDiscount || 0)}%
                     </b>
                     {Number(quoteDraft.ncbDiscount || 0) !==
-                    Number(suggestedNcbDiscount || 0) ? (
+                      Number(suggestedNcbDiscount || 0) ? (
                       <button
                         type="button"
                         onClick={() =>
@@ -1194,26 +1176,6 @@ const Step4InsuranceQuotes = ({
                   options={NCB_OPTIONS}
                 />
               </FieldBlock>
-
-              {includesOd ? (
-                <FieldBlock label="Payout Percentage (%)">
-                  <InputNumber
-                    size="large"
-                    min={0}
-                    max={100}
-                    value={quoteDraft.payoutPercentage || 0}
-                    onChange={(v) =>
-                      setQuoteDraft((p) => ({
-                        ...p,
-                        payoutPercentage: Number(v || 0),
-                      }))
-                    }
-                    addonAfter="%"
-                    className="w-full quote-control"
-                    placeholder="0"
-                  />
-                </FieldBlock>
-              ) : null}
 
               <FieldBlock
                 label="Hypothecation"
@@ -1257,7 +1219,7 @@ const Step4InsuranceQuotes = ({
                           {toINR(Number(suggestedIdv || 0))}
                         </b>
                         {Number(suggestedIdv || 0) > 0 &&
-                        Number(quoteDraft.vehicleIdv || 0) !==
+                          Number(quoteDraft.vehicleIdv || 0) !==
                           Number(suggestedIdv || 0) ? (
                           <button
                             type="button"
@@ -1495,17 +1457,15 @@ const Step4InsuranceQuotes = ({
                     className={`
                       flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold
                       ring-1 transition-all duration-150 cursor-pointer border-0
-                      ${
-                        included
-                          ? `${palette.activeBg} ${palette.activeRing} ${palette.text} shadow-sm`
-                          : "bg-white ring-slate-200 text-slate-500 hover:bg-slate-50"
+                      ${included
+                        ? `${palette.activeBg} ${palette.activeRing} ${palette.text} shadow-sm`
+                        : "bg-white ring-slate-200 text-slate-500 hover:bg-slate-50"
                       }
                     `}
                   >
                     <span
-                      className={`h-1.5 w-1.5 rounded-full transition-colors ${
-                        included ? palette.dot : "bg-slate-300"
-                      }`}
+                      className={`h-1.5 w-1.5 rounded-full transition-colors ${included ? palette.dot : "bg-slate-300"
+                        }`}
                     />
                     {name}
                     {included && (
@@ -1583,17 +1543,16 @@ const Step4InsuranceQuotes = ({
                 canAddQuote
                   ? undefined
                   : {
-                      background: "#FFE6C6",
-                      color: "#6b7280",
-                      borderColor: "#DAF3FF",
-                      opacity: 1,
-                    }
+                    background: "#FFE6C6",
+                    color: "#6b7280",
+                    borderColor: "#DAF3FF",
+                    opacity: 1,
+                  }
               }
-              className={`h-10 px-6 font-bold !border-0 ${
-                canAddQuote
+              className={`h-10 px-6 font-bold !border-0 ${canAddQuote
                   ? "!bg-blue-600 hover:!bg-blue-700 !text-white shadow-sm"
                   : "!bg-slate-100 !text-slate-500 !border !border-slate-200 !shadow-none"
-              }`}
+                }`}
             >
               {editingQuoteId ? "Update Quote" : "Add Quote"}
             </Button>
@@ -1604,11 +1563,11 @@ const Step4InsuranceQuotes = ({
                 onResetQuoteDraft
                   ? onResetQuoteDraft()
                   : setQuoteDraft({
-                      ...initialQuoteDraft,
-                      ncbDiscount: Number(suggestedNcbDiscount || 0),
-                      addOns: { ...initialQuoteDraft.addOns },
-                      addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
-                    })
+                    ...initialQuoteDraft,
+                    ncbDiscount: Number(suggestedNcbDiscount || 0),
+                    addOns: { ...initialQuoteDraft.addOns },
+                    addOnsIncluded: { ...initialQuoteDraft.addOnsIncluded },
+                  })
               }
               className="h-10 !border-slate-200 !text-slate-500 hover:!text-slate-700"
             >
@@ -1705,23 +1664,20 @@ const Step4InsuranceQuotes = ({
             </div>
 
             <div
-              className={`rounded-xl border px-4 py-3.5 ${
-                ncbPct > 0
+              className={`rounded-xl border px-4 py-3.5 ${ncbPct > 0
                   ? "border-amber-300/90 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm shadow-amber-200/40"
                   : "border-slate-200 bg-slate-50/90"
-              }`}
+                }`}
             >
               <p
-                className={`m-0 text-[10px] font-bold uppercase tracking-widest ${
-                  ncbPct > 0 ? "text-amber-800" : "text-slate-500"
-                }`}
+                className={`m-0 text-[10px] font-bold uppercase tracking-widest ${ncbPct > 0 ? "text-amber-800" : "text-slate-500"
+                  }`}
               >
                 NCB (reference)
               </p>
               <p
-                className={`m-0 mt-2 text-2xl font-black tabular-nums tracking-tight ${
-                  ncbPct > 0 ? "text-amber-900" : "text-slate-400"
-                }`}
+                className={`m-0 mt-2 text-2xl font-black tabular-nums tracking-tight ${ncbPct > 0 ? "text-amber-900" : "text-slate-400"
+                  }`}
               >
                 {ncbPct}%
               </p>
@@ -1823,6 +1779,7 @@ const Step4InsuranceQuotes = ({
                 onShareQuote={handleShareQuote}
                 onDownloadQuote={handleDownloadQuote}
                 previousPolicyContext={previousPolicyContext}
+                isIssued={isIssued}
               />
             ))}
           </div>
@@ -1855,8 +1812,8 @@ const Step4InsuranceQuotes = ({
                 <div className="mt-1 text-lg font-black text-slate-900">
                   {toINR(
                     acceptedQuoteBreakup?.totalPremium ||
-                      acceptedQuote?.totalPremium ||
-                      0,
+                    acceptedQuote?.totalPremium ||
+                    0,
                   )}
                 </div>
               </div>
@@ -1867,8 +1824,8 @@ const Step4InsuranceQuotes = ({
                 <div className="mt-1 text-lg font-black text-slate-900">
                   {toINR(
                     acceptedQuoteBreakup?.totalIdv ||
-                      acceptedQuote?.totalIdv ||
-                      0,
+                    acceptedQuote?.totalIdv ||
+                    0,
                   )}
                 </div>
               </div>

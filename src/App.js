@@ -57,7 +57,7 @@ import BookingDetailPage from "./modules/payments/pages/BookingDetailPage";
 import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
 
 // Floating EMI Calculator – accessible from every authenticated screen
-import EMIFloatingButton from "./components/EMIFloatingButton";
+import EMIFloatingLauncher from "./components/EMIFloatingLauncher";
 
 // Routes that manage their own layout (no outer padding)
 const FULL_WIDTH_ROUTES = ["/used-cars"];
@@ -73,15 +73,16 @@ function HeaderWrapper() {
     <>
       <Header />
       <div
-        className={`bg-background overflow-visible ${isFullWidth
+        className={`bg-background overflow-visible ${
+          isFullWidth
             ? "min-h-[calc(100vh-4rem)] px-3 pt-2 pb-6"
             : "min-h-[calc(100vh-4rem)] px-3 pt-2.5 sm:px-4 sm:pt-3 md:px-6 md:pt-4 lg:px-8"
-          }`}
+        }`}
       >
         <Outlet />
       </div>
-      {/* EMI Calculator hidden as per requirements */}
-      {/* <EMIFloatingButton /> */}
+      {/* Floating EMI Calculator launcher (visible across authenticated pages) */}
+      <EMIFloatingLauncher />
     </>
   );
 }
@@ -137,7 +138,10 @@ function App() {
             />
             <Route
               path="insurance/renewals"
-              element={R(FEATURE_ACCESS.INSURANCE, <InsuranceRenewalCasesPage />)}
+              element={R(
+                FEATURE_ACCESS.INSURANCE,
+                <InsuranceRenewalCasesPage />,
+              )}
             />
             {/* Customers */}
             <Route

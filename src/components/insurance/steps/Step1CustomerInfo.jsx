@@ -207,6 +207,14 @@ const Step1CustomerInfo = ({
     if (channelType.includes("dealer") || sourceMode === "Indirect") {
       setField("dealerChannelName", channelName);
       if (channel.address) setField("dealerChannelAddress", channel.address);
+      
+      const mobileVal = String(channel.mobile || channel.contactNumber || "");
+      if (mobileVal) {
+        let digits = mobileVal.replace(/\D/g, "");
+        if (digits.length >= 10) digits = digits.slice(-10);
+        setField("dealerMobile", digits);
+      }
+
       if (channel.commissionRate != null && channel.commissionRate !== "") {
         setField("payoutApplicable", "Yes");
         setField("payoutPercent", String(channel.commissionRate));
@@ -551,6 +559,14 @@ const Step1CustomerInfo = ({
                           setField("dealerChannelName", p.name || "");
                           setField("channelDealerNo", p.channelId || "");
                           if (p.address) setField("dealerChannelAddress", p.address);
+                          
+                          const pMobile = String(p.mobile || p.contactNumber || "");
+                          if (pMobile) {
+                            let digits = pMobile.replace(/\D/g, "");
+                            if (digits.length >= 10) digits = digits.slice(-10);
+                            setField("dealerMobile", digits);
+                          }
+
                           setField("payoutApplicable", "Yes");
                           if (p.commissionRate) setField("payoutPercent", String(p.commissionRate));
                         }
@@ -589,6 +605,31 @@ const Step1CustomerInfo = ({
                     <Text type="danger">
                       {step1Errors.dealerChannelAddress}
                     </Text>
+                  ) : null}
+                </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Dealer / Channel Mobile" required>
+                      <Input size="large" allowClear
+                        value={formData.dealerMobile}
+                        onChange={(e) => {
+                          const digits = String(e?.target?.value || "")
+                            .replace(/\D/g, "")
+                            .slice(0, 10);
+                          setField("dealerMobile", digits);
+                        }}
+                        maxLength={10}
+                        placeholder="Dealer Mobile"
+                        status={
+                          showErrors && step1Errors.dealerMobile
+                            ? "error"
+                            : ""
+                        }
+                      />
+                    </CleanField>
+                  </div>
+                  {showErrors && step1Errors.dealerMobile ? (
+                    <Text type="danger">{step1Errors.dealerMobile}</Text>
                   ) : null}
                 </Col>
                 <Col xs={24} md={8}>
@@ -1174,8 +1215,7 @@ const Step1CustomerInfo = ({
                   Reference
                 </div>
                 <div className="mt-1 text-sm text-slate-500">
-                  Search CRM — auto-fills from customer profile; blanks stay
-                  editable
+                  Enter reference details manually
                 </div>
               </div>
 
@@ -1187,31 +1227,18 @@ const Step1CustomerInfo = ({
                         size="large"
                         allowClear
                         value={formData.referenceName}
-                        options={customerOptions}
+                        options={[]}
                         onSearch={(val) => {
                           setField("referenceName", val);
-                          searchCustomers(val);
                         }}
                         onChange={(val) => {
                           const v = String(val ?? "");
                           if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
                           setField("referenceName", v);
                         }}
-                        onSelect={(customerId) => {
-                          const selected = resolveSelectedCustomer(
-                            customerId,
-                            customerSearchResults,
-                            getCustomerId,
-                          );
-                          if (selected && applyReferenceFromCustomer) {
-                            applyReferenceFromCustomer(selected);
-                          }
-                        }}
-                        placeholder="Search reference name (CRM)"
+                        placeholder="Reference name"
                         style={{ width: "100%" }}
-                        notFoundContent={
-                          customerSearchLoading ? "Searching…" : "No match"
-                        }
+                        notFoundContent={null}
                       />
                     </CleanField>
                   </div>
@@ -1224,13 +1251,12 @@ const Step1CustomerInfo = ({
                         size="large"
                         allowClear
                         value={formData.referencePhone}
-                        options={customerOptions.slice(0, 10)}
+                        options={[]}
                         onSearch={(raw) => {
                           const digits = String(raw || "")
                             .replace(/\D/g, "")
                             .slice(0, 10);
                           setField("referencePhone", digits);
-                          if (digits.length >= 3) searchCustomers(digits);
                         }}
                         onChange={(val) => {
                           const v = String(val ?? "");
@@ -1240,21 +1266,9 @@ const Step1CustomerInfo = ({
                             v.replace(/\D/g, "").slice(0, 10),
                           );
                         }}
-                        onSelect={(customerId) => {
-                          const selected = resolveSelectedCustomer(
-                            customerId,
-                            customerSearchResults,
-                            getCustomerId,
-                          );
-                          if (selected && applyReferenceFromCustomer) {
-                            applyReferenceFromCustomer(selected);
-                          }
-                        }}
                         placeholder="Reference mobile (10 digits)"
                         style={{ width: "100%" }}
-                        notFoundContent={
-                          customerSearchLoading ? "Searching…" : null
-                        }
+                        notFoundContent={null}
                       />
                     </CleanField>
                   </div>

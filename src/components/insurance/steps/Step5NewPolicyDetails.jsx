@@ -454,186 +454,235 @@ const Step5NewPolicyDetails = ({
   };
 
   if (isExtendedWarranty) {
+    const ewTotalPremium = Number(formData.newTotalPremium || 0);
+    const ewTaxableAmount = Math.round(ewTotalPremium / 1.18);
+    const ewGstAmount = ewTotalPremium - ewTaxableAmount;
+
     return (
-      <div className="flex flex-col gap-6">
-        <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
-          <div className={sectionHeaderLabel}>Policy information</div>
-          <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
-            Extended warranty details
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_340px]">
+        <div className="flex flex-col gap-6">
+          <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
+            <div className={sectionHeaderLabel}>Policy information</div>
+            <div className="mt-1 text-[24px] font-black tracking-tight text-slate-800">
+              Extended warranty details
+            </div>
+            <div className="mt-1 text-sm text-slate-500">
+              Capture vehicle price context, tenure, coverage, premium and remarks
+            </div>
           </div>
-          <div className="mt-1 text-sm text-slate-500">
-            Capture vehicle price context, tenure, coverage, premium and remarks
-          </div>
-        </div>
 
-        <div className={`${shellStyle} p-5 md:p-6`}>
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Ex-Showroom Price" required>
-                  <InputNumber
-                    min={0}
-                    value={Number(formData.exShowroomPrice || 0)}
-                    onChange={(v) =>
-                      setField("exShowroomPrice", Number(v || 0))
-                    }
-                    placeholder="₹ 0"
-                    {...amountInputProps}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            {isNewCar ? (
+          <div className={`${shellStyle} p-5 md:p-6`}>
+            <Row gutter={[16, 16]}>
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
-                  <CleanField label="Date of Sale of Vehicle" required>
-                    <Input
-                      size="large"
-                      allowClear
-                      type="date"
-                      value={formData.dateOfSale}
-                      onChange={handleChange("dateOfSale")}
+                  <CleanField label="Ex-Showroom Price" required>
+                    <InputNumber
+                      min={0}
+                      value={Number(formData.exShowroomPrice || 0)}
+                      onChange={(v) =>
+                        setField("exShowroomPrice", Number(v || 0))
+                      }
+                      placeholder="₹ 0"
+                      {...amountInputProps}
                     />
                   </CleanField>
                 </div>
               </Col>
-            ) : (
-              <>
+
+              {isNewCar ? (
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
-                    <CleanField label="Date of Purchase" required>
+                    <CleanField label="Date of Sale of Vehicle" required>
                       <Input
                         size="large"
                         allowClear
                         type="date"
-                        value={formData.dateOfPurchase}
-                        onChange={handleChange("dateOfPurchase")}
+                        value={formData.dateOfSale}
+                        onChange={handleChange("dateOfSale")}
                       />
                     </CleanField>
                   </div>
                 </Col>
-                <Col xs={24} md={8}>
-                  <div className={fieldWrapClass}>
-                    <CleanField label="Current Odometer Reading" required>
-                      <InputNumber
-                        min={0}
-                        value={Number(formData.odometerReading || 0)}
-                        onChange={(v) =>
-                          setField("odometerReading", Number(v || 0))
-                        }
-                        placeholder="Kms"
-                      />
-                    </CleanField>
-                  </div>
-                </Col>
-              </>
-            )}
+              ) : (
+                <>
+                  <Col xs={24} md={8}>
+                    <div className={fieldWrapClass}>
+                      <CleanField label="Date of Purchase" required>
+                        <Input
+                          size="large"
+                          allowClear
+                          type="date"
+                          value={formData.dateOfPurchase}
+                          onChange={handleChange("dateOfPurchase")}
+                        />
+                      </CleanField>
+                    </div>
+                  </Col>
+                  <Col xs={24} md={8}>
+                    <div className={fieldWrapClass}>
+                      <CleanField label="Current Odometer Reading" required>
+                        <InputNumber
+                          min={0}
+                          value={Number(formData.odometerReading || 0)}
+                          onChange={(v) =>
+                            setField("odometerReading", Number(v || 0))
+                          }
+                          placeholder="Kms"
+                        />
+                      </CleanField>
+                    </div>
+                  </Col>
+                </>
+              )}
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Policy Purchase Date" required>
-                  <Input
-                    size="large"
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Policy Purchase Date" required>
+                    <Input
+                      size="large"
+                      allowClear
+                      type="date"
+                      value={formData.policyPurchaseDate}
+                      onChange={handleChange("policyPurchaseDate")}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Policy Duration" required>
+                    <Select
+                      size="large"
+                      allowClear
+                      value={formData.newInsuranceDuration}
+                      onChange={(v) => setField("newInsuranceDuration", v)}
+                      options={ewDurationOptions}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Policy Start Date" required>
+                    <Input
+                      size="large"
+                      allowClear
+                      type="date"
+                      value={formData.ewCommencementDate}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setField("ewCommencementDate", value);
+                        setField("newPolicyStartDate", value);
+                      }}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Policy End Date" required>
+                    <Input
+                      size="large"
+                      allowClear
+                      type="date"
+                      value={formData.ewExpiryDate}
+                      style={{ pointerEvents: "none", cursor: "default" }}
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Kms Coverage" required>
+                    <Input
+                      size="large"
+                      allowClear
+                      value={String(formData.kmsCoverage ?? "")}
+                      onChange={(e) => setField("kmsCoverage", e.target.value)}
+                      placeholder="e.g. 100000 or Unlimited"
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Premium" required>
+                    <InputNumber
+                      min={0}
+                      value={Number(formData.newTotalPremium || 0)}
+                      onChange={(v) =>
+                        setField("newTotalPremium", Number(v || 0))
+                      }
+                      placeholder="₹ 0"
+                      {...amountInputProps}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24}>
+                <CleanField label="Remarks">
+                  <Input.TextArea
                     allowClear
-                    type="date"
-                    value={formData.policyPurchaseDate}
-                    onChange={handleChange("policyPurchaseDate")}
+                    rows={2}
+                    value={formData.newRemarks}
+                    onChange={handleChange("newRemarks")}
+                    placeholder="Notes..."
                   />
                 </CleanField>
-              </div>
-            </Col>
+              </Col>
+            </Row>
+          </div>
+        </div>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Policy Duration" required>
-                  <Select
-                    size="large"
-                    allowClear
-                    value={formData.newInsuranceDuration}
-                    onChange={(v) => setField("newInsuranceDuration", v)}
-                    options={ewDurationOptions}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Policy Start Date" required>
-                  <Input
-                    size="large"
-                    allowClear
-                    type="date"
-                    value={formData.ewCommencementDate}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setField("ewCommencementDate", value);
-                      setField("newPolicyStartDate", value);
-                    }}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Policy End Date" required>
-                  <Input
-                    size="large"
-                    allowClear
-                    type="date"
-                    value={formData.ewExpiryDate}
-                    style={{ pointerEvents: "none", cursor: "default" }}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Kms Coverage" required>
-                  <Input
-                    size="large"
-                    allowClear
-                    value={String(formData.kmsCoverage ?? "")}
-                    onChange={(e) => setField("kmsCoverage", e.target.value)}
-                    placeholder="e.g. 100000 or Unlimited"
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Premium" required>
-                  <InputNumber
-                    min={0}
-                    value={Number(formData.newTotalPremium || 0)}
-                    onChange={(v) =>
-                      setField("newTotalPremium", Number(v || 0))
-                    }
-                    placeholder="₹ 0"
-                    {...amountInputProps}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-            <Col xs={24}>
-              <CleanField label="Remarks">
-                <Input.TextArea
-                  allowClear
-                  rows={2}
-                  value={formData.newRemarks}
-                  onChange={handleChange("newRemarks")}
-                  placeholder="Notes..."
+        <div className="flex flex-col gap-5">
+          <div className="sticky top-5 flex flex-col gap-3 rounded-2xl border border-indigo-200/70 bg-gradient-to-br from-indigo-50/80 via-white to-violet-50/50 px-4 pb-4 pt-4 shadow-md shadow-indigo-900/5 sm:px-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="m-0 text-[10px] font-bold uppercase tracking-widest text-indigo-700">
+                Live Premium Estimate
+              </p>
+              <span
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-emerald-800 ring-1 ring-emerald-300/70"
+                title="Recalculates on every field change"
+              >
+                <span
+                  className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500"
+                  aria-hidden
                 />
-              </CleanField>
-            </Col>
-          </Row>
+                Live
+              </span>
+            </div>
+
+            <div className="rounded-xl border border-slate-200/90 bg-gradient-to-b from-indigo-50/40 via-slate-50/90 to-white px-3.5 py-3.5 sm:px-4">
+              <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Total payable (incl. GST)
+              </p>
+              <p className="m-0 mt-1 text-3xl font-black tabular-nums tracking-tight text-slate-900">
+                {formatCurrency(ewTotalPremium)}
+              </p>
+              <div className="mt-3 space-y-1.5 border-t border-slate-200/80 pt-3">
+                <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                  <span className="text-slate-500">Taxable premium</span>
+                  <span className="font-semibold tabular-nums text-slate-800">
+                    {formatCurrency(ewTaxableAmount)}
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between gap-2 text-[12px]">
+                  <span className="text-slate-500">GST (18% of taxable)</span>
+                  <span className="font-semibold tabular-nums text-slate-800">
+                    {formatCurrency(ewGstAmount)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
