@@ -27,6 +27,7 @@ export const initialFormData = {
   dealerChannelName: "",
   channelDealerNo: "",
   dealerChannelAddress: "",
+  dealerMobile: "",
   payoutApplicable: "No",
   payoutPercent: "",
   sourceOrigin: "Direct",

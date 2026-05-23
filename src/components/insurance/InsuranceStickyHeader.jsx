@@ -5,42 +5,6 @@ import Icon from "../../components/AppIcon";
 const hasValue = (v) =>
   v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "");
 
-const resolveInsuranceCustomerDisplay = ({
-  customerName = "",
-  companyName = "",
-  contactPersonName = "",
-  sourceName = "",
-  dealerChannelName = "",
-} = {}) => {
-  const name = String(customerName || "").trim();
-  const company = String(companyName || "").trim();
-  const contact = String(contactPersonName || "").trim();
-  const channel = String(sourceName || dealerChannelName || "").trim();
-
-  if (!name) return contact || company || "";
-
-  const parenMatch = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
-  if (!parenMatch) return name;
-
-  const [, baseName, parenLabel] = parenMatch;
-  const baseNorm = baseName.trim().toLowerCase();
-  const parenNorm = parenLabel.trim().toLowerCase();
-  const contactNorm = contact.toLowerCase();
-  const companyNorm = company.toLowerCase();
-  const channelNorm = channel.toLowerCase();
-
-  if (contact && contactNorm === baseNorm) {
-    if (!company || companyNorm !== parenNorm) return contact;
-    if (channel && channelNorm !== parenNorm) return contact;
-    return contact;
-  }
-
-  if (company && companyNorm !== parenNorm) return baseName.trim();
-  if (channel && channelNorm !== parenNorm) return baseName.trim();
-
-  return name;
-};
-
 const asNumber = (v) => {
   const n = Number(String(v ?? "").replace(/[^0-9.]/g, ""));
   return Number.isFinite(n) ? n : 0;
@@ -54,48 +18,6 @@ const formatMoney = (v) => {
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(n);
-};
-
-const getPolicyDisplayName = (data = {}) => {
-  const customerLabel =
-    resolveInsuranceCustomerDisplay({
-      customerName: data.customerName,
-      companyName: data.companyName,
-      contactPersonName: data.contactPersonName,
-      sourceName: data.sourceName,
-      dealerChannelName: data.dealerChannelName,
-    }) ||
-    String(
-      data.customerName ||
-        data.contactPersonName ||
-        data.companyName ||
-        "Customer",
-    ).trim() ||
-    "Customer";
-  const vehicleLabel =
-    String(data.registrationNumber || "").trim() ||
-    [data.vehicleMake, data.vehicleModel, data.vehicleVariant]
-      .filter((value) => hasValue(value))
-      .join(" ")
-      .trim() ||
-    "Vehicle";
-  const startYear = String(
-    data.newPolicyStartDate || data.ewCommencementDate || "",
-  )
-    .trim()
-    .slice(0, 4);
-  const endSource = String(
-    data.newOdExpiryDate || data.newTpExpiryDate || data.ewExpiryDate || "",
-  )
-    .trim()
-    .slice(0, 4);
-  const yearLabel =
-    startYear && endSource
-      ? `${startYear}-${endSource}`
-      : startYear
-        ? `${startYear}`
-        : "";
-  return [customerLabel, vehicleLabel, yearLabel].filter(Boolean).join(" · ");
 };
 
 const STEP_NAMES = {
@@ -207,7 +129,12 @@ const InsuranceStickyHeader = ({
 
   const policyCoreLabel = useMemo(() => {
     return (
-      getPolicyDisplayName(data) || data.newInsuranceCompany || "New Policy"
+      String(
+        data.newInsuranceCompany ||
+          data.previousInsuranceCompany ||
+          data.insuranceCompany ||
+          "",
+      ).trim() || "Insurance Company"
     );
   }, [data]);
 
@@ -243,31 +170,7 @@ const InsuranceStickyHeader = ({
               icon="User"
               label="Customer"
               colorIdx={0}
-              title={
-                String(data.buyerType || "").toLowerCase() === "company"
-                  ? data.companyName ||
-                    data.contactPersonName ||
-                    resolveInsuranceCustomerDisplay({
-                      customerName: data.customerName,
-                      companyName: data.companyName,
-                      contactPersonName: data.contactPersonName,
-                      sourceName: data.sourceName,
-                      dealerChannelName: data.dealerChannelName,
-                    }) ||
-                    data.customerName ||
-                    "New Case"
-                  : resolveInsuranceCustomerDisplay({
-                      customerName: data.customerName,
-                      companyName: data.companyName,
-                      contactPersonName: data.contactPersonName,
-                      sourceName: data.sourceName,
-                      dealerChannelName: data.dealerChannelName,
-                    }) ||
-                    data.customerName ||
-                    data.contactPersonName ||
-                    data.companyName ||
-                    "New Case"
-              }
+              title={data.caseId || "Case Details"}
               line1={
                 [data.mobile, data.email].filter(Boolean).join(" · ") || "—"
               }
@@ -304,18 +207,13 @@ const InsuranceStickyHeader = ({
               divider={false}
               title={vehicleLine || "—"}
               line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
-              line2={
-                data.manufactureYear
-                  ? `Year: ${data.manufactureYear}`
-                  : undefined
-              }
             />
           </div>
         </div>
       </div>
 
       {/* ── Step Rail — floating above footer ── */}
-      <div className="fixed bottom-[100px] left-1/2 z-[120] -translate-x-1/2 px-3 sm:bottom-[108px]">
+      <div className="fixed bottom-[80px] left-1/2 z-[120] -translate-x-1/2 px-3 sm:bottom-[84px]">
         <div
           className="flex max-w-[calc(100vw-24px)] items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-200 bg-white px-2 py-1.5 sm:max-w-[calc(100vw-40px)] sm:px-2.5"
           style={{

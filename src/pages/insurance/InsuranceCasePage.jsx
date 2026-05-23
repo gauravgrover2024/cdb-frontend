@@ -7,6 +7,18 @@ import { insuranceApi } from "../../api/insurance";
 
 const { Text } = Typography;
 
+const normalizePolicyType = (value) => {
+  const raw = String(value || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return "";
+  if (lower === "own damage" || lower === "od" || lower === "sod") {
+    return "Stand Alone OD";
+  }
+  if (lower === "tp" || lower.includes("third party")) return "Third Party";
+  if (lower.includes("comprehensive")) return "Comprehensive";
+  return raw;
+};
+
 const InsuranceCasePage = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,6 +38,12 @@ const InsuranceCasePage = () => {
 
   const initialValues = useMemo(() => {
     if (renewFromCase) {
+      const normalizedPolicyType = normalizePolicyType(
+        renewFromCase.newPolicyType ||
+          renewFromCase.coverageType ||
+          renewFromCase.previousPolicyType ||
+          "",
+      );
       return {
         ...renewFromCase,
         _id: undefined,
@@ -40,7 +58,7 @@ const InsuranceCasePage = () => {
         claimTakenLastYear: "",
         previousInsuranceCompany: renewFromCase.newInsuranceCompany || "",
         previousPolicyNumber: renewFromCase.newPolicyNumber || "",
-        previousPolicyType: renewFromCase.newPolicyType || "",
+        previousPolicyType: normalizedPolicyType,
         previousPolicyStartDate: renewFromCase.newPolicyStartDate || "",
         previousPolicyDuration: renewFromCase.newInsuranceDuration || "",
         previousOdExpiryDate: renewFromCase.newOdExpiryDate || "",
@@ -50,7 +68,7 @@ const InsuranceCasePage = () => {
         previousRemarks: renewFromCase.newRemarks || "",
         newInsuranceCompany: "",
         newPolicyNumber: "",
-        newPolicyType: renewFromCase.newPolicyType || "Comprehensive",
+        newPolicyType: normalizedPolicyType || "Comprehensive",
         newIssueDate: "",
         newPolicyStartDate: "",
         newOdExpiryDate: "",

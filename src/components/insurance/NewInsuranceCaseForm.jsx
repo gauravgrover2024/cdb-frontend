@@ -79,6 +79,7 @@ const initialFormState = {
   dealerChannelName: "",
   channelDealerNo: "",
   dealerChannelAddress: "",
+  dealerMobile: "",
   payoutApplicable: "No",
   payoutPercent: "",
   assignedTo: "",
@@ -254,6 +255,17 @@ const getDefaultStep4PolicyDuration = ({
   coverageType = "Comprehensive",
   isNewCar,
 }) => getStep4DurationOptions({ coverageType, isNewCar })[0] || "";
+
+const normalizePolicyTypeLabel = (value) => {
+  const raw = String(value || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return "";
+  if (lower === "own damage" || lower === "od" || lower === "sod")
+    return "Stand Alone OD";
+  if (lower === "tp" || lower.includes("third party")) return "Third Party";
+  if (lower.includes("comprehensive")) return "Comprehensive";
+  return raw;
+};
 
 const isValidMongoObjectId = (value) =>
   /^[a-f\d]{24}$/i.test(String(value || "").trim());
@@ -658,6 +670,10 @@ const validateStep1Strict = (data) => {
       errors.dealerChannelName = "Dealer / Channel is required";
     if (!(data.dealerChannelAddress || "").trim())
       errors.dealerChannelAddress = "Dealer / Channel address is required";
+    const dMobile = normalizeIndianMobile(data.dealerMobile);
+    if (!dMobile) errors.dealerMobile = "Dealer mobile is required";
+    else if (dMobile.length !== 10)
+      errors.dealerMobile = "Enter a valid 10-digit dealer mobile";
     if (!(data.payoutApplicable || "").trim())
       errors.payoutApplicable = "Choose payout applicability";
     if (
@@ -719,7 +735,8 @@ const summarizeFieldErrors = (errors = {}, max = 4) => {
   const messages = Object.values(errors || {}).filter(Boolean);
   if (!messages.length) return "";
   const head = messages.slice(0, max).join("; ");
-  const extra = messages.length > max ? ` (+${messages.length - max} more)` : "";
+  const extra =
+    messages.length > max ? ` (+${messages.length - max} more)` : "";
   return `${head}${extra}`;
 };
 
@@ -1411,17 +1428,26 @@ const NewInsuranceCaseForm = ({
         });
 
         const dedup = new Map();
-        merged.forEach((row) => {
+        merged.forEach((row, idx) => {
           const key = String(
             row?.registrationNumberNormalized ||
               row?.registrationNumber ||
-              row?.regNo ||
-              "",
+              row?.regNo,
           )
             .trim()
             .toUpperCase();
-          if (!key) return;
-          if (!dedup.has(key)) dedup.set(key, row);
+          const fallbackKey = String(
+            row?._id ||
+              row?.vehicleId ||
+              row?.chassisNumber ||
+              row?.engineNumber ||
+              `${row?.make || row?.vehicleMake || ""}|${row?.model || row?.vehicleModel || ""}|${row?.variant || row?.vehicleVariant || ""}|${idx}`,
+          )
+            .trim()
+            .toUpperCase();
+          const dedupKey = key || fallbackKey;
+          if (!dedupKey) return;
+          if (!dedup.has(dedupKey)) dedup.set(dedupKey, row);
         });
 
         const customerNameLc = customerName.toLowerCase();
@@ -2210,15 +2236,31 @@ const NewInsuranceCaseForm = ({
         initialValues?.channelName ||
         initialValues?.referenceName ||
         initialFormState.sourceName,
+      previousPolicyType:
+        normalizePolicyTypeLabel(
+          initialValues?.previousPolicyType ||
+            initialValues?.previous_policy_type ||
+            "",
+        ) || initialFormState.previousPolicyType,
+      newPolicyType:
+        normalizePolicyTypeLabel(
+          initialValues?.newPolicyType ||
+            initialValues?.coverageType ||
+            initialValues?.new_policy_type ||
+            "",
+        ) || initialFormState.newPolicyType,
       dealerChannelName:
         initialValues?.dealerChannelName ||
-        initialValues?.dealerName ||
-        initialValues?.sourceDetails ||
+        initialValues?.dealer_channel_name ||
         initialFormState.dealerChannelName,
       dealerChannelAddress:
         initialValues?.dealerChannelAddress ||
-        initialValues?.dealerAddress ||
+        initialValues?.dealer_channel_address ||
         initialFormState.dealerChannelAddress,
+      dealerMobile:
+        initialValues?.dealerMobile ||
+        initialValues?.dealer_mobile ||
+        initialFormState.dealerMobile,
       payoutApplicable:
         initialValues?.payoutApplicable ||
         initialFormState.payoutApplicable ||
@@ -2403,10 +2445,7 @@ const NewInsuranceCaseForm = ({
     },
     [isExtendedWarranty, isNewCar, shouldSkipPreviousPolicyForUsedCar],
   );
-  const step1Errors = useMemo(
-    () => validateStep1Minimal(formData),
-    [formData],
-  );
+  const step1Errors = useMemo(() => validateStep1Minimal(formData), [formData]);
   const step1StrictErrors = useMemo(
     () => validateStep1Strict(formData),
     [formData],
@@ -2940,11 +2979,16 @@ const NewInsuranceCaseForm = ({
       if (value === "Direct") {
         next.dealerChannelName = "";
         next.dealerChannelAddress = "";
+        next.dealerMobile = "";
         next.payoutApplicable = "No";
         next.payoutPercent = "";
         if (
-          String(next.policyDoneBy || "").trim().toLowerCase() !== "broker" &&
-          String(next.policyDoneBy || "").trim().toLowerCase() !== "showroom"
+          String(next.policyDoneBy || "")
+            .trim()
+            .toLowerCase() !== "broker" &&
+          String(next.policyDoneBy || "")
+            .trim()
+            .toLowerCase() !== "showroom"
         ) {
           next.channelDealerNo = "";
         }
@@ -2963,6 +3007,15 @@ const NewInsuranceCaseForm = ({
       return Object.keys(step3Errors).length === 0;
     if (step === 4 && !shouldSkipStep(4))
       return quotes.length > 0 && Boolean(acceptedQuoteId);
+    if (step === 6) {
+      return (
+        Boolean(String(formData.newInsuranceCompany || "").trim()) &&
+        Boolean(String(formData.newPolicyType || "").trim()) &&
+        Boolean(String(formData.newPolicyNumber || "").trim()) &&
+        Boolean(String(formData.newIssueDate || "").trim()) &&
+        Boolean(String(formData.newPolicyStartDate || "").trim())
+      );
+    }
     return true;
   };
 
@@ -3021,19 +3074,125 @@ const NewInsuranceCaseForm = ({
   }, [getNextVisibleStep, navigateToStep, step]);
 
   const handleClearForm = () => {
+    const clearCurrentStep = () => {
+      if (step === 1) {
+        setFormData((prev) => ({
+          ...prev,
+          customerName: initialFormState.customerName,
+          companyName: initialFormState.companyName,
+          contactPersonName: initialFormState.contactPersonName,
+          mobile: initialFormState.mobile,
+          alternatePhone: initialFormState.alternatePhone,
+          email: initialFormState.email,
+          gender: initialFormState.gender,
+          panNumber: initialFormState.panNumber,
+          aadhaarNumber: initialFormState.aadhaarNumber,
+          gstNumber: initialFormState.gstNumber,
+          residenceAddress: initialFormState.residenceAddress,
+          pincode: initialFormState.pincode,
+          city: initialFormState.city,
+          nomineeName: initialFormState.nomineeName,
+          nomineeRelationship: initialFormState.nomineeRelationship,
+          nomineeDob: initialFormState.nomineeDob,
+          nomineeAge: initialFormState.nomineeAge,
+          referenceName: initialFormState.referenceName,
+          referencePhone: initialFormState.referencePhone,
+        }));
+      } else if (step === 2) {
+        setFormData((prev) => ({
+          ...prev,
+          registrationAllotted: initialFormState.registrationAllotted,
+          registrationNumber: initialFormState.registrationNumber,
+          vehicleMake: initialFormState.vehicleMake,
+          vehicleModel: initialFormState.vehicleModel,
+          vehicleVariant: initialFormState.vehicleVariant,
+          fuelType: initialFormState.fuelType,
+          cubicCapacity: initialFormState.cubicCapacity,
+          manufactureMonth: initialFormState.manufactureMonth,
+          manufactureYear: initialFormState.manufactureYear,
+          dateOfReg: initialFormState.dateOfReg,
+          regAuthority: initialFormState.regAuthority,
+          engineNumber: initialFormState.engineNumber,
+          chassisNumber: initialFormState.chassisNumber,
+          hypothecation: initialFormState.hypothecation,
+          batteryNumber: initialFormState.batteryNumber,
+          chargerNumber: initialFormState.chargerNumber,
+        }));
+      } else if (step === 3) {
+        setFormData((prev) => ({
+          ...prev,
+          previousInsuranceCompany: initialFormState.previousInsuranceCompany,
+          previousPolicyType: initialFormState.previousPolicyType,
+          previousPolicyNumber: initialFormState.previousPolicyNumber,
+          previousPolicyStartDate: initialFormState.previousPolicyStartDate,
+          previousPolicyDuration: initialFormState.previousPolicyDuration,
+          previousOdExpiryDate: initialFormState.previousOdExpiryDate,
+          previousTpExpiryDate: initialFormState.previousTpExpiryDate,
+          previousNcbDiscount: initialFormState.previousNcbDiscount,
+          previousHypothecation: initialFormState.previousHypothecation,
+          previousRemarks: initialFormState.previousRemarks,
+          previousIdvAmount: initialFormState.previousIdvAmount,
+          previousOwnDamageAmount: initialFormState.previousOwnDamageAmount,
+          previousBasicOwnDamageAmount: initialFormState.previousBasicOwnDamageAmount,
+          previousThirdPartyAmount: initialFormState.previousThirdPartyAmount,
+          previousBasicThirdPartyAmount:
+            initialFormState.previousBasicThirdPartyAmount,
+          previousAddOnsTotal: initialFormState.previousAddOnsTotal,
+          previousTotalPremium: initialFormState.previousTotalPremium,
+          previousSelectedAddOns: initialFormState.previousSelectedAddOns,
+          claimTakenLastYear: initialFormState.claimTakenLastYear,
+        }));
+      } else if (step === 4) {
+        setQuotes([]);
+        setAcceptedQuoteId(null);
+        resetQuoteDraft();
+      } else if (step === 6) {
+        setFormData((prev) => ({
+          ...prev,
+          newInsuranceCompany: initialFormState.newInsuranceCompany,
+          newPolicyType: initialFormState.newPolicyType,
+          newPolicyNumber: initialFormState.newPolicyNumber,
+          newIssueDate: initialFormState.newIssueDate,
+          newPolicyStartDate: initialFormState.newPolicyStartDate,
+          newInsuranceDuration: initialFormState.newInsuranceDuration,
+          newOdExpiryDate: initialFormState.newOdExpiryDate,
+          newTpExpiryDate: initialFormState.newTpExpiryDate,
+          newNcbDiscount: initialFormState.newNcbDiscount,
+          newRemarks: initialFormState.newRemarks,
+          newIdvAmount: initialFormState.newIdvAmount,
+          newOwnDamageAmount: initialFormState.newOwnDamageAmount,
+          newBasicOwnDamageAmount: initialFormState.newBasicOwnDamageAmount,
+          newThirdPartyAmount: initialFormState.newThirdPartyAmount,
+          newBasicThirdPartyAmount: initialFormState.newBasicThirdPartyAmount,
+          newAddOnsTotal: initialFormState.newAddOnsTotal,
+          newTotalPremium: initialFormState.newTotalPremium,
+          newSelectedAddOns: initialFormState.newSelectedAddOns,
+        }));
+      } else if (step === 7) {
+        setDocuments([]);
+      } else if (step === 8) {
+        setPaymentHistory([]);
+      } else if (step === 9) {
+        setFormData((prev) => ({
+          ...prev,
+          payoutApplicable: initialFormState.payoutApplicable,
+          payoutPercent: initialFormState.payoutPercent,
+          payoutPercentage: initialFormState.payoutPercentage,
+        }));
+      }
+      setShowErrors(false);
+    };
+
     Modal.confirm({
       title: "Clear Form",
       content:
-        "Are you sure you want to clear all fields? This action cannot be undone.",
+        "Are you sure you want to clear only the current step fields? This action cannot be undone.",
       okText: "Clear",
       okType: "danger",
       cancelText: "Cancel",
       onOk: () => {
-        setFormData(initialFormState);
-        setQuotes([]);
-        setAcceptedQuoteId(null);
-        setDocuments([]);
-        message.success("Form cleared successfully.");
+        clearCurrentStep();
+        message.success("Current step cleared successfully.");
       },
     });
   };
@@ -3213,6 +3372,7 @@ const NewInsuranceCaseForm = ({
       );
       setEditingQuoteId(null);
       resetQuoteDraft();
+      setShowErrors(false);
       return;
     }
 
@@ -3223,12 +3383,14 @@ const NewInsuranceCaseForm = ({
     };
     setQuotes((prev) => [...prev, newQuote]);
     resetQuoteDraft();
+    setShowErrors(false);
     // persistNow({ silent: true });
   };
 
   const acceptQuote = async (id) => {
     const previousAcceptedId = acceptedQuoteId;
     setAcceptedQuoteId(id);
+    setShowErrors(false);
     const q = quotes.find((x) => String(getQuoteRowId(x)) === String(id));
     if (!q) return;
 
@@ -3313,7 +3475,7 @@ const NewInsuranceCaseForm = ({
           return {
             ...prev,
             newInsuranceCompany: q.insuranceCompany,
-            newPolicyType: q.coverageType,
+            newPolicyType: normalizePolicyTypeLabel(q.coverageType),
             newInsuranceDuration: q.policyDuration,
             newIssueDate: "",
             newPolicyStartDate: "",
@@ -3434,12 +3596,18 @@ const NewInsuranceCaseForm = ({
       setShowErrors(true);
       if (Object.keys(step1StrictErrors).length) setStep(1);
       else if (Object.keys(step2Errors).length) setStep(2);
-      else if (!shouldSkipStep(3) && Object.keys(step3Errors).length) setStep(3);
-      else if (
-        (!shouldSkipStep(4) && (!quotes.length || !acceptedQuoteId)) ||
-        !String(formData.newInsuranceCompany || "").trim()
-      ) {
+      else if (!shouldSkipStep(3) && Object.keys(step3Errors).length)
+        setStep(3);
+      else if (!shouldSkipStep(4) && (!quotes.length || !acceptedQuoteId)) {
         setStep(shouldSkipStep(4) ? 6 : 4);
+      } else if (
+        !String(formData.newInsuranceCompany || "").trim() ||
+        !String(formData.newPolicyType || "").trim() ||
+        !String(formData.newPolicyNumber || "").trim() ||
+        !String(formData.newIssueDate || "").trim() ||
+        !String(formData.newPolicyStartDate || "").trim()
+      ) {
+        setStep(6);
       }
       message.error(finalSubmitErrors[0], 8);
       return;
@@ -3505,6 +3673,13 @@ const NewInsuranceCaseForm = ({
         content: "Accept one quote before moving to the next step.",
       };
     }
+    if (step === 6 && !handleStepValidation()) {
+      return {
+        key: "insurance-step-validation",
+        content:
+          "Complete policy fields in this stage before moving ahead: insurance company, policy type/number, issue date and start date.",
+      };
+    }
     return null;
   }, [
     showErrors,
@@ -3515,6 +3690,7 @@ const NewInsuranceCaseForm = ({
     acceptedQuoteId,
     quotes.length,
     shouldSkipStep,
+    handleStepValidation,
   ]);
 
   useEffect(() => {
@@ -3662,6 +3838,7 @@ const NewInsuranceCaseForm = ({
             onStartEditQuote={startEditQuote}
             editingQuoteId={editingQuoteId}
             isNewCar={isNewCar}
+            isIssued={formData.status === "issued"}
             suggestedNcbDiscount={step4SuggestedNcb}
             suggestedIdv={step4SuggestedIdv}
             showStandaloneAgeWarning={step4ShowStandaloneAgeWarning}
@@ -3886,209 +4063,207 @@ const NewInsuranceCaseForm = ({
           </div>
         </div>
       ) : (
-    <div
-      className={insuranceShellClassName}
-    >
-      {InsuranceStickyHeader ? (
-        <InsuranceStickyHeader
-          formData={formData}
-          activeStep={step}
-          onStepClick={navigateToStep}
-          skipPreviousPolicyStep={shouldSkipStep(3)}
-          skipQuotesStep={shouldSkipStep(4)}
-          innerRef={stickyHeaderRef}
-        />
-      ) : null}
+        <div className={insuranceShellClassName}>
+          {InsuranceStickyHeader ? (
+            <InsuranceStickyHeader
+              formData={formData}
+              activeStep={step}
+              onStepClick={navigateToStep}
+              skipPreviousPolicyStep={shouldSkipStep(3)}
+              skipQuotesStep={shouldSkipStep(4)}
+              innerRef={stickyHeaderRef}
+            />
+          ) : null}
 
-      <div
-        className="pb-36 sm:pb-40 md:pb-44"
-        style={{
-          paddingTop: `max(${stickyHeaderHeight + 10}px, 3.25rem)`,
-        }}
-      >
-        <div className="w-full px-3 py-3 md:px-5 lg:px-6">
-          <div className="space-y-5">{renderStep()}</div>
-        </div>
-      </div>
-
-      {InsuranceStageFooter ? (
-        <InsuranceStageFooter
-          activeStep={step}
-          displayStep={stepIndex + 1}
-          totalSteps={visibleSteps.length}
-          isLastStep={stepIndex === visibleSteps.length - 1}
-          onNext={step === 9 ? handleSubmitFinal : goNext}
-          onExit={handleSaveAndExit}
-          onDiscard={handleDiscard}
-          onClear={handleClearForm}
-          isSaving={saving}
-          mode={mode}
-        />
-      ) : null}
-
-      <Modal
-        title="Record Payment"
-        open={paymentModalVisible}
-        onCancel={() => {
-          setPaymentModalVisible(false);
-          setPaymentForm({
-            amount: 0,
-            date: new Date().toISOString().slice(0, 10),
-            paymentType: "customer",
-            paymentMode: "Cash",
-            transactionRef: "",
-            remarks: "",
-          });
-        }}
-        onOk={() => {
-          if (paymentForm.amount <= 0) {
-            message.error("Amount must be greater than 0");
-            return;
-          }
-          const newPayment = {
-            _id: `payment-${Date.now()}`,
-            idempotencyKey: `payment-${Date.now()}-${Math.random()
-              .toString(36)
-              .slice(2, 8)}`,
-            ...paymentForm,
-            amount: Number(paymentForm.amount),
-            recordedAt: new Date().toISOString(),
-          };
-          setPaymentHistory((prev) => [...prev, newPayment]);
-
-          if (paymentForm.paymentType === "customer") {
-            setFormData((prev) => ({
-              ...prev,
-              customerPaymentReceived:
-                Number(prev.customerPaymentReceived || 0) +
-                Number(paymentForm.amount),
-            }));
-          } else {
-            setFormData((prev) => ({
-              ...prev,
-              inhousePaymentReceived:
-                Number(prev.inhousePaymentReceived || 0) +
-                Number(paymentForm.amount),
-            }));
-          }
-
-          setPaymentModalVisible(false);
-          setPaymentForm({
-            amount: 0,
-            date: new Date().toISOString().slice(0, 10),
-            paymentType: "customer",
-            paymentMode: "Cash",
-            transactionRef: "",
-            remarks: "",
-          });
-          schedulePersist(250);
-          message.success("Payment recorded successfully");
-        }}
-        okText="Record Payment"
-      >
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
-          <div>
-            <Text strong>Payment Type *</Text>
-            <Radio.Group
-              value={paymentForm.paymentType}
-              onChange={(e) =>
-                setPaymentForm((prev) => ({
-                  ...prev,
-                  paymentType: e.target.value,
-                }))
-              }
-              style={{ marginTop: 6, display: "block" }}
-              optionType="button"
-              buttonStyle="solid"
-            >
-              <Radio.Button value="customer">
-                Customer → AutoCredit
-              </Radio.Button>
-              <Radio.Button value="inhouse">
-                AutoCredit → Insurance Co.
-              </Radio.Button>
-            </Radio.Group>
+          <div
+            className="pb-28 sm:pb-32 md:pb-36"
+            style={{
+              paddingTop: `max(${stickyHeaderHeight + 10}px, 3.25rem)`,
+            }}
+          >
+            <div className="w-full px-3 py-3 md:px-5 lg:px-6">
+              <div className="space-y-5">{renderStep()}</div>
+            </div>
           </div>
 
-          <Row gutter={[16, 16]}>
-            <Col xs={24} md={12}>
-              <Text strong>Amount (₹) *</Text>
-              <InputNumber
-                min={0}
-                value={paymentForm.amount}
-                onChange={(v) =>
-                  setPaymentForm((prev) => ({ ...prev, amount: v }))
-                }
-                style={{ width: "100%", marginTop: 6 }}
-                placeholder="Enter amount"
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text strong>Date *</Text>
-              <Input
-                type="date"
-                value={paymentForm.date}
-                onChange={(e) =>
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    date: e.target.value,
-                  }))
-                }
-                style={{ marginTop: 6 }}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text strong>Payment Mode *</Text>
-              <Select
-                value={paymentForm.paymentMode}
-                onChange={(v) =>
-                  setPaymentForm((prev) => ({ ...prev, paymentMode: v }))
-                }
-                style={{ width: "100%", marginTop: 6 }}
-                options={[
-                  { label: "Cash", value: "Cash" },
-                  { label: "Cheque", value: "Cheque" },
-                  { label: "NEFT", value: "NEFT" },
-                  { label: "RTGS", value: "RTGS" },
-                  { label: "UPI", value: "UPI" },
-                  { label: "Card", value: "Card" },
-                  { label: "Other", value: "Other" },
-                ]}
-              />
-            </Col>
-            <Col xs={24} md={12}>
-              <Text strong>Transaction Ref</Text>
-              <Input
-                value={paymentForm.transactionRef}
-                onChange={(e) =>
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    transactionRef: e.target.value,
-                  }))
-                }
-                style={{ marginTop: 6 }}
-                placeholder="UTR / Cheque no."
-              />
-            </Col>
-            <Col xs={24}>
-              <Text strong>Remarks</Text>
-              <Input.TextArea
-                rows={2}
-                value={paymentForm.remarks}
-                onChange={(e) =>
-                  setPaymentForm((prev) => ({
-                    ...prev,
-                    remarks: e.target.value,
-                  }))
-                }
-                style={{ marginTop: 6 }}
-                placeholder="Optional notes"
-              />
-            </Col>
-          </Row>
-        </Space>
-      </Modal>
-    </div>
+          {InsuranceStageFooter ? (
+            <InsuranceStageFooter
+              activeStep={step}
+              displayStep={stepIndex + 1}
+              totalSteps={visibleSteps.length}
+              isLastStep={stepIndex === visibleSteps.length - 1}
+              onNext={step === 9 ? handleSubmitFinal : goNext}
+              onExit={handleSaveAndExit}
+              onDiscard={handleDiscard}
+              onClear={handleClearForm}
+              isSaving={saving}
+              mode={mode}
+            />
+          ) : null}
+
+          <Modal
+            title="Record Payment"
+            open={paymentModalVisible}
+            onCancel={() => {
+              setPaymentModalVisible(false);
+              setPaymentForm({
+                amount: 0,
+                date: new Date().toISOString().slice(0, 10),
+                paymentType: "customer",
+                paymentMode: "Cash",
+                transactionRef: "",
+                remarks: "",
+              });
+            }}
+            onOk={() => {
+              if (paymentForm.amount <= 0) {
+                message.error("Amount must be greater than 0");
+                return;
+              }
+              const newPayment = {
+                _id: `payment-${Date.now()}`,
+                idempotencyKey: `payment-${Date.now()}-${Math.random()
+                  .toString(36)
+                  .slice(2, 8)}`,
+                ...paymentForm,
+                amount: Number(paymentForm.amount),
+                recordedAt: new Date().toISOString(),
+              };
+              setPaymentHistory((prev) => [...prev, newPayment]);
+
+              if (paymentForm.paymentType === "customer") {
+                setFormData((prev) => ({
+                  ...prev,
+                  customerPaymentReceived:
+                    Number(prev.customerPaymentReceived || 0) +
+                    Number(paymentForm.amount),
+                }));
+              } else {
+                setFormData((prev) => ({
+                  ...prev,
+                  inhousePaymentReceived:
+                    Number(prev.inhousePaymentReceived || 0) +
+                    Number(paymentForm.amount),
+                }));
+              }
+
+              setPaymentModalVisible(false);
+              setPaymentForm({
+                amount: 0,
+                date: new Date().toISOString().slice(0, 10),
+                paymentType: "customer",
+                paymentMode: "Cash",
+                transactionRef: "",
+                remarks: "",
+              });
+              schedulePersist(250);
+              message.success("Payment recorded successfully");
+            }}
+            okText="Record Payment"
+          >
+            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+              <div>
+                <Text strong>Payment Type *</Text>
+                <Radio.Group
+                  value={paymentForm.paymentType}
+                  onChange={(e) =>
+                    setPaymentForm((prev) => ({
+                      ...prev,
+                      paymentType: e.target.value,
+                    }))
+                  }
+                  style={{ marginTop: 6, display: "block" }}
+                  optionType="button"
+                  buttonStyle="solid"
+                >
+                  <Radio.Button value="customer">
+                    Customer → AutoCredit
+                  </Radio.Button>
+                  <Radio.Button value="inhouse">
+                    AutoCredit → Insurance Co.
+                  </Radio.Button>
+                </Radio.Group>
+              </div>
+
+              <Row gutter={[16, 16]}>
+                <Col xs={24} md={12}>
+                  <Text strong>Amount (₹) *</Text>
+                  <InputNumber
+                    min={0}
+                    value={paymentForm.amount}
+                    onChange={(v) =>
+                      setPaymentForm((prev) => ({ ...prev, amount: v }))
+                    }
+                    style={{ width: "100%", marginTop: 6 }}
+                    placeholder="Enter amount"
+                  />
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Date *</Text>
+                  <Input
+                    type="date"
+                    value={paymentForm.date}
+                    onChange={(e) =>
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        date: e.target.value,
+                      }))
+                    }
+                    style={{ marginTop: 6 }}
+                  />
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Payment Mode *</Text>
+                  <Select
+                    value={paymentForm.paymentMode}
+                    onChange={(v) =>
+                      setPaymentForm((prev) => ({ ...prev, paymentMode: v }))
+                    }
+                    style={{ width: "100%", marginTop: 6 }}
+                    options={[
+                      { label: "Cash", value: "Cash" },
+                      { label: "Cheque", value: "Cheque" },
+                      { label: "NEFT", value: "NEFT" },
+                      { label: "RTGS", value: "RTGS" },
+                      { label: "UPI", value: "UPI" },
+                      { label: "Card", value: "Card" },
+                      { label: "Other", value: "Other" },
+                    ]}
+                  />
+                </Col>
+                <Col xs={24} md={12}>
+                  <Text strong>Transaction Ref</Text>
+                  <Input
+                    value={paymentForm.transactionRef}
+                    onChange={(e) =>
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        transactionRef: e.target.value,
+                      }))
+                    }
+                    style={{ marginTop: 6 }}
+                    placeholder="UTR / Cheque no."
+                  />
+                </Col>
+                <Col xs={24}>
+                  <Text strong>Remarks</Text>
+                  <Input.TextArea
+                    rows={2}
+                    value={paymentForm.remarks}
+                    onChange={(e) =>
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        remarks: e.target.value,
+                      }))
+                    }
+                    style={{ marginTop: 6 }}
+                    placeholder="Optional notes"
+                  />
+                </Col>
+              </Row>
+            </Space>
+          </Modal>
+        </div>
       )}
     </InsuranceAntdProvider>
   );

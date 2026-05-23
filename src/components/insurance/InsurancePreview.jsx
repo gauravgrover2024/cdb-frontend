@@ -400,10 +400,20 @@ const normalizeCaseForPreview = (raw = {}) => {
 
   return {
     ...raw,
-    customerName: coalesce(raw.customerName, snap.customerName),
+    customerName: coalesce(raw.customerName, snap.customerName, raw.companyName),
+    companyName: coalesce(raw.companyName, snap.companyName),
+    contactPersonName: coalesce(raw.contactPersonName, snap.contactPersonName),
     mobile: coalesce(raw.mobile, snap.primaryMobile, raw.primaryMobile),
-    email: coalesce(raw.email, snap.email),
+    alternatePhone: coalesce(
+      raw.alternatePhone,
+      raw.alternate_phone,
+      raw.altMobile,
+      raw.alternateMobile,
+      Array.isArray(raw.extraMobiles) ? raw.extraMobiles[0] : "",
+    ),
+    email: coalesce(raw.email, snap.email, raw.emailAddress),
     panNumber: coalesce(raw.panNumber, snap.panNumber),
+    aadhaarNumber: coalesce(raw.aadhaarNumber, raw.aadharNumber, raw.aadhaar),
     residenceAddress: coalesce(raw.residenceAddress, snap.residenceAddress),
     pincode: coalesce(raw.pincode, snap.pincode),
     city: coalesce(raw.city, snap.city),
@@ -414,10 +424,12 @@ const normalizeCaseForPreview = (raw = {}) => {
       raw.payoutPercent ?? raw.payoutPercentage ?? raw.payout_percent,
     dealerChannelNo: coalesce(
       raw.channelDealerNo,
+      raw.dealerChannelNo,
       raw.channel_dealer_no,
       raw.dealerChannelNumber,
       raw.dealer_channel_number,
     ),
+    dealerChannelName: coalesce(raw.dealerChannelName, raw.dealerName),
     assignedTo: coalesce(
       raw.assignedTo,
       raw.employeeUserId,
@@ -429,6 +441,13 @@ const normalizeCaseForPreview = (raw = {}) => {
       raw.nomineeRelationship,
       raw.nominee_relation,
     ),
+    registrationAllotted: coalesce(
+      raw.registrationAllotted,
+      raw.registration_allotted,
+    ),
+    vehicleMake: coalesce(raw.vehicleMake, raw.make),
+    vehicleModel: coalesce(raw.vehicleModel, raw.model),
+    vehicleVariant: coalesce(raw.vehicleVariant, raw.variant),
     fuelType: coalesce(raw.fuelType, raw.vehicleFuelType),
   };
 };
@@ -1004,6 +1023,9 @@ const STAGE_CATALOG = [
   },
 ];
 
+// Temporarily disable documents stage in insurance preview modal.
+const SHOW_INSURANCE_PREVIEW_DOCUMENTS = false;
+
 const InsurancePreview = ({
   visible,
   onClose,
@@ -1071,6 +1093,8 @@ const InsurancePreview = ({
   const visibleStages = useMemo(() => {
     return STAGE_CATALOG.filter((stage) => {
       if (isNewCar && stage.originalStep === 3) return false;
+      if (!SHOW_INSURANCE_PREVIEW_DOCUMENTS && stage.key === "documents")
+        return false;
       return true;
     }).map((stage, idx) => ({
       ...stage,
@@ -1703,7 +1727,15 @@ const InsurancePreview = ({
                       value: data.registrationNumber,
                       highlight: true,
                     },
-                    { label: "Reg Authority", value: data.regAuthority },
+                    {
+                      label: "Registration Allotted",
+                      value: firstFilled(data.registrationAllotted, "Yes"),
+                    },
+                    {
+                      label: "Manufacture Month",
+                      value: data.manufactureMonth,
+                    },
+                    { label: "Manufacture Year", value: data.manufactureYear },
                     {
                       label: "Date of Reg",
                       value: data.dateOfReg,
@@ -1712,19 +1744,15 @@ const InsurancePreview = ({
                     { label: "Brand", value: data.vehicleMake },
                     { label: "Model", value: data.vehicleModel },
                     { label: "Vehicle Variant", value: data.vehicleVariant },
-                    { label: "Cubic Capacity (cc)", value: data.cubicCapacity },
                     {
                       label: "Fuel Type",
                       value: firstFilled(data.fuelType, data.vehicleFuelType),
                     },
+                    { label: "Cubic Capacity (cc)", value: data.cubicCapacity },
                     { label: "Types of Vehicle", value: data.typesOfVehicle },
                     { label: "Engine Number", value: data.engineNumber },
                     { label: "Chassis Number", value: data.chassisNumber },
-                    {
-                      label: "Manufacture Month",
-                      value: data.manufactureMonth,
-                    },
-                    { label: "Manufacture Year", value: data.manufactureYear },
+                    { label: "Reg Authority", value: data.regAuthority },
                     {
                       label: "Manufacture Date",
                       value: data.manufactureDate,
@@ -2011,7 +2039,7 @@ const InsurancePreview = ({
               </ContinuousPageSection>
             )}
 
-            {hasStage("documents") && (
+            {/* {hasStage("documents") && (
               <ContinuousPageSection
                 ref={(node) => {
                   sectionRefs.current.documents = node;
@@ -2146,7 +2174,7 @@ const InsurancePreview = ({
                   <InlineEmptyState text="No documents uploaded yet." />
                 ) : null}
               </ContinuousPageSection>
-            )}
+            )} */}
 
             {hasStage("payment") && (
               <ContinuousPageSection
