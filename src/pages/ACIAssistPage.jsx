@@ -1,6 +1,6 @@
 import React from "react";
-import AgentChatPage from "../components/aci-assist/AgentChatPage";
+import AciAssistV2 from "../components/aci-assist-v2/AciAssistV2";
 
 export default function ACIAssistPage() {
-  return <AgentChatPage />;
+  return <AciAssistV2 />;
 }
