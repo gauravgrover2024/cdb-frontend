@@ -6,6 +6,14 @@ import { customersApi } from "../../../../../api/customers";
 import { uploadSingleFile } from "../../../../../api/uploads";
 import LoanDocumentViewerModal from "../../shared/LoanDocumentViewerModal";
 import LoanDocumentUploadModal from "../../shared/LoanDocumentUploadModal";
+import API_BASE_URL from "../../../../../config/apiBaseUrl";
+
+const getDocumentUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+  if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+  const apiBase = String(API_BASE_URL || "").replace(/\/+$/, "");
+  return `${apiBase}/api/upload/file?url=${encodeURIComponent(url)}`;
+};
 
 const getTagColor = () =>
   "bg-secondary text-secondary-foreground border-border";
@@ -804,28 +812,34 @@ const PostFileDocumentManagement = ({ form }) => {
                   className="relative h-32 w-full shrink-0 cursor-pointer overflow-hidden rounded-2xl border border-border/70 bg-muted lg:h-28 lg:w-28"
                   onClick={() => setViewDocument(doc)}
                 >
-                  {doc.url &&
-                  !doc.url.toLowerCase().endsWith(".pdf") &&
-                  doc.format !== "pdf" ? (
-                    <img
-                      src={doc.url}
-                      alt={getDocDisplayLabel(doc, index)}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-muted/30">
-                      <Icon
-                        name={doc.url?.toLowerCase().endsWith(".pdf") ? "FileText" : "File"}
-                        size={32}
-                        className={doc.url ? "text-rose-500 dark:text-rose-300" : "text-muted-foreground"}
+                  {(() => {
+                    const isPdf =
+                      (doc.url && String(doc.url).toLowerCase().includes(".pdf")) ||
+                      String(doc.format || "").toLowerCase().includes("pdf") ||
+                      String(doc.type || "").toLowerCase().includes("pdf") ||
+                      String(doc.mimeType || "").toLowerCase().includes("pdf");
+
+                    return doc.url && !isPdf ? (
+                      <img
+                        src={getDocumentUrl(doc.url)}
+                        alt={getDocDisplayLabel(doc, index)}
+                        className="h-full w-full object-cover"
                       />
-                      {doc.url?.toLowerCase().endsWith(".pdf") && (
-                        <span className="absolute bottom-2 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white dark:text-slate-950">
-                          PDF
-                        </span>
-                      )}
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted/30">
+                        <Icon
+                          name={isPdf ? "FileText" : "File"}
+                          size={32}
+                          className={doc.url ? "text-rose-500 dark:text-rose-300" : "text-muted-foreground"}
+                        />
+                        {isPdf && (
+                          <span className="absolute bottom-2 rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-bold text-white dark:text-slate-950">
+                            PDF
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {doc.isPreFile && (
                     <span className="absolute left-2 top-2 rounded-full bg-sky-500/90 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-white dark:text-slate-950">
                       Synced
@@ -912,7 +926,7 @@ const PostFileDocumentManagement = ({ form }) => {
                         size="sm"
                         onClick={() => {
                           const link = document.createElement("a");
-                          link.href = doc.url;
+                          link.href = getDocumentUrl(doc.url);
                           link.download = getDocDisplayLabel(doc, index)
                             .replace(/\s+/g, "_")
                             .toLowerCase();
@@ -1049,19 +1063,19 @@ const PostFileDocumentManagement = ({ form }) => {
                       }}
                     >
                       <div className="aspect-square bg-muted flex items-center justify-center">
-                        {doc.url ? (
-                          <img
-                            src={doc.url}
-                            alt={getDocDisplayLabel(doc, index)}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <Icon
-                            name="FileText"
-                            size={48}
-                            className="text-muted-foreground"
-                          />
-                        )}
+                        {doc.url && !((doc.url && String(doc.url).toLowerCase().includes(".pdf")) || String(doc.format || "").toLowerCase().includes("pdf") || String(doc.type || "").toLowerCase().includes("pdf")) ? (
+                           <img
+                             src={getDocumentUrl(doc.url)}
+                             alt={getDocDisplayLabel(doc, index)}
+                             className="w-full h-full object-cover"
+                           />
+                         ) : (
+                           <Icon
+                             name={(doc.url && String(doc.url).toLowerCase().includes(".pdf")) || String(doc.format || "").toLowerCase().includes("pdf") || String(doc.type || "").toLowerCase().includes("pdf") ? "FileText" : "File"}
+                             size={48}
+                             className={doc.url ? "text-rose-500 dark:text-rose-300" : "text-muted-foreground"}
+                           />
+                         )}
                       </div>
                       <div className="bg-card p-3.5">
                         <p className="truncate text-sm font-semibold text-foreground">

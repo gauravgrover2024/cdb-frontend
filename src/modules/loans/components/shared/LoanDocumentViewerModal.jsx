@@ -274,9 +274,20 @@ const LoanDocumentViewerModal = ({
       return undefined;
     }
     const load = async () => {
+      let token = null;
+      try {
+        token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      } catch (e) {
+        console.warn("Could not access storage:", e);
+      }
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       for (let i = 0; i < srcCandidates.length; i += 1) {
         try {
-          const response = await fetch(srcCandidates[i], { credentials: "include" });
+          const response = await fetch(srcCandidates[i], {
+            credentials: "include",
+            headers,
+          });
           if (!response.ok) throw new Error("Unable to load PDF");
           const blob = await response.blob();
           if (!blob || !blob.size) throw new Error("Empty PDF");
@@ -657,7 +668,7 @@ const LoanDocumentViewerModal = ({
                 }}
               >
                 <img
-                  src={activeDoc.url}
+                  src={activeDoc.proxyUrl || activeDoc.url}
                   alt={getDocDisplayLabel(activeDoc, activeIndex)}
                   draggable={false}
                   loading="lazy"
@@ -754,7 +765,7 @@ const LoanDocumentViewerModal = ({
                       <div className="h-14 w-full overflow-hidden rounded-md border border-border/50 bg-muted">
                         {doc.isImage ? (
                           <img
-                            src={doc.url}
+                            src={doc.proxyUrl || doc.url}
                             alt={getDocDisplayLabel(doc, idx)}
                             className="h-full w-full object-cover"
                             onError={(event) => {

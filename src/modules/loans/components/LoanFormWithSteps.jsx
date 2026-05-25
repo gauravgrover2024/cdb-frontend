@@ -2156,6 +2156,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       const payload = {
         ...sanitized,
+        postfile_tags: (sanitized?.postfile_tags || [])
+          .map((tag) => (typeof tag === "string" ? tag : tag?.name))
+          .filter(Boolean),
         typeOfLoan:
           normalizeLoanTypeLabel(sanitized?.typeOfLoan) ||
           sanitized?.typeOfLoan,
