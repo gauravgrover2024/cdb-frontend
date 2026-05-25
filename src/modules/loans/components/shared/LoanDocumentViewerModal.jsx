@@ -274,9 +274,20 @@ const LoanDocumentViewerModal = ({
       return undefined;
     }
     const load = async () => {
+      let token = null;
+      try {
+        token = localStorage.getItem("token") || sessionStorage.getItem("token");
+      } catch (e) {
+        console.warn("Could not access storage:", e);
+      }
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
       for (let i = 0; i < srcCandidates.length; i += 1) {
         try {
-          const response = await fetch(srcCandidates[i], { credentials: "include" });
+          const response = await fetch(srcCandidates[i], {
+            credentials: "include",
+            headers,
+          });
           if (!response.ok) throw new Error("Unable to load PDF");
           const blob = await response.blob();
           if (!blob || !blob.size) throw new Error("Empty PDF");
