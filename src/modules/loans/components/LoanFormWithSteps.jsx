@@ -379,6 +379,27 @@ const mergeInstrumentFallback = (payload, loadedLoan) => {
   return merged;
 };
 
+const scrubCashFinanceFields = (record = {}) => {
+  const next = { ...record };
+  next.financeExpectation = undefined;
+  next.loanAmount = undefined;
+  next.requiredLoanAmount = undefined;
+  next.loanTenureMonths = undefined;
+  next.approval_bankId = "";
+  next.approval_bankName = "";
+  next.approval_status = "";
+  next.approval_loanAmountApproved = 0;
+  next.approval_loanAmountDisbursed = 0;
+  next.approval_roi = undefined;
+  next.approval_tenureMonths = undefined;
+  next.approval_processingFees = 0;
+  next.approval_banksData = [];
+  next.postfile_loanAmountApproved = 0;
+  next.postfile_loanAmountDisbursed = 0;
+  next.postfile_emiAmount = 0;
+  return next;
+};
+
 const normalizeIdentityValue = (value) =>
   String(value || "")
     .trim()
@@ -1306,6 +1327,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   // Default to null/undefined if not set. Only strictly "Yes" enables finance sections.
   const isFinancedValue = watchedIsFinanced ?? form.getFieldValue("isFinanced");
   const isCashCase = isFinancedValue === "No";
+
+  useEffect(() => {
+    if (!isCashCase) return;
+    setBanksData([]);
+    form.setFieldsValue(
+      scrubCashFinanceFields({
+        approval_banksData: [],
+      }),
+    );
+  }, [form, isCashCase]);
   const showPrefileCoApplicant = Boolean(watchedHasCoApplicant);
   const showPrefileGuarantor = Boolean(watchedHasGuarantor);
   const showPrefileAuthorisedSignatory = watchedApplicantType === "Company";
@@ -2154,7 +2185,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         return "Yes";
       };
 
-      const payload = {
+      let payload = {
         ...sanitized,
         postfile_tags: (sanitized?.postfile_tags || [])
           .map((tag) => (typeof tag === "string" ? tag : tag?.name))
@@ -2179,6 +2210,18 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           sanitized?.prefile_sourcePayoutPercentage ?? undefined,
         approval_banksData: banksData,
       };
+
+      if (payload.isFinanced === "No") {
+        payload = scrubCashFinanceFields(payload);
+        payload.isFinanced = "No";
+        payload.typeOfLoan =
+          normalizeLoanTypeLabel(sanitized?.typeOfLoan) ||
+          sanitized?.typeOfLoan ||
+          "New Car";
+        payload.currentStage = activeStep;
+        payload.approval_banksData = [];
+      }
+
       const payloadWithBankDetails = enrichPayloadWithBankDetails(payload);
       return mergeInstrumentFallback(
         payloadWithBankDetails,
@@ -2463,7 +2506,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           otherIncomeSource: formValues.otherIncomeSource,
 
           typeOfLoan: formValues.typeOfLoan,
-          financeExpectation: formValues.financeExpectation,
           loanTenureMonths: formValues.loanTenureMonths,
 
           aadhaarNumber: formValues.aadhaarNumber,

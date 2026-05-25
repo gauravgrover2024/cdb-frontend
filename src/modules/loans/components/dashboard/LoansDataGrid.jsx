@@ -1140,7 +1140,7 @@ const LoansDataGrid = ({
 
               const primaryBankName =
                 primary?.bankName || loan?.approval_bankName || "Bank not set";
-              const primaryLoanAmount =
+              const rawPrimaryLoanAmount =
                 parseAmount(primary?.loanAmount) ||
                 loan?.approval_loanAmountDisbursed ||
                 loan?.approval_loanAmountApproved ||
@@ -1218,6 +1218,7 @@ const LoansDataGrid = ({
                   (financeExpectation === 0 && !hasBankName) || noFinanceMetrics
                 );
               })();
+              const primaryLoanAmount = isCashCar ? 0 : rawPrimaryLoanAmount;
               const disbursementDate =
                 loan?.disbursement_date ||
                 loan?.approval_disbursedDate ||
@@ -1510,13 +1511,19 @@ const LoansDataGrid = ({
                         <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-fuchsia-700 dark:text-fuchsia-300">
                           Finance
                         </p>
-                        <p className="text-[11px] text-slate-700 dark:text-slate-200">
-                          Loan:{" "}
-                          <span className="font-semibold">
-                            {formatCurrency(primaryLoanAmount)}
-                          </span>
-                        </p>
-                        {!!primaryEmiAmount && (
+                        {isCashCar ? (
+                          <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-200">
+                            Cash car
+                          </p>
+                        ) : (
+                          <p className="text-[11px] text-slate-700 dark:text-slate-200">
+                            Loan:{" "}
+                            <span className="font-semibold">
+                              {formatCurrency(primaryLoanAmount)}
+                            </span>
+                          </p>
+                        )}
+                        {!isCashCar && !!primaryEmiAmount && (
                           <p className="text-[11px] text-slate-700 dark:text-slate-200">
                             EMI:{" "}
                             <span className="font-semibold">
