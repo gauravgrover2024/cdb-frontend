@@ -657,7 +657,7 @@ const LoanDocumentViewerModal = ({
                 }}
               >
                 <img
-                  src={activeDoc.url}
+                  src={activeDoc.proxyUrl || activeDoc.url}
                   alt={getDocDisplayLabel(activeDoc, activeIndex)}
                   draggable={false}
                   loading="lazy"
@@ -754,7 +754,7 @@ const LoanDocumentViewerModal = ({
                       <div className="h-14 w-full overflow-hidden rounded-md border border-border/50 bg-muted">
                         {doc.isImage ? (
                           <img
-                            src={doc.url}
+                            src={doc.proxyUrl || doc.url}
                             alt={getDocDisplayLabel(doc, idx)}
                             className="h-full w-full object-cover"
                             onError={(event) => {

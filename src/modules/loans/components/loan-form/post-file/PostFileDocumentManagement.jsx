@@ -6,6 +6,14 @@ import { customersApi } from "../../../../../api/customers";
 import { uploadSingleFile } from "../../../../../api/uploads";
 import LoanDocumentViewerModal from "../../shared/LoanDocumentViewerModal";
 import LoanDocumentUploadModal from "../../shared/LoanDocumentUploadModal";
+import API_BASE_URL from "../../../../../config/apiBaseUrl";
+
+const getDocumentUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+  if (url.startsWith("blob:") || url.startsWith("data:")) return url;
+  const apiBase = String(API_BASE_URL || "").replace(/\/+$/, "");
+  return `${apiBase}/api/upload/file?url=${encodeURIComponent(url)}`;
+};
 
 const getTagColor = () =>
   "bg-secondary text-secondary-foreground border-border";
@@ -808,7 +816,7 @@ const PostFileDocumentManagement = ({ form }) => {
                   !doc.url.toLowerCase().endsWith(".pdf") &&
                   doc.format !== "pdf" ? (
                     <img
-                      src={doc.url}
+                      src={getDocumentUrl(doc.url)}
                       alt={getDocDisplayLabel(doc, index)}
                       className="h-full w-full object-cover"
                     />
@@ -912,7 +920,7 @@ const PostFileDocumentManagement = ({ form }) => {
                         size="sm"
                         onClick={() => {
                           const link = document.createElement("a");
-                          link.href = doc.url;
+                          link.href = getDocumentUrl(doc.url);
                           link.download = getDocDisplayLabel(doc, index)
                             .replace(/\s+/g, "_")
                             .toLowerCase();
@@ -1051,7 +1059,7 @@ const PostFileDocumentManagement = ({ form }) => {
                       <div className="aspect-square bg-muted flex items-center justify-center">
                         {doc.url ? (
                           <img
-                            src={doc.url}
+                            src={getDocumentUrl(doc.url)}
                             alt={getDocDisplayLabel(doc, index)}
                             className="w-full h-full object-cover"
                           />
