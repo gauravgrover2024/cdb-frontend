@@ -167,7 +167,18 @@ export const apiClient = {
   },
 
   upload: async (endpoint, formData, options = {}) => {
-    const headers = { ...(options.Authorization ? { Authorization: options.Authorization } : {}) };
+    const customHeaders = options && options.headers && typeof options.headers === "object" ? options.headers : {};
+    let token = null;
+    try {
+      token = localStorage.getItem("token") || sessionStorage.getItem("token");
+    } catch (e) {
+      console.warn("Could not access storage:", e);
+    }
+    const headers = {
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.Authorization ? { Authorization: options.Authorization } : {}),
+      ...customHeaders
+    };
     const res = await fetch(buildUrl(endpoint, options.params || {}), {
       method: "POST",
       headers,
