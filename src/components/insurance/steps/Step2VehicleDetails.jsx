@@ -516,9 +516,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Make" required>
-                  <Select size="large" allowClear
-                    value={formData.vehicleMake || undefined}
-                    placeholder="Select Make"
+                  <AutoComplete size="large" allowClear
+                    value={formData.vehicleMake || ""}
+                    placeholder="Select or type Make"
                     onChange={(val) => {
                       setField("vehicleMake", val || "");
                       setField("vehicleModel", "");
@@ -527,22 +527,16 @@ const Step2VehicleDetails = ({
                       setField("cubicCapacity", "");
                     }}
                     style={controlStyle}
-                    showSearch
+                    options={makeOptions.map((make) => ({ value: make }))}
                     filterOption={(input, option) =>
-                      String(option?.children || "")
+                      String(option?.value || "")
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
                     status={
                       showErrors && step2Errors.vehicleMake ? "error" : ""
                     }
-                  >
-                    {makeOptions.map((make) => (
-                      <Select.Option key={make} value={make}>
-                        {make}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                  />
                 </CleanField>
               </div>
               {showErrors && step2Errors.vehicleMake ? (
@@ -553,9 +547,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Model" required>
-                  <Select size="large" allowClear
-                    value={formData.vehicleModel || undefined}
-                    placeholder="Select Model"
+                  <AutoComplete size="large" allowClear
+                    value={formData.vehicleModel || ""}
+                    placeholder="Select or type Model"
                     onChange={(val) => {
                       setField("vehicleModel", val || "");
                       setField("vehicleVariant", "");
@@ -564,22 +558,16 @@ const Step2VehicleDetails = ({
                     }}
                     disabled={!formData.vehicleMake}
                     style={controlStyle}
-                    showSearch
+                    options={modelOptions.map((model) => ({ value: model }))}
                     filterOption={(input, option) =>
-                      String(option?.children || "")
+                      String(option?.value || "")
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
                     status={
                       showErrors && step2Errors.vehicleModel ? "error" : ""
                     }
-                  >
-                    {modelOptions.map((model) => (
-                      <Select.Option key={model} value={model}>
-                        {model}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                  />
                 </CleanField>
               </div>
               {showErrors && step2Errors.vehicleModel ? (
@@ -590,9 +578,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Variant" required>
-                  <Select size="large" allowClear
-                    value={formData.vehicleVariant || undefined}
-                    placeholder="Select Variant"
+                  <AutoComplete size="large" allowClear
+                    value={formData.vehicleVariant || ""}
+                    placeholder="Select or type Variant"
                     onChange={(val) => {
                       setField("vehicleVariant", val || "");
                       setField("fuelType", "");
@@ -609,22 +597,16 @@ const Step2VehicleDetails = ({
                     }}
                     disabled={!formData.vehicleMake || !formData.vehicleModel}
                     style={controlStyle}
-                    showSearch
+                    options={variantOptions.map((variant) => ({ value: variant }))}
                     filterOption={(input, option) =>
-                      String(option?.children || "")
+                      String(option?.value || "")
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
                     status={
                       showErrors && step2Errors.vehicleVariant ? "error" : ""
                     }
-                  >
-                    {variantOptions.map((variant) => (
-                      <Select.Option key={variant} value={variant}>
-                        {variant}
-                      </Select.Option>
-                    ))}
-                  </Select>
+                  />
                 </CleanField>
               </div>
               {showErrors && step2Errors.vehicleVariant ? (
@@ -1087,7 +1069,7 @@ const Step2VehicleDetails = ({
                             <p className="m-0 text-xs font-semibold text-slate-800">
                               {row?.registrationNumber ||
                                 row?.regNo ||
-                                "No registration"}
+                                "Pending Registration"}
                             </p>
                             <p className="m-0 text-[11px] text-slate-500">
                               {[row?.make, row?.model, row?.variant]
@@ -1189,7 +1171,7 @@ const Step2VehicleDetails = ({
                                 <p className="m-0 text-xs font-semibold text-slate-700">
                                   {row?.registrationNumber ||
                                     row?.regNo ||
-                                    "No registration"}
+                                    "Pending Registration"}
                                 </p>
                                 <p className="m-0 text-[11px] text-slate-500">
                                   {[row?.make, row?.model, row?.variant]
@@ -1259,7 +1241,7 @@ const Step2VehicleDetails = ({
                     <p className="m-0 text-xs font-semibold text-slate-800">
                       {row?.registrationNumber ||
                         row?.regNo ||
-                        "No registration"}
+                        "Pending Registration"}
                     </p>
                     <p className="m-0 text-[11px] text-slate-500">
                       {[row?.make, row?.model, row?.variant]

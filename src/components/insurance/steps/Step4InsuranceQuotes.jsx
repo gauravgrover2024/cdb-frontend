@@ -680,15 +680,6 @@ const QuoteCard = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => onDownloadQuote?.(row)}
-            className="flex-1 rounded-xl border-0 bg-indigo-50 py-2 text-[12px] font-bold text-indigo-700 ring-1 ring-indigo-200 hover:bg-indigo-100 cursor-pointer"
-          >
-            Download PDF
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
             onClick={() => acceptQuote(rid)}
             disabled={isIssued || isAccepted}
             className={`
@@ -811,6 +802,7 @@ const Step4InsuranceQuotes = ({
 }) => {
   const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] =
     React.useState(false);
+  const [selectedQuoteIds, setSelectedQuoteIds] = React.useState([]);
   const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
   const odAmt = Number(quoteComputed?.odAmt || 0);
   const tpAmt = Number(quoteComputed?.tpAmt || 0);
@@ -1012,6 +1004,73 @@ const Step4InsuranceQuotes = ({
     },
     [buildQuoteShareContext],
   );
+
+  const handleDownloadSelectedOrDraft = React.useCallback(() => {
+    if (selectedQuoteIds.length > 0) {
+      selectedQuoteIds.forEach((id) => {
+        const quote = quoteRows.find((q) => String(getQuoteRowId(q)) === String(id));
+        if (quote) {
+          handleDownloadQuote(quote);
+        }
+      });
+    } else if (canAddQuote) {
+      handleDownloadQuote(quoteDraft);
+    }
+  }, [selectedQuoteIds, quoteRows, getQuoteRowId, handleDownloadQuote, quoteDraft, canAddQuote]);
+
+  const handleShareSelectedOrDraft = React.useCallback(async () => {
+    if (selectedQuoteIds.length > 0) {
+      const summaries = selectedQuoteIds
+        .map((id) => {
+          const quote = quoteRows.find((q) => String(getQuoteRowId(q)) === String(id));
+          if (!quote) return null;
+          const breakup = computeQuoteBreakupFromRow(quote);
+          return buildQuoteSummaryText({
+            quote,
+            breakup,
+            customerName: previousPolicyContext?.customerName || "",
+            vehicleLabel: [
+              previousPolicyContext?.registrationNumber,
+              previousPolicyContext?.vehicleMake,
+              previousPolicyContext?.vehicleModel,
+              previousPolicyContext?.vehicleVariant,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          });
+        })
+        .filter(Boolean);
+
+      if (summaries.length === 0) return;
+      const combinedSummary = summaries.join("\n\n" + "─".repeat(20) + "\n\n");
+      const title = `${summaries.length} Selected Insurance Quotes`;
+
+      if (navigator.share) {
+        await navigator.share({ title, text: combinedSummary });
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(combinedSummary);
+        Modal.success({
+          title: "Quotes copied",
+          content: `${summaries.length} Quote summaries copied to clipboard.`,
+        });
+        return;
+      }
+      Modal.info({ title: "Share selected quotes", content: combinedSummary });
+    } else if (canAddQuote) {
+      await handleShareQuote(quoteDraft);
+    }
+  }, [
+    selectedQuoteIds,
+    quoteRows,
+    getQuoteRowId,
+    computeQuoteBreakupFromRow,
+    previousPolicyContext,
+    handleShareQuote,
+    quoteDraft,
+    canAddQuote,
+  ]);
 
   const handleShareAcceptedQuote = React.useCallback(async () => {
     if (!acceptedQuote) return;
@@ -1577,6 +1636,26 @@ const Step4InsuranceQuotes = ({
               💡 Fill premiums & IDV, configure add-ons, then click{" "}
               <b className="text-slate-600">Add Quote</b>.
             </span>
+            <div className="flex items-center gap-2 ml-auto">
+              <Button
+                type="primary"
+                ghost
+                disabled={!canAddQuote && selectedQuoteIds.length === 0}
+                onClick={handleDownloadSelectedOrDraft}
+                className="h-10 border-indigo-200 bg-indigo-50/50 hover:bg-indigo-50 text-indigo-700 hover:text-indigo-800 font-bold text-xs"
+              >
+                Download PDF
+              </Button>
+              <Button
+                type="primary"
+                ghost
+                disabled={!canAddQuote && selectedQuoteIds.length === 0}
+                onClick={handleShareSelectedOrDraft}
+                className="h-10 border-blue-200 bg-blue-50/50 hover:bg-blue-50 text-blue-700 hover:text-blue-800 font-bold text-xs"
+              >
+                Share Quote
+              </Button>
+            </div>
           </div>
         </div>
         {/* end LEFT column */}
@@ -1776,10 +1855,17 @@ const Step4InsuranceQuotes = ({
                 acceptQuote={acceptQuote}
                 onStartEditQuote={onStartEditQuote}
                 onDelete={deleteQuote}
-                onShareQuote={handleShareQuote}
-                onDownloadQuote={handleDownloadQuote}
-                previousPolicyContext={previousPolicyContext}
-                isIssued={isIssued}
+                isSelected={selectedQuoteIds.includes(String(getQuoteRowId(row)))}
+                onSelectQuote={(rid, checked) => {
+                  setSelectedQuoteIds((prev) => {
+                    const strId = String(rid);
+                    if (checked) {
+                      return prev.includes(strId) ? prev : [...prev, strId];
+                    } else {
+                      return prev.filter((id) => id !== strId);
+                    }
+                  });
+                }}
               />
             ))}
           </div>

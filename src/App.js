@@ -18,6 +18,7 @@ import PaymentsDashboard from "./modules/payments/pages/PaymentsDashboard";
 import PaymentForm from "./modules/payments/components/PaymentsForm";
 import VehicleMaster from "./modules/vehicles/VehicleMaster";
 import VehiclePriceList from "./modules/vehicles/VehiclePriceList";
+import FleetVehicleMaster from "./modules/fleet/FleetVehicleMaster";
 import AnalyticsDashboard from "./modules/analytics/AnalyticsDashboard";
 import LoginPage from "./modules/auth/LoginPage";
 import Signup from "./modules/auth/Signup";
@@ -316,6 +317,11 @@ function App() {
             <Route
               path="vehicles/mapping"
               element={R(FEATURE_ACCESS.VEHICLES, <VehicleMappingPage />)}
+            />
+            {/* Fleet Master */}
+            <Route
+              path="fleet-vehicles"
+              element={R(FEATURE_ACCESS.TOOLS, <FleetVehicleMaster />)}
             />
             {/* Profile — any authenticated user */}
             <Route path="profile" element={<ProfilePage />} />
