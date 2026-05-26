@@ -3,18 +3,18 @@ import Icon from "../../../components/AppIcon";
 import DocumentUpload from "../../../components/ui/DocumentUpload";
 
 const UploadSlot = ({ name, uploadTitle, viewerTitle, docTag, label }) => (
-  <Form.Item name={name} style={{ marginBottom: 0 }}>
-    <div className="space-y-1">
+  <div className="space-y-1">
+    <Form.Item name={name} style={{ marginBottom: 0 }}>
       <DocumentUpload
         uploadTitle={uploadTitle}
         viewerTitle={viewerTitle}
         docTag={docTag}
       />
-      <div className="max-w-24 text-center text-[10px] font-medium text-muted-foreground">
-        {label}
-      </div>
+    </Form.Item>
+    <div className="max-w-24 text-center text-[10px] font-medium text-muted-foreground">
+      {label}
     </div>
-  </Form.Item>
+  </div>
 );
 
 const KycItem = ({
