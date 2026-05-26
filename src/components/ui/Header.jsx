@@ -245,6 +245,12 @@ const Header = () => {
       roles: FEATURE_ACCESS.TOOLS,
       children: [
         {
+          label: "Fleet Master",
+          path: "/fleet-vehicles",
+          desc: "Manage fleet and assignments",
+          roles: FEATURE_ACCESS.TOOLS,
+        },
+        {
           label: "EMI Calculator",
           path: "/loans/emi-calculator",
           desc: "Calculate loan EMI",
@@ -398,6 +404,13 @@ const Header = () => {
         location.pathname.startsWith("/insurance/edit");
 
       if (isInInsuranceForm) {
+        if (!window.__isInsuranceFormDirty) {
+          navigate(path);
+          setMobileMenuOpen(false);
+          setProfileOpen(false);
+          return;
+        }
+
         openNewCaseConfirmation({
           moduleLabel: "Insurance",
           onSaveAndNew: () => {
@@ -406,7 +419,7 @@ const Header = () => {
             setProfileOpen(false);
           },
           onDiscardAndStartFresh: () => {
-            navigate(path);
+            navigate(`${path}?fresh=${Date.now()}`);
             setMobileMenuOpen(false);
             setProfileOpen(false);
           },
@@ -421,6 +434,14 @@ const Header = () => {
         location.pathname.startsWith("/loans/edit");
 
       if (isInLoanForm) {
+        if (window.__isLoanFormDirty === false) {
+          // If explicitly clean, allow free navigation. (If undefined/legacy, defaults to showing popup)
+          startNewLoanCase(navigate, "global-header");
+          setMobileMenuOpen(false);
+          setProfileOpen(false);
+          return;
+        }
+
         openNewCaseConfirmation({
           moduleLabel: "Loan",
           onSaveAndNew: () => {
@@ -727,8 +748,8 @@ const Header = () => {
                               key={child.path}
                               onClick={() => handleNavigation(child.path)}
                               className={`w-full text-left flex flex-col py-3 px-4 rounded-xl border transition-all duration-200 ${isActive(child.path)
-                                  ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                  : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
+                                ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
                                 }`}
                             >
                               <span className="text-sm font-bold tracking-tight">
@@ -747,8 +768,8 @@ const Header = () => {
                       <button
                         onClick={() => handleNavigation(group.path)}
                         className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-200 font-bold ${isActive(group.path)
-                            ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                            : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
+                          ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                          : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
                           }`}
                       >
                         <span

@@ -166,19 +166,10 @@ const InsuranceStickyHeader = ({
             className="flex items-stretch overflow-x-auto px-0"
             style={{ scrollbarWidth: "none" }}
           >
-            <SummarySegment
-              icon="User"
-              label="Customer"
-              colorIdx={0}
-              title={data.caseId || "Case Details"}
-              line1={
-                [data.mobile, data.email].filter(Boolean).join(" · ") || "—"
-              }
-              line2={data.panNumber ? `PAN: ${data.panNumber}` : undefined}
-            />
+            {/* Customer segment removed as per request */}
             <SummarySegment
               icon="Shield"
-              label="Policy"
+              label="Insurance Company"
               colorIdx={1}
               title={policyCoreLabel}
               line1={

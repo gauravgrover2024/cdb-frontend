@@ -430,6 +430,7 @@ const normalizeCaseForPreview = (raw = {}) => {
       raw.dealer_channel_number,
     ),
     dealerChannelName: coalesce(raw.dealerChannelName, raw.dealerName),
+    dealerMobile: coalesce(raw.dealerMobile, raw.dealer_mobile),
     assignedTo: coalesce(
       raw.assignedTo,
       raw.employeeUserId,
@@ -706,6 +707,7 @@ const QuotePreviewCard = ({
           thirdParty: breakup?.tpAmt ?? 0,
           basicThirdParty: breakup?.tpAmt ?? 0,
           addOnsTotal: breakup?.addOnsTotal ?? 0,
+          coverageType: row.coverageType || breakup?.coverageType,
         }}
         formatCurrency={toINR}
         includedAddons={includedAddons}
@@ -1319,9 +1321,9 @@ const InsurancePreview = ({
           ? "image"
           : isVideoUrl(url)
             ? "video"
-            : isPdfUrl(url)
-              ? "pdf"
-              : "file";
+            : null; // Don't show non-media in the gallery grid
+
+        if (!kind) return null;
         return {
           key: String(doc?.id || idx),
           name: asText(firstFilled(doc?.name, doc?.tag, `Media ${idx + 1}`)),
@@ -1501,23 +1503,22 @@ const InsurancePreview = ({
                       </span>
                       {expiryInfo.raw ? (
                         <span
-                          className={`rounded-full border px-2.5 py-1 font-medium ${
-                            expiryInfo.days !== null &&
-                            expiryInfo.days <= 30 &&
-                            expiryInfo.days >= 0
+                          className={`rounded-full border px-2.5 py-1 font-medium ${expiryInfo.days !== null &&
+                              expiryInfo.days <= 30 &&
+                              expiryInfo.days >= 0
                               ? "border-amber-400 bg-amber-50 text-amber-950 dark:border-amber-500/60 dark:bg-amber-950/40 dark:text-amber-100"
                               : expiryInfo.days !== null && expiryInfo.days < 0
                                 ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-500/50 dark:bg-rose-950/35 dark:text-rose-100"
                                 : "border-border70"
-                          }`}
+                            }`}
                         >
                           Expiry {asDateInput(expiryInfo.raw)}
                           {expiryInfo.days !== null
                             ? ` · ${expiryInfo.days}d`
                             : ""}
                           {expiryInfo.days !== null &&
-                          expiryInfo.days <= 30 &&
-                          expiryInfo.days >= 0
+                            expiryInfo.days <= 30 &&
+                            expiryInfo.days >= 0
                             ? " · Renew soon"
                             : ""}
                         </span>
@@ -1617,56 +1618,7 @@ const InsurancePreview = ({
                   tone="mint"
                   query={searchQuery}
                   fields={[
-                    { label: "Buyer Type", value: data.buyerType },
-                    { label: "Vehicle Type", value: data.vehicleType },
-                    {
-                      label: "Used-car flow",
-                      value: data.usedCarFlowType,
-                    },
-                    {
-                      label: "Policy journey",
-                      value: data.policyJourneyClassification,
-                    },
-                    {
-                      label: "Policy Type",
-                      value: data.policyCategory || data.policyTypeSelector,
-                    },
-                    { label: "Employee (Staff)", value: data.employeeName },
-                    { label: "Policy Done By", value: data.policyDoneBy },
-                    { label: "Broker Name", value: data.brokerName },
-                    { label: "Showroom Name", value: data.showroomName },
-                    {
-                      label: "Source",
-                      value: data.source || data.sourceOrigin,
-                    },
-                    { label: "Source Name", value: data.sourceName },
-                    {
-                      label: "Dealer / Channel",
-                      value: data.dealerChannelName,
-                    },
-                    {
-                      label: "Channel / Dealer No.",
-                      value: data.dealerChannelNo,
-                    },
-                    {
-                      label: "Dealer / Channel Address",
-                      value: data.dealerChannelAddress,
-                    },
-                    {
-                      label: "Payout Applicable",
-                      value: data.payoutApplicable,
-                    },
-                    {
-                      label: "Payout %",
-                      value: data.payoutPercent,
-                      formatter: asPercent,
-                    },
-                    {
-                      label: "Assigned To (User ID)",
-                      value: data.assignedTo,
-                    },
-                    { label: "Source Origin", value: data.sourceOrigin },
-                    { label: "Customer Name", value: data.customerName },
+                    { label: "Customer Name", value: data.customerName, highlight: true },
                     { label: "Company Name", value: data.companyName },
                     {
                       label: "Contact Person Name",
@@ -1695,6 +1647,63 @@ const InsurancePreview = ({
                       value: data.nomineeRelationship,
                     },
                     { label: "Nominee DOB", value: data.nomineeDob },
+                    {
+                      label: "Nominee Age",
+                      value: firstFilled(data.nomineeAge, data.nominee_age),
+                    },
+                    { label: "Buyer Type", value: data.buyerType },
+                    { label: "Vehicle Type", value: data.vehicleType },
+                    {
+                      label: "Used-car flow",
+                      value: data.usedCarFlowType,
+                    },
+                    {
+                      label: "Policy journey",
+                      value: data.policyJourneyClassification,
+                    },
+                    {
+                      label: "Policy Type",
+                      value: data.policyCategory || data.policyTypeSelector,
+                    },
+                    { label: "Employee (Staff)", value: data.employeeName },
+                    { label: "Policy Done By", value: data.policyDoneBy },
+                    { label: "Broker Name", value: data.brokerName },
+                    { label: "Showroom Name", value: data.showroomName },
+                    {
+                      label: "Source",
+                      value: data.sourceOrigin || data.source
+                        ? `${data.sourceOrigin || data.source}${data.sourceName ? ` - ${data.sourceName}` : ""}`
+                        : data.sourceName,
+                    },
+                    {
+                      label: "Dealer / Channel",
+                      value: data.dealerChannelName,
+                    },
+                    {
+                      label: "Channel / Dealer No.",
+                      value: data.dealerChannelNo,
+                    },
+                    {
+                      label: "Dealer Mobile",
+                      value: data.dealerMobile,
+                    },
+                    {
+                      label: "Dealer / Channel Address",
+                      value: data.dealerChannelAddress,
+                    },
+                    {
+                      label: "Payout Applicable",
+                      value: data.payoutApplicable,
+                    },
+                    {
+                      label: "Payout %",
+                      value: data.payoutPercent,
+                      formatter: asPercent,
+                    },
+                    {
+                      label: "Assigned To (User ID)",
+                      value: data.assignedTo,
+                    },
                     {
                       label: "Nominee Age",
                       value: firstFilled(data.nomineeAge, data.nominee_age),
@@ -1862,7 +1871,7 @@ const InsurancePreview = ({
                       ) : null}
                     </div>
                     <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                      {quotes
+                      {(acceptedQuote ? [acceptedQuote] : quotes)
                         .filter((row) => {
                           if (!searchQuery.trim()) return true;
                           const breakup = computeQuoteBreakupFromRow(row);
@@ -1892,12 +1901,12 @@ const InsurancePreview = ({
                             !acceptedById &&
                             acceptedQuote &&
                             String(row?.insuranceCompany || "") ===
-                              String(acceptedQuote?.insuranceCompany || "") &&
+                            String(acceptedQuote?.insuranceCompany || "") &&
                             thisPremium ===
-                              Number(
-                                computeQuoteBreakupFromRow(acceptedQuote)
-                                  .totalPremium || 0,
-                              );
+                            Number(
+                              computeQuoteBreakupFromRow(acceptedQuote)
+                                .totalPremium || 0,
+                            );
 
                           return (
                             <QuotePreviewCard

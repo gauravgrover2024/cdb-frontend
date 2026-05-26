@@ -161,6 +161,7 @@ const InsuranceCasePage = () => {
 
       <Spin spinning={loading}>
         <NewInsuranceCaseForm
+          key={location.search}
           mode={isEditMode ? "edit" : "create"}
           initialValues={initialValues}
           onCancel={() => navigate("/insurance")}

@@ -11,23 +11,21 @@ export const loanInsuranceAntdTheme = {
       "Manrope, Satoshi, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif",
     borderRadius: 14,
     controlOutlineWidth: 0,
+    controlHeightLarge: 44,
   },
   components: {
     Select: {
-      optionFontSize: 13,
-      optionHeight: 36,
+      optionFontSize: 14,
+      optionHeight: 38,
       showArrowPaddingInlineEnd: 28,
     },
     Input: {
-      paddingBlock: 10,
       paddingInline: 12,
     },
-    InputNumber: {
-      paddingBlock: 10,
-    },
+    InputNumber: {},
     AutoComplete: {
-      optionHeight: 36,
-      optionFontSize: 13,
+      optionHeight: 38,
+      optionFontSize: 14,
     },
     DatePicker: {
       cellHeight: 28,
