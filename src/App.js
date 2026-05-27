@@ -59,6 +59,7 @@ import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
 
 // Floating EMI Calculator – accessible from every authenticated screen
 import EMIFloatingLauncher from "./components/EMIFloatingLauncher";
+import AciAssistProgressPage from "./components/aci-assist-v2/progress/AciAssistProgressPage";
 
 // Routes that manage their own layout (no outer padding)
 const FULL_WIDTH_ROUTES = ["/used-cars"];
@@ -98,6 +99,8 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <Routes>
+          <Route path="/portal/aci-assist/progress" element={<AciAssistProgressPage />} />
+
           {/* Public Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<Signup />} />
