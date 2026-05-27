@@ -35,6 +35,8 @@ import PremiumBreakupCard from "../../components/insurance/PremiumBreakupCard";
 import {
   resolveInsuranceReference,
   shouldShowInsuranceChannelBadge,
+  parsePolicyIncludedAddons,
+  resolveActivePolicySnapshot,
 } from "../../utils/insurancePolicyDisplay";
 
 dayjs.extend(customParseFormat);
@@ -120,10 +122,10 @@ const premiumNum = (c) => {
   const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(c);
   const acceptedPremium = Number(
     acceptedQuote?.totalPremium ??
-      acceptedQuote?.grossPremium ??
-      acceptedQuote?.finalPremium ??
-      acceptedBreakup?.totalPremium ??
-      0,
+    acceptedQuote?.grossPremium ??
+    acceptedQuote?.finalPremium ??
+    acceptedBreakup?.totalPremium ??
+    0,
   );
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
@@ -320,6 +322,14 @@ const normalizeUsedCarFlowLabel = (value) => {
 };
 
 const getPolicyOriginType = (record = {}) => {
+  const policyCategoryKey = String(
+    record.policyCategory || record.policyTypeSelector || "",
+  ).trim().toLowerCase();
+  const isExtendedWarranty =
+    policyCategoryKey === "extended warranty" ||
+    policyCategoryKey === "ew policy";
+  if (isExtendedWarranty) return "EW Policy";
+
   const vehicleType = String(record.vehicleType || "")
     .trim()
     .toLowerCase();
@@ -328,8 +338,8 @@ const getPolicyOriginType = (record = {}) => {
   );
   const persistedClassification = normalizeUsedCarFlowLabel(
     record.policyOriginType ||
-      record.journeyClassification ||
-      record.journeyType,
+    record.journeyClassification ||
+    record.journeyType,
   );
 
   if (vehicleType === "used car") {
@@ -464,41 +474,14 @@ const isCompletedPolicy = (c) => {
   // 1. Explicit completion statuses
   if (st === "submitted" || st === "issued" || st === "completed") return true;
 
-  // 2. Already has a policy number
-  const policyNo = String(
-    c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number || "",
-  ).trim();
-  const hasPolicyNo =
-    policyNo !== "" && policyNo.toLowerCase() !== "not issued";
-  if (hasPolicyNo) return true;
+  // 2. All 5 New Policy fields are filled
+  const hasNewInsuranceCompany = String(c?.newInsuranceCompany || "").trim() !== "";
+  const hasNewPolicyType = String(c?.newPolicyType || "").trim() !== "";
+  const hasNewPolicyNumber = String(c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number || "").trim() !== "";
+  const hasNewIssueDate = String(c?.newIssueDate || "").trim() !== "";
+  const hasNewPolicyStartDate = String(c?.newPolicyStartDate || "").trim() !== "";
 
-  // 3. Payment recorded
-  const payTotal = paymentReceivedNum(c);
-  if (payTotal > 0) return true;
-
-  // 4. Strict Draft Override
-  // If the form tracks currentStep and it's less than 8, it is definitely a draft.
-  // (Prevents new drafts from being marked completed just because they have an accepted quote)
-  if (c?.currentStep !== undefined && c?.currentStep !== null) {
-    const step = Number(c.currentStep);
-    if (step < 8) return false;
-    return true;
-  }
-
-  // 5. Legacy Heuristics (for old cases without currentStep)
-  if (
-    c?.acceptedQuoteId ||
-    c?.accepted_quote_id ||
-    hasDisplayValue(c?.newInsuranceCompany || c?.insurer)
-  ) {
-    return true;
-  }
-
-  const days = daysUntilExpiry(c);
-  if (c?.alreadyRenewed) return true;
-  if (days !== null && Number.isFinite(days)) return true;
-
-  return false;
+  return hasNewInsuranceCompany && hasNewPolicyType && hasNewPolicyNumber && hasNewIssueDate && hasNewPolicyStartDate;
 };
 
 const isDraftPolicy = (c) => !isCompletedPolicy(c);
@@ -568,7 +551,7 @@ const buildTrendSeries = (history = [], width = 220, height = 56, pad = 6) => {
         idx === 0 ||
         idx === rows.length - 1 ||
         String(row?.policyStartYear || "") !==
-          String(rows[idx - 1]?.policyStartYear || ""),
+        String(rows[idx - 1]?.policyStartYear || ""),
     };
   });
   const premiumPath = points
@@ -791,21 +774,21 @@ const computeInsuranceQuoteBreakup = (quote) => {
     : 0;
   const odAmt = includesOd
     ? Number(
-        quote.odAmount ??
-          quote.ownDamage ??
-          quote.basicOwnDamage ??
-          quote.odPremium ??
-          0,
-      )
+      quote.odAmount ??
+      quote.ownDamage ??
+      quote.basicOwnDamage ??
+      quote.odPremium ??
+      0,
+    )
     : 0;
   const tpAmt = includesTp
     ? Number(
-        quote.thirdPartyAmount ??
-          quote.thirdParty ??
-          quote.basicThirdParty ??
-          quote.tpPremium ??
-          0,
-      )
+      quote.thirdPartyAmount ??
+      quote.thirdParty ??
+      quote.basicThirdParty ??
+      quote.tpPremium ??
+      0,
+    )
     : 0;
   const ncbPct = Number(
     quote.ncbDiscount ?? quote.newNcbDiscount ?? quote.ncb_percentage ?? 0,
@@ -816,10 +799,10 @@ const computeInsuranceQuoteBreakup = (quote) => {
   const computedTotalPremium = taxableAmount + gstAmount;
   const storedTotalPremium = Number(
     quote.totalPremium ??
-      quote.newTotalPremium ??
-      quote.grossPremium ??
-      quote.finalPremium ??
-      0,
+    quote.newTotalPremium ??
+    quote.grossPremium ??
+    quote.finalPremium ??
+    0,
   );
   const totalPremium =
     Number.isFinite(storedTotalPremium) && storedTotalPremium > 0
@@ -1065,8 +1048,8 @@ const PolicyCard = ({
               </span>
 
               <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
-                {["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) 
-                  ? "EW Policy" 
+                {["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase())
+                  ? "EW Policy"
                   : (String(policy.policyCategory || policy.policyTypeSelector || "Insurance").replace(" Policy", ""))}
               </span>
 
@@ -1088,6 +1071,30 @@ const PolicyCard = ({
               <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
                 {policy.typesOfVehicle || "4W"}
               </span>
+
+              {!["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && policy.policyType ? (
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
+                  {policy.policyType}
+                </span>
+              ) : null}
+
+              {!["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && policy.policyOriginType ? (
+                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  {policy.policyOriginType}
+                </span>
+              ) : null}
+
+              {policy.vehicleYear ? (
+                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                  Yr: {policy.vehicleYear}
+                </span>
+              ) : null}
+
+              {policy.referenceName ? (
+                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
+                  Ref: {policy.referenceName}
+                </span>
+              ) : null}
 
               {openDues > 0 && (
                 <div className="flex flex-wrap gap-2 mt-0">
@@ -1238,6 +1245,16 @@ const PolicyCard = ({
                       {policy.source || "Direct"}
                     </span>
                   </div>
+                  {policy.isIndirectSource && policy.sourceDetailsName ? (
+                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                      <span className="font-bold uppercase tracking-wider text-slate-400">
+                        Channel Partner:
+                      </span>
+                      <span className="truncate font-semibold text-slate-700">
+                        {[policy.sourceDetailsName, policy.sourceDetailsContact].filter(Boolean).join(" · ")}
+                      </span>
+                    </div>
+                  ) : null}
                   {policy.referenceName || policy.referencePhone ? (
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                       <span className="font-bold uppercase tracking-wider text-slate-400">
@@ -1249,39 +1266,19 @@ const PolicyCard = ({
                     </div>
                   ) : null}
                   {shouldShowInsuranceChannelBadge(policy) &&
-                  policy.isIndirectSource &&
-                  policy.sourceDetailsName ? (
-                    <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-fit max-w-full">
-                      <div className="h-1.5 w-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                      <span
-                        className="text-[10px] font-bold text-indigo-700 truncate"
-                        title={`${policy.sourceDetailsName}${policy.channelDealerNo ? ` (#${policy.channelDealerNo})` : ""}`}
-                      >
-                        Dealer: {policy.sourceDetailsName}
-                        {policy.channelDealerNo ? (
-                          <span className="ml-1 opacity-60">
-                            #{policy.channelDealerNo}
-                          </span>
-                        ) : null}
-                      </span>
-                    </div>
-                  ) : null}
-                  {shouldShowInsuranceChannelBadge(policy) &&
-                  !policy.isIndirectSource &&
-                  policy.channelPartnerName ? (
+                    !policy.isIndirectSource &&
+                    policy.channelPartnerName ? (
                     <div
-                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${
-                        policy.policyDoneByLabel?.toLowerCase() === "broker"
+                      className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${policy.policyDoneByLabel?.toLowerCase() === "broker"
                           ? "bg-amber-50 border-amber-100"
                           : "bg-blue-50 border-blue-100"
-                      }`}
+                        }`}
                     >
                       <span
-                        className={`text-[10px] font-bold truncate ${
-                          policy.policyDoneByLabel?.toLowerCase() === "broker"
+                        className={`text-[10px] font-bold truncate ${policy.policyDoneByLabel?.toLowerCase() === "broker"
                             ? "text-amber-700"
                             : "text-blue-700"
-                        }`}
+                          }`}
                         title={`${policy.policyDoneByLabel}: ${policy.channelPartnerName}${policy.channelDealerNo ? ` (#${policy.channelDealerNo})` : ""}`}
                       >
                         {policy.policyDoneByLabel}: {policy.channelPartnerName}
@@ -1322,13 +1319,7 @@ const PolicyCard = ({
                   className="text-[11px] text-slate-600 mt-0.5"
                   style={{ fontFamily: "var(--default-mono-font-family)" }}
                 >
-                  {policy.registration || "—"}
                 </p>
-                {policy.channelDealerNo ? (
-                  <p className="text-[11px] text-slate-500 mt-1 truncate">
-                    Dealer No: {policy.channelDealerNo}
-                  </p>
-                ) : null}
               </div>
             </div>
           </div>
@@ -1392,71 +1383,71 @@ const PolicyCard = ({
                   {/* IDV / NCB row */}
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                  IDV {policy.idvInline}
-                </span>
-                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
-                  NCB {policy.ncb}
-                </span>
-                {policy.policyOriginType && !policy.isNewCarCase ? (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
-                    {policy.policyOriginType}
-                  </span>
-                ) : null}
-                {policy.policyType ? (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
-                    {policy.policyType}
-                  </span>
-                ) : null}
-              </div>
-
-              {/* Hypothecation */}
-              <div className="space-y-1">
-                <p
-                  className="text-[11px] text-slate-500 truncate"
-                  title={policy.hypothecation}
-                >
-                  Hypothecation: {policy.hypothecation || "—"}
-                </p>
-                {policy.policyIssuedByDetail &&
-                policy.policyIssuedByDetail !== "—" ? (
-                  <div className="mt-1 flex items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
-                      Issued via:
+                      IDV {policy.idvInline}
                     </span>
-                    <span
-                      className={cx(
-                        "px-1.5 py-0.5 rounded text-[10px] font-bold truncate max-w-[120px]",
-                        String(policy.policyIssuedByDetail)
-                          .toLowerCase()
-                          .includes("broker")
-                          ? "bg-amber-100 text-amber-700 border border-amber-200"
-                          : String(policy.policyIssuedByDetail)
+                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
+                      NCB {policy.ncb}
+                    </span>
+                    {policy.policyOriginType && !policy.isNewCarCase ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
+                        {policy.policyOriginType}
+                      </span>
+                    ) : null}
+                    {policy.policyType ? (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                        {policy.policyType}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  {/* Hypothecation */}
+                  <div className="space-y-1">
+                    <p
+                      className="text-[11px] text-slate-500 truncate"
+                      title={policy.hypothecation}
+                    >
+                      Hypothecation: {policy.hypothecation || "—"}
+                    </p>
+                    {policy.policyIssuedByDetail &&
+                      policy.policyIssuedByDetail !== "—" ? (
+                      <div className="mt-1 flex items-center gap-1.5">
+                        <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                          Issued via:
+                        </span>
+                        <span
+                          className={cx(
+                            "px-1.5 py-0.5 rounded text-[10px] font-bold truncate max-w-[120px]",
+                            String(policy.policyIssuedByDetail)
+                              .toLowerCase()
+                              .includes("broker")
+                              ? "bg-amber-100 text-amber-700 border border-amber-200"
+                              : String(policy.policyIssuedByDetail)
                                 .toLowerCase()
                                 .includes("showroom")
-                            ? "bg-blue-100 text-blue-700 border border-blue-200"
-                            : "bg-slate-100 text-slate-600 border border-slate-200",
-                      )}
-                      title={policy.policyIssuedByDetail}
-                    >
-                      {policy.policyIssuedByDetail}
-                    </span>
+                                ? "bg-blue-100 text-blue-700 border border-blue-200"
+                                : "bg-slate-100 text-slate-600 border border-slate-200",
+                          )}
+                          title={policy.policyIssuedByDetail}
+                        >
+                          {policy.policyIssuedByDetail}
+                        </span>
+                      </div>
+                    ) : (
+                      <p className="text-[11px] text-slate-500 truncate mt-1">
+                        Issued by: —
+                      </p>
+                    )}
+                    {policy.renewalFollowUpStatus && policy.renewalFollowUpStatus !== "not_applicable" ? (
+                      <p className="text-[11px] text-slate-500 truncate">
+                        Follow-up: {policy.renewalFollowUpStatus}
+                      </p>
+                    ) : null}
                   </div>
-                ) : (
-                  <p className="text-[11px] text-slate-500 truncate mt-1">
-                    Issued by: —
-                  </p>
-                )}
-                {policy.renewalFollowUpStatus && policy.renewalFollowUpStatus !== "not_applicable" ? (
-                  <p className="text-[11px] text-slate-500 truncate">
-                    Follow-up: {policy.renewalFollowUpStatus}
-                  </p>
-                ) : null}
-              </div>
-            </>
-          )}
+                </>
+              )}
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
 
         {/* Column 3 Payment Flow */}
         <div className="p-3 border-r" style={{ borderColor: "#f1f5f9" }}>
@@ -1719,6 +1710,7 @@ const InsuranceDashboardPage = () => {
   const [error, setError] = useState(null);
   const [cases, setCases] = useState([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [policyFilter, setPolicyFilter] = useState("all");
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
@@ -1751,15 +1743,22 @@ const InsuranceDashboardPage = () => {
     document.head.appendChild(link);
   }, []);
 
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [search]);
+
   // ============================================
   // API CALLBACKS (PRESERVED)
   // ============================================
 
-  const loadCases = useCallback(async () => {
+  const loadCases = useCallback(async (query = "") => {
     setLoading(true);
     setError(null);
     try {
-      const res = await insuranceApi.getAll();
+      const res = await insuranceApi.getAll({ search: query });
       const rows = Array.isArray(res?.data) ? res.data : res?.items || [];
       setCases(rows);
     } catch (err) {
@@ -1771,8 +1770,8 @@ const InsuranceDashboardPage = () => {
   }, []);
 
   useEffect(() => {
-    loadCases();
-  }, [loadCases]);
+    loadCases(debouncedSearch);
+  }, [loadCases, debouncedSearch]);
 
   const handleDeleteCase = useCallback(async (id, caseName) => {
     try {
@@ -2042,9 +2041,9 @@ const InsuranceDashboardPage = () => {
         .toLowerCase();
       const sourceIdentity = String(
         record.sourceName ||
-          record.dealerChannelName ||
-          record.referenceName ||
-          "",
+        record.dealerChannelName ||
+        record.referenceName ||
+        "",
       )
         .trim()
         .toLowerCase();
@@ -2122,12 +2121,14 @@ const InsuranceDashboardPage = () => {
             ? showroomName
             : "";
       const policyIssuedByDetail =
-        channelPartnerName ||
-        (policyDoneByLower === "broker"
-          ? "Broker"
-          : policyDoneByLower === "showroom"
-            ? "Showroom"
-            : policyIssuedBy);
+        policyDoneByLower.includes("autocredit")
+          ? "Autocredits India LLP"
+          : channelPartnerName ||
+          (policyDoneByLower === "broker"
+            ? "Broker"
+            : policyDoneByLower === "showroom"
+              ? "Showroom"
+              : policyIssuedBy);
       const sourceDetailsName = isIndirectSource
         ? dealerChannelName || referenceName
         : "";
@@ -2176,6 +2177,7 @@ const InsuranceDashboardPage = () => {
       // IDV inline
       const { acceptedQuote, acceptedBreakup } =
         getAcceptedQuoteContext(record);
+      const activePolicy = resolveActivePolicySnapshot(record);
       const hasAcceptedQuote = Boolean(acceptedQuote);
       const ncbInline = hasAcceptedQuote
         ? `${Number(acceptedQuote?.ncbDiscount || 0)}%`
@@ -2186,18 +2188,20 @@ const InsuranceDashboardPage = () => {
           : idv
             ? formatInr(idv)
             : "—";
-      const includedAddOns = hasAcceptedQuote
-        ? Object.entries(acceptedQuote?.addOnsIncluded || {})
-            .filter(([, included]) => Boolean(included))
-            .map(([name]) => name)
-        : [];
+      const includedAddOns = parsePolicyIncludedAddons(record);
+      const policyCategoryKey = String(
+        record.policyCategory || record.policyTypeSelector || "",
+      ).trim().toLowerCase();
+      const isExtendedWarranty =
+        policyCategoryKey === "extended warranty" ||
+        policyCategoryKey === "ew policy";
       const policyType = String(
         record.newPolicyType ||
-          record.coverageType ||
-          acceptedQuote?.coverageType ||
-          record.previousPolicyType ||
-          record.policyType ||
-          "",
+        record.coverageType ||
+        acceptedQuote?.coverageType ||
+        record.previousPolicyType ||
+        record.policyType ||
+        "",
       ).trim();
 
       // Status & dates
@@ -2233,8 +2237,8 @@ const InsuranceDashboardPage = () => {
 
       const fallbackInsurerPaidByCustomer = Number(
         record.customerPaymentToInsurer ||
-          record.customer_payment_to_insurer ||
-          0,
+        record.customer_payment_to_insurer ||
+        0,
       );
       const fallbackInsurerPaidByAc = Math.max(
         0,
@@ -2259,23 +2263,23 @@ const InsuranceDashboardPage = () => {
         effectiveInsurerPaidTotal > 0
           ? effectiveInsurerMode === INSURER_SETTLEMENT_MODE.CUSTOMER
             ? {
-                label: "Customer paid insurer",
-                amount: effectiveInsurerPaidByCustomer,
-                type: "good",
-                date: latestInsurerRow?.date || null,
-              }
+              label: "Customer paid insurer",
+              amount: effectiveInsurerPaidByCustomer,
+              type: "good",
+              date: latestInsurerRow?.date || null,
+            }
             : {
-                label: "Autocredits paid insurer",
-                amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
-                type: "good",
-                date: latestInsurerRow?.date || null,
-              }
+              label: "Autocredits paid insurer",
+              amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
+              type: "good",
+              date: latestInsurerRow?.date || null,
+            }
           : {
-              label: "Insurer payment pending",
-              amount: Math.max(0, premium - effectiveInsurerPaidTotal),
-              type: premium > 0 ? "warning" : "neutral",
-              date: null,
-            };
+            label: "Insurer payment pending",
+            amount: Math.max(0, premium - effectiveInsurerPaidTotal),
+            type: premium > 0 ? "warning" : "neutral",
+            date: null,
+          };
 
       const effectiveSubventionNr = ledgerTotals.subventionNotRecoverable;
       const effectiveSubventionRefund = Math.max(
@@ -2299,21 +2303,21 @@ const InsuranceDashboardPage = () => {
       const receiptFlowRow = receiptVisible
         ? effectiveCustomerRecovered > 0
           ? {
-              label: "Receipt from customer",
-              amount: effectiveCustomerRecovered,
-              type: "good",
-              date: latestReceiptRow?.date || null,
-              progressBase: receiptBase,
-            }
+            label: "Receipt from customer",
+            amount: effectiveCustomerRecovered,
+            type: "good",
+            date: latestReceiptRow?.date || null,
+            progressBase: receiptBase,
+          }
           : insurerPaymentPending
             ? null
             : {
-                label: "Customer outstanding",
-                amount: customerOutstanding,
-                type: customerOutstanding > 0 ? "warning" : "neutral",
-                date: null,
-                progressBase: receiptBase,
-              }
+              label: "Customer outstanding",
+              amount: customerOutstanding,
+              type: customerOutstanding > 0 ? "warning" : "neutral",
+              date: null,
+              progressBase: receiptBase,
+            }
         : null;
 
       const subventionRows = [];
@@ -2363,11 +2367,11 @@ const InsuranceDashboardPage = () => {
         sourceDetailsName: isIndirectSource ? dealerChannelName || referenceName : "",
         sourceDetailsContact: isIndirectSource
           ? String(
-              record.dealerChannelMobile ||
-                record.dealerChannelContact ||
-                record.sourceContactNumber ||
-                "",
-            ).trim()
+            record.dealerChannelMobile ||
+            record.dealerChannelContact ||
+            record.sourceContactNumber ||
+            "",
+          ).trim()
           : "",
         referenceName,
         referencePhone,
@@ -2411,34 +2415,23 @@ const InsuranceDashboardPage = () => {
         openDues: openDuesFromAcRecovery,
         alreadyRenewed: renewedCaseIds.has(String(id)),
         quoteCoverageType:
-          acceptedQuote?.coverageType ||
-          record?.newPolicyType ||
-          "Comprehensive",
+          isExtendedWarranty
+            ? (acceptedQuote?.coverageType || record?.newPolicyType || "")
+            : (acceptedQuote?.coverageType || record?.newPolicyType || "Comprehensive"),
         quoteDuration:
           acceptedQuote?.policyDuration ||
           record?.newInsuranceDuration ||
           "1 Year",
         breakup: {
-          ownDamage: Number(acceptedBreakup?.odAmt || 0),
-          basicOwnDamage: Number(
-            acceptedQuote?.basicOwnDamage ||
-              acceptedQuote?.odAmount ||
-              acceptedBreakup?.odAmt ||
-              0,
-          ),
-          ncbPercent: Number(
-            acceptedQuote?.ncbDiscount || record?.newNcbDiscount || 0,
-          ),
-          ncbAmount: Number(acceptedBreakup?.ncbAmount || 0),
-          thirdParty: Number(acceptedBreakup?.tpAmt || 0),
-          basicThirdParty: Number(
-            acceptedQuote?.basicThirdParty ||
-              acceptedQuote?.thirdPartyAmount ||
-              acceptedBreakup?.tpAmt ||
-              0,
-          ),
-          addOnsTotal: Number(acceptedBreakup?.addOnsTotal || 0),
-          totalAmount: Number(acceptedBreakup?.totalPremium || premium || 0),
+          ownDamage: Number(activePolicy.ownDamage || 0),
+          ownDamageBeforeNcb: Number(activePolicy.ownDamageBeforeNcb || activePolicy.ownDamage || 0),
+          basicOwnDamage: Number(activePolicy.ownDamage || 0),
+          ncbPercent: Number(activePolicy.ncbDiscount || 0),
+          ncbAmount: Math.round((Number(activePolicy.ownDamage || 0) * Number(activePolicy.ncbDiscount || 0)) / 100),
+          thirdParty: Number(activePolicy.thirdParty || 0),
+          basicThirdParty: Number(activePolicy.thirdParty || 0),
+          addOnsTotal: Number(activePolicy.addOnsTotal || 0),
+          totalAmount: Number(activePolicy.totalPremium || premium || 0),
           includedAddOns,
         },
         record,
@@ -2452,490 +2445,487 @@ const InsuranceDashboardPage = () => {
 
   return (
     <InsuranceAntdProvider>
-    <div
-      className="insurance-antd-page h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden p-4 bg-slate-50"
-      style={{
-        ...FONT_VARS,
-        fontFamily: "var(--default-font-family)",
-        background: "linear-gradient(160deg, #f0f4ff 0%, #fafafa 60%)",
-      }}
-    >
-      <div className="max-w-[1920px] mx-auto space-y-4">
-        {criticalAlerts.length > 0 && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-semibold">
-            {criticalAlerts.length} policies expiring in the next 7 days
-          </div>
-        )}
-
-        {/* Header */}
-        <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
-          <div>
-            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-              Insurance Workspace
-            </p>
-            <h1 className="mt-0.5 text-2xl font-black text-slate-900">
-              Policy Dashboard
-            </h1>
-            <p className="mt-1 text-[13px] text-slate-500">
-              Cases, revenue, renewals &amp; payments — one view.
-            </p>
-          </div>
-        </div>
-
-        {/* Metric Cards - Sample Style */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          <MetricCard
-            icon={BarChart3}
-            title="Total"
-            value={stats.total}
-            color="#3b82f6"
-            isActive={policyFilter === "all"}
-            onClick={() => setPolicyFilter("all")}
-          />
-          <MetricCard
-            icon={FileText}
-            title="Draft"
-            value={stats.draft}
-            color="#f43f5e"
-            isActive={policyFilter === "draft"}
-            onClick={() => setPolicyFilter("draft")}
-          />
-          <MetricCard
-            icon={CheckCircle}
-            title="Completed"
-            value={stats.completed}
-            color="#10b981"
-            isActive={policyFilter === "completed"}
-            onClick={() => setPolicyFilter("completed")}
-          />
-          <MetricCard
-            icon={DollarSign}
-            title="Payment Due"
-            value={stats.paymentDue}
-            subtitle={formatInr(stats.paymentDueAmount)}
-            color="#f59e0b"
-            isActive={policyFilter === "paymentDue"}
-            onClick={() => setPolicyFilter("paymentDue")}
-          />
-          <MetricCard
-            icon={AlertCircle}
-            title="Expiring Soon"
-            value={stats.expiringSoon}
-            color="#ef4444"
-            isActive={policyFilter === "renewal30"}
-            onClick={() => setPolicyFilter("renewal30")}
-          />
-        </div>
-
-        {/* Search and Filters - Sample Style */}
-        <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
-          <div className="flex flex-col lg:flex-row gap-3 mb-3">
-            <div className="flex-1 relative">
-              <Search
-                size={18}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-              <input
-                type="text"
-                placeholder="Search by customer, policy, vehicle, registration…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
-              />
+      <div
+        className="insurance-antd-page h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden p-4 bg-slate-50"
+        style={{
+          ...FONT_VARS,
+          fontFamily: "var(--default-font-family)",
+          background: "linear-gradient(160deg, #f0f4ff 0%, #fafafa 60%)",
+        }}
+      >
+        <div className="max-w-[1920px] mx-auto space-y-4">
+          {criticalAlerts.length > 0 && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-semibold">
+              {criticalAlerts.length} policies expiring in the next 7 days
             </div>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={() => navigate("/insurance/new")}
-              className="px-5 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
-            >
-              <Plus size={16} />
-              New Policy
-            </motion.button>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.97 }}
-              onClick={loadCases}
-              className="px-4 py-2.5 rounded-lg font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
-            >
-              <RefreshCw size={16} />
-            </motion.button>
+          )}
+
+          {/* Header */}
+          <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                Insurance Workspace
+              </p>
+              <h1 className="mt-0.5 text-2xl font-black text-slate-900">
+                Policy Dashboard
+              </h1>
+              <p className="mt-1 text-[13px] text-slate-500">
+                Cases, revenue, renewals &amp; payments — one view.
+              </p>
+            </div>
           </div>
 
-          {/* Filter Chips */}
-          <div className="flex flex-wrap gap-2">
-            <FilterChip
-              label="All"
-              count={filterCounts.all}
+          {/* Metric Cards - Sample Style */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <MetricCard
+              icon={BarChart3}
+              title="Total"
+              value={stats.total}
+              color="#3b82f6"
               isActive={policyFilter === "all"}
               onClick={() => setPolicyFilter("all")}
             />
-            <FilterChip
-              label="Draft"
-              count={filterCounts.draft}
+            <MetricCard
+              icon={FileText}
+              title="Draft"
+              value={stats.draft}
+              color="#f43f5e"
               isActive={policyFilter === "draft"}
               onClick={() => setPolicyFilter("draft")}
-              icon={FileText}
             />
-            <FilterChip
-              label="Completed"
-              count={filterCounts.completed}
+            <MetricCard
+              icon={CheckCircle}
+              title="Completed"
+              value={stats.completed}
+              color="#10b981"
               isActive={policyFilter === "completed"}
               onClick={() => setPolicyFilter("completed")}
-              icon={CheckCircle}
             />
-            <FilterChip
-              label="Payment Due"
-              count={filterCounts.paymentDue}
+            <MetricCard
+              icon={DollarSign}
+              title="Payment Due"
+              value={stats.paymentDue}
+              subtitle={formatInr(stats.paymentDueAmount)}
+              color="#f59e0b"
               isActive={policyFilter === "paymentDue"}
               onClick={() => setPolicyFilter("paymentDue")}
-              icon={DollarSign}
             />
-            <FilterChip
-              label="Expiring Soon"
-              count={filterCounts.expiring}
+            <MetricCard
+              icon={AlertCircle}
+              title="Expiring Soon"
+              value={stats.expiringSoon}
+              color="#ef4444"
               isActive={policyFilter === "renewal30"}
               onClick={() => setPolicyFilter("renewal30")}
-              icon={Calendar}
             />
-            <FilterChip
-              label="Expired"
-              count={filterCounts.expired}
-              isActive={policyFilter === "expired"}
-              onClick={() => setPolicyFilter("expired")}
-            />
-            <FilterChip
-              label="2W"
-              count={filterCounts["2w"]}
-              isActive={policyFilter === "2w"}
-              onClick={() => setPolicyFilter("2w")}
-            />
-            <FilterChip
-              label="4W"
-              count={filterCounts["4w"]}
-              isActive={policyFilter === "4w"}
-              onClick={() => setPolicyFilter("4w")}
-            />
-            <FilterChip
-              label="Commercial"
-              count={filterCounts.comm}
-              isActive={policyFilter === "comm"}
-              onClick={() => setPolicyFilter("comm")}
-            />
+          </div>
 
-            {hasActiveFilters && (
+          {/* Search and Filters - Sample Style */}
+          <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
+            <div className="flex flex-col lg:flex-row gap-3 mb-3">
+              <div className="flex-1 relative">
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  placeholder="Search by customer, policy, vehicle, registration…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
+                />
+              </div>
               <motion.button
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
                 whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => {
-                  setSearch("");
-                  setPolicyFilter("all");
-                }}
-                className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-semibold text-sm flex items-center gap-1.5 hover:bg-slate-300 transition-colors"
+                whileTap={{ scale: 0.97 }}
+                onClick={() => navigate("/insurance/new")}
+                className="px-5 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
               >
-                <X size={13} />
-                Clear
+                <Plus size={16} />
+                New Policy
               </motion.button>
-            )}
-          </div>
-        </div>
-
-        {/* Error/Loading/Empty States */}
-        {error && (
-          <Alert
-            type="error"
-            showIcon
-            message="Failed to load insurance cases"
-            description={error}
-          />
-        )}
-        {loading && cases.length === 0 && (
-          <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
-            <div className="flex items-center gap-2">
-              <RefreshCw size={16} className="animate-spin text-indigo-400" />
-              Loading insurance cases…
-            </div>
-          </div>
-        )}
-        {!loading && filteredCases.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="rounded-xl border border-slate-200 bg-white py-16 text-center"
-          >
-            <div
-              className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl"
-              style={{
-                background: "linear-gradient(135deg,#4f46e520,#0ea5e920)",
-              }}
-            >
-              <Search size={36} className="text-indigo-400" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-800 mb-2">
-              No policies found
-            </h3>
-            <p className="text-sm text-slate-500">
-              Try adjusting your filters or search query
-            </p>
-          </motion.div>
-        )}
-
-        {/* Policies */}
-        <div className="grid grid-cols-1 gap-4">
-          <AnimatePresence mode="popLayout">
-            {transformedPolicies.map((policy) => (
-              <PolicyCard
-                key={policy.id}
-                policy={policy}
-                onView={() => {
-                  setSelectedCase(policy.record);
-                  setPreviewStageKey(null);
-                  setPreviewVisible(true);
-                }}
-                onEdit={() => navigate(`/insurance/edit/${policy.id}`)}
-                onRenew={() => handleRenewCase(policy.record)}
-                onExtend={() => handleExtendCase(policy.record)}
-                onDelete={() => handleDeleteCase(policy.id, policy.caseId)}
-                onTrend={() =>
-                  setTrendModal({
-                    open: true,
-                    regKey: policy.regKey,
-                    regLabel: policy.registration,
-                    vehicleLabel: policy.vehicle,
-                  })
-                }
-                onDocs={() => {
-                  setDocsModal({
-                    open: true,
-                    caseId: getCaseId(policy.record),
-                    record: policy.record,
-                  });
-                }}
-                onPolicyBreakup={() =>
-                  setPolicyModal({
-                    open: true,
-                    policy,
-                  })
-                }
-              />
-            ))}
-          </AnimatePresence>
-        </div>
-
-        {/* Footer */}
-        {!loading && filteredCases.length > 0 && (
-          <div className="text-center text-sm text-slate-500 pb-4">
-            Showing {filteredCases.length} of {totalCount} policies
-          </div>
-        )}
-
-        {/* Pagination */}
-        {filteredCases.length > 0 && (
-          <div className="flex justify-center pb-4">
-            <Pagination
-              size="small"
-              current={page}
-              pageSize={pageSize}
-              total={filteredCases.length}
-              onChange={(p) => setPage(p)}
-              showSizeChanger={false}
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Premium Breakup Modal */}
-      <Modal
-        open={policyModal.open}
-        centered
-        width={480}
-        footer={null}
-        onCancel={() => setPolicyModal({ open: false, policy: null })}
-        title={
-          <div className="pr-6">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500">
-              Premium Breakup
-            </p>
-            <p className="text-sm font-semibold text-slate-800">
-              {policyModal.policy?.insurer || "Insurance Company"}
-            </p>
-          </div>
-        }
-      >
-        {policyModal.policy ? (
-          <div className="rounded-xl border border-slate-200 bg-white">
-            <PremiumBreakupCard
-              breakup={policyModal.policy.breakup}
-              formatCurrency={formatInr}
-              includedAddons={(
-                policyModal.policy.breakup.includedAddOns || []
-              ).map((addon) => ({ name: addon, amt: 0 }))}
-              showAllAddons={false}
-              onToggleAddons={() => {}}
-              totalAmount={policyModal.policy.breakup.totalAmount}
-              title="Premium Breakup"
-            />
-          </div>
-        ) : null}
-      </Modal>
-
-      <Modal
-        open={trendModal.open}
-        centered
-        width={860}
-        footer={null}
-        onCancel={() =>
-          setTrendModal({
-            open: false,
-            regKey: "",
-            regLabel: "",
-            vehicleLabel: "",
-          })
-        }
-        title={
-          <div className="pr-6">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500">
-              Vehicle Premium & IDV Trend
-            </p>
-            <p className="text-sm font-semibold text-slate-800">
-              {trendModal.vehicleLabel || "Vehicle"} ·{" "}
-              {trendModal.regLabel || "Reg not set"}
-            </p>
-          </div>
-        }
-      >
-        {trendModalSeries ? (
-          <div className="space-y-3">
-            <div
-              className="rounded-xl border p-3"
-              style={{ borderColor: "#e2e8f0", background: "#fbfdff" }}
-            >
-              <svg
-                viewBox="0 0 700 240"
-                className="h-56 w-full overflow-visible"
-                role="img"
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={loadCases}
+                className="px-4 py-2.5 rounded-lg font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
               >
-                <line
-                  x1="16"
-                  y1="16"
-                  x2="16"
-                  y2={trendModalSeries.axisY}
-                  stroke="currentColor"
-                  className="text-[#cfdaeb]"
-                  strokeWidth="1"
-                />
-                <line
-                  x1="16"
-                  y1={trendModalSeries.axisY}
-                  x2="684"
-                  y2={trendModalSeries.axisY}
-                  stroke="currentColor"
-                  className="text-[#cfdaeb]"
-                  strokeWidth="1"
-                />
-                <path
-                  d={trendModalSeries.premiumPath}
-                  fill="none"
-                  stroke="#10b981"
-                  strokeWidth="2.8"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                {trendModalSeries.yAxisTicks.map((tick) => (
-                  <g key={`y-tick-${tick.y}`}>
-                    <line
-                      x1="16"
-                      y1={tick.y}
-                      x2="684"
-                      y2={tick.y}
-                      stroke="currentColor"
-                      className="text-[#e2eef8]"
-                      strokeWidth="1"
-                    />
-                    <text
-                      x="10"
-                      y={tick.y + 3}
-                      textAnchor="end"
-                      className="fill-slate-500 text-[10px]"
-                    >
-                      {tick.label}
-                    </text>
-                  </g>
-                ))}
-                {trendModalSeries.points.map((p) => (
-                  <g key={`trend-modal-${p.id || p.caseId}-${p.x}`}>
-                    <circle cx={p.x} cy={p.premiumY} r="4.8" fill="#10b981">
-                      <title>{`Year ${p.policyStartYear || "—"} | Premium ${formatInr(p.premium)} | IDV ${formatInr(p.idv)}`}</title>
-                    </circle>
-                    {p.showXLabel && (
-                      <text
-                        x={p.x}
-                        y={trendModalSeries.axisY + 14}
-                        textAnchor="middle"
-                        className="fill-slate-500 text-[10px]"
-                      >
-                        {p.policyStartYear || "—"}
-                      </text>
-                    )}
-                  </g>
-                ))}
-              </svg>
-              <div className="mt-2 flex items-center gap-4 text-xs text-slate-600">
-                <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  Premium
-                </span>
-                <span>Year on X-axis</span>
+                <RefreshCw size={16} />
+              </motion.button>
+            </div>
+
+            {/* Filter Chips */}
+            <div className="flex flex-wrap gap-2">
+              <FilterChip
+                label="All"
+                count={filterCounts.all}
+                isActive={policyFilter === "all"}
+                onClick={() => setPolicyFilter("all")}
+              />
+              <FilterChip
+                label="Draft"
+                count={filterCounts.draft}
+                isActive={policyFilter === "draft"}
+                onClick={() => setPolicyFilter("draft")}
+                icon={FileText}
+              />
+              <FilterChip
+                label="Completed"
+                count={filterCounts.completed}
+                isActive={policyFilter === "completed"}
+                onClick={() => setPolicyFilter("completed")}
+                icon={CheckCircle}
+              />
+              <FilterChip
+                label="Payment Due"
+                count={filterCounts.paymentDue}
+                isActive={policyFilter === "paymentDue"}
+                onClick={() => setPolicyFilter("paymentDue")}
+                icon={DollarSign}
+              />
+              <FilterChip
+                label="Expiring Soon"
+                count={filterCounts.expiring}
+                isActive={policyFilter === "renewal30"}
+                onClick={() => setPolicyFilter("renewal30")}
+                icon={Calendar}
+              />
+              <FilterChip
+                label="Expired"
+                count={filterCounts.expired}
+                isActive={policyFilter === "expired"}
+                onClick={() => setPolicyFilter("expired")}
+              />
+              <FilterChip
+                label="2W"
+                count={filterCounts["2w"]}
+                isActive={policyFilter === "2w"}
+                onClick={() => setPolicyFilter("2w")}
+              />
+              <FilterChip
+                label="4W"
+                count={filterCounts["4w"]}
+                isActive={policyFilter === "4w"}
+                onClick={() => setPolicyFilter("4w")}
+              />
+              <FilterChip
+                label="Commercial"
+                count={filterCounts.comm}
+                isActive={policyFilter === "comm"}
+                onClick={() => setPolicyFilter("comm")}
+              />
+
+              {hasActiveFilters && (
+                <motion.button
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setSearch("");
+                    setPolicyFilter("all");
+                  }}
+                  className="px-3 py-1.5 rounded-lg bg-slate-200 text-slate-700 font-semibold text-sm flex items-center gap-1.5 hover:bg-slate-300 transition-colors"
+                >
+                  <X size={13} />
+                  Clear
+                </motion.button>
+              )}
+            </div>
+          </div>
+
+          {/* Error/Loading/Empty States */}
+          {error && (
+            <Alert
+              type="error"
+              showIcon
+              message="Failed to load insurance cases"
+              description={error}
+            />
+          )}
+          {loading && cases.length === 0 && (
+            <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
+              <div className="flex items-center gap-2">
+                <RefreshCw size={16} className="animate-spin text-indigo-400" />
+                Loading insurance cases…
               </div>
             </div>
+          )}
+          {!loading && filteredCases.length === 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="rounded-xl border border-slate-200 bg-white py-16 text-center"
+            >
+              <div
+                className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl"
+                style={{
+                  background: "linear-gradient(135deg,#4f46e520,#0ea5e920)",
+                }}
+              >
+                <Search size={36} className="text-indigo-400" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-800 mb-2">
+                No policies found
+              </h3>
+              <p className="text-sm text-slate-500">
+                Try adjusting your filters or search query
+              </p>
+            </motion.div>
+          )}
+
+          {/* Policies */}
+          <div className="grid grid-cols-1 gap-4">
+            <AnimatePresence mode="popLayout">
+              {transformedPolicies.map((policy) => (
+                <PolicyCard
+                  key={policy.id}
+                  policy={policy}
+                  onView={() => {
+                    setSelectedCase(policy.record);
+                    setPreviewStageKey(null);
+                    setPreviewVisible(true);
+                  }}
+                  onEdit={() => navigate(`/insurance/edit/${policy.id}`)}
+                  onRenew={() => handleRenewCase(policy.record)}
+                  onExtend={() => handleExtendCase(policy.record)}
+                  onDelete={() => handleDeleteCase(policy.id, policy.caseId)}
+                  onTrend={() =>
+                    setTrendModal({
+                      open: true,
+                      regKey: policy.regKey,
+                      regLabel: policy.registration,
+                      vehicleLabel: policy.vehicle,
+                    })
+                  }
+                  onDocs={() => {
+                    setDocsModal({
+                      open: true,
+                      caseId: getCaseId(policy.record),
+                      record: policy.record,
+                    });
+                  }}
+                  onPolicyBreakup={() =>
+                    setPolicyModal({
+                      open: true,
+                      policy,
+                    })
+                  }
+                />
+              ))}
+            </AnimatePresence>
+          </div>
+
+          {/* Footer */}
+          {!loading && filteredCases.length > 0 && (
+            <div className="text-center text-sm text-slate-500 pb-4">
+              Showing {filteredCases.length} of {totalCount} policies
+            </div>
+          )}
+
+          {/* Pagination */}
+          {filteredCases.length > 0 && (
+            <div className="flex justify-center pb-4">
+              <Pagination
+                size="small"
+                current={page}
+                pageSize={pageSize}
+                total={filteredCases.length}
+                onChange={(p) => setPage(p)}
+                showSizeChanger={false}
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Premium Breakup Modal */}
+        <Modal
+          open={policyModal.open}
+          centered
+          width={480}
+          footer={null}
+          onCancel={() => setPolicyModal({ open: false, policy: null })}
+          title={null}
+          styles={{
+            content: { padding: 0, borderRadius: "16px", overflow: "hidden" },
+            body: { padding: 0 }
+          }}
+        >
+          {policyModal.policy ? (
+            <div className="max-h-[85vh] overflow-y-auto bg-slate-50/50 px-5 py-8 sm:px-6 sm:py-10">
+              <PremiumBreakupCard
+                breakup={policyModal.policy.breakup}
+                formatCurrency={formatInr}
+                includedAddons={policyModal.policy.breakup?.includedAddOns || []}
+                totalAmount={policyModal.policy.breakup.totalAmount}
+                title="Premium Breakup"
+                insurerName={policyModal.policy.insurer}
+                idx={0}
+                coverageType={policyModal.policy.quoteCoverageType}
+                policyDuration={policyModal.policy.quoteDuration}
+                idv={policyModal.policy.idvInline}
+                isAccepted={policyModal.policy.isCompleted}
+              />
+            </div>
+          ) : null}
+        </Modal>
+
+        <Modal
+          open={trendModal.open}
+          centered
+          width={860}
+          footer={null}
+          onCancel={() =>
+            setTrendModal({
+              open: false,
+              regKey: "",
+              regLabel: "",
+              vehicleLabel: "",
+            })
+          }
+          title={
+            <div className="pr-6">
+              <p className="text-xs uppercase tracking-[0.1em] text-slate-500">
+                Vehicle Premium & IDV Trend
+              </p>
+              <p className="text-sm font-semibold text-slate-800">
+                {trendModal.vehicleLabel || "Vehicle"} ·{" "}
+                {trendModal.regLabel || "Reg not set"}
+              </p>
+            </div>
+          }
+        >
+          {trendModalSeries ? (
+            <div className="space-y-3">
+              <div
+                className="rounded-xl border p-3"
+                style={{ borderColor: "#e2e8f0", background: "#fbfdff" }}
+              >
+                <svg
+                  viewBox="0 0 700 240"
+                  className="h-56 w-full overflow-visible"
+                  role="img"
+                >
+                  <line
+                    x1="16"
+                    y1="16"
+                    x2="16"
+                    y2={trendModalSeries.axisY}
+                    stroke="currentColor"
+                    className="text-[#cfdaeb]"
+                    strokeWidth="1"
+                  />
+                  <line
+                    x1="16"
+                    y1={trendModalSeries.axisY}
+                    x2="684"
+                    y2={trendModalSeries.axisY}
+                    stroke="currentColor"
+                    className="text-[#cfdaeb]"
+                    strokeWidth="1"
+                  />
+                  <path
+                    d={trendModalSeries.premiumPath}
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="2.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                  {trendModalSeries.yAxisTicks.map((tick) => (
+                    <g key={`y-tick-${tick.y}`}>
+                      <line
+                        x1="16"
+                        y1={tick.y}
+                        x2="684"
+                        y2={tick.y}
+                        stroke="currentColor"
+                        className="text-[#e2eef8]"
+                        strokeWidth="1"
+                      />
+                      <text
+                        x="10"
+                        y={tick.y + 3}
+                        textAnchor="end"
+                        className="fill-slate-500 text-[10px]"
+                      >
+                        {tick.label}
+                      </text>
+                    </g>
+                  ))}
+                  {trendModalSeries.points.map((p) => (
+                    <g key={`trend-modal-${p.id || p.caseId}-${p.x}`}>
+                      <circle cx={p.x} cy={p.premiumY} r="4.8" fill="#10b981">
+                        <title>{`Year ${p.policyStartYear || "—"} | Premium ${formatInr(p.premium)} | IDV ${formatInr(p.idv)}`}</title>
+                      </circle>
+                      {p.showXLabel && (
+                        <text
+                          x={p.x}
+                          y={trendModalSeries.axisY + 14}
+                          textAnchor="middle"
+                          className="fill-slate-500 text-[10px]"
+                        >
+                          {p.policyStartYear || "—"}
+                        </text>
+                      )}
+                    </g>
+                  ))}
+                </svg>
+                <div className="mt-2 flex items-center gap-4 text-xs text-slate-600">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                    Premium
+                  </span>
+                  <span>Year on X-axis</span>
+                </div>
+              </div>
+              <div
+                className="rounded-xl border px-3 py-2 text-xs"
+                style={{
+                  borderColor: "#e2e8f0",
+                  background: "#f1f5f9",
+                  color: "#64748b",
+                }}
+              >
+                {trendModalHistory.length} policies found for this registration.
+              </div>
+            </div>
+          ) : (
             <div
-              className="rounded-xl border px-3 py-2 text-xs"
+              className="rounded-xl border border-dashed px-4 py-10 text-center"
               style={{
                 borderColor: "#e2e8f0",
                 background: "#f1f5f9",
                 color: "#64748b",
               }}
             >
-              {trendModalHistory.length} policies found for this registration.
+              No trend data available for this registration number.
             </div>
-          </div>
-        ) : (
-          <div
-            className="rounded-xl border border-dashed px-4 py-10 text-center"
-            style={{
-              borderColor: "#e2e8f0",
-              background: "#f1f5f9",
-              color: "#64748b",
-            }}
-          >
-            No trend data available for this registration number.
-          </div>
-        )}
-      </Modal>
+          )}
+        </Modal>
 
-      {/* Preview Modal */}
-      <InsurancePreview
-        visible={previewVisible}
-        onClose={() => {
-          setPreviewVisible(false);
-          setSelectedCase(null);
-          setPreviewStageKey(null);
-        }}
-        data={selectedCase}
-        initialStageKey={previewStageKey}
-      />
-
-      {docsModal.open && (
-        <InsuranceDocumentsModal
-          open={docsModal.open}
-          caseId={docsModal.caseId}
-          insuranceCase={docsModal.record}
-          onClose={() => setDocsModal((p) => ({ ...p, open: false }))}
+        {/* Preview Modal */}
+        <InsurancePreview
+          visible={previewVisible}
+          onClose={() => {
+            setPreviewVisible(false);
+            setSelectedCase(null);
+            setPreviewStageKey(null);
+          }}
+          data={selectedCase}
+          initialStageKey={previewStageKey}
         />
-      )}
-    </div>
+
+        {docsModal.open && (
+          <InsuranceDocumentsModal
+            open={docsModal.open}
+            caseId={docsModal.caseId}
+            insuranceCase={docsModal.record}
+            onClose={() => setDocsModal((p) => ({ ...p, open: false }))}
+          />
+        )}
+      </div>
     </InsuranceAntdProvider>
   );
 };

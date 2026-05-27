@@ -31,6 +31,7 @@ import {
   Trash2,
   X,
   XCircle,
+  Phone,
 } from "lucide-react";
 import {
   buildInsurancePaymentTimeline,
@@ -51,7 +52,6 @@ import PremiumBreakupCard from "../../components/insurance/PremiumBreakupCard";
 
 const LEAD_STATUS_OPTIONS = [
   "New",
-  "Follow Up",
   "Quotes Shared",
   "Payment Pending",
   "Closed",
@@ -68,89 +68,42 @@ const VIEW_TABS = [
 ];
 const RENEWAL_STATUS_ACTION_GROUPS = [
   {
-    id: "workflow",
-    label: "Workflow",
+    id: "actions",
+    label: "Actions",
     actions: [
-      {
-        key: "SAVE",
-        label: "Save changes",
-        desc: "Status, notes & assignment",
-        tone: "save",
-        icon: Save,
-      },
-      {
-        key: "RENEW",
-        label: "Start renewal",
-        desc: "Open new renewal case",
-        tone: "renew",
-        icon: RefreshCw,
-      },
-    ],
-  },
-  {
-    id: "quotes",
-    label: "Quotes & payment",
-    actions: [
-      {
-        key: "SHARE_QUOTES",
-        label: "Share quotes",
-        desc: "Mark shared & open quotes",
-        tone: "share",
-        icon: Share2,
-      },
-      {
-        key: "VIEW_QUOTES",
-        label: "View quotes",
-        desc: "Open quote comparison",
-        tone: "view",
-        icon: Eye,
-      },
-      {
-        key: "MARK_PAYMENT_PENDING",
-        label: "Payment pending",
-        desc: "Customer payment awaited",
-        tone: "payment",
-        icon: DollarSign,
-      },
-    ],
-  },
-  {
-    id: "outcome",
-    label: "Close & outcomes",
-    actions: [
-      {
-        key: "CLOSE_LEAD",
-        label: "Close lead",
-        desc: "Set closed — then save",
-        tone: "close",
-        icon: XCircle,
-      },
       {
         key: "ALREADY_RENEWED",
-        label: "Already renewed",
-        desc: "Moved to renewed list",
+        label: "Already Renewed",
+        desc: "Move to renewed tab",
         tone: "renewed",
         icon: CheckCircle,
       },
       {
-        key: "POLICY_FROM_ELSEWHERE",
-        label: "Policy elsewhere",
-        desc: "Renewed outside Autocredits",
-        tone: "view",
-        icon: Shield,
-      },
-      {
         key: "CAR_SOLD",
-        label: "Car sold",
-        desc: "Vehicle no longer with customer",
+        label: "Car Sold",
+        desc: "Close policy",
         tone: "sold",
         icon: CarFront,
       },
       {
         key: "CAR_EXPIRED",
-        label: "Car expired",
-        desc: "Policy lapsed / not renewing",
+        label: "Car Expired",
+        desc: "Close policy",
         tone: "expired",
+        icon: XCircle,
+      },
+      {
+        key: "POLICY_FROM_ELSEWHERE",
+        label: "Policy from Elsewhere",
+        desc: "Move to external",
+        tone: "view",
+        icon: Shield,
+      },
+      {
+        key: "RENEW_NEXT_YEAR",
+        label: "Renew Next Year",
+        desc: "Schedule reminder",
+        tone: "renew",
         icon: Clock3,
       },
     ],
@@ -302,12 +255,11 @@ const InsuranceRenewalCasesPage = () => {
   const [cases, setCases] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
+  const [windowFilter, setWindowFilter] = useState("all");
   const [policyStatusFilter, setPolicyStatusFilter] = useState("all");
+  const [tierFilter, setTierFilter] = useState("all");
   const [assignedFilter, setAssignedFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [odAmountRange, setOdAmountRange] = useState("all");
-  const [followFrom, setFollowFrom] = useState(null);
-  const [followTo, setFollowTo] = useState(null);
   const [activeTab, setActiveTab] = useState("all");
   const [viewTab, setViewTab] = useState("renewal");
   const [selectedIds, setSelectedIds] = useState([]);
@@ -323,11 +275,11 @@ const InsuranceRenewalCasesPage = () => {
   const [policyModal, setPolicyModal] = useState({ open: false, row: null });
   const [showAllPolicyAddons, setShowAllPolicyAddons] = useState(false);
   const popupContainer = (node) => node?.parentElement || document.body;
-  const onPolicyStatusChange = (value) =>
-    setPolicyStatusFilter(String(value || "all"));
+  const onWindowChange = (value) => setWindowFilter(String(value || "all"));
+  const onPolicyStatusChange = (value) => setPolicyStatusFilter(String(value || "all"));
+  const onTierChange = (value) => setTierFilter(String(value || "all"));
   const onLeadStatusChange = (value) => setStatusFilter(String(value || "all"));
   const onAssignedChange = (value) => setAssignedFilter(String(value || "all"));
-  const onOdRangeChange = (value) => setOdAmountRange(String(value || "all"));
   const [summary, setSummary] = useState({
     activeCases: 0,
     policiesPending: 0,
@@ -353,12 +305,13 @@ const InsuranceRenewalCasesPage = () => {
       const [casesRes, employeesRes, summaryRes] = await Promise.all([
         insuranceApi.getRenewalCases({
           view: viewTab,
-          futureDays: 365,
-          pastDays: 365,
+          window: windowFilter !== "all" ? windowFilter : undefined,
+          status: policyStatusFilter !== "all" ? policyStatusFilter : undefined,
+          tier: tierFilter !== "all" ? tierFilter : undefined,
+          search: search || undefined,
           ...(canViewAllRenewals
             ? {}
             : { assignedOnly: 1, assignedToId: meId }),
-          ...(odAmountRange !== "all" ? { odAmountRange } : {}),
         }),
         getEmployees(),
         insuranceApi.getRenewalSummary(),
@@ -378,7 +331,7 @@ const InsuranceRenewalCasesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [canViewAllRenewals, meId, odAmountRange, viewTab]);
+  }, [canViewAllRenewals, meId, viewTab, windowFilter, policyStatusFilter, tierFilter, search]);
 
   React.useEffect(() => {
     load();
@@ -408,14 +361,6 @@ const InsuranceRenewalCasesPage = () => {
       );
     }
 
-    if (policyStatusFilter !== "all") {
-      rows = rows.filter((row) => {
-        const days = daysUntilExpiry(row);
-        if (!Number.isFinite(days)) return false;
-        return policyStatusFilter === "expired" ? days < 0 : days >= 0;
-      });
-    }
-
     if (assignedFilter !== "all") {
       if (assignedFilter === "none") {
         rows = rows.filter((row) => !row?.renewalAssignedToId);
@@ -432,45 +377,6 @@ const InsuranceRenewalCasesPage = () => {
           String(row?.renewalLeadStatus || "New").toLowerCase() ===
           statusFilter.toLowerCase(),
       );
-    }
-    if (odAmountRange !== "all") {
-      rows = rows.filter((row) => {
-        const value = Number(resolveActivePolicySnapshot(row).ownDamage || 0);
-        if (!Number.isFinite(value) || value < 0) return false;
-        if (odAmountRange === "lt10k") return value < 10000;
-        if (odAmountRange === "10k-20k")
-          return value >= 10000 && value <= 20000;
-        if (odAmountRange === "gt20k") return value > 20000;
-        return true;
-      });
-    }
-
-    if (followFrom || followTo) {
-      rows = rows.filter((row) => {
-        const date = parseDate(row?.renewalFollowUpDate);
-        if (!date) return false;
-        if (followFrom && date.isBefore(followFrom.startOf("day")))
-          return false;
-        if (followTo && date.isAfter(followTo.endOf("day"))) return false;
-        return true;
-      });
-    }
-
-    const q = search.trim().toLowerCase();
-    if (q) {
-      rows = rows.filter((row) => {
-        const bag = [
-          row?.registrationNumber,
-          row?.customerName,
-          row?.companyName,
-          row?.contactPersonName,
-          row?.mobile,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
-        return bag.includes(q);
-      });
     }
 
     return rows.sort((a, b) => {
@@ -496,14 +402,9 @@ const InsuranceRenewalCasesPage = () => {
     activeTab,
     assignedFilter,
     cases,
-    followFrom,
-    followTo,
     isAdminLike,
     meId,
-    policyStatusFilter,
-    search,
     statusFilter,
-    odAmountRange,
   ]);
 
   const pendingCount = cases.length;
@@ -681,6 +582,11 @@ const InsuranceRenewalCasesPage = () => {
     }
     if (actionKey === "POLICY_FROM_ELSEWHERE") {
       await applyOutcomeAction(row, "POLICY_FROM_ELSEWHERE");
+      return;
+    }
+    if (actionKey === "RENEW_NEXT_YEAR") {
+      await applyOutcomeAction(row, "RENEW_NEXT_YEAR");
+      return;
     }
   };
 
@@ -707,12 +613,11 @@ const InsuranceRenewalCasesPage = () => {
 
   const clearRenewalFilters = () => {
     setSearch("");
+    setWindowFilter("all");
     setPolicyStatusFilter("all");
+    setTierFilter("all");
     setAssignedFilter("all");
     setStatusFilter("all");
-    setOdAmountRange("all");
-    setFollowFrom(null);
-    setFollowTo(null);
     if (isAdminLike) setActiveTab("all");
     setViewTab("renewal");
   };
@@ -917,39 +822,39 @@ const InsuranceRenewalCasesPage = () => {
             </div>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">Active Cases</div>
-              <div className="text-base font-bold text-slate-900">
+            <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 transition-all hover:bg-blue-100/50 hover:shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600/80">Active Cases</div>
+              <div className="mt-0.5 text-xl font-black text-blue-900">
                 {Number(summary?.activeCases || 0)}
               </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">Policies Pending</div>
-              <div className="text-base font-bold text-slate-900">
+            <div className="rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 transition-all hover:bg-purple-100/50 hover:shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-purple-600/80">Policies Pending</div>
+              <div className="mt-0.5 text-xl font-black text-purple-900">
                 {Number(summary?.policiesPending || 0)}
               </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">Payment Pending</div>
-              <div className="text-base font-bold text-slate-900">
+            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 transition-all hover:bg-amber-100/50 hover:shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-600/80">Payment Pending</div>
+              <div className="mt-0.5 text-xl font-black text-amber-900">
                 {Number(summary?.paymentPending || 0)}
               </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">Pending Renewals</div>
-              <div className="text-base font-bold text-slate-900">
+            <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 transition-all hover:bg-rose-100/50 hover:shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-rose-600/80">Pending Renewals</div>
+              <div className="mt-0.5 text-xl font-black text-rose-900">
                 {Number(summary?.pendingRenewals || 0)}
               </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">Renewed</div>
-              <div className="text-base font-bold text-slate-900">
+            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 transition-all hover:bg-emerald-100/50 hover:shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600/80">Renewed</div>
+              <div className="mt-0.5 text-xl font-black text-emerald-900">
                 {Number(summary?.renewed || 0)}
               </div>
             </div>
-            <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-2">
-              <div className="text-xs text-slate-500">External</div>
-              <div className="text-base font-bold text-slate-900">
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 transition-all hover:bg-indigo-100/50 hover:shadow-sm">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-600/80">External</div>
+              <div className="mt-0.5 text-xl font-black text-indigo-900">
                 {Number(summary?.external || 0)}
               </div>
             </div>
@@ -1031,12 +936,28 @@ const InsuranceRenewalCasesPage = () => {
           <div className="flex flex-wrap gap-2">
             <select
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              value={windowFilter}
+              onChange={(e) => onWindowChange(e.target.value)}
+            >
+              <option value="all">Expiration: All</option>
+              <option value="7d">7 Days</option>
+              <option value="14d">14 Days</option>
+              <option value="30d">30 Days</option>
+              <option value="45d">45 Days</option>
+              <option value="60d">60 Days</option>
+              <option value="gt60d">&gt; 60 Days</option>
+              <option value="expired">Expired</option>
+            </select>
+            <select
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
               value={policyStatusFilter}
               onChange={(e) => onPolicyStatusChange(e.target.value)}
             >
               <option value="all">Policy Status: All</option>
-              <option value="not-expired">Not expired</option>
-              <option value="expired">Already expired</option>
+              <option value="active">Active</option>
+              <option value="grace">Grace Period</option>
+              <option value="suspended">Suspended</option>
+              <option value="cancelled">Cancelled</option>
             </select>
             <select
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
@@ -1068,26 +989,14 @@ const InsuranceRenewalCasesPage = () => {
             </select>
             <select
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
-              value={odAmountRange}
-              onChange={(e) => onOdRangeChange(e.target.value)}
+              value={tierFilter}
+              onChange={(e) => onTierChange(e.target.value)}
             >
-              <option value="all">OD Amount: All</option>
-              <option value="lt10k">OD &lt; 10K</option>
-              <option value="10k-20k">OD 10K - 20K</option>
-              <option value="gt20k">OD &gt; 20K</option>
+              <option value="all">Tier: All</option>
+              <option value="high-value">High-Value (&gt; ₹50K)</option>
+              <option value="premium">Premium (₹20K - ₹50K)</option>
+              <option value="basic">Basic (&lt; ₹20K)</option>
             </select>
-            <DatePicker
-              className="h-9 rounded-lg border-slate-200"
-              placeholder="Follow-up from"
-              value={followFrom}
-              onChange={setFollowFrom}
-            />
-            <DatePicker
-              className="h-9 rounded-lg border-slate-200"
-              placeholder="Follow-up to"
-              value={followTo}
-              onChange={setFollowTo}
-            />
           </div>
         </div>
 
@@ -1229,21 +1138,6 @@ const InsuranceRenewalCasesPage = () => {
                               : `${days}d left`
                             : "No expiry"}
                         </span>
-                        <Select
-                          size="small"
-                          value={status}
-                          className="min-w-[140px]"
-                          options={LEAD_STATUS_OPTIONS.map((x) => ({
-                            label: x,
-                            value: x,
-                          }))}
-                          onChange={(value) =>
-                            setRowDrafts((prev) => ({
-                              ...prev,
-                              [id]: { ...prev[id], renewalLeadStatus: value },
-                            }))
-                          }
-                        />
                       </div>
                       <div className="shrink-0 flex items-center gap-1.5">
                         <Tooltip title="View">
@@ -1429,11 +1323,14 @@ const InsuranceRenewalCasesPage = () => {
                             </div>
                           </div>
                         </div>
-                      <div className="p-3 space-y-3">
+                        <div className="p-3 space-y-3">
+                          {/* Customer block */}
                           <div>
-                            <p className="text-[11px] text-slate-600">
-                              {row.mobile || "—"}
-                            </p>
+                            <div className="flex items-center gap-2 text-[11px] text-slate-600">
+                              <Phone size={11} className="shrink-0" />
+                              <span className="truncate">{row.mobile || "—"}</span>
+                            </div>
+
                             <div className="mt-2.5 space-y-1.5">
                               <div className="flex items-center gap-1.5 text-[10px]">
                                 <span className="text-slate-400 font-bold uppercase tracking-wider">
@@ -1443,70 +1340,45 @@ const InsuranceRenewalCasesPage = () => {
                                   {sourceLabel || channelCtx.source || "Direct"}
                                 </span>
                               </div>
-                              {referenceName || referencePhone ? (
-                                <div className="space-y-1">
-                                  {referenceName ? (
-                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                                      <span className="font-bold uppercase tracking-wider text-slate-400">
-                                        Reference:
-                                      </span>
-                                      <span className="truncate font-semibold text-slate-700">
-                                        {referenceName}
-                                      </span>
-                                    </div>
-                                  ) : null}
-                                  {referencePhone ? (
-                                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                                      <span className="font-bold uppercase tracking-wider text-slate-400">
-                                        Ref No:
-                                      </span>
-                                      <span className="truncate font-semibold text-slate-700 font-mono">
-                                        {referencePhone}
-                                      </span>
-                                    </div>
-                                  ) : null}
+                              {channelCtx.isIndirectSource && channelCtx.sourceDetailsName ? (
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                                  <span className="font-bold uppercase tracking-wider text-slate-400">
+                                    Channel Partner:
+                                  </span>
+                                  <span className="truncate font-semibold text-slate-700">
+                                    {[channelCtx.sourceDetailsName, channelCtx.sourceDetailsContact].filter(Boolean).join(" · ")}
+                                  </span>
                                 </div>
                               ) : null}
-                              {shouldShowInsuranceChannelBadge(channelCtx) &&
-                              channelCtx.isIndirectSource &&
-                              channelCtx.sourceDetailsName ? (
-                                <div className="flex items-center gap-1.5 px-2 py-1 bg-indigo-50 border border-indigo-100 rounded-lg w-fit max-w-full">
-                                  <span
-                                    className="text-[10px] font-bold text-indigo-700 truncate"
-                                    title={`${channelCtx.sourceDetailsName}${channelCtx.channelDealerNo ? ` (#${channelCtx.channelDealerNo})` : ""}`}
-                                  >
-                                    Dealer: {channelCtx.sourceDetailsName}
-                                    {channelCtx.channelDealerNo ? (
-                                      <span className="ml-1 opacity-60">
-                                        #{channelCtx.channelDealerNo}
-                                      </span>
-                                    ) : null}
+                              {referenceName || referencePhone ? (
+                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
+                                  <span className="font-bold uppercase tracking-wider text-slate-400">
+                                    Reference:
+                                  </span>
+                                  <span className="truncate font-semibold text-slate-700">
+                                    {[referenceName, referencePhone].filter(Boolean).join(" · ")}
                                   </span>
                                 </div>
                               ) : null}
                               {shouldShowInsuranceChannelBadge(channelCtx) &&
-                              !channelCtx.isIndirectSource &&
-                              channelCtx.channelPartnerName ? (
+                                !channelCtx.isIndirectSource &&
+                                channelCtx.channelPartnerName ? (
                                 <div
                                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${
-                                    channelCtx.policyDoneByLabel
-                                      ?.toLowerCase()
-                                      .includes("broker")
+                                    channelCtx.policyDoneByLabel?.toLowerCase().includes("broker")
                                       ? "bg-amber-50 border-amber-100"
                                       : "bg-blue-50 border-blue-100"
                                   }`}
                                 >
                                   <span
                                     className={`text-[10px] font-bold truncate ${
-                                      channelCtx.policyDoneByLabel
-                                        ?.toLowerCase()
-                                        .includes("broker")
+                                      channelCtx.policyDoneByLabel?.toLowerCase().includes("broker")
                                         ? "text-amber-700"
                                         : "text-blue-700"
                                     }`}
+                                    title={`${channelCtx.policyDoneByLabel}: ${channelCtx.channelPartnerName}${channelCtx.channelDealerNo ? ` (#${channelCtx.channelDealerNo})` : ""}`}
                                   >
-                                    {channelCtx.policyDoneByLabel}:{" "}
-                                    {channelCtx.channelPartnerName}
+                                    {channelCtx.policyDoneByLabel}: {channelCtx.channelPartnerName}
                                     {channelCtx.channelDealerNo ? (
                                       <span className="ml-1 opacity-60">
                                         #{channelCtx.channelDealerNo}
@@ -1517,15 +1389,21 @@ const InsuranceRenewalCasesPage = () => {
                               ) : null}
                             </div>
                           </div>
+
+                          {/* Divider */}
                           <div className="h-px bg-slate-100" />
+
+                          {/* Vehicle block */}
                           <div>
                             <p className="text-[11px] font-semibold text-slate-600 mb-1">
                               Vehicle
                             </p>
-                            <p className="text-[13px] font-semibold text-slate-900 truncate">
-                              {[row.vehicleMake, row.vehicleModel, row.vehicleVariant]
-                                .filter(Boolean)
-                                .join(" ") || "—"}
+
+                            <p
+                              className="text-[13px] font-semibold text-slate-900 truncate"
+                              title={[row.vehicleMake, row.vehicleModel, row.vehicleVariant].filter(Boolean).join(" ")}
+                            >
+                              {[row.vehicleMake, row.vehicleModel, row.vehicleVariant].filter(Boolean).join(" ") || "—"}
                               {row.manufactureYear ? (
                                 <span className="text-slate-500">
                                   {" "}
@@ -2012,47 +1890,47 @@ const InsuranceRenewalCasesPage = () => {
         }
       >
         {policyModal.row ? (
-          <div className="rounded-xl border border-slate-200 bg-white">
-            {(() => {
-              const modalPolicy = resolveActivePolicySnapshot(policyModal.row);
-              const ownDamage = Number(modalPolicy.ownDamage || 0);
-              const ncbPercent = Number(modalPolicy.ncbDiscount || 0);
-              const ncbAmount = Number(modalPolicy.ncbAmount || 0);
-              const includedAddons = parsePolicyIncludedAddons(
-                policyModal.row,
-                modalPolicy,
-              );
-              return (
-            <PremiumBreakupCard
-              breakup={{
-                ownDamage,
-                ownDamageBeforeNcb: Number(modalPolicy.ownDamageBeforeNcb || 0),
-                basicOwnDamage: ownDamage,
-                ncbPercent,
-                ncbAmount,
-                thirdParty: Number(modalPolicy.thirdParty || 0),
-                basicThirdParty: Number(modalPolicy.basicThirdParty || 0),
-                addOnsTotal: Number(modalPolicy.addOnsTotal || 0),
-                totalAmount: Number(modalPolicy.totalPremium || 0),
-              }}
-              formatCurrency={(n) =>
-                Number(n || 0).toLocaleString("en-IN", {
-                  style: "currency",
-                  currency: "INR",
-                  minimumFractionDigits: 0,
-                })
-              }
-              includedAddons={includedAddons}
-              showAllAddons={showAllPolicyAddons}
-              onToggleAddons={() =>
-                setShowAllPolicyAddons((prev) => !prev)
-              }
-              totalAmount={Number(modalPolicy.totalPremium || 0)}
-              title="Premium Breakup"
-            />
-              );
-            })()}
-          </div>
+          (() => {
+            const modalPolicy = resolveActivePolicySnapshot(policyModal.row);
+            const ownDamage = Number(modalPolicy.ownDamage || 0);
+            const ncbPercent = Number(modalPolicy.ncbDiscount || 0);
+            const ncbAmount = Number(modalPolicy.ncbAmount || 0);
+            const includedAddons = parsePolicyIncludedAddons(
+              policyModal.row,
+              modalPolicy,
+            );
+            return (
+              <PremiumBreakupCard
+                breakup={{
+                  ownDamage,
+                  ownDamageBeforeNcb: Number(modalPolicy.ownDamageBeforeNcb || 0),
+                  basicOwnDamage: ownDamage,
+                  ncbPercent,
+                  ncbAmount,
+                  thirdParty: Number(modalPolicy.thirdParty || 0),
+                  basicThirdParty: Number(modalPolicy.basicThirdParty || 0),
+                  addOnsTotal: Number(modalPolicy.addOnsTotal || 0),
+                  totalAmount: Number(modalPolicy.totalPremium || 0),
+                }}
+                formatCurrency={(n) =>
+                  Number(n || 0).toLocaleString("en-IN", {
+                    style: "currency",
+                    currency: "INR",
+                    minimumFractionDigits: 0,
+                  })
+                }
+                includedAddons={includedAddons}
+                showAllAddons={showAllPolicyAddons}
+                onToggleAddons={() =>
+                  setShowAllPolicyAddons((prev) => !prev)
+                }
+                totalAmount={Number(modalPolicy.totalPremium || 0)}
+                title="Premium Breakup"
+                insurerName={modalPolicy.insurer}
+                idx={0}
+              />
+            );
+          })()
         ) : null}
       </Modal>
     </div>

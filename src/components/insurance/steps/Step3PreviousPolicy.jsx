@@ -223,6 +223,13 @@ const Step3PreviousPolicy = ({
   const [isQuoteEditMode, setIsQuoteEditMode] = React.useState(false);
   const [quoteDraft, setQuoteDraft] = React.useState(buildDefaultQuoteState);
 
+  const policyCategoryKey = String(
+    formData.policyCategory || formData.policyTypeSelector || "",
+  ).trim().toLowerCase();
+  const isExtendedWarranty =
+    policyCategoryKey === "extended warranty" ||
+    policyCategoryKey === "ew policy";
+
   const previewPolicyId =
     formData.previousPolicyNumber || "PREV-POLICY-PREVIEW";
 
@@ -606,10 +613,10 @@ const Step3PreviousPolicy = ({
                       setField("previousTpExpiryDate", "");
                     }}
                     options={[
-                      { label: "Comprehensive", value: "Comprehensive" },
+                      !isExtendedWarranty && { label: "Comprehensive", value: "Comprehensive" },
                       { label: "Stand Alone OD", value: "Stand Alone OD" },
                       { label: "Third Party", value: "Third Party" },
-                    ]}
+                    ].filter(Boolean)}
                   />
                 </CleanField>
               </div>

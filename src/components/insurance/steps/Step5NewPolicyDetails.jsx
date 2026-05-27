@@ -876,26 +876,28 @@ const Step5NewPolicyDetails = ({
               </div>
             </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="TP Expiry Date">
-                  <Input
-                    size="large"
-                    allowClear
-                    type="text"
-                    value={
-                      hasManualPolicyStartDate
-                        ? formatDisplayDate(formData.newTpExpiryDate)
-                        : ""
-                    }
-                    placeholder="Select policy start date"
-                    style={{ pointerEvents: "none", cursor: "default" }}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+            {formData.newPolicyType !== "Stand Alone OD" && (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="TP Expiry Date">
+                    <Input
+                      size="large"
+                      allowClear
+                      type="text"
+                      value={
+                        hasManualPolicyStartDate
+                          ? formatDisplayDate(formData.newTpExpiryDate)
+                          : ""
+                      }
+                      placeholder="Select policy start date"
+                      style={{ pointerEvents: "none", cursor: "default" }}
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            )}
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -1148,6 +1150,7 @@ const Step5NewPolicyDetails = ({
                   thirdParty: acceptedTpAmount,
                   basicThirdParty: acceptedTpAmount,
                   addOnsTotal: acceptedAddOnsTotal,
+                  coverageType: formData.newPolicyType,
                 }}
                 formatCurrency={formatCurrency}
                 includedAddons={includedAddons}
@@ -1188,16 +1191,18 @@ const Step5NewPolicyDetails = ({
                   }
                   tone="slate"
                 />
-                <MiniDateCard
-                  icon={<BankOutlined />}
-                  label="TP Expiry"
-                  value={
-                    hasManualPolicyStartDate
-                      ? formatDisplayDate(formData.newTpExpiryDate)
-                      : "—"
-                  }
-                  tone="slate"
-                />
+                {formData.newPolicyType !== "Stand Alone OD" && (
+                  <MiniDateCard
+                    icon={<BankOutlined />}
+                    label="TP Expiry"
+                    value={
+                      hasManualPolicyStartDate
+                        ? formatDisplayDate(formData.newTpExpiryDate)
+                        : "—"
+                    }
+                    tone="slate"
+                  />
+                )}
               </div>
             </div>
           </div>

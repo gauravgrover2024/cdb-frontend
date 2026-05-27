@@ -48,6 +48,7 @@ import {
   lookupCityByPincode,
   normalizePincode,
 } from "../../modules/loans/components/loan-form/pre-file/pincodeCityLookup";
+import { usePreventPageRefresh } from "../../utils/formDataProtection";
 import {
   collectLinkedDocumentsForInsurance,
   mergeLinkedIntoExistingDocuments,
@@ -353,8 +354,8 @@ const mapQuoteToDraft = (q) => {
 
   const incomingInc =
     q.addOnsIncluded &&
-    typeof q.addOnsIncluded === "object" &&
-    !Array.isArray(q.addOnsIncluded)
+      typeof q.addOnsIncluded === "object" &&
+      !Array.isArray(q.addOnsIncluded)
       ? q.addOnsIncluded
       : {};
   const mergedIncluded = addOnCatalog.reduce((acc, name) => {
@@ -656,7 +657,14 @@ const validateStep1Strict = (data) => {
   if (!(policyDoneBy || "").trim())
     errors.policyDoneBy = "Policy done by is required";
   if (!(sourceMode || "").trim()) errors.source = "Source is required";
-  if (String(data.vehicleType || "").trim() === "Used Car") {
+  const policyCategoryKey = String(
+    data.policyCategory || data.policyTypeSelector || "",
+  ).trim().toLowerCase();
+  const isExtendedWarranty =
+    policyCategoryKey === "extended warranty" ||
+    policyCategoryKey === "ew policy";
+
+  if (String(data.vehicleType || "").trim() === "Used Car" && !isExtendedWarranty) {
     const usedCarFlowType = String(data.usedCarFlowType || "").trim();
     if (!usedCarFlowType) {
       errors.usedCarFlowType = "Used-car flow type is required";
@@ -742,7 +750,7 @@ const summarizeFieldErrors = (errors = {}, max = 4) => {
 
 const validateStep2 = (data) => {
   const errors = {};
-  if (!(data.registrationNumber || "").trim())
+  if (data.vehicleType !== "New Car" && !(data.registrationNumber || "").trim())
     errors.registrationNumber = "Registration number is required";
   if (!(data.vehicleMake || "").trim())
     errors.vehicleMake = "Vehicle make is required";
@@ -783,6 +791,24 @@ const NewInsuranceCaseForm = ({
     ...initialFormState,
     ...(initialValues || {}),
   });
+
+  const originalDataRef = React.useRef(null);
+  useEffect(() => {
+    if (originalDataRef.current === null) {
+      originalDataRef.current = JSON.stringify(formData);
+    }
+  }, [formData]);
+
+  const isFormDirty = originalDataRef.current !== null && JSON.stringify(formData) !== originalDataRef.current;
+
+  useEffect(() => {
+    window.__isInsuranceFormDirty = isFormDirty;
+    return () => {
+      window.__isInsuranceFormDirty = false;
+    };
+  }, [isFormDirty]);
+
+  usePreventPageRefresh(isFormDirty);
   const [quoteDraft, setQuoteDraft] = useState(initialQuoteDraft);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -1263,10 +1289,10 @@ const NewInsuranceCaseForm = ({
       );
       const normalizedCubic = parseCubicCapacityValue(
         vehicle.cubicCapacityCc ||
-          vehicle.cubicCapacity ||
-          vehicle.cc ||
-          vehicle.engineCC ||
-          "",
+        vehicle.cubicCapacity ||
+        vehicle.cc ||
+        vehicle.engineCC ||
+        "",
       );
       setFormData((prev) => ({
         ...prev,
@@ -1318,9 +1344,9 @@ const NewInsuranceCaseForm = ({
         dateOfReg:
           normalizeDateInputValue(
             vehicle.registrationDate ||
-              vehicle.dateOfReg ||
-              vehicle.date_of_reg ||
-              prev.dateOfReg,
+            vehicle.dateOfReg ||
+            vehicle.date_of_reg ||
+            prev.dateOfReg,
           ) || prev.dateOfReg,
         batteryNumber:
           vehicle.batteryNumber || vehicle.battery_number || prev.batteryNumber,
@@ -1431,17 +1457,17 @@ const NewInsuranceCaseForm = ({
         merged.forEach((row, idx) => {
           const key = String(
             row?.registrationNumberNormalized ||
-              row?.registrationNumber ||
-              row?.regNo,
+            row?.registrationNumber ||
+            row?.regNo,
           )
             .trim()
             .toUpperCase();
           const fallbackKey = String(
             row?._id ||
-              row?.vehicleId ||
-              row?.chassisNumber ||
-              row?.engineNumber ||
-              `${row?.make || row?.vehicleMake || ""}|${row?.model || row?.vehicleModel || ""}|${row?.variant || row?.vehicleVariant || ""}|${idx}`,
+            row?.vehicleId ||
+            row?.chassisNumber ||
+            row?.engineNumber ||
+            `${row?.make || row?.vehicleMake || ""}|${row?.model || row?.vehicleModel || ""}|${row?.variant || row?.vehicleVariant || ""}|${idx}`,
           )
             .trim()
             .toUpperCase();
@@ -1463,9 +1489,9 @@ const NewInsuranceCaseForm = ({
           const rowMobile = String(row?.primaryMobile || "").trim();
           const nameMatch = customerNameLc
             ? selectedCustomerToken &&
-              rowCustomerToken &&
-              (rowCustomerToken.includes(selectedCustomerToken) ||
-                selectedCustomerToken.includes(rowCustomerToken))
+            rowCustomerToken &&
+            (rowCustomerToken.includes(selectedCustomerToken) ||
+              selectedCustomerToken.includes(rowCustomerToken))
             : false;
           const customerIdMatch =
             selectedCustomerId &&
@@ -1750,31 +1776,31 @@ const NewInsuranceCaseForm = ({
     } = {}) => {
       const resolvedMake = String(
         make ||
-          formData.vehicleMake ||
-          seedRow?.make ||
-          seedRow?.vehicleMake ||
-          "",
+        formData.vehicleMake ||
+        seedRow?.make ||
+        seedRow?.vehicleMake ||
+        "",
       ).trim();
       const resolvedModel = String(
         model ||
-          formData.vehicleModel ||
-          seedRow?.model ||
-          seedRow?.vehicleModel ||
-          "",
+        formData.vehicleModel ||
+        seedRow?.model ||
+        seedRow?.vehicleModel ||
+        "",
       ).trim();
       const resolvedVariant = String(
         variant ||
-          formData.vehicleVariant ||
-          seedRow?.variant ||
-          seedRow?.vehicleVariant ||
-          "",
+        formData.vehicleVariant ||
+        seedRow?.variant ||
+        seedRow?.vehicleVariant ||
+        "",
       ).trim();
       const resolvedRegNo = String(
         registrationNumber ||
-          formData.registrationNumber ||
-          seedRow?.registrationNumber ||
-          seedRow?.regNo ||
-          "",
+        formData.registrationNumber ||
+        seedRow?.registrationNumber ||
+        seedRow?.regNo ||
+        "",
       ).trim();
       const cacheKey = [
         normalizeVehicleToken(resolvedMake),
@@ -1786,15 +1812,15 @@ const NewInsuranceCaseForm = ({
       let fallbackRow = seedRow || null;
       let fuelCandidate = normalizeFuelLabel(
         fallbackRow?.fuelType ||
-          fallbackRow?.fuel ||
-          fallbackRow?.vehicleFuelType ||
-          "",
+        fallbackRow?.fuel ||
+        fallbackRow?.vehicleFuelType ||
+        "",
       );
       let finalCubic = parseCubicCapacityValue(
         fallbackRow?.cubicCapacityCc ||
-          fallbackRow?.cubicCapacity ||
-          fallbackRow?.cc ||
-          "",
+        fallbackRow?.cubicCapacity ||
+        fallbackRow?.cc ||
+        "",
       );
 
       if (!fuelCandidate && cached?.fuelType) {
@@ -1852,18 +1878,18 @@ const NewInsuranceCaseForm = ({
           if (!fuelCandidate) {
             fuelCandidate = normalizeFuelLabel(
               details?.fuelType ||
-                details?.fuel ||
-                details?.vehicleFuelType ||
-                "",
+              details?.fuel ||
+              details?.vehicleFuelType ||
+              "",
             );
           }
           if (!finalCubic) {
             finalCubic = parseCubicCapacityValue(
               details?.cubicCapacityCc ||
-                details?.cubicCapacity ||
-                details?.cc ||
-                details?.engineCC ||
-                "",
+              details?.cubicCapacity ||
+              details?.cc ||
+              details?.engineCC ||
+              "",
             );
           }
         }
@@ -1932,18 +1958,18 @@ const NewInsuranceCaseForm = ({
             if (!fuelCandidate) {
               fuelCandidate = normalizeFuelLabel(
                 fallbackRow?.fuelType ||
-                  fallbackRow?.fuel ||
-                  fallbackRow?.vehicleFuelType ||
-                  "",
+                fallbackRow?.fuel ||
+                fallbackRow?.vehicleFuelType ||
+                "",
               );
             }
             if (!finalCubic) {
               finalCubic = parseCubicCapacityValue(
                 fallbackRow?.cubicCapacityCc ||
-                  fallbackRow?.cubicCapacity ||
-                  fallbackRow?.cc ||
-                  fallbackRow?.engineCC ||
-                  "",
+                fallbackRow?.cubicCapacity ||
+                fallbackRow?.cc ||
+                fallbackRow?.engineCC ||
+                "",
               );
             }
           }
@@ -2024,6 +2050,26 @@ const NewInsuranceCaseForm = ({
     formData.vehicleVariant,
     refreshVehicleDerivedFields,
   ]);
+
+  useEffect(() => {
+    if (isExtendedWarranty) {
+      setFormData((prev) => {
+        if (
+          prev.usedCarFlowType === "" &&
+          prev.policyJourneyClassification === "EW Policy" &&
+          prev.newPolicyType === "EW Policy"
+        ) {
+          return prev;
+        }
+        return {
+          ...prev,
+          usedCarFlowType: "",
+          policyJourneyClassification: "EW Policy",
+          newPolicyType: "EW Policy",
+        };
+      });
+    }
+  }, [isExtendedWarranty]);
 
   useEffect(() => {
     const normalizedFuel = normalizeFuelLabel(formData.fuelType || "");
@@ -2217,9 +2263,9 @@ const NewInsuranceCaseForm = ({
     }
     const derivedSource = String(
       initialValues?.source ||
-        initialValues?.sourceOrigin ||
-        initialValues?.recordSource ||
-        "Direct",
+      initialValues?.sourceOrigin ||
+      initialValues?.recordSource ||
+      "Direct",
     ).trim();
     const mergedValues = normalizeFormDates({
       ...initialFormState,
@@ -2239,15 +2285,15 @@ const NewInsuranceCaseForm = ({
       previousPolicyType:
         normalizePolicyTypeLabel(
           initialValues?.previousPolicyType ||
-            initialValues?.previous_policy_type ||
-            "",
+          initialValues?.previous_policy_type ||
+          "",
         ) || initialFormState.previousPolicyType,
       newPolicyType:
         normalizePolicyTypeLabel(
           initialValues?.newPolicyType ||
-            initialValues?.coverageType ||
-            initialValues?.new_policy_type ||
-            "",
+          initialValues?.coverageType ||
+          initialValues?.new_policy_type ||
+          "",
         ) || initialFormState.newPolicyType,
       dealerChannelName:
         initialValues?.dealerChannelName ||
@@ -2846,7 +2892,7 @@ const NewInsuranceCaseForm = ({
       };
 
       const next = persistChainRef.current.then(run);
-      persistChainRef.current = next.catch(() => {});
+      persistChainRef.current = next.catch(() => { });
       return next;
     },
     [buildPersistPayload, insuranceDbId],
@@ -2915,9 +2961,9 @@ const NewInsuranceCaseForm = ({
               ).trim();
               const incomingKey = String(
                 maybeEntry?.idempotencyKey ||
-                  maybeEntry?._id ||
-                  maybeEntry?.id ||
-                  "",
+                maybeEntry?._id ||
+                maybeEntry?.id ||
+                "",
               ).trim();
               return rowKey && incomingKey && rowKey === incomingKey;
             });
@@ -3456,7 +3502,14 @@ const NewInsuranceCaseForm = ({
           let policyJourneyClassification = String(
             prev.policyJourneyClassification || "",
           ).trim();
-          if (String(prev.vehicleType || "").trim() === "Used Car") {
+          const policyCategoryKey = String(
+            prev.policyCategory || prev.policyTypeSelector || "",
+          ).trim().toLowerCase();
+          const isExtendedWarranty =
+            policyCategoryKey === "extended warranty" ||
+            policyCategoryKey === "ew policy";
+
+          if (String(prev.vehicleType || "").trim() === "Used Car" && !isExtendedWarranty) {
             if (usedCarType === "Renewal") {
               if (previousInsurer && acceptedInsurer) {
                 policyJourneyClassification =
@@ -3470,6 +3523,8 @@ const NewInsuranceCaseForm = ({
             ) {
               policyJourneyClassification = usedCarType;
             }
+          } else if (isExtendedWarranty) {
+            policyJourneyClassification = "EW Policy";
           }
 
           return {
@@ -3487,9 +3542,9 @@ const NewInsuranceCaseForm = ({
             newAccessoriesIdv: Number(q.accessoriesIdv || 0),
             newIdvAmount: Number(
               q.totalIdv ||
-                Number(q.vehicleIdv || 0) +
-                  Number(q.cngIdv || 0) +
-                  Number(q.accessoriesIdv || 0),
+              Number(q.vehicleIdv || 0) +
+              Number(q.cngIdv || 0) +
+              Number(q.accessoriesIdv || 0),
             ),
             newTotalPremium: Math.round(Number(breakup?.totalPremium || 0)),
             newHypothecation:
@@ -3983,9 +4038,8 @@ const NewInsuranceCaseForm = ({
     summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0);
 
   // ─── Step 8 success screen + wizard (shared Ant Design theme with Loan PreFile)
-  const insuranceShellClassName = `insurance-case-skin insurance-dashboard-shell ${
-    step === 1 ? "insurance-step1-neutral" : ""
-  } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
+  const insuranceShellClassName = `insurance-case-skin insurance-dashboard-shell ${step === 1 ? "insurance-step1-neutral" : ""
+    } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
         [&_.ant-card]:!rounded-xl
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
