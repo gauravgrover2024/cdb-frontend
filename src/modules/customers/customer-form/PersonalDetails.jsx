@@ -1,3 +1,4 @@
+import { lookupCityByPincode } from "../../loans/components/loan-form/pre-file/pincodeCityLookup";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin, Switch, Radio, InputNumber } from "antd";
 import Icon from "../../../components/AppIcon";
@@ -100,23 +101,12 @@ const PersonalDetails = ({
   useEffect(() => {
     if (pincode && pincode.length === 6) {
       const fetchCity = async () => {
-        try {
-          setFetchingPincode(true);
-          const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
-          const data = await response.json();
-
-          if (data && data[0]?.Status === "Success") {
-             const postOffices = data[0].PostOffice;
-             if (postOffices && postOffices.length > 0) {
-                const city = postOffices[0].District; 
-                form.setFieldsValue({ city: city });
-             }
-          }
-        } catch (error) {
-           console.error("Pincode fetch failed", error);
-        } finally {
-           setFetchingPincode(false);
+        setFetchingPincode(true);
+        const city = await lookupCityByPincode(pincode);
+        if (city) {
+          form.setFieldsValue({ city });
         }
+        setFetchingPincode(false);
       };
 
       const timer = setTimeout(fetchCity, 500); 
@@ -127,18 +117,9 @@ const PersonalDetails = ({
   useEffect(() => {
     if (permanentPincode && permanentPincode.length === 6) {
       const fetchCity = async () => {
-        try {
-          const response = await fetch(`https://api.postalpincode.in/pincode/${permanentPincode}`);
-          const data = await response.json();
-
-          if (data && data[0]?.Status === "Success") {
-            const postOffices = data[0].PostOffice;
-            if (postOffices && postOffices.length > 0) {
-              form.setFieldsValue({ permanentCity: postOffices[0].District });
-            }
-          }
-        } catch (error) {
-          console.error("Permanent pincode fetch failed", error);
+        const city = await lookupCityByPincode(permanentPincode);
+        if (city) {
+          form.setFieldsValue({ permanentCity: city });
         }
       };
 
@@ -150,18 +131,9 @@ const PersonalDetails = ({
   useEffect(() => {
     if (registrationPincode && registrationPincode.length === 6) {
       const fetchCity = async () => {
-        try {
-          const response = await fetch(`https://api.postalpincode.in/pincode/${registrationPincode}`);
-          const data = await response.json();
-
-          if (data && data[0]?.Status === "Success") {
-            const postOffices = data[0].PostOffice;
-            if (postOffices && postOffices.length > 0) {
-              form.setFieldsValue({ registrationCity: postOffices[0].District });
-            }
-          }
-        } catch (error) {
-          console.error("Registration pincode fetch failed", error);
+        const city = await lookupCityByPincode(registrationPincode);
+        if (city) {
+          form.setFieldsValue({ registrationCity: city });
         }
       };
 

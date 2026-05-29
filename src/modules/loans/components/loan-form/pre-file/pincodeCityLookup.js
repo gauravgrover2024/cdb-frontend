@@ -33,7 +33,7 @@ export const lookupAddressByPincode = async (value) => {
   if (addressCache.has(pin)) return addressCache.get(pin);
 
   // Helper to fetch with timeout
-  const fetchWithTimeout = async (url, options = {}, timeoutMs = 3000) => {
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 8000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -56,7 +56,7 @@ export const lookupAddressByPincode = async (value) => {
         const primary = postOffices[0] || {};
         
         const addressData = {
-          city: String(primary.District || primary.Block || "").trim(),
+          city: String(primary.District || primary.Division || primary.Block || "").trim(),
           state: String(primary.State || "").trim(),
           area: String(primary.Name || "").trim(),
           district: String(primary.District || "").trim(),
@@ -72,32 +72,6 @@ export const lookupAddressByPincode = async (value) => {
     }
   } catch (err) {
     console.warn(`Primary Pincode API failed for ${pin}:`, err.message);
-  }
-
-  // Attempt 2: Zippopotam.us API (High-performance backup)
-  try {
-    const res = await fetchWithTimeout(`https://api.zippopotam.us/IN/${pin}`);
-    if (res.ok) {
-      const data = await res.json();
-      const place = data?.places?.[0] || {};
-      const state = String(place.state || "").trim();
-      const placeName = String(place["place name"] || "").trim();
-
-      const addressData = {
-        city: placeName || state,
-        state: state,
-        area: placeName,
-        district: placeName,
-      };
-
-      if (addressData.city) {
-        addressCache.set(pin, addressData);
-        cityCache.set(pin, addressData.city);
-        return addressData;
-      }
-    }
-  } catch (err) {
-    console.warn(`Backup Pincode API failed for ${pin}:`, err.message);
   }
 
   // Fallback: Static prefixes
