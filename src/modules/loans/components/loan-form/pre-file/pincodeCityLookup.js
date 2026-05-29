@@ -7,6 +7,7 @@ const FALLBACK_PREFIX_CITY = [
 ];
 
 const cityCache = new Map();
+const addressCache = new Map();
 
 export const normalizePincode = (value) => {
   const pin = String(value ?? "")
@@ -22,32 +23,108 @@ export const inferCityFromPincodePrefix = (value) => {
   return hit ? hit[1] : "";
 };
 
+/**
+ * Fetch full address details (City/District, State, Area) by Pincode.
+ * Utilizes a multi-API pipeline with automatic timeout fallback.
+ */
+export const lookupAddressByPincode = async (value) => {
+  const pin = normalizePincode(value);
+  if (!pin) return null;
+  if (addressCache.has(pin)) return addressCache.get(pin);
+
+  // Helper to fetch with timeout
+  const fetchWithTimeout = async (url, options = {}, timeoutMs = 3000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { ...options, signal: controller.signal });
+      clearTimeout(id);
+      return response;
+    } catch (err) {
+      clearTimeout(id);
+      throw err;
+    }
+  };
+
+  // Attempt 1: Postal Pin Code API (Primary)
+  try {
+    const res = await fetchWithTimeout(`https://api.postalpincode.in/pincode/${pin}`);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data[0] && data[0].Status === "Success") {
+        const postOffices = data[0].PostOffice || [];
+        const primary = postOffices[0] || {};
+        
+        const addressData = {
+          city: String(primary.District || primary.Block || "").trim(),
+          state: String(primary.State || "").trim(),
+          area: String(primary.Name || "").trim(),
+          district: String(primary.District || "").trim(),
+        };
+
+        if (addressData.city) {
+          addressCache.set(pin, addressData);
+          // Sync to cityCache for lookupCityByPincode
+          cityCache.set(pin, addressData.city);
+          return addressData;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`Primary Pincode API failed for ${pin}:`, err.message);
+  }
+
+  // Attempt 2: Zippopotam.us API (High-performance backup)
+  try {
+    const res = await fetchWithTimeout(`https://api.zippopotam.us/IN/${pin}`);
+    if (res.ok) {
+      const data = await res.json();
+      const place = data?.places?.[0] || {};
+      const state = String(place.state || "").trim();
+      const placeName = String(place["place name"] || "").trim();
+
+      const addressData = {
+        city: placeName || state,
+        state: state,
+        area: placeName,
+        district: placeName,
+      };
+
+      if (addressData.city) {
+        addressCache.set(pin, addressData);
+        cityCache.set(pin, addressData.city);
+        return addressData;
+      }
+    }
+  } catch (err) {
+    console.warn(`Backup Pincode API failed for ${pin}:`, err.message);
+  }
+
+  // Fallback: Static prefixes
+  const fallback = inferCityFromPincodePrefix(pin);
+  if (fallback) {
+    const fallbackData = {
+      city: fallback,
+      state: "",
+      area: "",
+      district: fallback,
+    };
+    addressCache.set(pin, fallbackData);
+    cityCache.set(pin, fallback);
+    return fallbackData;
+  }
+
+  return null;
+};
+
+/**
+ * Backward compatible function returning a plain string city name.
+ */
 export const lookupCityByPincode = async (value) => {
   const pin = normalizePincode(value);
   if (!pin) return "";
   if (cityCache.has(pin)) return cityCache.get(pin);
 
-  try {
-    const res = await fetch(`https://api.postalpincode.in/pincode/${pin}`);
-    const data = await res.json();
-    const district = String(
-      data?.[0]?.PostOffice?.[0]?.District ||
-      data?.[0]?.PostOffice?.[0]?.Block ||
-      "",
-    ).trim();
-    if (district) {
-      cityCache.set(pin, district);
-      return district;
-    }
-  } catch {
-    // swallow and fallback below
-  }
-
-  const fallback = inferCityFromPincodePrefix(pin);
-  if (fallback) {
-    cityCache.set(pin, fallback);
-    return fallback;
-  }
-  return "";
+  const address = await lookupAddressByPincode(pin);
+  return address ? address.city : "";
 };
-

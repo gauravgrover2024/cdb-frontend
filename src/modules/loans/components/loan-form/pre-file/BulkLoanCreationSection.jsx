@@ -1,10 +1,9 @@
 import { Alert, Form, InputNumber, Radio } from "antd";
-import { useState } from "react";
 import Icon from "../../../../../components/AppIcon";
 
 const BulkLoanCreationSection = ({ form }) => {
-  const [isMultipleCars, setIsMultipleCars] = useState(false);
-  const [isSameVehicle, setIsSameVehicle] = useState(true);
+  const isMultipleCars = Form.useWatch("isMultipleCars", form);
+  const isSameVehicle = Form.useWatch("isSameVehicle", form) ?? true;
 
   const numberOfCars = Form.useWatch("numberOfCars", form);
 
@@ -38,7 +37,6 @@ const BulkLoanCreationSection = ({ form }) => {
 
           <Form.Item name="isMultipleCars" className="mb-0">
             <Radio.Group
-              onChange={(e) => setIsMultipleCars(e.target.value)}
               className="flex gap-3"
             >
               <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-950/30 transition-all cursor-pointer">
@@ -74,7 +72,6 @@ const BulkLoanCreationSection = ({ form }) => {
 
               <Form.Item name="isSameVehicle" className="mb-0">
                 <Radio.Group
-                  onChange={(e) => setIsSameVehicle(e.target.value)}
                   className="flex gap-3"
                 >
                   <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
