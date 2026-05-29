@@ -19,7 +19,7 @@ import {
   DeleteOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
-import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
+import { lookupCityByPincode, normalizePincode, lookupPincodeData } from "./pincodeCityLookup";
 import { useAuth } from "../../../../../context/AuthContext";
 
 const { TextArea } = Input;
@@ -136,9 +136,12 @@ const PersonalDetailsPreFile = () => {
     const fetchCity = async () => {
       try {
         setFetchingPincode(true);
-        const city = await lookupCityByPincode(pin);
-        if (!cancelled && city) {
-          form.setFieldsValue({ city });
+        const data = await lookupPincodeData(pin);
+        if (!cancelled && data) {
+          form.setFieldsValue({
+            city: data.district || data.city,
+            state: data.state,
+          });
         }
       } finally {
         if (!cancelled) setFetchingPincode(false);
@@ -159,9 +162,12 @@ const PersonalDetailsPreFile = () => {
     const fetchCity = async () => {
       try {
         setFetchingPermanentPincode(true);
-        const city = await lookupCityByPincode(pin);
-        if (!cancelled && city) {
-          form.setFieldsValue({ permanentCity: city });
+        const data = await lookupPincodeData(pin);
+        if (!cancelled && data) {
+          form.setFieldsValue({
+            permanentCity: data.district || data.city,
+            permanentState: data.state,
+          });
         }
       } finally {
         if (!cancelled) setFetchingPermanentPincode(false);
