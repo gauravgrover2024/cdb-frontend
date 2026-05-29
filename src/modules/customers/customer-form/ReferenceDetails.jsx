@@ -1,3 +1,4 @@
+import { lookupCityByPincode } from "../../loans/components/loan-form/pre-file/pincodeCityLookup";
 import React, { useEffect, useState } from "react";
 import { Form, Input, Row, Col, Divider, Select } from "antd";
 import Icon from "../../../components/AppIcon";
@@ -23,21 +24,12 @@ const ReferenceDetails = () => {
   useEffect(() => {
     if (pincode1 && pincode1.length === 6) {
       const fetchCity = async () => {
-        try {
-          setFetching1(true);
-          const response = await fetch(`https://api.postalpincode.in/pincode/${pincode1}`);
-          const data = await response.json();
-          if (data && data[0]?.Status === "Success") {
-             const postOffices = data[0].PostOffice;
-             if (postOffices && postOffices.length > 0) {
-                form.setFieldsValue({ reference1: { city: postOffices[0].District } });
-             }
-          }
-        } catch (error) {
-           console.error("Ref1 Pincode fetch failed", error);
-        } finally {
-           setFetching1(false);
+        setFetching1(true);
+        const city = await lookupCityByPincode(pincode1);
+        if (city) {
+          form.setFieldsValue({ reference1: { city } });
         }
+        setFetching1(false);
       };
       const timer = setTimeout(fetchCity, 500);
       return () => clearTimeout(timer);
@@ -48,21 +40,12 @@ const ReferenceDetails = () => {
   useEffect(() => {
     if (pincode2 && pincode2.length === 6) {
       const fetchCity = async () => {
-        try {
-          setFetching2(true);
-          const response = await fetch(`https://api.postalpincode.in/pincode/${pincode2}`);
-          const data = await response.json();
-          if (data && data[0]?.Status === "Success") {
-             const postOffices = data[0].PostOffice;
-             if (postOffices && postOffices.length > 0) {
-                form.setFieldsValue({ reference2: { city: postOffices[0].District } });
-             }
-          }
-        } catch (error) {
-           console.error("Ref2 Pincode fetch failed", error);
-        } finally {
-           setFetching2(false);
+        setFetching2(true);
+        const city = await lookupCityByPincode(pincode2);
+        if (city) {
+          form.setFieldsValue({ reference2: { city } });
         }
+        setFetching2(false);
       };
       const timer = setTimeout(fetchCity, 500);
       return () => clearTimeout(timer);

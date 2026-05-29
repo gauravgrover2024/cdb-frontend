@@ -1,3 +1,4 @@
+import { lookupCityByPincode } from "../../loans/components/loan-form/pre-file/pincodeCityLookup";
 import React, { useEffect, useState } from "react";
 import { Form, Input, Select, AutoComplete, Row, Col, Tag, Spin, Button } from "antd";
 import Icon from "../../../components/AppIcon";
@@ -35,23 +36,12 @@ const EmploymentDetails = () => {
   useEffect(() => {
     if (!isCompany && employmentPincode && employmentPincode.length === 6) {
       const fetchCity = async () => {
-        try {
-          setFetchingPincode(true);
-          const response = await fetch(`https://api.postalpincode.in/pincode/${employmentPincode}`);
-          const data = await response.json();
-
-          if (data && data[0]?.Status === "Success") {
-             const postOffices = data[0].PostOffice;
-             if (postOffices && postOffices.length > 0) {
-                 const city = postOffices[0].District; 
-                 form.setFieldsValue({ employmentCity: city });
-             }
-          }
-        } catch (error) {
-           console.error("Office Pincode fetch failed", error);
-        } finally {
-           setFetchingPincode(false);
+        setFetchingPincode(true);
+        const city = await lookupCityByPincode(employmentPincode);
+        if (city) {
+          form.setFieldsValue({ employmentCity: city });
         }
+        setFetchingPincode(false);
       };
 
       const timer = setTimeout(fetchCity, 500);
