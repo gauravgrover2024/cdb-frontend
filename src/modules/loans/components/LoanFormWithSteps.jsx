@@ -1,6 +1,6 @@
 // src/modules/loans/components/LoanFormWithSteps.jsx
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Form, message } from "antd";
+import { Form, message, Modal } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import {
@@ -2665,22 +2665,28 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         // 2. Build Loan Payload (includes customerName and primaryMobile for backend auto-create)
         const payload = buildLoanPayload(extraData);
 
+        const numberOfCars = Number(payload.numberOfCars) || 1;
+
+        // BULK SUCCESS CASE
+        if (numberOfCars > 1) {
+          const result = await createLoan(payload);
+          if (!silent) {
+            Modal.success({
+              title: "Bulk Loans Created",
+              content: result?.message || `Successfully created ${numberOfCars} loan applications.`,
+              onOk: () => navigate("/loans"),
+            });
+          }
+          // Clear cached draft after successful save
+          clearSavedFormData();
+          sessionStorage.removeItem("customer_form_draft");
+          sessionStorage.removeItem("customers_list_cache");
+          return true;
+        }
+
         // CREATE (Fallback if accessed directly via /loans/new)
         if (!isEditMode) {
-          const numberOfCars = Number(payload.numberOfCars) || 1;
           const result = await createLoan(payload);
-
-          // BULK SUCCESS CASE
-          if (numberOfCars > 1) {
-            if (!silent) {
-              alert(
-                result?.message ||
-                  `Successfully created ${numberOfCars} loan applications.`,
-              );
-              navigate("/loans");
-            }
-            return true;
-          }
 
           // SINGLE SUCCESS CASE (result = full API response: { loanId, data, customerLinked, message, ... })
           const loanData = result?.data || result;
