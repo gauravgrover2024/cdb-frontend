@@ -1,11 +1,63 @@
-import { Alert, Form, InputNumber, Radio } from "antd";
+import { Alert, Form, InputNumber, Radio, Button, message, Progress } from "antd";
+import { useState } from "react";
 import Icon from "../../../../../components/AppIcon";
 
-const BulkLoanCreationSection = ({ form }) => {
+const BulkLoanCreationSection = ({ form, onProcess }) => {
   const isMultipleCars = Form.useWatch("isMultipleCars", form);
   const isSameVehicle = Form.useWatch("isSameVehicle", form) ?? true;
 
   const numberOfCars = Form.useWatch("numberOfCars", form);
+
+  const [isCreating, setIsCreating] = useState(false);
+  const [progress, setProgress] = useState(0);
+
+  const handleCreateBulkLoans = async () => {
+    try {
+      await form.validateFields();
+    } catch (error) {
+      message.error("Please fill in all required fields correctly.");
+      return;
+    }
+
+    if (!numberOfCars || numberOfCars < 2) {
+      message.error("Please enter a valid number of cars (minimum 2)");
+      return;
+    }
+    
+    setIsCreating(true);
+    setProgress(0);
+    
+    // Progress up to 90% while waiting for backend
+    const interval = setInterval(() => {
+      setProgress((prev) => {
+        if (prev >= 90) {
+          clearInterval(interval);
+          return 90;
+        }
+        return prev + 15;
+      });
+    }, 250);
+
+    try {
+      if (typeof onProcess === "function") {
+        await onProcess({ forceBulkCreate: true });
+      } else if (typeof form.submit === "function") {
+        form.submit();
+      }
+      
+      setProgress(100);
+      // Let the success animation show for a moment
+      setTimeout(() => {
+        setIsCreating(false);
+      }, 500);
+    } catch (error) {
+      setIsCreating(false);
+      setProgress(0);
+      message.error("An error occurred during bulk creation.");
+    } finally {
+      clearInterval(interval);
+    }
+  };
 
   return (
     <div className="mb-8 p-6 bg-card rounded-xl border border-border shadow-sm">
@@ -165,6 +217,32 @@ const BulkLoanCreationSection = ({ form }) => {
               icon={<Icon name="Info" size={18} />}
               className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800/30"
             />
+
+            <div className="mt-6 flex flex-col gap-4">
+              {isCreating && (
+                <div className="bg-violet-50 dark:bg-violet-950/20 p-4 rounded-xl border border-violet-100 dark:border-violet-800/30">
+                  <div className="flex justify-between text-xs font-bold text-violet-700 dark:text-violet-400 mb-2 uppercase tracking-wider">
+                    <span>Creating {numberOfCars} loans...</span>
+                    <span>{progress > 100 ? 100 : progress}%</span>
+                  </div>
+                  <Progress percent={progress > 100 ? 100 : progress} showInfo={false} status="active" strokeColor={{ '0%': '#8b5cf6', '100%': '#4f46e5' }} />
+                </div>
+              )}
+              
+              <div className="flex justify-end">
+                <Button
+                  type="primary"
+                  size="large"
+                  className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border-0 shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 font-semibold h-12 px-10 rounded-full text-base"
+                  onClick={handleCreateBulkLoans}
+                  loading={isCreating}
+                >
+                  {!isCreating && <Icon name="Copy" size={20} className="text-white" />}
+                  <span>Create Bulk Loans</span>
+                </Button>
+              </div>
+            </div>
+
           </>
         )}
       </div>

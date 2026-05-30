@@ -46,7 +46,47 @@ export const lookupAddressByPincode = async (value) => {
     }
   };
 
-  // Attempt 1: Postal Pin Code API (Primary)
+  const capitalize = (str) => {
+    if (!str) return "";
+    return str.split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ");
+  };
+
+  // Attempt 1: Data.gov.in Pincode API (Primary)
+  try {
+    const API_KEY = "579b464db66ec23bdd0000010b809db88dbf45836d7e06fb9a0fd000";
+    const res = await fetchWithTimeout(
+      `https://api.data.gov.in/resource/5c2f62fe-5afa-4119-a499-fec9d604d5bd?api-key=${API_KEY}&format=json&limit=10&filters[pincode]=${pin}`
+    );
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.status === "ok" && data.records && data.records.length > 0) {
+        // Try to find a Delivery post office first, otherwise take the first one
+        const primary = data.records.find((r) => r.delivery === "Delivery") || data.records[0];
+        
+        const districtName = capitalize(String(primary.district || "").trim());
+        const stateName = capitalize(String(primary.statename || "").trim());
+        
+        const addressData = {
+          city: districtName, // User requested district in place of city
+          state: stateName,
+          area: capitalize(String(primary.officename || "").trim().replace(/\s*(SO|BO|HO)$/i, "")),
+          district: districtName,
+        };
+
+        if (addressData.city) {
+          addressCache.set(pin, addressData);
+          cityCache.set(pin, addressData.city);
+          return addressData;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`Data.gov.in Pincode API failed for ${pin}:`, err.message);
+  }
+
+  // Attempt 2: Postal Pin Code API (Fallback)
   try {
     const res = await fetchWithTimeout(`https://api.postalpincode.in/pincode/${pin}`);
     if (res.ok) {
@@ -56,10 +96,10 @@ export const lookupAddressByPincode = async (value) => {
         const primary = postOffices[0] || {};
         
         const addressData = {
-          city: String(primary.District || primary.Division || primary.Block || "").trim(),
-          state: String(primary.State || "").trim(),
-          area: String(primary.Name || "").trim(),
-          district: String(primary.District || "").trim(),
+          city: capitalize(String(primary.District || primary.Division || primary.Block || "").trim()),
+          state: capitalize(String(primary.State || "").trim()),
+          area: capitalize(String(primary.Name || "").trim()),
+          district: capitalize(String(primary.District || "").trim()),
         };
 
         if (addressData.city) {
@@ -71,7 +111,7 @@ export const lookupAddressByPincode = async (value) => {
       }
     }
   } catch (err) {
-    console.warn(`Primary Pincode API failed for ${pin}:`, err.message);
+    console.warn(`Postal Pin Code API fallback failed for ${pin}:`, err.message);
   }
 
   // Fallback: Static prefixes

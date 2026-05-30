@@ -2666,9 +2666,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         const payload = buildLoanPayload(extraData);
 
         const numberOfCars = Number(payload.numberOfCars) || 1;
+        const forceBulkCreate = extraData?.forceBulkCreate;
 
         // BULK SUCCESS CASE
-        if (numberOfCars > 1) {
+        if (numberOfCars > 1 && (!isEditMode || forceBulkCreate)) {
           const result = await createLoan(payload);
           if (!silent) {
             Modal.success({
@@ -3228,7 +3229,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               id="bulk_loan"
               className="rounded-2xl border border-dashed border-border/70 bg-card/75 p-2 dark:border-zinc-800 dark:bg-black/70"
             >
-              <BulkLoanCreationSection form={form} />
+              <BulkLoanCreationSection form={form} onProcess={(extra) => handleSaveLoan(true, extra)} />
             </div>
           </div>
         );
