@@ -1242,7 +1242,7 @@ const LoanDashboard = () => {
       const searchSeed = String(debouncedSearchQuery || "").trim();
       const searchKey = searchSeed.toLowerCase();
       const isSeedSearchMode = searchSeed.length >= 3;
-      const isExpandedFetchMode = isSeedSearchMode || hasWideClientFilters;
+      const isExpandedFetchMode = hasWideClientFilters;
       const isLatestLeadMode = sortConfig?.key === "createdAt";
 
       // Build server-side filter params so the backend can pre-filter results,
@@ -1368,28 +1368,7 @@ const LoanDashboard = () => {
       rows = extractRows(payload);
       const total = extractTotal(payload);
 
-      // Search UX: backend only once for 3-char seed; then local filtering for additional chars.
-      if (isExpandedFetchMode && total > rows.length) {
-        const totalPages = Math.ceil(total / effectiveLimit);
-        const pageRequests = [];
-        for (let p = 2; p <= totalPages; p += 1) {
-          pageRequests.push(
-            loansApi.getAll({
-              ...requestParams,
-              page: p,
-              skip: (p - 1) * effectiveLimit,
-              limit: effectiveLimit,
-            }),
-          );
-        }
-        if (pageRequests.length) {
-          const extraPayloads = await Promise.all(pageRequests);
-          const extraRows = extraPayloads.flatMap((nextPayload) =>
-            extractRows(nextPayload),
-          );
-          rows = rows.concat(extraRows);
-        }
-      }
+      // Normal server-side pagination UX
       const apiMs = Math.round(performance.now() - apiStartAt);
       const normalizeStartAt = performance.now();
       let normalizedRows = rows.map(normalizeLoan);
@@ -1742,9 +1721,9 @@ const LoanDashboard = () => {
     }
 
     const handle = setTimeout(() => {
-      // Seed backend search at 3 chars; 4th+ chars are refined on frontend.
-      setDebouncedSearchQuery(trimmedQuery.slice(0, 3));
-    }, 180);
+      // Direct backend search with proper debounce
+      setDebouncedSearchQuery(trimmedQuery);
+    }, 400);
     return () => clearTimeout(handle);
   }, [filters.searchQuery]);
 
@@ -2072,9 +2051,7 @@ const LoanDashboard = () => {
     ? filteredLoans.length
     : Number(serverTotal) || filteredLoans.length;
   const searchMode = Boolean(filters.searchQuery?.trim());
-  const effectiveTotalCountForGrid = searchMode
-    ? filteredLoans.length
-    : totalCountForGrid;
+  const effectiveTotalCountForGrid = totalCountForGrid;
 
   return (
     <div className="h-full min-h-0 overflow-hidden rounded-3xl border border-slate-200/80 bg-gradient-to-b from-sky-50 via-white to-white p-4 md:p-6 dark:border-slate-800 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900">
