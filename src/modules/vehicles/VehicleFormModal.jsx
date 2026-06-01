@@ -1,10 +1,25 @@
 import React, { useEffect } from "react";
-import { Modal, Form, Input, InputNumber, Row, Col, Select, Switch } from "antd";
+import {
+  Modal,
+  Form,
+  Input,
+  InputNumber,
+  Row,
+  Col,
+  Select,
+  Switch,
+} from "antd";
 import Icon from "../../components/AppIcon";
 
 const { Option } = Select;
 
-const VehicleFormModal = ({ open, onClose, onSave, loading, initialValues }) => {
+const VehicleFormModal = ({
+  open,
+  onClose,
+  onSave,
+  loading,
+  initialValues,
+}) => {
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -65,7 +80,7 @@ const VehicleFormModal = ({ open, onClose, onSave, loading, initialValues }) => 
           otherCharges: 0,
           onRoadPrice: 0,
           status: "Active",
-          isDiscontinued: false
+          isDiscontinued: false,
         }}
         onValuesChange={handleValuesChange}
         className="mt-4"
@@ -93,6 +108,23 @@ const VehicleFormModal = ({ open, onClose, onSave, loading, initialValues }) => 
 
         <Row gutter={16}>
           <Col span={12}>
+            <Form.Item label="Registration No." name="registrationNumber">
+              <Input placeholder="e.g. MH12AB1234" />
+            </Form.Item>
+          </Col>
+          <Col span={12}>
+            <Form.Item
+              label="Variant"
+              name="variant"
+              rules={[{ required: true, message: "Required" }]}
+            >
+              <Input placeholder="e.g. XZ+, VXI" />
+            </Form.Item>
+          </Col>
+        </Row>
+
+        <Row gutter={16}>
+          <Col span={12}>
             <Form.Item
               label="Variant"
               name="variant"
@@ -102,10 +134,7 @@ const VehicleFormModal = ({ open, onClose, onSave, loading, initialValues }) => 
             </Form.Item>
           </Col>
           <Col span={12}>
-            <Form.Item
-              label="Fuel Type"
-              name="fuel"
-            >
+            <Form.Item label="Fuel Type" name="fuel">
               <Select placeholder="Select Fuel">
                 <Option value="Petrol">Petrol</Option>
                 <Option value="Diesel">Diesel</Option>
@@ -119,18 +148,12 @@ const VehicleFormModal = ({ open, onClose, onSave, loading, initialValues }) => 
 
         <Row gutter={16}>
           <Col span={12}>
-            <Form.Item
-              label="City"
-              name="city"
-            >
+            <Form.Item label="City" name="city">
               <Input placeholder="e.g. Gwalior, Indore" />
             </Form.Item>
           </Col>
           <Col span={6}>
-            <Form.Item
-              label="Status"
-              name="status"
-            >
+            <Form.Item label="Status" name="status">
               <Select>
                 <Option value="Active">Active</Option>
                 <Option value="Inactive">Inactive</Option>
@@ -149,60 +172,70 @@ const VehicleFormModal = ({ open, onClose, onSave, loading, initialValues }) => 
         </Row>
 
         <div className="bg-muted/30 p-4 rounded-2xl border border-border/50 mt-2">
-            <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Icon name="IndianRupee" size={14} />
-                Pricing Details
-            </h4>
-            <Row gutter={16}>
-                <Col span={8}>
-                    <Form.Item label="Ex-Showroom" name="exShowroom">
-                        <InputNumber
-                            className="w-full"
-                            formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                        />
-                    </Form.Item>
-                </Col>
-                <Col span={8}>
-                    <Form.Item label="RTO" name="rto">
-                        <InputNumber
-                            className="w-full"
-                            formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                        />
-                    </Form.Item>
-                </Col>
-                <Col span={8}>
-                    <Form.Item label="Insurance" name="insurance">
-                        <InputNumber
-                            className="w-full"
-                            formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                        />
-                    </Form.Item>
-                </Col>
-            </Row>
-            <Row gutter={16}>
-                <Col span={8}>
-                    <Form.Item label="Other Charges" name="otherCharges">
-                        <InputNumber
-                            className="w-full"
-                            formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                        />
-                    </Form.Item>
-                </Col>
-                <Col span={16}>
-                    <Form.Item label="On-Road Price" name="onRoadPrice">
-                        <InputNumber
-                            className="w-full bg-primary/5 font-bold text-primary"
-                            readOnly
-                            formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={value => value.replace(/₹\s?|(,*)/g, '')}
-                        />
-                    </Form.Item>
-                </Col>
-            </Row>
+          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4 flex items-center gap-2">
+            <Icon name="IndianRupee" size={14} />
+            Pricing Details
+          </h4>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="Ex-Showroom" name="exShowroom">
+                <InputNumber
+                  className="w-full"
+                  formatter={(value) =>
+                    `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="RTO" name="rto">
+                <InputNumber
+                  className="w-full"
+                  formatter={(value) =>
+                    `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Insurance" name="insurance">
+                <InputNumber
+                  className="w-full"
+                  formatter={(value) =>
+                    `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="Other Charges" name="otherCharges">
+                <InputNumber
+                  className="w-full"
+                  formatter={(value) =>
+                    `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+                />
+              </Form.Item>
+            </Col>
+            <Col span={16}>
+              <Form.Item label="On-Road Price" name="onRoadPrice">
+                <InputNumber
+                  className="w-full bg-primary/5 font-bold text-primary"
+                  readOnly
+                  formatter={(value) =>
+                    `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                  }
+                  parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+                />
+              </Form.Item>
+            </Col>
+          </Row>
         </div>
       </Form>
     </Modal>
