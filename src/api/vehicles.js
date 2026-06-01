@@ -48,19 +48,26 @@ const withNormalizedData = (payload, data) => {
   return { ...(payload || {}), data };
 };
 
-const normalizeText = (value) => String(value || "").trim().toLowerCase();
+const normalizeText = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
 const normalizeRegNo = (value) =>
   String(value || "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
-const isLocalApiBase = /localhost|127\.0\.0\.1/i.test(String(API_BASE_URL || ""));
+const isLocalApiBase = /localhost|127\.0\.0\.1/i.test(
+  String(API_BASE_URL || ""),
+);
 const MASTER_RECORD_FALLBACK_BASES = ["https://cdb-api.vercel.app"];
 const DISTINCT_FALLBACK_BASES = MASTER_RECORD_FALLBACK_BASES;
 const normalizeCityText = (value) =>
   normalizeText(value).replace(/[^a-z0-9]/g, "");
 const parseBooleanFlag = (value) => {
-  const raw = String(value ?? "").trim().toLowerCase();
+  const raw = String(value ?? "")
+    .trim()
+    .toLowerCase();
   return raw === "1" || raw === "true" || raw === "yes";
 };
 const hasDiscontinuedDate = (value) => {
@@ -112,11 +119,20 @@ const uniqueSorted = (items) => {
   return [...uniqueMap.values()].sort((a, b) => a.localeCompare(b));
 };
 
-const searchVehicleRecordsFromAbsoluteBase = async (baseUrl, query, limit = 20) => {
-  const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+const searchVehicleRecordsFromAbsoluteBase = async (
+  baseUrl,
+  query,
+  limit = 20,
+) => {
+  const base = String(baseUrl || "")
+    .trim()
+    .replace(/\/+$/, "");
   if (!base) return [];
   const url = `${base}/api/vehicles/records/search?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`;
-  const res = await fetch(url, { method: "GET", headers: { "Content-Type": "application/json" } });
+  const res = await fetch(url, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
   if (!res.ok) {
     throw new Error(`Vehicle record lookup failed (${res.status}) at ${base}`);
   }
@@ -143,12 +159,19 @@ const mapLoanToVehicleRecord = (loan = {}) => {
     model: String(loan?.vehicleModel || "").trim(),
     variant: String(loan?.vehicleVariant || "").trim(),
     yearOfManufacture: String(
-      loan?.yearOfManufacture || loan?.manufacturingYear || loan?.boughtInYear || "",
+      loan?.yearOfManufacture ||
+        loan?.manufacturingYear ||
+        loan?.boughtInYear ||
+        "",
     ).trim(),
     engineNumber: String(loan?.engineNumber || loan?.rc_engine_no || "").trim(),
-    chassisNumber: String(loan?.chassisNumber || loan?.rc_chassis_no || "").trim(),
+    chassisNumber: String(
+      loan?.chassisNumber || loan?.rc_chassis_no || "",
+    ).trim(),
     registrationDate: loan?.rc_redg_date || loan?.registrationDate || null,
-    registrationCity: String(loan?.registrationCity || loan?.postfile_regd_city || "").trim(),
+    registrationCity: String(
+      loan?.registrationCity || loan?.postfile_regd_city || "",
+    ).trim(),
     hypothecation: String(loan?.hypothecationBank || "").trim(),
   };
 };
@@ -167,7 +190,10 @@ const fallbackVehicleRecordsFromLoans = async (query, limit = 20) => {
     if (!row) continue;
     const normalized = row.registrationNumberNormalized;
     if (!normalized) continue;
-    if (!normalized.includes(q) && !(suffix.length === 4 && normalized.endsWith(suffix))) {
+    if (
+      !normalized.includes(q) &&
+      !(suffix.length === 4 && normalized.endsWith(suffix))
+    ) {
       continue;
     }
     if (!dedup.has(normalized)) dedup.set(normalized, row);
@@ -177,8 +203,14 @@ const fallbackVehicleRecordsFromLoans = async (query, limit = 20) => {
   return [...dedup.values()].slice(0, limit);
 };
 
-const fetchJsonFromAbsoluteBase = async (baseUrl, endpointPath, params = {}) => {
-  const base = String(baseUrl || "").trim().replace(/\/+$/, "");
+const fetchJsonFromAbsoluteBase = async (
+  baseUrl,
+  endpointPath,
+  params = {},
+) => {
+  const base = String(baseUrl || "")
+    .trim()
+    .replace(/\/+$/, "");
   if (!base) return null;
   const query = new URLSearchParams(
     Object.entries(params).reduce((acc, [key, value]) => {
@@ -210,7 +242,9 @@ const VEHICLE_MEDIA_CACHE = new Map();
 const normalizeVehicleRecord = (row) => ({
   ...row,
   make: String(row?.make || row?.brand || row?.brandName || "").trim(),
-  model: String(row?.model || row?.vehicleModel || row?.vehicle_name || "").trim(),
+  model: String(
+    row?.model || row?.vehicleModel || row?.vehicle_name || "",
+  ).trim(),
   variant: String(
     row?.variant || row?.variantName || row?.name || row?.vehicleVariant || "",
   ).trim(),
@@ -255,7 +289,8 @@ const fetchVehicleList = async (query) => {
       if (allRows.length >= VEHICLE_FALLBACK_MAX_ROWS) {
         break;
       }
-      const totalFromPayload = Number(payload?.count) || Number(payload?.total) || 0;
+      const totalFromPayload =
+        Number(payload?.count) || Number(payload?.total) || 0;
       if (totalFromPayload && totalFromPayload <= allRows.length) {
         break;
       }
@@ -272,8 +307,14 @@ const fetchVehicleList = async (query) => {
   return allRows;
 };
 
-const fetchVehicleRowsByCity = async (city = null, includeDiscontinued = false) => {
-  const cacheKeyBase = String(city || "").trim().toLowerCase() || "__all__";
+const fetchVehicleRowsByCity = async (
+  city = null,
+  includeDiscontinued = false,
+) => {
+  const cacheKeyBase =
+    String(city || "")
+      .trim()
+      .toLowerCase() || "__all__";
   const cacheKey = `${cacheKeyBase}|${includeDiscontinued ? "all" : "active"}`;
   if (VEHICLE_ROWS_BY_CITY.has(cacheKey)) {
     return VEHICLE_ROWS_BY_CITY.get(cacheKey);
@@ -313,8 +354,8 @@ const fetchVehicleRowsByCity = async (city = null, includeDiscontinued = false) 
           }
           if (
             query.city &&
-            (String(query.city).trim().toLowerCase() ===
-              normalizedCity.toLowerCase())
+            String(query.city).trim().toLowerCase() ===
+              normalizedCity.toLowerCase()
           ) {
             continue;
           }
@@ -322,9 +363,7 @@ const fetchVehicleRowsByCity = async (city = null, includeDiscontinued = false) 
       }
 
       if (normalizedCity && cityQuerySucceeded) {
-        rows = rows.filter((row) =>
-          isCityMatch(row.city, normalizedCity),
-        );
+        rows = rows.filter((row) => isCityMatch(row.city, normalizedCity));
       }
       rows = filterByDiscontinuedPreference(rows, includeDiscontinued);
 
@@ -378,7 +417,10 @@ const pickVehicleFallback = async (
 };
 
 const fetchFeatureRowsByCity = async (city = null) => {
-  const cacheKey = String(city || "").trim().toLowerCase() || "__all__";
+  const cacheKey =
+    String(city || "")
+      .trim()
+      .toLowerCase() || "__all__";
   if (FEATURE_ROWS_BY_CITY.has(cacheKey)) {
     return FEATURE_ROWS_BY_CITY.get(cacheKey);
   }
@@ -462,7 +504,8 @@ const pickFeatureFallback = async (
     return result.filter((r) => {
       if (city && !isCityMatch(r.city, city)) return false;
       if (make && normalizeText(r.make) !== normalizeText(make)) return false;
-      if (model && normalizeText(r.model) !== normalizeText(model)) return false;
+      if (model && normalizeText(r.model) !== normalizeText(model))
+        return false;
       return true;
     });
   }
@@ -477,7 +520,9 @@ export const vehiclesApi = {
   },
 
   search: async (searchTerm) => {
-    return await apiClient.get(`/api/vehicles?q=${encodeURIComponent(searchTerm)}`);
+    return await apiClient.get(
+      `/api/vehicles?q=${encodeURIComponent(searchTerm)}`,
+    );
   },
 
   getById: async (id) => {
@@ -496,8 +541,16 @@ export const vehiclesApi = {
     return await apiClient.delete(`/api/vehicles/${id}`);
   },
 
+  getMasterRecords: async (params = {}) => {
+    const query = new URLSearchParams({ all: true, ...params }).toString();
+    const payload = await apiClient.get(
+      `/api/vehicles/records/search?${query}`,
+    );
+    return withNormalizedData(payload, normalizeArrayData(payload));
+  },
+
   bulkUpload: async (data) => {
-     return await apiClient.post("/api/vehicles/bulk", data);
+    return await apiClient.post("/api/vehicles/bulk", data);
   },
 
   // Distinct values API
@@ -515,10 +568,14 @@ export const vehiclesApi = {
     if (isLocalApiBase) {
       for (const base of DISTINCT_FALLBACK_BASES) {
         try {
-          const payload = await fetchJsonFromAbsoluteBase(base, "/api/vehicles/distinct/makes", {
-            city,
-            includeDiscontinued: includeDiscontinued ? "true" : "false",
-          });
+          const payload = await fetchJsonFromAbsoluteBase(
+            base,
+            "/api/vehicles/distinct/makes",
+            {
+              city,
+              includeDiscontinued: includeDiscontinued ? "true" : "false",
+            },
+          );
           const rows = normalizeArrayData(payload);
           if (rows.length) return withNormalizedData(payload, rows);
         } catch {
@@ -561,11 +618,15 @@ export const vehiclesApi = {
     if (isLocalApiBase) {
       for (const base of DISTINCT_FALLBACK_BASES) {
         try {
-          const payload = await fetchJsonFromAbsoluteBase(base, "/api/vehicles/distinct/models", {
-            make,
-            city,
-            includeDiscontinued: includeDiscontinued ? "true" : "false",
-          });
+          const payload = await fetchJsonFromAbsoluteBase(
+            base,
+            "/api/vehicles/distinct/models",
+            {
+              make,
+              city,
+              includeDiscontinued: includeDiscontinued ? "true" : "false",
+            },
+          );
           const rows = normalizeArrayData(payload);
           if (rows.length) return withNormalizedData(payload, rows);
         } catch {
@@ -594,7 +655,12 @@ export const vehiclesApi = {
     return withNormalizedData([], fallback);
   },
 
-  getUniqueVariants: async (make, model, city = null, includeDiscontinued = false) => {
+  getUniqueVariants: async (
+    make,
+    model,
+    city = null,
+    includeDiscontinued = false,
+  ) => {
     let url = `/api/vehicles/distinct/variants?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`;
     if (city) url += `&city=${encodeURIComponent(city)}`;
     url += `&includeDiscontinued=${includeDiscontinued ? "true" : "false"}`;
@@ -608,12 +674,16 @@ export const vehiclesApi = {
     if (isLocalApiBase) {
       for (const base of DISTINCT_FALLBACK_BASES) {
         try {
-          const payload = await fetchJsonFromAbsoluteBase(base, "/api/vehicles/distinct/variants", {
-            make,
-            model,
-            city,
-            includeDiscontinued: includeDiscontinued ? "true" : "false",
-          });
+          const payload = await fetchJsonFromAbsoluteBase(
+            base,
+            "/api/vehicles/distinct/variants",
+            {
+              make,
+              model,
+              city,
+              includeDiscontinued: includeDiscontinued ? "true" : "false",
+            },
+          );
           const rows = normalizeArrayData(payload);
           if (rows.length) return withNormalizedData(payload, rows);
         } catch {
@@ -656,7 +726,10 @@ export const vehiclesApi = {
       const rows = normalizeArrayData(payload);
       return withNormalizedData(payload, rows);
     } catch (error) {
-      console.error("Primary variants-with-price endpoint failed, using fallback", error);
+      console.error(
+        "Primary variants-with-price endpoint failed, using fallback",
+        error,
+      );
     }
     if (isLocalApiBase) {
       for (const base of DISTINCT_FALLBACK_BASES) {
@@ -720,9 +793,15 @@ export const vehiclesApi = {
 
   getMedia: async (make, model, variant = null) => {
     const cacheKey = JSON.stringify({
-      make: String(make || "").trim().toLowerCase(),
-      model: String(model || "").trim().toLowerCase(),
-      variant: String(variant || "").trim().toLowerCase(),
+      make: String(make || "")
+        .trim()
+        .toLowerCase(),
+      model: String(model || "")
+        .trim()
+        .toLowerCase(),
+      variant: String(variant || "")
+        .trim()
+        .toLowerCase(),
     });
     const cached = VEHICLE_MEDIA_CACHE.get(cacheKey);
     if (cached && Date.now() - cached.ts <= VEHICLE_MEDIA_CACHE_TTL_MS) {
@@ -748,7 +827,8 @@ export const vehiclesApi = {
     let url = `/api/vehicles/similar-models?make=${encodeURIComponent(make)}&model=${encodeURIComponent(model)}`;
     if (city) url += `&city=${encodeURIComponent(city)}`;
     if (includeDiscontinued) url += `&includeDiscontinued=true`;
-    if (tolerance != null) url += `&tolerance=${encodeURIComponent(String(tolerance))}`;
+    if (tolerance != null)
+      url += `&tolerance=${encodeURIComponent(String(tolerance))}`;
     if (limit != null) url += `&limit=${encodeURIComponent(String(limit))}`;
     const payload = await apiClient.get(url);
 
@@ -778,7 +858,8 @@ export const vehiclesApi = {
         `/api/vehicles/records/search?q=${encodeURIComponent(q)}&limit=${encodeURIComponent(limit)}`,
       );
       primaryRows = normalizeArrayData(primaryPayload);
-      if (primaryRows.length) return withNormalizedData(primaryPayload, primaryRows);
+      if (primaryRows.length)
+        return withNormalizedData(primaryPayload, primaryRows);
     } catch (error) {
       primaryError = error;
     }
@@ -787,9 +868,16 @@ export const vehiclesApi = {
     if (isLocalApiBase) {
       for (const base of MASTER_RECORD_FALLBACK_BASES) {
         try {
-          const rows = await searchVehicleRecordsFromAbsoluteBase(base, q, limit);
+          const rows = await searchVehicleRecordsFromAbsoluteBase(
+            base,
+            q,
+            limit,
+          );
           if (rows.length) {
-            return withNormalizedData({ success: true, source: "remote-fallback" }, rows);
+            return withNormalizedData(
+              { success: true, source: "remote-fallback" },
+              rows,
+            );
           }
         } catch (error) {
           // continue fallback chain
@@ -801,7 +889,10 @@ export const vehiclesApi = {
     try {
       const rows = await fallbackVehicleRecordsFromLoans(q, limit);
       if (rows.length) {
-        return withNormalizedData({ success: true, source: "loans-fallback" }, rows);
+        return withNormalizedData(
+          { success: true, source: "loans-fallback" },
+          rows,
+        );
       }
     } catch (error) {
       // ignore and return primary response shape
