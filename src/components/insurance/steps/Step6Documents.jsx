@@ -1,4 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { Select, message } from "antd";
 import Icon from "../../AppIcon";
 import Button from "../../ui/Button";
@@ -162,13 +169,19 @@ const getScenarioFromForm = (formData = {}) => {
   const policyCategory = String(formData?.policyCategory || "")
     .trim()
     .toLowerCase();
-  if (policyCategory.includes("extended warranty") || policyCategory.includes("ew")) {
+  if (
+    policyCategory.includes("extended warranty") ||
+    policyCategory.includes("ew")
+  ) {
     return "ew-policy";
   }
 
   if (formData?.vehicleType === "New Car") return "new-car-insurance";
 
-  const expiryDates = [formData?.previousOdExpiryDate, formData?.previousTpExpiryDate]
+  const expiryDates = [
+    formData?.previousOdExpiryDate,
+    formData?.previousTpExpiryDate,
+  ]
     .filter(Boolean)
     .map((value) => new Date(value))
     .filter((date) => !Number.isNaN(date.getTime()));
@@ -188,7 +201,9 @@ const getScenarioFromForm = (formData = {}) => {
 };
 
 const getPolicyYearLabel = (formData = {}) => {
-  const start = String(formData?.newPolicyStartDate || formData?.ewCommencementDate || "")
+  const start = String(
+    formData?.newPolicyStartDate || formData?.ewCommencementDate || "",
+  )
     .trim()
     .slice(0, 4);
   const end = String(
@@ -199,22 +214,56 @@ const getPolicyYearLabel = (formData = {}) => {
   )
     .trim()
     .slice(0, 4);
+
   if (start && end) return `${start}-${end}`;
-  return start || end || "";
+  if (start || end) return start || end;
+
+  const regDate = String(
+    formData?.dateOfReg ||
+      formData?.registrationDate ||
+      formData?.date_of_reg ||
+      formData?.dateOfRegistration ||
+      "",
+  ).trim();
+  if (regDate) {
+    const parsed = new Date(regDate);
+    if (!Number.isNaN(parsed.getTime())) {
+      const year = String(parsed.getFullYear()).trim();
+      if (year && year !== "1970") return year;
+    }
+  }
+
+  return "";
 };
 
-const getVehiclePolicyLabel = (formData = {}) =>
-  String(formData?.registrationNumber || "").trim() ||
-  [formData?.vehicleMake, formData?.vehicleModel, formData?.vehicleVariant]
-    .filter(Boolean)
-    .join(" ")
-    .trim() ||
-  "Vehicle";
+const getVehiclePolicyLabel = (formData = {}) => {
+  const vehicleNumber = String(
+    formData?.registrationNumber ||
+      formData?.regNo ||
+      formData?.registration_no ||
+      formData?.rc_redg_no ||
+      formData?.registrationNumberNormalized ||
+      formData?.vehicleNumber ||
+      "",
+  ).trim();
+
+  if (vehicleNumber) return vehicleNumber;
+
+  return (
+    [formData?.vehicleMake, formData?.vehicleModel, formData?.vehicleVariant]
+      .filter(Boolean)
+      .join(" ")
+      .trim() || "Vehicle"
+  );
+};
 
 const getPolicyTagLabel = (formData = {}) =>
   [
     String(
-      formData?.customerName || formData?.contactPersonName || formData?.companyName || "Customer",
+      formData?.customerName ||
+        formData?.contactPersonName ||
+        formData?.companyName ||
+        "Customer",
     ).trim(),
     getVehiclePolicyLabel(formData),
     getPolicyYearLabel(formData),
@@ -223,7 +272,9 @@ const getPolicyTagLabel = (formData = {}) =>
     .join(" · ");
 
 const inferDocumentTag = ({ docName = "", formData = {}, scenario = "" }) => {
-  const value = String(docName || "").trim().toLowerCase();
+  const value = String(docName || "")
+    .trim()
+    .toLowerCase();
   if (!value) return "";
 
   if (value.includes("aadhaar") || value.includes("aadhar")) {
@@ -244,7 +295,10 @@ const inferDocumentTag = ({ docName = "", formData = {}, scenario = "" }) => {
   if (value.includes("inspection")) return "Inspection Report";
   if (value.includes("rc")) return "RC Copy";
   if (value.includes("policy")) {
-    if (scenario === "used-car-renewal" || scenario === "policy-already-expired") {
+    if (
+      scenario === "used-car-renewal" ||
+      scenario === "policy-already-expired"
+    ) {
       return value.includes("prev") || value.includes("old")
         ? "Previous Year Policy"
         : "Policy Copy";
@@ -254,7 +308,9 @@ const inferDocumentTag = ({ docName = "", formData = {}, scenario = "" }) => {
   if (value.includes("engine")) return "Engine Number";
   if (value.includes("chassis")) return "Chassis Number";
 
-  const reg = String(formData?.registrationNumber || "").trim().toLowerCase();
+  const reg = String(formData?.registrationNumber || "")
+    .trim()
+    .toLowerCase();
   if (reg && value.includes(reg.replace(/[^a-z0-9]/g, ""))) return "RC Copy";
   return "";
 };
@@ -276,14 +332,23 @@ const buildAccessibleDocumentUrl = (value = "") => {
   if (!url || url.startsWith("data:") || url.startsWith("blob:")) return url;
 
   const isR2Path =
-    looksLikeR2Host(url) || url.startsWith("/uploads/") || url.startsWith("uploads/");
+    looksLikeR2Host(url) ||
+    url.startsWith("/uploads/") ||
+    url.startsWith("uploads/");
 
   if (!isR2Path || !API_BASE) return url;
   return `${API_BASE}/api/upload/file?url=${encodeURIComponent(url)}`;
 };
 
 const getStableDocId = (doc, fallback = "") =>
-  String(doc?.id || doc?.public_id || doc?.publicId || doc?.storageKey || doc?.url || fallback);
+  String(
+    doc?.id ||
+      doc?.public_id ||
+      doc?.publicId ||
+      doc?.storageKey ||
+      doc?.url ||
+      fallback,
+  );
 
 const uniqueList = (values = []) => Array.from(new Set(values.filter(Boolean)));
 
@@ -291,13 +356,18 @@ const formatFileSize = (bytes) => {
   const numeric = Number(bytes || 0);
   if (!numeric) return "0 KB";
   const units = ["Bytes", "KB", "MB", "GB"];
-  const unitIndex = Math.min(Math.floor(Math.log(numeric) / Math.log(1024)), units.length - 1);
+  const unitIndex = Math.min(
+    Math.floor(Math.log(numeric) / Math.log(1024)),
+    units.length - 1,
+  );
   const value = numeric / 1024 ** unitIndex;
   return `${Math.round(value * 100) / 100} ${units[unitIndex]}`;
 };
 
 const extensionFromName = (value = "") => {
-  const clean = String(value || "").split("?")[0].split("#")[0];
+  const clean = String(value || "")
+    .split("?")[0]
+    .split("#")[0];
   const last = clean.split(".").pop();
   return last && last !== clean ? last.toLowerCase() : "";
 };
@@ -338,7 +408,9 @@ const buildDetectionText = (doc = {}) =>
     .toLowerCase();
 
 const isImageLike = (doc = {}) => {
-  const type = String(doc?.type || doc?.mimeType || doc?.contentType || "").toLowerCase();
+  const type = String(
+    doc?.type || doc?.mimeType || doc?.contentType || "",
+  ).toLowerCase();
   const format = String(
     doc?.format ||
       extensionFromName(
@@ -354,13 +426,25 @@ const isImageLike = (doc = {}) => {
   return (
     type.startsWith("image/") ||
     type.includes("image") ||
-    ["jpg", "jpeg", "png", "webp", "gif", "bmp", "svg", "heic", "heif"].includes(format) ||
+    [
+      "jpg",
+      "jpeg",
+      "png",
+      "webp",
+      "gif",
+      "bmp",
+      "svg",
+      "heic",
+      "heif",
+    ].includes(format) ||
     /\.(jpg|jpeg|png|webp|gif|bmp|svg|heic|heif)(\?|#|$)/i.test(url)
   );
 };
 
 const isPdfLike = (doc = {}) => {
-  const type = String(doc?.type || doc?.mimeType || doc?.contentType || "").toLowerCase();
+  const type = String(
+    doc?.type || doc?.mimeType || doc?.contentType || "",
+  ).toLowerCase();
   const format = String(
     doc?.format ||
       extensionFromName(
@@ -417,9 +501,15 @@ const getDocDisplayLabel = (doc, index = -1) => {
 const getDocStatus = (doc) => {
   const tag = String(doc?.tag || "").trim();
   if (!tag) {
-    return { label: "Untagged", className: "border-sky-200 bg-sky-50 text-sky-700" };
+    return {
+      label: "Untagged",
+      className: "border-sky-200 bg-sky-50 text-sky-700",
+    };
   }
-  return { label: "Tagged", className: "border-emerald-200 bg-emerald-50 text-emerald-700" };
+  return {
+    label: "Tagged",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  };
 };
 
 const getTagTheme = (tag) => {
@@ -442,7 +532,9 @@ const StatTile = ({ label, value, tone = "slate", helper }) => {
   const theme = themes[tone] || themes.slate;
 
   return (
-    <div className={`rounded-xl border px-5 py-4 shadow-sm transition-all hover:shadow-md ${theme}`}>
+    <div
+      className={`rounded-xl border px-5 py-4 shadow-sm transition-all hover:shadow-md ${theme}`}
+    >
       <div className="flex items-center justify-between">
         <div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-60">
           {label}
@@ -470,7 +562,8 @@ const SuggestedDocumentsHint = ({ scenarioLabel, suggestedDocs }) => {
         Often needed for {scenarioLabel}
       </p>
       <p className="m-0 mt-1 text-[11px] leading-relaxed text-slate-600">
-        Suggestions only — upload and tag what you have. Not required to submit the case.
+        Suggestions only — upload and tag what you have. Not required to submit
+        the case.
       </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {suggestedDocs.map((tag) => (
@@ -492,14 +585,22 @@ const QuickTag = ({ label, active, onClick }) => (
     onClick={onClick}
     data-quick-tag="true"
     className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${
-      active ? getTagTheme(label).active : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
+      active
+        ? getTagTheme(label).active
+        : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50"
     }`}
   >
     {label}
   </button>
 );
 
-const UploadDropzone = ({ isDragging, uploading, onBrowse, onDragStateChange, onDropFiles }) => (
+const UploadDropzone = ({
+  isDragging,
+  uploading,
+  onBrowse,
+  onDragStateChange,
+  onDropFiles,
+}) => (
   <div
     role="button"
     tabIndex={0}
@@ -543,9 +644,12 @@ const UploadDropzone = ({ isDragging, uploading, onBrowse, onDragStateChange, on
           <Icon name="CloudUpload" size={26} />
         </div>
         <div className="min-w-0">
-          <div className="text-lg font-black text-slate-900 tracking-tight">Upload insurance documents</div>
+          <div className="text-lg font-black text-slate-900 tracking-tight">
+            Upload insurance documents
+          </div>
           <p className="mt-1 text-sm text-slate-500 leading-relaxed">
-            Drag and drop or click to browse. Files are securely stored in Cloudflare R2.
+            Drag and drop or click to browse. Files are securely stored in
+            Cloudflare R2.
           </p>
         </div>
       </div>
@@ -575,14 +679,22 @@ const UploadDropzone = ({ isDragging, uploading, onBrowse, onDragStateChange, on
   </div>
 );
 
-const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) => {
+const PreviewPane = ({
+  doc,
+  index,
+  total,
+  onOpenViewer,
+  onDownload,
+  onPrint,
+}) => {
   const imageLike = isImageLike(doc || {});
   const pdfLike = isPdfLike(doc || {});
   const status = getDocStatus(doc || {});
   const [pdfBlobUrl, setPdfBlobUrl] = useState("");
 
   const rawPreviewSrc = useMemo(
-    () => String(doc?.rawUrl || doc?.url || doc?.previewUrl || "").split("#")[0],
+    () =>
+      String(doc?.rawUrl || doc?.url || doc?.previewUrl || "").split("#")[0],
     [doc],
   );
   const pdfSourceCandidates = useMemo(
@@ -614,7 +726,9 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
     const loadPdf = async () => {
       for (let i = 0; i < pdfSourceCandidates.length; i += 1) {
         try {
-          const response = await fetch(pdfSourceCandidates[i], { credentials: "include" });
+          const response = await fetch(pdfSourceCandidates[i], {
+            credentials: "include",
+          });
           if (!response.ok) throw new Error("PDF fetch failed");
           const blob = await response.blob();
           if (!blob || !blob.size) throw new Error("Empty PDF blob");
@@ -645,7 +759,9 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
             <Icon name="PanelRightOpen" size={22} />
           </div>
-          <div className="text-base font-black text-slate-800">Select a document</div>
+          <div className="text-base font-black text-slate-800">
+            Select a document
+          </div>
           <p className="mt-2 max-w-xs text-sm text-slate-500">
             Click any document card from the library to open a live preview.
           </p>
@@ -658,12 +774,16 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
     <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-4">
       <div className="flex items-center justify-between gap-3 px-1 pb-3">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Preview</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+            Preview
+          </div>
           <div className="mt-1 text-sm font-black text-slate-800">
             {Math.min(index + 1, total)}/{total}
           </div>
         </div>
-        <span className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${status.className}`}>
+        <span
+          className={`rounded-lg border px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${status.className}`}
+        >
           {status.label}
         </span>
       </div>
@@ -687,8 +807,17 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
                 <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                   <Icon name="FileText" size={28} />
                 </div>
-                <div className="text-sm font-bold text-slate-800">Preview Blocked</div>
-                <a href={pdfPreviewSrc} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 font-bold underline">Open manually</a>
+                <div className="text-sm font-bold text-slate-800">
+                  Preview Blocked
+                </div>
+                <a
+                  href={pdfPreviewSrc}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-indigo-600 font-bold underline"
+                >
+                  Open manually
+                </a>
               </div>
             </object>
           ) : (
@@ -696,7 +825,9 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
                 <Icon name="FileText" size={28} />
               </div>
-              <div className="text-sm font-bold text-slate-800">Unable to load PDF preview</div>
+              <div className="text-sm font-bold text-slate-800">
+                Unable to load PDF preview
+              </div>
             </div>
           )
         ) : (
@@ -704,20 +835,30 @@ const PreviewPane = ({ doc, index, total, onOpenViewer, onDownload, onPrint }) =
             <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
               <Icon name="File" size={28} />
             </div>
-            <div className="text-sm font-bold text-slate-800">Preview unavailable</div>
+            <div className="text-sm font-bold text-slate-800">
+              Preview unavailable
+            </div>
           </div>
         )}
       </div>
 
       <div className="mt-4 space-y-4 px-1">
         <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Document</div>
-          <div className="mt-1 break-words text-sm font-bold text-slate-800 leading-tight">{getDocDisplayLabel(doc, index)}</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+            Document
+          </div>
+          <div className="mt-1 break-words text-sm font-bold text-slate-800 leading-tight">
+            {getDocDisplayLabel(doc, index)}
+          </div>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{doc.sizeLabel}</span>
-          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">{doc.format || "file"}</span>
+          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            {doc.sizeLabel}
+          </span>
+          <span className="rounded-lg bg-slate-100 px-2 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+            {doc.format || "file"}
+          </span>
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-1">
@@ -773,18 +914,27 @@ const Step6Documents = ({
     if (typeof schedulePersist === "function") schedulePersist(250);
   }, [schedulePersist]);
 
-  const activeRequirement = DOCUMENT_MATRIX[ui.scenario] || DOCUMENT_MATRIX["used-car-renewal"];
+  const activeRequirement =
+    DOCUMENT_MATRIX[ui.scenario] || DOCUMENT_MATRIX["used-car-renewal"];
   const policyTagLabel = useMemo(() => getPolicyTagLabel(formData), [formData]);
-  const suggestedDocs = useMemo(() => getSuggestedDocsForForm(formData), [formData]);
+  const suggestedDocs = useMemo(
+    () => getSuggestedDocsForForm(formData),
+    [formData],
+  );
 
   const normalizedDocuments = useMemo(
     () =>
       (Array.isArray(documents) ? documents : []).map((doc, index) => {
-        const rawUrl = String(doc?.url || doc?.previewUrl || doc?.secure_url || "").trim();
+        const rawUrl = String(
+          doc?.url || doc?.previewUrl || doc?.secure_url || "",
+        ).trim();
         const previewUrl = buildAccessibleDocumentUrl(rawUrl);
 
         const originalName = String(
-          doc?.originalName || doc?.original_name || doc?.name || `Document ${index + 1}`,
+          doc?.originalName ||
+            doc?.original_name ||
+            doc?.name ||
+            `Document ${index + 1}`,
         ).trim();
 
         const fallbackFormat =
@@ -794,9 +944,13 @@ const Step6Documents = ({
             .split("/")
             .pop();
 
-        const mimeType = String(doc?.type || doc?.resource_type || doc?.format || "");
+        const mimeType = String(
+          doc?.type || doc?.resource_type || doc?.format || "",
+        );
         const sizeBytes =
-          typeof doc?.size === "number" ? doc.size : Number(doc?.sizeBytes || 0) || 0;
+          typeof doc?.size === "number"
+            ? doc.size
+            : Number(doc?.sizeBytes || 0) || 0;
 
         return {
           ...doc,
@@ -824,7 +978,9 @@ const Step6Documents = ({
   }, [activeRequirement.suggested, ui.scenario]);
 
   const persistedCustomTags = useMemo(() => {
-    const baseSet = new Set(baseSuggestedTags.map((x) => String(x || "").trim()));
+    const baseSet = new Set(
+      baseSuggestedTags.map((x) => String(x || "").trim()),
+    );
     return uniqueList(
       normalizedDocuments
         .map((doc) => String(doc?.tag || "").trim())
@@ -833,7 +989,8 @@ const Step6Documents = ({
   }, [baseSuggestedTags, normalizedDocuments]);
 
   const suggestedTags = useMemo(
-    () => uniqueList([...baseSuggestedTags, ...persistedCustomTags, ...manualTags]),
+    () =>
+      uniqueList([...baseSuggestedTags, ...persistedCustomTags, ...manualTags]),
     [baseSuggestedTags, manualTags, persistedCustomTags],
   );
 
@@ -856,7 +1013,9 @@ const Step6Documents = ({
     });
 
     const changed = nextDocs.some(
-      (doc, index) => String(doc?.tag || "").trim() !== String(sourceDocs[index]?.tag || "").trim(),
+      (doc, index) =>
+        String(doc?.tag || "").trim() !==
+        String(sourceDocs[index]?.tag || "").trim(),
     );
     if (!changed) return;
 
@@ -867,14 +1026,15 @@ const Step6Documents = ({
   const safeTaggedCount =
     typeof docsTaggedCount === "number"
       ? docsTaggedCount
-      : normalizedDocuments.filter((doc) => String(doc?.tag || "").trim()).length;
+      : normalizedDocuments.filter((doc) => String(doc?.tag || "").trim())
+          .length;
 
   const filteredDocuments = useMemo(() => {
     const normalizedSearch = ui.searchText.trim().toLowerCase();
 
     const filtered = normalizedDocuments.filter((doc, index) => {
       if (!normalizedSearch) return true;
-        const haystack = [
+      const haystack = [
         getDocDisplayLabel(doc, index),
         doc.tag,
         doc.format,
@@ -903,11 +1063,17 @@ const Step6Documents = ({
         if (aTagged !== bTagged) return aTagged ? 1 : -1;
       }
       if (ui.sortBy === "name") {
-        return String(getDocDisplayLabel(a, 0)).localeCompare(String(getDocDisplayLabel(b, 0)));
+        return String(getDocDisplayLabel(a, 0)).localeCompare(
+          String(getDocDisplayLabel(b, 0)),
+        );
       }
       if (ui.sortBy === "timeline") {
-        const ra = LINKED_CATEGORY_SORT_RANK[String(a.linkedOriginCategory || "")] ?? 1000;
-        const rb = LINKED_CATEGORY_SORT_RANK[String(b.linkedOriginCategory || "")] ?? 1000;
+        const ra =
+          LINKED_CATEGORY_SORT_RANK[String(a.linkedOriginCategory || "")] ??
+          1000;
+        const rb =
+          LINKED_CATEGORY_SORT_RANK[String(b.linkedOriginCategory || "")] ??
+          1000;
         if (ra !== rb) return ra - rb;
         return docMillis(a) - docMillis(b);
       }
@@ -920,7 +1086,9 @@ const Step6Documents = ({
 
   const selectedDoc = useMemo(() => {
     if (!filteredDocuments.length) return null;
-    const selected = filteredDocuments.find((doc) => getStableDocId(doc) === ui.selectedDocId);
+    const selected = filteredDocuments.find(
+      (doc) => getStableDocId(doc) === ui.selectedDocId,
+    );
     return selected || filteredDocuments[0];
   }, [filteredDocuments, ui.selectedDocId]);
 
@@ -939,12 +1107,20 @@ const Step6Documents = ({
       return;
     }
     if (!ui.selectedDocId) {
-      dispatch({ type: "SELECT_DOC", payload: getStableDocId(filteredDocuments[0]) });
+      dispatch({
+        type: "SELECT_DOC",
+        payload: getStableDocId(filteredDocuments[0]),
+      });
       return;
     }
-    const exists = filteredDocuments.some((doc) => getStableDocId(doc) === ui.selectedDocId);
+    const exists = filteredDocuments.some(
+      (doc) => getStableDocId(doc) === ui.selectedDocId,
+    );
     if (!exists) {
-      dispatch({ type: "SELECT_DOC", payload: getStableDocId(filteredDocuments[0]) });
+      dispatch({
+        type: "SELECT_DOC",
+        payload: getStableDocId(filteredDocuments[0]),
+      });
     }
   }, [filteredDocuments, ui.selectedDocId]);
 
@@ -967,13 +1143,19 @@ const Step6Documents = ({
           doc.rawUrl ||
           doc.url ||
           doc.previewUrl ||
-          buildAccessibleDocumentUrl(doc.rawUrl || doc.url || doc.previewUrl || ""),
+          buildAccessibleDocumentUrl(
+            doc.rawUrl || doc.url || doc.previewUrl || "",
+          ),
         previewUrl:
           doc.rawUrl ||
           doc.url ||
           doc.previewUrl ||
-          buildAccessibleDocumentUrl(doc.rawUrl || doc.url || doc.previewUrl || ""),
-        proxyUrl: buildAccessibleDocumentUrl(doc.rawUrl || doc.url || doc.previewUrl || ""),
+          buildAccessibleDocumentUrl(
+            doc.rawUrl || doc.url || doc.previewUrl || "",
+          ),
+        proxyUrl: buildAccessibleDocumentUrl(
+          doc.rawUrl || doc.url || doc.previewUrl || "",
+        ),
         isPdf:
           Boolean(doc.isPdf) ||
           isPdfLike({
@@ -1000,7 +1182,11 @@ const Step6Documents = ({
         format:
           doc.format ||
           extensionFromName(
-            doc.originalName || doc.original_name || doc.storageKey || doc.name || doc.url,
+            doc.originalName ||
+              doc.original_name ||
+              doc.storageKey ||
+              doc.name ||
+              doc.url,
           ) ||
           (isPdfLike(doc) ? "pdf" : isImageLike(doc) ? "jpg" : "file"),
       })),
@@ -1009,7 +1195,9 @@ const Step6Documents = ({
 
   const viewerIndex = useMemo(() => {
     if (!selectedDoc) return 0;
-    const idx = viewerDocuments.findIndex((doc) => getStableDocId(doc) === getStableDocId(selectedDoc));
+    const idx = viewerDocuments.findIndex(
+      (doc) => getStableDocId(doc) === getStableDocId(selectedDoc),
+    );
     return idx >= 0 ? idx : 0;
   }, [selectedDoc, viewerDocuments]);
 
@@ -1025,14 +1213,20 @@ const Step6Documents = ({
       const MAX_FILES = 10;
       const MAX_SIZE = 20 * 1024 * 1024;
       const limitedFiles = pickedFiles.slice(0, MAX_FILES);
-      const validFiles = limitedFiles.filter((file) => Number(file?.size || 0) <= MAX_SIZE);
+      const validFiles = limitedFiles.filter(
+        (file) => Number(file?.size || 0) <= MAX_SIZE,
+      );
 
       if (pickedFiles.length > MAX_FILES) {
-        message.warning(`Only 10 files can be uploaded at once. ${pickedFiles.length - MAX_FILES} skipped.`);
+        message.warning(
+          `Only 10 files can be uploaded at once. ${pickedFiles.length - MAX_FILES} skipped.`,
+        );
       }
 
       if (validFiles.length < limitedFiles.length) {
-        message.warning(`${limitedFiles.length - validFiles.length} file(s) skipped (exceeds 20MB limit)`);
+        message.warning(
+          `${limitedFiles.length - validFiles.length} file(s) skipped (exceeds 20MB limit)`,
+        );
       }
 
       if (!validFiles.length) return;
@@ -1043,7 +1237,9 @@ const Step6Documents = ({
         const nowIso = new Date().toISOString();
         const incoming = uploaded.map((file, index) => {
           const rawUrl = String(file?.secure_url || file?.url || "").trim();
-          const originalName = String(file?.original_name || file?.name || `Document ${index + 1}`).trim();
+          const originalName = String(
+            file?.original_name || file?.name || `Document ${index + 1}`,
+          ).trim();
           const format =
             extensionFromName(originalName || rawUrl) ||
             String(file?.format || "")
@@ -1054,7 +1250,9 @@ const Step6Documents = ({
 
           const mimeType = String(file?.format || file?.type || "").trim();
           const sizeBytes = Number(file?.size || 0);
-          const storageKey = String(file?.public_id || file?.storageKey || "").trim();
+          const storageKey = String(
+            file?.public_id || file?.storageKey || "",
+          ).trim();
           const inferredTag = inferDocumentTag({
             docName: originalName || rawUrl,
             formData,
@@ -1083,14 +1281,21 @@ const Step6Documents = ({
           };
         });
 
-        setDocuments((prev) => [...(Array.isArray(prev) ? prev : []), ...incoming]);
+        setDocuments((prev) => [
+          ...(Array.isArray(prev) ? prev : []),
+          ...incoming,
+        ]);
         persistSoon();
-        message.success(`${incoming.length} document${incoming.length > 1 ? "s" : ""} uploaded`);
+        message.success(
+          `${incoming.length} document${incoming.length > 1 ? "s" : ""} uploaded`,
+        );
       } catch (err) {
         console.error("[Insurance][Documents] upload failed:", err);
         const errorMessage = String(err?.message || "Document upload failed");
         if (errorMessage.toLowerCase().includes("limit")) {
-          message.error("Upload failed: max 10 files and 20MB per file are allowed.");
+          message.error(
+            "Upload failed: max 10 files and 20MB per file are allowed.",
+          );
         } else {
           message.error(errorMessage);
         }
@@ -1137,13 +1342,17 @@ const Step6Documents = ({
   const removeManualTag = useCallback((tagToRemove) => {
     const normalized = String(tagToRemove || "").trim();
     if (!normalized) return;
-    setManualTags((prev) => prev.filter((tag) => String(tag || "").trim() !== normalized));
+    setManualTags((prev) =>
+      prev.filter((tag) => String(tag || "").trim() !== normalized),
+    );
   }, []);
 
   const removeDocument = useCallback(
     (docId) => {
       setDocuments((prev) =>
-        (Array.isArray(prev) ? prev : []).filter((item) => getStableDocId(item) !== docId),
+        (Array.isArray(prev) ? prev : []).filter(
+          (item) => getStableDocId(item) !== docId,
+        ),
       );
       persistSoon();
     },
@@ -1154,7 +1363,8 @@ const Step6Documents = ({
     const href = doc?.previewUrl || doc?.url || doc?.rawUrl;
     if (!href) return;
 
-    const ext = extensionFromName(doc?.format || doc?.name || doc?.url || "") || "file";
+    const ext =
+      extensionFromName(doc?.format || doc?.name || doc?.url || "") || "file";
     const nameBase = getDocDisplayLabel(doc, index)
       .replace(/\s+/g, "_")
       .replace(/[^a-zA-Z0-9_-]/g, "")
@@ -1169,7 +1379,9 @@ const Step6Documents = ({
   }, []);
 
   const handlePrint = useCallback((doc) => {
-    const rawHref = String(doc?.previewUrl || doc?.url || doc?.rawUrl || "").trim();
+    const rawHref = String(
+      doc?.previewUrl || doc?.url || doc?.rawUrl || "",
+    ).trim();
     if (!rawHref) {
       message.warning("No document available for print.");
       return;
@@ -1220,7 +1432,8 @@ const Step6Documents = ({
         window.open(href, "_blank");
       } finally {
         setTimeout(() => {
-          if (iframe && iframe.parentNode) iframe.parentNode.removeChild(iframe);
+          if (iframe && iframe.parentNode)
+            iframe.parentNode.removeChild(iframe);
           // Don't revoke immediately if we opened a new tab
         }, 10000);
       }
@@ -1239,7 +1452,9 @@ const Step6Documents = ({
       // eslint-disable-next-line no-await-in-loop
       await new Promise((resolve) => setTimeout(resolve, 140));
     }
-    message.success(`Download started for ${normalizedDocuments.length} documents.`);
+    message.success(
+      `Download started for ${normalizedDocuments.length} documents.`,
+    );
   }, [handleDownload, normalizedDocuments]);
 
   const handleViewerIndexChange = useCallback(
@@ -1253,7 +1468,9 @@ const Step6Documents = ({
 
   const selectedDocIndex = useMemo(() => {
     if (!selectedDoc) return 0;
-    const idx = filteredDocuments.findIndex((doc) => getStableDocId(doc) === getStableDocId(selectedDoc));
+    const idx = filteredDocuments.findIndex(
+      (doc) => getStableDocId(doc) === getStableDocId(selectedDoc),
+    );
     return idx >= 0 ? idx : 0;
   }, [filteredDocuments, selectedDoc]);
 
@@ -1270,7 +1487,10 @@ const Step6Documents = ({
       return suggestedTags.filter((tag) => {
         const normalized = String(tag || "").trim();
         if (!normalized) return false;
-        return !usedElsewhere.has(normalized) || normalized === String(doc?.tag || "").trim();
+        return (
+          !usedElsewhere.has(normalized) ||
+          normalized === String(doc?.tag || "").trim()
+        );
       });
     },
     [normalizedDocuments, suggestedTags],
@@ -1292,17 +1512,27 @@ const Step6Documents = ({
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
               <div className="min-w-0">
                 <div className={sectionHeaderLabel}>Documentation</div>
-                <div className="truncate text-[22px] font-black tracking-tight text-slate-800">Document workspace</div>
+                <div className="truncate text-[22px] font-black tracking-tight text-slate-800">
+                  Document workspace
+                </div>
                 <div className="mt-1 text-sm text-slate-500">
-                  Customer profile and loan files auto-appear when a customer is linked. New uploads go to Cloudflare R2.
+                  Customer profile and loan files auto-appear when a customer is
+                  linked. New uploads go to Cloudflare R2.
                 </div>
               </div>
 
               <div className="w-full xl:w-auto xl:min-w-[280px]">
                 <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">Policy flow</div>
-                  <div className="mt-1 text-sm font-bold text-slate-800">{activeRequirement.label}</div>
-                  <div className="mt-1 text-xs text-slate-500">Upload any documents you have — nothing is mandatory to submit.</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">
+                    Policy flow
+                  </div>
+                  <div className="mt-1 text-sm font-bold text-slate-800">
+                    {activeRequirement.label}
+                  </div>
+                  <div className="mt-1 text-xs text-slate-500">
+                    Upload any documents you have — nothing is mandatory to
+                    submit.
+                  </div>
                   {policyTagLabel ? (
                     <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-slate-700">
                       {policyTagLabel}
@@ -1334,7 +1564,9 @@ const Step6Documents = ({
 
             <div className="mt-3 rounded-[20px] border border-slate-200 bg-white/90 p-3 shadow-sm">
               <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Suggested document tags</div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                  Suggested document tags
+                </div>
                 <div className="flex w-full items-center gap-2 md:w-auto md:max-w-[360px]">
                   <input
                     value={manualTagInput}
@@ -1360,7 +1592,9 @@ const Step6Documents = ({
               <div className="mt-2 flex flex-wrap gap-2">
                 {suggestedTags.map((item) => {
                   const normalized = String(item || "").trim();
-                  const isManual = manualTags.some((tag) => String(tag || "").trim() === normalized);
+                  const isManual = manualTags.some(
+                    (tag) => String(tag || "").trim() === normalized,
+                  );
                   const theme = getTagTheme(item);
                   return (
                     <span
@@ -1395,7 +1629,9 @@ const Step6Documents = ({
           isDragging={ui.isDragging}
           uploading={uploading}
           onBrowse={openFileExplorer}
-          onDragStateChange={(value) => dispatch({ type: "SET_DRAGGING", payload: value })}
+          onDragStateChange={(value) =>
+            dispatch({ type: "SET_DRAGGING", payload: value })
+          }
           onDropFiles={appendFiles}
         />
 
@@ -1404,23 +1640,43 @@ const Step6Documents = ({
             <div className="border-b border-slate-200 px-5 py-4 md:px-6">
               <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
                 <div className="min-w-0">
-                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">Library</div>
-                  <div className="mt-1 text-[22px] font-black tracking-tight text-slate-800">Documents</div>
+                  <div className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-400">
+                    Library
+                  </div>
+                  <div className="mt-1 text-[22px] font-black tracking-tight text-slate-800">
+                    Documents
+                  </div>
+                  {policyTagLabel ? (
+                    <div className="mt-2 text-sm font-semibold text-slate-600">
+                      Policy tag:{" "}
+                      <span className="font-black">{policyTagLabel}</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="flex w-full flex-col gap-2 xl:w-auto xl:min-w-[560px] xl:flex-row xl:items-center">
                   <div className="relative flex-1">
-                    <Icon name="Search" size={15} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <Icon
+                      name="Search"
+                      size={15}
+                      className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    />
                     <input
                       type="text"
                       value={ui.searchText}
-                      onChange={(e) => dispatch({ type: "SET_SEARCH", payload: e.target.value })}
+                      onChange={(e) =>
+                        dispatch({
+                          type: "SET_SEARCH",
+                          payload: e.target.value,
+                        })
+                      }
                       placeholder="Search by tag, uploader or file type"
                       className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:bg-white"
                     />
                   </div>
 
-                  <Select allowClear
+                  <Select
+                    allowClear
                     value={ui.sortBy}
                     style={{ width: "100%", maxWidth: 190 }}
                     options={[
@@ -1431,7 +1687,9 @@ const Step6Documents = ({
                       { value: "tagged", label: "Tagged first" },
                       { value: "untagged", label: "Untagged first" },
                     ]}
-                    onChange={(value) => dispatch({ type: "SET_SORT", payload: value })}
+                    onChange={(value) =>
+                      dispatch({ type: "SET_SORT", payload: value })
+                    }
                   />
                   <Button
                     variant="outline"
@@ -1453,7 +1711,9 @@ const Step6Documents = ({
                   <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-[22px] bg-white text-sky-600 shadow-sm ring-1 ring-slate-200">
                     <Icon name="Files" size={26} />
                   </div>
-                  <div className="text-lg font-black tracking-tight text-slate-800">No documents yet</div>
+                  <div className="text-lg font-black tracking-tight text-slate-800">
+                    No documents yet
+                  </div>
                   <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
                     Upload the first batch and use Quick Tag on each row.
                   </p>
@@ -1475,15 +1735,20 @@ const Step6Documents = ({
                   <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-slate-400 shadow-sm ring-1 ring-slate-200">
                     <Icon name="SearchX" size={22} />
                   </div>
-                  <div className="text-base font-bold text-slate-800">No documents in this filter</div>
-                  <p className="mt-1 text-sm text-slate-500">Try another search or clear the search input.</p>
+                  <div className="text-base font-bold text-slate-800">
+                    No documents in this filter
+                  </div>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Try another search or clear the search input.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   {visibleDocuments.map((doc, index) => {
                     const docId = getStableDocId(doc, `row-${index}`);
                     const status = getDocStatus(doc);
-                    const isSelected = selectedDoc && getStableDocId(selectedDoc) === docId;
+                    const isSelected =
+                      selectedDoc && getStableDocId(selectedDoc) === docId;
                     const imageLike = isImageLike(doc);
                     const pdfLike = isPdfLike(doc);
                     const quickTags = getQuickTagsForDoc(doc);
@@ -1493,7 +1758,9 @@ const Step6Documents = ({
                         key={docId}
                         role="button"
                         tabIndex={0}
-                        onClick={() => dispatch({ type: "SELECT_DOC", payload: docId })}
+                        onClick={() =>
+                          dispatch({ type: "SELECT_DOC", payload: docId })
+                        }
                         onKeyDown={(event) => {
                           if (event.key === "Enter" || event.key === " ") {
                             event.preventDefault();
@@ -1516,17 +1783,29 @@ const Step6Documents = ({
                             className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
                           >
                             {imageLike ? (
-                              <img src={doc.previewUrl || doc.url} alt={getDocDisplayLabel(doc, index)} className="h-full w-full object-cover" />
+                              <img
+                                src={doc.previewUrl || doc.url}
+                                alt={getDocDisplayLabel(doc, index)}
+                                className="h-full w-full object-cover"
+                              />
                             ) : pdfLike ? (
                               <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-white">
-                                <Icon name="FileText" size={30} className="text-rose-500" />
+                                <Icon
+                                  name="FileText"
+                                  size={30}
+                                  className="text-rose-500"
+                                />
                                 <span className="text-[10px] font-semibold text-slate-500">
                                   PDF
                                 </span>
                               </div>
                             ) : (
                               <div className="flex h-full w-full items-center justify-center bg-slate-50">
-                                <Icon name="File" size={30} className="text-slate-400" />
+                                <Icon
+                                  name="File"
+                                  size={30}
+                                  className="text-slate-400"
+                                />
                               </div>
                             )}
                             {pdfLike ? (
@@ -1544,7 +1823,10 @@ const Step6Documents = ({
                                     type="button"
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      dispatch({ type: "SELECT_DOC", payload: docId });
+                                      dispatch({
+                                        type: "SELECT_DOC",
+                                        payload: docId,
+                                      });
                                     }}
                                     className="truncate text-left text-sm font-black text-slate-800 md:text-base"
                                   >
@@ -1553,7 +1835,11 @@ const Step6Documents = ({
                                   <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
                                     {doc.format || "file"}
                                   </span>
-                                  <span className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${status.className}`}>{status.label}</span>
+                                  <span
+                                    className={`rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em] ${status.className}`}
+                                  >
+                                    {status.label}
+                                  </span>
                                   {doc.linkedOrigin ? (
                                     <span className="max-w-[min(100%,420px)] truncate rounded-full border border-violet-200 bg-violet-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-violet-800">
                                       {doc.linkedOrigin}
@@ -1562,24 +1848,34 @@ const Step6Documents = ({
                                 </div>
 
                                 <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-                                  <span className="rounded-full bg-slate-100 px-2.5 py-1">{doc.sizeLabel}</span>
+                                  <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                    {doc.sizeLabel}
+                                  </span>
                                   {doc.uploadedBy ? (
-                                    <span className="rounded-full bg-slate-100 px-2.5 py-1">{doc.uploadedBy}</span>
+                                    <span className="rounded-full bg-slate-100 px-2.5 py-1">
+                                      {doc.uploadedBy}
+                                    </span>
                                   ) : null}
                                   {doc.uploadedAt ? (
                                     <span className="rounded-full bg-slate-100 px-2.5 py-1">
-                                      {new Date(doc.uploadedAt).toLocaleString("en-IN")}
+                                      {new Date(doc.uploadedAt).toLocaleString(
+                                        "en-IN",
+                                      )}
                                     </span>
                                   ) : null}
                                 </div>
 
-                                <div className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Quick Tag</div>
+                                <div className="mt-3 text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">
+                                  Quick Tag
+                                </div>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                   {quickTags.map((tag) => (
                                     <QuickTag
                                       key={`${docId}-${tag}`}
                                       label={tag}
-                                      active={String(doc.tag || "").trim() === tag}
+                                      active={
+                                        String(doc.tag || "").trim() === tag
+                                      }
                                       onClick={() => updateDocTag(docId, tag)}
                                     />
                                   ))}
@@ -1595,7 +1891,10 @@ const Step6Documents = ({
                                     size="sm"
                                     onClick={(event) => {
                                       event.stopPropagation();
-                                      dispatch({ type: "OPEN_VIEWER", payload: docId });
+                                      dispatch({
+                                        type: "OPEN_VIEWER",
+                                        payload: docId,
+                                      });
                                     }}
                                     className="h-10 rounded-xl border-slate-200 bg-white px-4 hover:bg-slate-50"
                                   >
@@ -1649,7 +1948,9 @@ const Step6Documents = ({
                         }
                         className="h-10 rounded-xl border-blue-200 bg-blue-50 px-4 text-blue-700 hover:bg-blue-100"
                       >
-                        Load more ({filteredDocuments.length - visibleDocuments.length} left)
+                        Load more (
+                        {filteredDocuments.length - visibleDocuments.length}{" "}
+                        left)
                       </Button>
                     </div>
                   ) : null}
@@ -1662,7 +1963,9 @@ const Step6Documents = ({
             doc={selectedDoc}
             index={selectedDocIndex}
             total={filteredDocuments.length}
-            onOpenViewer={(doc) => dispatch({ type: "OPEN_VIEWER", payload: getStableDocId(doc) })}
+            onOpenViewer={(doc) =>
+              dispatch({ type: "OPEN_VIEWER", payload: getStableDocId(doc) })
+            }
             onDownload={handleDownload}
             onPrint={handlePrint}
           />

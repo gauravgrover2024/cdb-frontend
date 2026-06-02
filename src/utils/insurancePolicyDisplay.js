@@ -233,12 +233,30 @@ export const getPolicyPulseExpiryDate = (record) => {
   );
 };
 
+export const getCycleAdjustedExpiryDate = (expiryDateStr, baseDate = dayjs()) => {
+  if (!expiryDateStr) return null;
+  const parsed = parseInsuranceDate(expiryDateStr);
+  if (!parsed || !parsed.isValid()) return null;
+
+  const base = dayjs(baseDate).startOf("day");
+  let candidate = parsed.year(base.year()).startOf("day");
+  const diffDays = candidate.diff(base, "day");
+
+  if (diffDays < -45) {
+    candidate = candidate.add(1, "year");
+  } else if (diffDays > 365) {
+    candidate = candidate.subtract(1, "year");
+  }
+
+  return candidate;
+};
+
 export const daysUntilExpiry = (record) => {
   const expiryDate = getPolicyPulseExpiryDate(record);
   if (!expiryDate) return null;
-  const expiry = parseInsuranceDate(expiryDate);
-  if (!expiry) return null;
-  return expiry.startOf("day").diff(dayjs().startOf("day"), "day");
+  const cycleAdjusted = getCycleAdjustedExpiryDate(expiryDate);
+  if (!cycleAdjusted) return null;
+  return cycleAdjusted.diff(dayjs().startOf("day"), "day");
 };
 
 export const getPolicyPulseMeta = (days, alreadyRenewed = false) => {
@@ -806,3 +824,66 @@ export const resolveInsuranceChannelContext = (record) => {
     channelDealerNo,
   };
 };
+
+export const normalizeInsurerToken = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+
+export const normalizeUsedCarFlowLabel = (value) => {
+  const raw = String(value || "").trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return "";
+  if (lower.includes("sale") || lower.includes("purchase"))
+    return "Sale/Purchase";
+  if (lower.includes("expired")) return "Policy Already Expired";
+  if (lower.includes("rollover")) return "Rollover";
+  if (lower.includes("renew")) return "Renewal";
+  return raw;
+};
+
+export const getPolicyOriginType = (record = {}) => {
+  const policyCategoryKey = String(
+    record.policyCategory || record.policyTypeSelector || "",
+  ).trim().toLowerCase();
+  const isExtendedWarranty =
+    policyCategoryKey === "extended warranty" ||
+    policyCategoryKey === "ew policy";
+  if (isExtendedWarranty) return "EW Policy";
+
+  const vehicleType = String(record.vehicleType || "")
+    .trim()
+    .toLowerCase();
+  const usedCarType = normalizeUsedCarFlowLabel(
+    record.usedCarFlowType || record.usedCarFlow,
+  );
+  const persistedClassification = normalizeUsedCarFlowLabel(
+    record.policyOriginType ||
+    record.journeyClassification ||
+    record.journeyType,
+  );
+
+  if (vehicleType === "used car") {
+    if (usedCarType === "Renewal") {
+      const previousInsurer = normalizeInsurerToken(
+        record.previousInsuranceCompany,
+      );
+      const acceptedInsurer = normalizeInsurerToken(record.newInsuranceCompany);
+      if (previousInsurer && acceptedInsurer) {
+        return previousInsurer === acceptedInsurer ? "Renewal" : "Rollover";
+      }
+      return "Renewal";
+    }
+    if (
+      usedCarType === "Policy Already Expired" ||
+      usedCarType === "Sale/Purchase"
+    ) {
+      return usedCarType;
+    }
+    return persistedClassification || usedCarType || "Renewal";
+  }
+
+  return persistedClassification || usedCarType || "";
+};
+

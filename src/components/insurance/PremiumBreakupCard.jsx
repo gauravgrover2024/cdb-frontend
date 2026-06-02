@@ -232,7 +232,7 @@ const PremiumBreakupCard = ({
         </div>
 
         {/* Third Party Section */}
-        {breakup.coverageType !== "Stand Alone OD" && (
+        {coverageType !== "Stand Alone OD" && (
           <div className="mt-2 space-y-0">
             <BreakupRow
               label="Third Party Liability"

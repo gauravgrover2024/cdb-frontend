@@ -53,7 +53,7 @@ import {
   collectLinkedDocumentsForInsurance,
   mergeLinkedIntoExistingDocuments,
 } from "../../utils/insuranceLinkedDocuments";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   digits10,
   mergeInsuranceCustomerFields,
@@ -210,6 +210,52 @@ const initialQuoteDraft = {
   ),
 };
 
+const INSURANCE_DRAFT_STORAGE_KEY = "insurance_case_draft";
+
+const saveInsuranceDraftToSession = (draft) => {
+  if (typeof window === "undefined" || !window?.sessionStorage) return false;
+  try {
+    window.sessionStorage.setItem(
+      INSURANCE_DRAFT_STORAGE_KEY,
+      JSON.stringify({ timestamp: new Date().toISOString(), draft }),
+    );
+    return true;
+  } catch (err) {
+    console.error("[Insurance] Failed to save draft to sessionStorage:", err);
+    return false;
+  }
+};
+
+const loadInsuranceDraftFromSession = () => {
+  if (typeof window === "undefined" || !window?.sessionStorage) return null;
+  try {
+    const raw = window.sessionStorage.getItem(INSURANCE_DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed?.draft || null;
+  } catch (err) {
+    console.error(
+      "[Insurance] Failed to parse draft from sessionStorage:",
+      err,
+    );
+    return null;
+  }
+};
+
+const clearInsuranceDraftFromSession = () => {
+  if (typeof window === "undefined" || !window?.sessionStorage) return false;
+  try {
+    window.sessionStorage.removeItem(INSURANCE_DRAFT_STORAGE_KEY);
+    return true;
+  } catch (err) {
+    console.error(
+      "[Insurance] Failed to clear draft from sessionStorage:",
+      err,
+    );
+    return false;
+  }
+};
+
 const STEP4_NCB_STEPPING = {
   0: 20,
   20: 25,
@@ -354,8 +400,8 @@ const mapQuoteToDraft = (q) => {
 
   const incomingInc =
     q.addOnsIncluded &&
-      typeof q.addOnsIncluded === "object" &&
-      !Array.isArray(q.addOnsIncluded)
+    typeof q.addOnsIncluded === "object" &&
+    !Array.isArray(q.addOnsIncluded)
       ? q.addOnsIncluded
       : {};
   const mergedIncluded = addOnCatalog.reduce((acc, name) => {
@@ -659,12 +705,17 @@ const validateStep1Strict = (data) => {
   if (!(sourceMode || "").trim()) errors.source = "Source is required";
   const policyCategoryKey = String(
     data.policyCategory || data.policyTypeSelector || "",
-  ).trim().toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
   const isExtendedWarranty =
     policyCategoryKey === "extended warranty" ||
     policyCategoryKey === "ew policy";
 
-  if (String(data.vehicleType || "").trim() === "Used Car" && !isExtendedWarranty) {
+  if (
+    String(data.vehicleType || "").trim() === "Used Car" &&
+    !isExtendedWarranty
+  ) {
     const usedCarFlowType = String(data.usedCarFlowType || "").trim();
     if (!usedCarFlowType) {
       errors.usedCarFlowType = "Used-car flow type is required";
@@ -786,11 +837,20 @@ const NewInsuranceCaseForm = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     ...initialFormState,
     ...(initialValues || {}),
   });
+  const isCreateMode = mode === "create";
+  const freshDraft = React.useMemo(
+    () => new URLSearchParams(location.search).has("fresh"),
+    [location.search],
+  );
+  const autoSaveDraftTimerRef = React.useRef(null);
+  const lastSavedDraftSnapshotRef = React.useRef(null);
+  const currentDraftRef = React.useRef({});
 
   const originalDataRef = React.useRef(null);
   useEffect(() => {
@@ -799,7 +859,9 @@ const NewInsuranceCaseForm = ({
     }
   }, [formData]);
 
-  const isFormDirty = originalDataRef.current !== null && JSON.stringify(formData) !== originalDataRef.current;
+  const isFormDirty =
+    originalDataRef.current !== null &&
+    JSON.stringify(formData) !== originalDataRef.current;
 
   useEffect(() => {
     window.__isInsuranceFormDirty = isFormDirty;
@@ -1289,10 +1351,10 @@ const NewInsuranceCaseForm = ({
       );
       const normalizedCubic = parseCubicCapacityValue(
         vehicle.cubicCapacityCc ||
-        vehicle.cubicCapacity ||
-        vehicle.cc ||
-        vehicle.engineCC ||
-        "",
+          vehicle.cubicCapacity ||
+          vehicle.cc ||
+          vehicle.engineCC ||
+          "",
       );
       setFormData((prev) => ({
         ...prev,
@@ -1344,9 +1406,9 @@ const NewInsuranceCaseForm = ({
         dateOfReg:
           normalizeDateInputValue(
             vehicle.registrationDate ||
-            vehicle.dateOfReg ||
-            vehicle.date_of_reg ||
-            prev.dateOfReg,
+              vehicle.dateOfReg ||
+              vehicle.date_of_reg ||
+              prev.dateOfReg,
           ) || prev.dateOfReg,
         batteryNumber:
           vehicle.batteryNumber || vehicle.battery_number || prev.batteryNumber,
@@ -1457,17 +1519,17 @@ const NewInsuranceCaseForm = ({
         merged.forEach((row, idx) => {
           const key = String(
             row?.registrationNumberNormalized ||
-            row?.registrationNumber ||
-            row?.regNo,
+              row?.registrationNumber ||
+              row?.regNo,
           )
             .trim()
             .toUpperCase();
           const fallbackKey = String(
             row?._id ||
-            row?.vehicleId ||
-            row?.chassisNumber ||
-            row?.engineNumber ||
-            `${row?.make || row?.vehicleMake || ""}|${row?.model || row?.vehicleModel || ""}|${row?.variant || row?.vehicleVariant || ""}|${idx}`,
+              row?.vehicleId ||
+              row?.chassisNumber ||
+              row?.engineNumber ||
+              `${row?.make || row?.vehicleMake || ""}|${row?.model || row?.vehicleModel || ""}|${row?.variant || row?.vehicleVariant || ""}|${idx}`,
           )
             .trim()
             .toUpperCase();
@@ -1489,9 +1551,9 @@ const NewInsuranceCaseForm = ({
           const rowMobile = String(row?.primaryMobile || "").trim();
           const nameMatch = customerNameLc
             ? selectedCustomerToken &&
-            rowCustomerToken &&
-            (rowCustomerToken.includes(selectedCustomerToken) ||
-              selectedCustomerToken.includes(rowCustomerToken))
+              rowCustomerToken &&
+              (rowCustomerToken.includes(selectedCustomerToken) ||
+                selectedCustomerToken.includes(rowCustomerToken))
             : false;
           const customerIdMatch =
             selectedCustomerId &&
@@ -1776,31 +1838,31 @@ const NewInsuranceCaseForm = ({
     } = {}) => {
       const resolvedMake = String(
         make ||
-        formData.vehicleMake ||
-        seedRow?.make ||
-        seedRow?.vehicleMake ||
-        "",
+          formData.vehicleMake ||
+          seedRow?.make ||
+          seedRow?.vehicleMake ||
+          "",
       ).trim();
       const resolvedModel = String(
         model ||
-        formData.vehicleModel ||
-        seedRow?.model ||
-        seedRow?.vehicleModel ||
-        "",
+          formData.vehicleModel ||
+          seedRow?.model ||
+          seedRow?.vehicleModel ||
+          "",
       ).trim();
       const resolvedVariant = String(
         variant ||
-        formData.vehicleVariant ||
-        seedRow?.variant ||
-        seedRow?.vehicleVariant ||
-        "",
+          formData.vehicleVariant ||
+          seedRow?.variant ||
+          seedRow?.vehicleVariant ||
+          "",
       ).trim();
       const resolvedRegNo = String(
         registrationNumber ||
-        formData.registrationNumber ||
-        seedRow?.registrationNumber ||
-        seedRow?.regNo ||
-        "",
+          formData.registrationNumber ||
+          seedRow?.registrationNumber ||
+          seedRow?.regNo ||
+          "",
       ).trim();
       const cacheKey = [
         normalizeVehicleToken(resolvedMake),
@@ -1812,15 +1874,15 @@ const NewInsuranceCaseForm = ({
       let fallbackRow = seedRow || null;
       let fuelCandidate = normalizeFuelLabel(
         fallbackRow?.fuelType ||
-        fallbackRow?.fuel ||
-        fallbackRow?.vehicleFuelType ||
-        "",
+          fallbackRow?.fuel ||
+          fallbackRow?.vehicleFuelType ||
+          "",
       );
       let finalCubic = parseCubicCapacityValue(
         fallbackRow?.cubicCapacityCc ||
-        fallbackRow?.cubicCapacity ||
-        fallbackRow?.cc ||
-        "",
+          fallbackRow?.cubicCapacity ||
+          fallbackRow?.cc ||
+          "",
       );
 
       if (!fuelCandidate && cached?.fuelType) {
@@ -1878,18 +1940,18 @@ const NewInsuranceCaseForm = ({
           if (!fuelCandidate) {
             fuelCandidate = normalizeFuelLabel(
               details?.fuelType ||
-              details?.fuel ||
-              details?.vehicleFuelType ||
-              "",
+                details?.fuel ||
+                details?.vehicleFuelType ||
+                "",
             );
           }
           if (!finalCubic) {
             finalCubic = parseCubicCapacityValue(
               details?.cubicCapacityCc ||
-              details?.cubicCapacity ||
-              details?.cc ||
-              details?.engineCC ||
-              "",
+                details?.cubicCapacity ||
+                details?.cc ||
+                details?.engineCC ||
+                "",
             );
           }
         }
@@ -1958,18 +2020,18 @@ const NewInsuranceCaseForm = ({
             if (!fuelCandidate) {
               fuelCandidate = normalizeFuelLabel(
                 fallbackRow?.fuelType ||
-                fallbackRow?.fuel ||
-                fallbackRow?.vehicleFuelType ||
-                "",
+                  fallbackRow?.fuel ||
+                  fallbackRow?.vehicleFuelType ||
+                  "",
               );
             }
             if (!finalCubic) {
               finalCubic = parseCubicCapacityValue(
                 fallbackRow?.cubicCapacityCc ||
-                fallbackRow?.cubicCapacity ||
-                fallbackRow?.cc ||
-                fallbackRow?.engineCC ||
-                "",
+                  fallbackRow?.cubicCapacity ||
+                  fallbackRow?.cc ||
+                  fallbackRow?.engineCC ||
+                  "",
               );
             }
           }
@@ -2246,6 +2308,36 @@ const NewInsuranceCaseForm = ({
 
   useEffect(() => {
     if (!initialValues) {
+      if (isCreateMode) {
+        if (freshDraft) {
+          clearInsuranceDraftFromSession();
+        }
+
+        const savedDraft = freshDraft ? null : loadInsuranceDraftFromSession();
+        if (savedDraft && savedDraft.formData) {
+          setFormData({ ...initialFormState, ...savedDraft.formData });
+          setQuotes(savedDraft.quotes || []);
+          setAcceptedQuoteId(savedDraft.acceptedQuoteId || null);
+          setQuoteDraft({
+            ...initialQuoteDraft,
+            ...(savedDraft.quoteDraft || {}),
+            addOns: {
+              ...initialQuoteDraft.addOns,
+              ...(savedDraft.quoteDraft?.addOns || {}),
+            },
+          });
+          setDocuments(savedDraft.documents || []);
+          setPaymentHistory(savedDraft.paymentHistory || []);
+          setInsuranceDbId(savedDraft.insuranceDbId || null);
+          setStep(savedDraft.step || 1);
+          setSubmitted(false);
+          setCaseReference("");
+          setShowErrors(false);
+          message.success("Restored unsaved insurance draft.");
+          return;
+        }
+      }
+
       setFormData({ ...initialFormState });
       setQuotes([]);
       setAcceptedQuoteId(null);
@@ -2263,9 +2355,9 @@ const NewInsuranceCaseForm = ({
     }
     const derivedSource = String(
       initialValues?.source ||
-      initialValues?.sourceOrigin ||
-      initialValues?.recordSource ||
-      "Direct",
+        initialValues?.sourceOrigin ||
+        initialValues?.recordSource ||
+        "Direct",
     ).trim();
     const mergedValues = normalizeFormDates({
       ...initialFormState,
@@ -2285,15 +2377,15 @@ const NewInsuranceCaseForm = ({
       previousPolicyType:
         normalizePolicyTypeLabel(
           initialValues?.previousPolicyType ||
-          initialValues?.previous_policy_type ||
-          "",
+            initialValues?.previous_policy_type ||
+            "",
         ) || initialFormState.previousPolicyType,
       newPolicyType:
         normalizePolicyTypeLabel(
           initialValues?.newPolicyType ||
-          initialValues?.coverageType ||
-          initialValues?.new_policy_type ||
-          "",
+            initialValues?.coverageType ||
+            initialValues?.new_policy_type ||
+            "",
         ) || initialFormState.newPolicyType,
       dealerChannelName:
         initialValues?.dealerChannelName ||
@@ -2892,7 +2984,7 @@ const NewInsuranceCaseForm = ({
       };
 
       const next = persistChainRef.current.then(run);
-      persistChainRef.current = next.catch(() => { });
+      persistChainRef.current = next.catch(() => {});
       return next;
     },
     [buildPersistPayload, insuranceDbId],
@@ -2961,9 +3053,9 @@ const NewInsuranceCaseForm = ({
               ).trim();
               const incomingKey = String(
                 maybeEntry?.idempotencyKey ||
-                maybeEntry?._id ||
-                maybeEntry?.id ||
-                "",
+                  maybeEntry?._id ||
+                  maybeEntry?.id ||
+                  "",
               ).trim();
               return rowKey && incomingKey && rowKey === incomingKey;
             });
@@ -3000,6 +3092,85 @@ const NewInsuranceCaseForm = ({
     setFormData((prev) => ({ ...prev, [field]: value }));
     // schedulePersist();
   }, []);
+
+  const draftSnapshot = React.useMemo(
+    () =>
+      JSON.stringify({
+        formData,
+        quoteDraft,
+        acceptedQuoteId,
+        documents,
+        paymentHistory,
+        insuranceDbId,
+        step,
+      }),
+    [
+      formData,
+      quoteDraft,
+      acceptedQuoteId,
+      documents,
+      paymentHistory,
+      insuranceDbId,
+      step,
+    ],
+  );
+
+  React.useEffect(() => {
+    currentDraftRef.current = {
+      formData,
+      quoteDraft,
+      acceptedQuoteId,
+      documents,
+      paymentHistory,
+      insuranceDbId,
+      step,
+    };
+  }, [
+    formData,
+    quoteDraft,
+    acceptedQuoteId,
+    documents,
+    paymentHistory,
+    insuranceDbId,
+    step,
+  ]);
+
+  React.useEffect(() => {
+    if (!isCreateMode || initialValues) return;
+    if (draftSnapshot === lastSavedDraftSnapshotRef.current) return;
+    if (autoSaveDraftTimerRef.current) {
+      window.clearTimeout(autoSaveDraftTimerRef.current);
+    }
+
+    autoSaveDraftTimerRef.current = window.setTimeout(() => {
+      const draft = {
+        ...currentDraftRef.current,
+        timestamp: new Date().toISOString(),
+      };
+      saveInsuranceDraftToSession(draft);
+      lastSavedDraftSnapshotRef.current = draftSnapshot;
+    }, 700);
+
+    return () => {
+      if (autoSaveDraftTimerRef.current) {
+        window.clearTimeout(autoSaveDraftTimerRef.current);
+      }
+    };
+  }, [isCreateMode, initialValues, draftSnapshot]);
+
+  React.useEffect(() => {
+    return () => {
+      if (!isCreateMode || initialValues) return;
+      if (autoSaveDraftTimerRef.current) {
+        window.clearTimeout(autoSaveDraftTimerRef.current);
+      }
+      const draft = {
+        ...currentDraftRef.current,
+        timestamp: new Date().toISOString(),
+      };
+      saveInsuranceDraftToSession(draft);
+    };
+  }, [isCreateMode, initialValues]);
 
   const handlePolicyDoneByChange = useCallback((value) => {
     setFormData((prev) => {
@@ -3179,7 +3350,8 @@ const NewInsuranceCaseForm = ({
           previousRemarks: initialFormState.previousRemarks,
           previousIdvAmount: initialFormState.previousIdvAmount,
           previousOwnDamageAmount: initialFormState.previousOwnDamageAmount,
-          previousBasicOwnDamageAmount: initialFormState.previousBasicOwnDamageAmount,
+          previousBasicOwnDamageAmount:
+            initialFormState.previousBasicOwnDamageAmount,
           previousThirdPartyAmount: initialFormState.previousThirdPartyAmount,
           previousBasicThirdPartyAmount:
             initialFormState.previousBasicThirdPartyAmount,
@@ -3504,12 +3676,17 @@ const NewInsuranceCaseForm = ({
           ).trim();
           const policyCategoryKey = String(
             prev.policyCategory || prev.policyTypeSelector || "",
-          ).trim().toLowerCase();
+          )
+            .trim()
+            .toLowerCase();
           const isExtendedWarranty =
             policyCategoryKey === "extended warranty" ||
             policyCategoryKey === "ew policy";
 
-          if (String(prev.vehicleType || "").trim() === "Used Car" && !isExtendedWarranty) {
+          if (
+            String(prev.vehicleType || "").trim() === "Used Car" &&
+            !isExtendedWarranty
+          ) {
             if (usedCarType === "Renewal") {
               if (previousInsurer && acceptedInsurer) {
                 policyJourneyClassification =
@@ -3542,9 +3719,9 @@ const NewInsuranceCaseForm = ({
             newAccessoriesIdv: Number(q.accessoriesIdv || 0),
             newIdvAmount: Number(
               q.totalIdv ||
-              Number(q.vehicleIdv || 0) +
-              Number(q.cngIdv || 0) +
-              Number(q.accessoriesIdv || 0),
+                Number(q.vehicleIdv || 0) +
+                  Number(q.cngIdv || 0) +
+                  Number(q.accessoriesIdv || 0),
             ),
             newTotalPremium: Math.round(Number(breakup?.totalPremium || 0)),
             newHypothecation:
@@ -3671,6 +3848,7 @@ const NewInsuranceCaseForm = ({
       silent: true,
       patch: { status: "submitted" },
     });
+    clearInsuranceDraftFromSession();
     const ref = `CASE-${Date.now()}`;
     setCaseReference(ref);
     setSubmitted(true);
@@ -4038,8 +4216,9 @@ const NewInsuranceCaseForm = ({
     summaryPayables.reduce((s, p) => s + Number(p.net_payout_amount || 0), 0);
 
   // ─── Step 8 success screen + wizard (shared Ant Design theme with Loan PreFile)
-  const insuranceShellClassName = `insurance-case-skin insurance-dashboard-shell ${step === 1 ? "insurance-step1-neutral" : ""
-    } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
+  const insuranceShellClassName = `insurance-case-skin insurance-dashboard-shell ${
+    step === 1 ? "insurance-step1-neutral" : ""
+  } min-h-screen bg-slate-50/50 dark:bg-slate-950/20
         [&_.ant-card]:!rounded-xl
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
@@ -4049,7 +4228,7 @@ const NewInsuranceCaseForm = ({
         [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-xl
         [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-xl
         [&_.ant-select-selection-item]:!leading-10
-        [&_.ant-btn]:!rounded-xl [&_.ant-btn]:!h-10 [&_.ant-btn-lg]:!h-11
+        [&_.ant-btn]:!rounded-xl
         [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-xl
         [&_.ant-picker-input_>input]:!h-8
         [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`;
