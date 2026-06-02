@@ -283,13 +283,14 @@ const Step3PreviousPolicy = ({
 
   const comprehensiveDurationOptions = React.useMemo(
     () => [
-      { label: "1+1", value: "1yr OD + 1yr TP" },
-      { label: "1+3", value: "1yr OD + 3yr TP" },
-      { label: "2+3", value: "2yr OD + 3yr TP" },
-      { label: "3+3", value: "3yr OD + 3yr TP" },
+      { label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" },
+      { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
+      { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
+      { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
     ],
     [],
   );
+
 
   const durationSelectOptions = React.useMemo(() => {
     const policyType = String(formData.previousPolicyType || "").trim();
@@ -762,45 +763,47 @@ const Step3PreviousPolicy = ({
               </Col>
             )}
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="NCB Discount (%)">
-                  <Select
-                    size="large"
-                    allowClear
-                    value={Number(formData.previousNcbDiscount ?? 0)}
-                    onChange={(v) =>
-                      setField("previousNcbDiscount", Number(v ?? 0))
-                    }
-                    options={[
-                      { label: "0%", value: 0 },
-                      { label: "20%", value: 20 },
-                      { label: "25%", value: 25 },
-                      { label: "35%", value: 35 },
-                      { label: "45%", value: 45 },
-                      { label: "50%", value: 50 },
-                    ]}
-                  />
-                </CleanField>
-              </div>
-              <div className="mt-1 text-[12px] text-slate-500">
-                Suggested NCB:{" "}
-                <span className="font-semibold text-slate-700">
-                  {suggestedNcb}%
-                </span>
-                {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
-                  <button
-                    type="button"
-                    className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
-                    onClick={() =>
-                      setField("previousNcbDiscount", suggestedNcb)
-                    }
-                  >
-                    Use suggested
-                  </button>
-                ) : null}
-              </div>
-            </Col>
+            {formData.previousPolicyType !== "Third Party" && (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="NCB Discount (%)">
+                    <Select
+                      size="large"
+                      allowClear
+                      value={Number(formData.previousNcbDiscount ?? 0)}
+                      onChange={(v) =>
+                        setField("previousNcbDiscount", Number(v ?? 0))
+                      }
+                      options={[
+                        { label: "0%", value: 0 },
+                        { label: "20%", value: 20 },
+                        { label: "25%", value: 25 },
+                        { label: "35%", value: 35 },
+                        { label: "45%", value: 45 },
+                        { label: "50%", value: 50 },
+                      ]}
+                    />
+                  </CleanField>
+                </div>
+                <div className="mt-1 text-[12px] text-slate-500">
+                  Suggested NCB:{" "}
+                  <span className="font-semibold text-slate-700">
+                    {suggestedNcb}%
+                  </span>
+                  {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
+                    <button
+                      type="button"
+                      className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                      onClick={() =>
+                        setField("previousNcbDiscount", suggestedNcb)
+                      }
+                    >
+                      Use suggested
+                    </button>
+                  ) : null}
+                </div>
+              </Col>
+            )}
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -878,7 +881,7 @@ const Step3PreviousPolicy = ({
               Previous policy details
             </div>
             <div className="mt-1 text-sm text-slate-500">
-              Previous policy record shown in the same UI pattern as Step 5
+              Company, type, duration, dates, NCB and financing details
             </div>
           </div>
 
@@ -946,14 +949,16 @@ const Step3PreviousPolicy = ({
                   </div>
 
                   <div className="flex shrink-0 items-start gap-2">
-                    <div className="text-right">
-                      <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                        IDV
-                      </p>
-                      <p className="m-0 text-sm font-black tabular-nums text-slate-800">
-                        {formatCurrency(activeQuote.idv)}
-                      </p>
-                    </div>
+                    {formData.previousPolicyType !== "Third Party" && (
+                      <div className="text-right">
+                        <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                          IDV
+                        </p>
+                        <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                          {formatCurrency(activeQuote.idv)}
+                        </p>
+                      </div>
+                    )}
 
                     {!isQuoteEditMode ? (
                       <button
@@ -1001,34 +1006,16 @@ const Step3PreviousPolicy = ({
 
                 {isQuoteEditMode ? (
                   <div className="space-y-4">
-                    <div className={fieldWrapClass}>
-                      <CleanField label="IDV Amount">
-                        <InputNumber
-                          min={0}
-                          value={Number(quoteDraft.idv || 0)}
-                          onChange={(v) =>
-                            setQuoteDraft((prev) => ({
-                              ...prev,
-                              idv: Number(v || 0),
-                            }))
-                          }
-                          placeholder="₹ 0"
-                          {...amountInputProps}
-                        />
-                      </CleanField>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    {formData.previousPolicyType !== "Third Party" && (
                       <div className={fieldWrapClass}>
-                        <CleanField label="Own Damage Amount">
+                        <CleanField label="IDV Amount">
                           <InputNumber
                             min={0}
-                            value={Number(quoteDraft.ownDamage || 0)}
+                            value={Number(quoteDraft.idv || 0)}
                             onChange={(v) =>
                               setQuoteDraft((prev) => ({
                                 ...prev,
-                                ownDamage: Number(v || 0),
-                                basicOwnDamage: Number(v || 0),
+                                idv: Number(v || 0),
                               }))
                             }
                             placeholder="₹ 0"
@@ -1036,6 +1023,28 @@ const Step3PreviousPolicy = ({
                           />
                         </CleanField>
                       </div>
+                    )}
+
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                      {formData.previousPolicyType !== "Third Party" && (
+                        <div className={fieldWrapClass}>
+                          <CleanField label="Own Damage Amount">
+                            <InputNumber
+                              min={0}
+                              value={Number(quoteDraft.ownDamage || 0)}
+                              onChange={(v) =>
+                                setQuoteDraft((prev) => ({
+                                  ...prev,
+                                  ownDamage: Number(v || 0),
+                                  basicOwnDamage: Number(v || 0),
+                                }))
+                              }
+                              placeholder="₹ 0"
+                              {...amountInputProps}
+                            />
+                          </CleanField>
+                        </div>
+                      )}
 
                       {!isStandAloneOd && (
                         <div className={fieldWrapClass}>
@@ -1057,22 +1066,24 @@ const Step3PreviousPolicy = ({
                         </div>
                       )}
 
-                      <div className={fieldWrapClass}>
-                        <CleanField label="Add-ons Total">
-                          <InputNumber
-                            min={0}
-                            value={Number(quoteDraft.addOnsTotal || 0)}
-                            onChange={(v) =>
-                              setQuoteDraft((prev) => ({
-                                ...prev,
-                                addOnsTotal: Number(v || 0),
-                              }))
-                            }
-                            placeholder="₹ 0"
-                            {...amountInputProps}
-                          />
-                        </CleanField>
-                      </div>
+                      {formData.previousPolicyType !== "Third Party" && (
+                        <div className={fieldWrapClass}>
+                          <CleanField label="Add-ons Total">
+                            <InputNumber
+                              min={0}
+                              value={Number(quoteDraft.addOnsTotal || 0)}
+                              onChange={(v) =>
+                                setQuoteDraft((prev) => ({
+                                  ...prev,
+                                  addOnsTotal: Number(v || 0),
+                                }))
+                              }
+                              placeholder="₹ 0"
+                              {...amountInputProps}
+                            />
+                          </CleanField>
+                        </div>
+                      )}
                     </div>
 
                     <div className={fieldWrapClass}>
@@ -1081,7 +1092,9 @@ const Step3PreviousPolicy = ({
                         hint={
                           isStandAloneOd
                             ? "Auto-calculated: (OD + Add-ons) × 1.18"
-                            : "Auto-calculated: (OD + TP + Add-ons) × 1.18"
+                            : formData.previousPolicyType === "Third Party"
+                              ? "Auto-calculated: TP × 1.18"
+                              : "Auto-calculated: (OD + TP + Add-ons) × 1.18"
                         }
                       >
                         <InputNumber
@@ -1094,68 +1107,74 @@ const Step3PreviousPolicy = ({
                       </CleanField>
                     </div>
 
-                    <div>
-                      <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
-                        Add-ons
-                      </div>
+                    {formData.previousPolicyType !== "Third Party" && (
+                      <div>
+                        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                          Add-ons
+                        </div>
 
-                      <div className="grid grid-cols-1 gap-2">
-                        {ALL_ADDONS.map((addon) => {
-                          const checked =
-                            quoteDraft.selectedAddOns.includes(addon);
-                          return (
-                            <button
-                              key={addon}
-                              type="button"
-                              onClick={() => toggleAddon(addon)}
-                              className={`flex items-center justify-between rounded-2xl border px-3 py-2.5 text-left transition ${
-                                checked
-                                  ? "border-[#BFD7C7] bg-[#EEF7F1]"
-                                  : "border-slate-200 bg-white"
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <Checkbox checked={checked} />
-                                <span
-                                  className={`text-[12px] ${
-                                    checked
-                                      ? "font-semibold text-slate-800"
-                                      : "text-slate-600"
-                                  }`}
-                                >
-                                  {addon}
-                                </span>
-                              </div>
+                        <div className="grid grid-cols-1 gap-2">
+                          {ALL_ADDONS.map((addon) => {
+                            const checked =
+                              quoteDraft.selectedAddOns.includes(addon);
+                            return (
+                              <button
+                                key={addon}
+                                type="button"
+                                onClick={() => toggleAddon(addon)}
+                                className={`flex items-center justify-between rounded-2xl border px-3 py-2.5 text-left transition ${
+                                  checked
+                                    ? "border-[#BFD7C7] bg-[#EEF7F1]"
+                                    : "border-slate-200 bg-white"
+                                }`}
+                              >
+                                <div className="flex items-center gap-3">
+                                  <Checkbox checked={checked} />
+                                  <span
+                                    className={`text-[12px] ${
+                                      checked
+                                        ? "font-semibold text-slate-800"
+                                        : "text-slate-600"
+                                    }`}
+                                  >
+                                    {addon}
+                                  </span>
+                                </div>
 
-                              {checked ? (
-                                <CheckCircleFilled className="text-[#22A06B]" />
-                              ) : null}
-                            </button>
-                          );
-                        })}
+                                {checked ? (
+                                  <CheckCircleFilled className="text-[#22A06B]" />
+                                ) : null}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                 ) : (
                   <>
-                    <BreakupRow
-                      label="Own Damage"
-                      value={formatCurrency(activeQuote.ownDamage)}
-                      bold
-                    />
-                    <BreakupRow
-                      label="Basic Own Damage"
-                      value={formatCurrency(activeQuote.basicOwnDamage)}
-                      indent
-                      muted
-                    />
+                    {formData.previousPolicyType !== "Third Party" && (
+                      <>
+                        <BreakupRow
+                          label="Own Damage"
+                          value={formatCurrency(activeQuote.ownDamage)}
+                          bold
+                        />
+                        <BreakupRow
+                          label="Basic Own Damage"
+                          value={formatCurrency(activeQuote.basicOwnDamage)}
+                          indent
+                          muted
+                        />
 
-                    <BreakupRow
-                      label="NCB %"
-                      value={`${previewNcb}%`}
-                      indent
-                      muted
-                    />
+                        <BreakupRow
+                          label="NCB %"
+                          value={`${previewNcb}%`}
+                          indent
+                          muted
+                        />
+                      </>
+                    )}
 
                     {!isStandAloneOd && (
                       <>
@@ -1173,7 +1192,7 @@ const Step3PreviousPolicy = ({
                       </>
                     )}
 
-                    {activeQuote.selectedAddOns.length > 0 && (
+                    {formData.previousPolicyType !== "Third Party" && activeQuote.selectedAddOns.length > 0 && (
                       <>
                         <BreakupRow
                           label="Add Ons"
@@ -1245,12 +1264,14 @@ const Step3PreviousPolicy = ({
                   value={formatDisplayDate(formData.previousPolicyStartDate)}
                   tone="warm"
                 />
-                <MiniDateCard
-                  icon={<SafetyCertificateOutlined />}
-                  label="OD Expiry"
-                  value={formatDisplayDate(formData.previousOdExpiryDate)}
-                  tone="sage"
-                />
+                {formData.previousPolicyType !== "Third Party" && (
+                  <MiniDateCard
+                    icon={<SafetyCertificateOutlined />}
+                    label="OD Expiry"
+                    value={formatDisplayDate(formData.previousOdExpiryDate)}
+                    tone="sage"
+                  />
+                )}
                 {!isStandAloneOd && (
                   <MiniDateCard
                     icon={<BankOutlined />}

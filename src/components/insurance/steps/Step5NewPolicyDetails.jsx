@@ -855,26 +855,28 @@ const Step5NewPolicyDetails = ({
               </div>
             </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="OD Expiry Date">
-                  <Input
-                    size="large"
-                    allowClear
-                    type="text"
-                    value={
-                      hasManualPolicyStartDate
-                        ? formatDisplayDate(formData.newOdExpiryDate)
-                        : ""
-                    }
-                    placeholder="Select policy start date"
-                    style={{ pointerEvents: "none", cursor: "default" }}
-                    readOnly
-                    tabIndex={-1}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+            {formData.newPolicyType !== "Third Party" && (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="OD Expiry Date">
+                    <Input
+                      size="large"
+                      allowClear
+                      type="text"
+                      value={
+                        hasManualPolicyStartDate
+                          ? formatDisplayDate(formData.newOdExpiryDate)
+                          : ""
+                      }
+                      placeholder="Select policy start date"
+                      style={{ pointerEvents: "none", cursor: "default" }}
+                      readOnly
+                      tabIndex={-1}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            )}
 
             {formData.newPolicyType !== "Stand Alone OD" && (
               <Col xs={24} md={8}>
@@ -899,89 +901,95 @@ const Step5NewPolicyDetails = ({
               </Col>
             )}
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="NCB Discount (%)">
-                  <Select
-                    size="large"
-                    allowClear
-                    value={Number(formData.newNcbDiscount || 0)}
-                    onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
-                    options={NCB_OPTIONS}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+            {formData.newPolicyType !== "Third Party" && (
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="NCB Discount (%)">
+                    <Select
+                      size="large"
+                      allowClear
+                      value={Number(formData.newNcbDiscount || 0)}
+                      onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
+                      options={NCB_OPTIONS}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            )}
 
-            <Col xs={24}>
-              <div className={labelClass}>IDV Amount (₹)</div>
-            </Col>
+            {formData.newPolicyType !== "Third Party" && (
+              <>
+                <Col xs={24}>
+                  <div className={labelClass}>IDV Amount (₹)</div>
+                </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Vehicle IDV (₹)" required>
-                  <InputNumber
-                    min={0}
-                    value={Number(formData.newVehicleIdv || 0)}
-                    onChange={(v) => {
-                      const nextVehicleIdv = Number(v || 0);
-                      const nextTotal =
-                        nextVehicleIdv +
-                        Number(formData.newCngIdv || 0) +
-                        Number(formData.newAccessoriesIdv || 0);
-                      setField("newVehicleIdv", nextVehicleIdv);
-                      setField("newIdvAmount", nextTotal);
-                    }}
-                    placeholder="₹ 0"
-                    {...amountInputProps}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Vehicle IDV (₹)" required>
+                      <InputNumber
+                        min={0}
+                        value={Number(formData.newVehicleIdv || 0)}
+                        onChange={(v) => {
+                          const nextVehicleIdv = Number(v || 0);
+                          const nextTotal =
+                            nextVehicleIdv +
+                            Number(formData.newCngIdv || 0) +
+                            Number(formData.newAccessoriesIdv || 0);
+                          setField("newVehicleIdv", nextVehicleIdv);
+                          setField("newIdvAmount", nextTotal);
+                        }}
+                        placeholder="₹ 0"
+                        {...amountInputProps}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="CNG IDV (₹)">
-                  <InputNumber
-                    min={0}
-                    value={Number(formData.newCngIdv || 0)}
-                    onChange={(v) => {
-                      const nextCngIdv = Number(v || 0);
-                      const nextTotal =
-                        Number(formData.newVehicleIdv || 0) +
-                        nextCngIdv +
-                        Number(formData.newAccessoriesIdv || 0);
-                      setField("newCngIdv", nextCngIdv);
-                      setField("newIdvAmount", nextTotal);
-                    }}
-                    placeholder="₹ 0"
-                    {...amountInputProps}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="CNG IDV (₹)">
+                      <InputNumber
+                        min={0}
+                        value={Number(formData.newCngIdv || 0)}
+                        onChange={(v) => {
+                          const nextCngIdv = Number(v || 0);
+                          const nextTotal =
+                            Number(formData.newVehicleIdv || 0) +
+                            nextCngIdv +
+                            Number(formData.newAccessoriesIdv || 0);
+                          setField("newCngIdv", nextCngIdv);
+                          setField("newIdvAmount", nextTotal);
+                        }}
+                        placeholder="₹ 0"
+                        {...amountInputProps}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Accessories IDV (₹)">
-                  <InputNumber
-                    min={0}
-                    value={Number(formData.newAccessoriesIdv || 0)}
-                    onChange={(v) => {
-                      const nextAccessoriesIdv = Number(v || 0);
-                      const nextTotal =
-                        Number(formData.newVehicleIdv || 0) +
-                        Number(formData.newCngIdv || 0) +
-                        nextAccessoriesIdv;
-                      setField("newAccessoriesIdv", nextAccessoriesIdv);
-                      setField("newIdvAmount", nextTotal);
-                    }}
-                    placeholder="₹ 0"
-                    {...amountInputProps}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+                <Col xs={24} md={8}>
+                  <div className={fieldWrapClass}>
+                    <CleanField label="Accessories IDV (₹)">
+                      <InputNumber
+                        min={0}
+                        value={Number(formData.newAccessoriesIdv || 0)}
+                        onChange={(v) => {
+                          const nextAccessoriesIdv = Number(v || 0);
+                          const nextTotal =
+                            Number(formData.newVehicleIdv || 0) +
+                            Number(formData.newCngIdv || 0) +
+                            nextAccessoriesIdv;
+                          setField("newAccessoriesIdv", nextAccessoriesIdv);
+                          setField("newIdvAmount", nextTotal);
+                        }}
+                        placeholder="₹ 0"
+                        {...amountInputProps}
+                      />
+                    </CleanField>
+                  </div>
+                </Col>
+              </>
+            )}
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -1128,14 +1136,16 @@ const Step5NewPolicyDetails = ({
                     </div>
                   </div>
 
-                  <div className="shrink-0 text-right">
-                    <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      IDV
-                    </p>
-                    <p className="m-0 text-sm font-black tabular-nums text-slate-800">
-                      {acceptedIdv > 0 ? formatCurrency(acceptedIdv) : "—"}
-                    </p>
-                  </div>
+                  {formData.newPolicyType !== "Third Party" && (
+                    <div className="shrink-0 text-right">
+                      <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                        IDV
+                      </p>
+                      <p className="m-0 text-sm font-black tabular-nums text-slate-800">
+                        {acceptedIdv > 0 ? formatCurrency(acceptedIdv) : "—"}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1157,6 +1167,7 @@ const Step5NewPolicyDetails = ({
                 showAllAddons={showAllAcceptedAddons}
                 onToggleAddons={() => setShowAllAcceptedAddons((p) => !p)}
                 totalAmount={acceptedPremium}
+                coverageType={formData.newPolicyType}
               />
             </div>
 
@@ -1181,16 +1192,18 @@ const Step5NewPolicyDetails = ({
                   value={formatDisplayDate(formData.newPolicyStartDate)}
                   tone="sage"
                 />
-                <MiniDateCard
-                  icon={<InfoCircleOutlined />}
-                  label="OD Expiry"
-                  value={
-                    hasManualPolicyStartDate
-                      ? formatDisplayDate(formData.newOdExpiryDate)
-                      : "—"
-                  }
-                  tone="slate"
-                />
+                {formData.newPolicyType !== "Third Party" && (
+                  <MiniDateCard
+                    icon={<InfoCircleOutlined />}
+                    label="OD Expiry"
+                    value={
+                      hasManualPolicyStartDate
+                        ? formatDisplayDate(formData.newOdExpiryDate)
+                        : "—"
+                    }
+                    tone="slate"
+                  />
+                )}
                 {formData.newPolicyType !== "Stand Alone OD" && (
                   <MiniDateCard
                     icon={<BankOutlined />}

@@ -1209,6 +1209,7 @@ const PolicyCard = ({
                   className="text-[11px] text-slate-600 mt-0.5"
                   style={{ fontFamily: "var(--default-mono-font-family)" }}
                 >
+                  {policy.registration || "—"}
                 </p>
               </div>
             </div>

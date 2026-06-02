@@ -8,16 +8,10 @@ import {
 /** Loan PreFile–aligned Ant Design tokens for Insurance routes + wizard */
 export default function InsuranceAntdProvider({ children }) {
   useEffect(() => {
-    const applyCenteredMessageTop = () => {
-      if (typeof window === "undefined") return;
-      const centerTop = Math.max(24, Math.floor(window.innerHeight / 2 - 28));
-      message.config({ top: centerTop });
-    };
-
-    applyCenteredMessageTop();
-    window.addEventListener("resize", applyCenteredMessageTop);
+    // Configure Ant Design messages to display at the top center of the viewport (80px from top)
+    message.config({ top: 80 });
     return () => {
-      window.removeEventListener("resize", applyCenteredMessageTop);
+      // Revert to default top configuration when provider unmounts
       message.config({ top: 8 });
     };
   }, []);
