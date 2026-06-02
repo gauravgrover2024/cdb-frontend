@@ -1,7 +1,7 @@
 // src/modules/customers/EditCustomer.jsx
 
 import React, { useEffect, useRef, useState } from "react";
-import { Form, message, Spin } from "antd";
+import { Form, message, Spin, Modal } from "antd";
 import dayjs from "dayjs";
 import { useNavigate, useParams } from "react-router-dom";
 import { customersApi } from "../../api/customers";
@@ -399,88 +399,186 @@ const EditCustomer = () => {
   // -----------------------------
   // Manual Save buttons
   // -----------------------------
-  const handleSaveOnly = async () => {
-    if (!id) return;
+  const handleSaveOnly = () => {
+    return new Promise(async (resolve, reject) => {
+      if (!id) return resolve(false);
 
-    try {
-      setSaving(true);
+      try {
+        setSaving(true);
 
-      // ✅ FIX: Get ALL fields, then clean empty/cache values
-      const values = form.getFieldsValue(true);
-      const cleaned = cleanEmptyValues(values);
+        // ✅ FIX: Get ALL fields, then clean empty/cache values
+        const values = form.getFieldsValue(true);
+        const cleaned = cleanEmptyValues(values);
 
-      // Flatten reference1/reference2 to match backend schema (reference1_name, etc.)
-      const flat = { ...cleaned };
-      if (flat.reference1 && typeof flat.reference1 === "object") {
-        flat.reference1_name = flat.reference1.name;
-        flat.reference1_mobile = flat.reference1.mobile;
-        flat.reference1_address = flat.reference1.address;
-        flat.reference1_pincode = flat.reference1.pincode;
-        flat.reference1_city = flat.reference1.city;
-        flat.reference1_relation = flat.reference1.relation;
-        delete flat.reference1;
+        // Flatten reference1/reference2 to match backend schema (reference1_name, etc.)
+        const flat = { ...cleaned };
+        if (flat.reference1 && typeof flat.reference1 === "object") {
+          flat.reference1_name = flat.reference1.name;
+          flat.reference1_mobile = flat.reference1.mobile;
+          flat.reference1_address = flat.reference1.address;
+          flat.reference1_pincode = flat.reference1.pincode;
+          flat.reference1_city = flat.reference1.city;
+          flat.reference1_relation = flat.reference1.relation;
+          delete flat.reference1;
+        }
+        if (flat.reference2 && typeof flat.reference2 === "object") {
+          flat.reference2_name = flat.reference2.name;
+          flat.reference2_mobile = flat.reference2.mobile;
+          flat.reference2_address = flat.reference2.address;
+          flat.reference2_pincode = flat.reference2.pincode;
+          flat.reference2_city = flat.reference2.city;
+          flat.reference2_relation = flat.reference2.relation;
+          delete flat.reference2;
+        }
+
+        let payload = {
+          ...flat,
+          dob: flat?.dob ? (dayjs.isDayjs(flat.dob) ? flat.dob.format("YYYY-MM-DD") : flat.dob) : "",
+          nomineeDob: flat?.nomineeDob
+            ? (dayjs.isDayjs(flat.nomineeDob) ? flat.nomineeDob.format("YYYY-MM-DD") : flat.nomineeDob)
+            : "",
+          identityProofExpiry: flat?.identityProofExpiry
+            ? (dayjs.isDayjs(flat.identityProofExpiry) ? flat.identityProofExpiry.format("YYYY-MM-DD") : flat.identityProofExpiry)
+            : "",
+          co_dob: flat?.co_dob ? (dayjs.isDayjs(flat.co_dob) ? flat.co_dob.format("YYYY-MM-DD") : flat.co_dob) : "",
+          signatory_dob: flat?.signatory_dob
+            ? (dayjs.isDayjs(flat.signatory_dob) ? flat.signatory_dob.format("YYYY-MM-DD") : flat.signatory_dob)
+            : "",
+          // companyType is single-select in UI; businessNature stays multi-select
+          companyType: Array.isArray(flat?.companyType) 
+            ? flat.companyType[0] || "" 
+            : flat?.companyType || "",
+          businessNature: Array.isArray(flat?.businessNature)
+            ? flat.businessNature
+            : (flat?.businessNature ? [flat.businessNature] : []),
+          companyPartners: Array.isArray(flat?.companyPartners) ? flat.companyPartners : [],
+          ifsc: flat?.ifsc || flat?.ifscCode || "",
+          ifscCode: flat?.ifscCode || flat?.ifsc || "",
+          aadhaarNumber: flat?.aadhaarNumber || flat?.aadharNumber || "",
+          aadharNumber: flat?.aadharNumber || flat?.aadhaarNumber || "",
+          updatedAt: new Date().toISOString(),
+        };
+        payload = enrichPayloadWithBankDetails(payload);
+
+        // Check for changes on critical fields that sync to other modules
+        const syncFields = {
+          customerName: "Customer Name",
+          companyName: "Company Name",
+          contactPersonName: "Contact Person Name",
+          primaryMobile: "Primary Mobile",
+          email: "Email",
+          aadhaarNumber: "Aadhaar Number",
+          panNumber: "PAN Number",
+        };
+
+        const changes = [];
+        Object.keys(syncFields).forEach((key) => {
+          let newVal = payload[key] !== undefined ? String(payload[key]).trim() : "";
+          let oldVal = customer[key] !== undefined ? String(customer[key]).trim() : "";
+
+          if (key === "aadhaarNumber") {
+            const oldAadhar = customer.aadhaarNumber || customer.aadharNumber || "";
+            const newAadhar = payload.aadhaarNumber || payload.aadharNumber || "";
+            oldVal = String(oldAadhar).trim();
+            newVal = String(newAadhar).trim();
+          }
+
+          if (newVal !== oldVal) {
+            changes.push({
+              field: syncFields[key],
+              oldVal: oldVal || "—",
+              newVal: newVal || "—",
+            });
+          }
+        });
+
+        const performSave = async () => {
+          try {
+            setSaving(true);
+            await updateCustomerById(id, payload);
+
+            // ✅ Clear auto-saved form data after successful save
+            clearSavedFormData();
+
+            // 🔗 IMPORTANT: Clear loan-related caches so linked loans reflect updated customer data
+            sessionStorage.removeItem('loan_form_draft');
+            sessionStorage.removeItem('loans_list_cache');
+
+            message.success("Saved ✅");
+            resolve(true);
+          } catch (err) {
+            console.error("Save Error:", err);
+            message.error("Save failed ❌");
+            reject(err);
+          } finally {
+            setSaving(false);
+          }
+        };
+
+        if (changes.length > 0) {
+          setSaving(false);
+          Modal.confirm({
+            title: "Confirm Customer Profile & Sync Update",
+            content: (
+              <div className="space-y-3 font-sans mt-2">
+                <p className="text-sm text-slate-600">
+                  You have modified key customer information. Saving these changes will automatically update all linked **Insurance cases**, **Loan files**, and other modules.
+                </p>
+                <div className="border border-slate-100 rounded-xl overflow-hidden shadow-sm bg-slate-50/50">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
+                        <th className="px-3 py-2">Field</th>
+                        <th className="px-3 py-2">Current Value</th>
+                        <th className="px-3 py-2">New Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {changes.map((c, idx) => (
+                        <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                          <td className="px-3 py-2 font-semibold text-slate-700">{c.field}</td>
+                          <td className="px-3 py-2 text-slate-500 line-through decoration-red-300">{c.oldVal}</td>
+                          <td className="px-3 py-2 text-emerald-600 font-medium">{c.newVal}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs font-semibold text-slate-500">
+                  Are you sure you want to proceed with this sync?
+                </p>
+              </div>
+            ),
+            okText: "Yes, Sync & Save",
+            cancelText: "Cancel",
+            okButtonProps: { className: "bg-primary text-white hover:bg-primary-hover font-semibold" },
+            width: 500,
+            onOk() {
+              performSave();
+            },
+            onCancel() {
+              setSaving(false);
+              resolve(false);
+            }
+          });
+        } else {
+          await performSave();
+        }
+      } catch (err) {
+        console.error("Save Error:", err);
+        message.error("Save failed ❌");
+        setSaving(false);
+        reject(err);
       }
-      if (flat.reference2 && typeof flat.reference2 === "object") {
-        flat.reference2_name = flat.reference2.name;
-        flat.reference2_mobile = flat.reference2.mobile;
-        flat.reference2_address = flat.reference2.address;
-        flat.reference2_pincode = flat.reference2.pincode;
-        flat.reference2_city = flat.reference2.city;
-        flat.reference2_relation = flat.reference2.relation;
-        delete flat.reference2;
-      }
-
-      let payload = {
-        ...flat,
-        dob: flat?.dob ? (dayjs.isDayjs(flat.dob) ? flat.dob.format("YYYY-MM-DD") : flat.dob) : "",
-        nomineeDob: flat?.nomineeDob
-          ? (dayjs.isDayjs(flat.nomineeDob) ? flat.nomineeDob.format("YYYY-MM-DD") : flat.nomineeDob)
-          : "",
-        identityProofExpiry: flat?.identityProofExpiry
-          ? (dayjs.isDayjs(flat.identityProofExpiry) ? flat.identityProofExpiry.format("YYYY-MM-DD") : flat.identityProofExpiry)
-          : "",
-        co_dob: flat?.co_dob ? (dayjs.isDayjs(flat.co_dob) ? flat.co_dob.format("YYYY-MM-DD") : flat.co_dob) : "",
-        signatory_dob: flat?.signatory_dob
-          ? (dayjs.isDayjs(flat.signatory_dob) ? flat.signatory_dob.format("YYYY-MM-DD") : flat.signatory_dob)
-          : "",
-        // companyType is single-select in UI; businessNature stays multi-select
-        companyType: Array.isArray(flat?.companyType) 
-          ? flat.companyType[0] || "" 
-          : flat?.companyType || "",
-        businessNature: Array.isArray(flat?.businessNature)
-          ? flat.businessNature
-          : (flat?.businessNature ? [flat.businessNature] : []),
-        companyPartners: Array.isArray(flat?.companyPartners) ? flat.companyPartners : [],
-        ifsc: flat?.ifsc || flat?.ifscCode || "",
-        ifscCode: flat?.ifscCode || flat?.ifsc || "",
-        aadhaarNumber: flat?.aadhaarNumber || flat?.aadharNumber || "",
-        aadharNumber: flat?.aadharNumber || flat?.aadhaarNumber || "",
-        updatedAt: new Date().toISOString(),
-      };
-      payload = enrichPayloadWithBankDetails(payload);
-
-      await updateCustomerById(id, payload);
-
-      // ✅ Clear auto-saved form data after successful save
-      clearSavedFormData();
-
-      // 🔗 IMPORTANT: Clear loan-related caches so linked loans reflect updated customer data
-      sessionStorage.removeItem('loan_form_draft');
-      sessionStorage.removeItem('loans_list_cache');
-
-      message.success("Saved ✅");
-    } catch (err) {
-      console.error("Save Error:", err);
-      message.error("Save failed ❌");
-    } finally {
-      setSaving(false);
-    }
+    });
   };
 
   const handleSaveAndExit = async () => {
     try {
-      await handleSaveOnly();
-      navigate("/customers");
+      const saved = await handleSaveOnly();
+      if (saved) {
+        navigate("/customers");
+      }
     } catch (err) {
       // already handled
     }

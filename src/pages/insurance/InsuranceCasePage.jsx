@@ -113,7 +113,7 @@ const InsuranceCasePage = () => {
         setError("");
         try {
           const res = await insuranceApi.getById(renewFromId);
-          const doc = res?.data || res;
+          const doc = res?.data?.data ?? res?.data ?? res;
           if (!cancelled) setRenewFromCase(doc);
         } catch (e) {
           console.error("[InsuranceCasePage] renewal load failed:", e);
@@ -132,7 +132,7 @@ const InsuranceCasePage = () => {
       setError("");
       try {
         const res = await insuranceApi.getById(caseId);
-        const doc = res?.data || res;
+        const doc = res?.data?.data ?? res?.data ?? res;
         if (!cancelled) setLoadedCase(doc);
       } catch (e) {
         console.error("[InsuranceCasePage] load failed:", e);

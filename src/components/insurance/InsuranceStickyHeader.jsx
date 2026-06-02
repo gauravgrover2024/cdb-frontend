@@ -166,10 +166,28 @@ const InsuranceStickyHeader = ({
             className="flex items-stretch overflow-x-auto px-0"
             style={{ scrollbarWidth: "none" }}
           >
-            {/* Customer segment removed as per request */}
+            <SummarySegment
+              icon="User"
+              label="Customer Details"
+              colorIdx={0}
+              title={data.customerName || data.companyName || data.caseId || "—"}
+              line1={
+                [data.mobile, data.email].filter(Boolean).join(" · ") || "—"
+              }
+              line2={data.panNumber ? `PAN: ${data.panNumber}` : undefined}
+              divider={true}
+            />
+            <SummarySegment
+              icon="Car"
+              label="Vehicle Details"
+              colorIdx={3}
+              title={vehicleLine || "—"}
+              line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
+              divider={true}
+            />
             <SummarySegment
               icon="Shield"
-              label="Insurance Company"
+              label="Policy Details"
               colorIdx={1}
               title={policyCoreLabel}
               line1={
@@ -178,6 +196,7 @@ const InsuranceStickyHeader = ({
                   .join(" · ") || "—"
               }
               line2={data.newPolicyNumber || undefined}
+              divider={true}
             />
             <SummarySegment
               icon="IndianRupee"
@@ -190,14 +209,7 @@ const InsuranceStickyHeader = ({
                   ? `Subvention: ${formatMoney(data.subventionAmount)}`
                   : undefined
               }
-            />
-            <SummarySegment
-              icon="Car"
-              label="Vehicle"
-              colorIdx={3}
               divider={false}
-              title={vehicleLine || "—"}
-              line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
             />
           </div>
         </div>

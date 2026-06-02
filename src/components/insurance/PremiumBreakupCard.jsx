@@ -184,7 +184,7 @@ const PremiumBreakupCard = ({
             </div>
 
             {/* IDV Block */}
-            {idv && (
+            {idv && coverageType !== "Third Party" && (
               <div className="text-right shrink-0 pl-2 border-l border-slate-100 ml-2">
                 <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">
                   IDV
@@ -210,26 +210,28 @@ const PremiumBreakupCard = ({
         )}
 
         {/* Own Damage Section */}
-        <div className="space-y-0">
-          <BreakupRow
-            label="Own Damage Premium"
-            value={formatCurrency(Number(breakup.ownDamageBeforeNcb || breakup.ownDamage || breakup.basicOwnDamage || 0))}
-            bold
-          />
-          <BreakupRow
-            label="Base OD"
-            value={formatCurrency(Number(breakup.ownDamageBeforeNcb || breakup.ownDamage || breakup.basicOwnDamage || 0))}
-            indent
-            muted
-          />
-          <BreakupRow
-            label={`NCB Discount (${Number(breakup.ncbPercent || 0)}%)`}
-            value={`- ${formatCurrency(Number((breakup.ownDamageBeforeNcb || 0) * (breakup.ncbPercent || 0) / 100))}`}
-            indent
-            muted
-          // Optional: Show negative value in red/green if desired, currently keeping neutral gray
-          />
-        </div>
+        {coverageType !== "Third Party" && (
+          <div className="space-y-0">
+            <BreakupRow
+              label="Own Damage Premium"
+              value={formatCurrency(Number(breakup.ownDamageBeforeNcb || breakup.ownDamage || breakup.basicOwnDamage || 0))}
+              bold
+            />
+            <BreakupRow
+              label="Base OD"
+              value={formatCurrency(Number(breakup.ownDamageBeforeNcb || breakup.ownDamage || breakup.basicOwnDamage || 0))}
+              indent
+              muted
+            />
+            <BreakupRow
+              label={`NCB Discount (${Number(breakup.ncbPercent || 0)}%)`}
+              value={`- ${formatCurrency(Number((breakup.ownDamageBeforeNcb || 0) * (breakup.ncbPercent || 0) / 100))}`}
+              indent
+              muted
+            // Optional: Show negative value in red/green if desired, currently keeping neutral gray
+            />
+          </div>
+        )}
 
         {/* Third Party Section */}
         {coverageType !== "Stand Alone OD" && (
@@ -249,7 +251,7 @@ const PremiumBreakupCard = ({
         )}
 
         {/* Add-ons Section */}
-        {showAddons && includedAddons.length > 0 && (
+        {showAddons && coverageType !== "Third Party" && includedAddons.length > 0 && (
           <div className="mt-2">
             <BreakupRow
               label="Add-on Covers"

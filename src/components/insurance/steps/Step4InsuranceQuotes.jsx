@@ -585,29 +585,37 @@ const QuoteCard = ({
           Premium Breakup
         </p>
 
-        <BreakupRow label="Own Damage" value={toINR(odBeforeNcb)} bold />
-        <BreakupRow
-          label="Own Damage (Base)"
-          value={toINR(odBeforeNcb)}
-          indent
-          muted
-        />
-        <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
+        {row.coverageType !== "Third Party" && (
+          <>
+            <BreakupRow label="Own Damage" value={toINR(odBeforeNcb)} bold />
+            <BreakupRow
+              label="Own Damage (Base)"
+              value={toINR(odBeforeNcb)}
+              indent
+              muted
+            />
+            <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
+          </>
+        )}
 
-        <BreakupRow
-          label="Third Party"
-          value={toINR(breakup?.tpAmt ?? 0)}
-          bold
-        />
-        <BreakupRow
-          label="Basic Third Party"
-          value={toINR(breakup?.tpAmt ?? 0)}
-          indent
-          muted
-        />
+        {row.coverageType !== "Stand Alone OD" && (
+          <>
+            <BreakupRow
+              label="Third Party"
+              value={toINR(breakup?.tpAmt ?? 0)}
+              bold
+            />
+            <BreakupRow
+              label="Basic Third Party"
+              value={toINR(breakup?.tpAmt ?? 0)}
+              indent
+              muted
+            />
+          </>
+        )}
 
-        {(includedAddons.length > 0 ||
-          Number(breakup?.addOnsTotal || 0) > 0) && (
+        {row.coverageType !== "Third Party" &&
+          (includedAddons.length > 0 || Number(breakup?.addOnsTotal || 0) > 0) && (
             <>
               <BreakupRow
                 label="Add Ons"
@@ -631,8 +639,9 @@ const QuoteCard = ({
                       className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent cursor-pointer p-0 text-[11px] font-semibold text-slate-600 hover:text-slate-700 transition-colors"
                     >
                       <span
-                        className={`inline-block transition-transform duration-200 ${showAllAddons ? "rotate-180" : ""
-                          }`}
+                        className={`inline-block transition-transform duration-200 ${
+                          showAllAddons ? "rotate-180" : ""
+                        }`}
                       >
                         ▾
                       </span>
@@ -1195,46 +1204,48 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              <FieldBlock
-                label="NCB Discount (%)"
-                helper={
-                  <>
-                    Suggested NCB:{" "}
-                    <b className="text-slate-700">
-                      {Number(suggestedNcbDiscount || 0)}%
-                    </b>
-                    {Number(quoteDraft.ncbDiscount || 0) !==
-                      Number(suggestedNcbDiscount || 0) ? (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setQuoteDraft((p) => ({
-                            ...p,
-                            ncbDiscount: Number(suggestedNcbDiscount || 0),
-                          }))
-                        }
-                        className="ml-2 rounded-lg bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 border-0"
-                      >
-                        Apply
-                      </button>
-                    ) : null}
-                  </>
-                }
-              >
-                <Select
-                  allowClear
-                  size="large"
-                  value={Number(quoteDraft.ncbDiscount || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      ncbDiscount: Number(v || 0),
-                    }))
+              {includesOd && (
+                <FieldBlock
+                  label="NCB Discount (%)"
+                  helper={
+                    <>
+                      Suggested NCB:{" "}
+                      <b className="text-slate-700">
+                        {Number(suggestedNcbDiscount || 0)}%
+                      </b>
+                      {Number(quoteDraft.ncbDiscount || 0) !==
+                        Number(suggestedNcbDiscount || 0) ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setQuoteDraft((p) => ({
+                              ...p,
+                              ncbDiscount: Number(suggestedNcbDiscount || 0),
+                            }))
+                          }
+                          className="ml-2 rounded-lg bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-600 hover:bg-blue-100 border-0"
+                        >
+                          Apply
+                        </button>
+                      ) : null}
+                    </>
                   }
-                  className="w-full quote-control"
-                  options={NCB_OPTIONS}
-                />
-              </FieldBlock>
+                >
+                  <Select
+                    allowClear
+                    size="large"
+                    value={Number(quoteDraft.ncbDiscount || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        ncbDiscount: Number(v || 0),
+                      }))
+                    }
+                    className="w-full quote-control"
+                    options={NCB_OPTIONS}
+                  />
+                </FieldBlock>
+              )}
 
               <FieldBlock
                 label="Hypothecation"
@@ -1345,21 +1356,23 @@ const Step4InsuranceQuotes = ({
                 </>
               ) : null}
 
-              <FieldBlock label="OD Amount (₹)">
-                <InputNumber
-                  size="large"
-                  min={0}
-                  value={Number(quoteDraft.odAmount || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      odAmount: Number(v || 0),
-                    }))
-                  }
-                  className="w-full quote-control"
-                  {...inrInputProps}
-                />
-              </FieldBlock>
+              {includesOd && (
+                <FieldBlock label="OD Amount (₹)">
+                  <InputNumber
+                    size="large"
+                    min={0}
+                    value={Number(quoteDraft.odAmount || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        odAmount: Number(v || 0),
+                      }))
+                    }
+                    className="w-full quote-control"
+                    {...inrInputProps}
+                  />
+                </FieldBlock>
+              )}
 
               {includesTp ? (
                 <FieldBlock label="3rd Party Amount (₹)">
@@ -1379,21 +1392,23 @@ const Step4InsuranceQuotes = ({
                 </FieldBlock>
               ) : null}
 
-              <FieldBlock label="Add-ons Amount (₹)">
-                <InputNumber
-                  size="large"
-                  min={0}
-                  value={Number(quoteDraft.addOnsAmount || 0)}
-                  onChange={(v) =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      addOnsAmount: Number(v || 0),
-                    }))
-                  }
-                  className="w-full quote-control"
-                  {...inrInputProps}
-                />
-              </FieldBlock>
+              {allowsAddOns && (
+                <FieldBlock label="Add-ons Amount (₹)">
+                  <InputNumber
+                    size="large"
+                    min={0}
+                    value={Number(quoteDraft.addOnsAmount || 0)}
+                    onChange={(v) =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        addOnsAmount: Number(v || 0),
+                      }))
+                    }
+                    className="w-full quote-control"
+                    {...inrInputProps}
+                  />
+                </FieldBlock>
+              )}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[12px] text-slate-500">
               {showStandaloneAgeWarning && coverageType === "Stand Alone OD" ? (
@@ -1405,190 +1420,192 @@ const Step4InsuranceQuotes = ({
           </section>
 
           {/* Add-on Catalogue */}
-          <section className="rounded-2xl bg-white px-5 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                  Additional Add-ons
-                </p>
-                <Tooltip title="Select ₹0 to include without extra charges, or enter a custom amount.">
-                  <InfoCircleOutlined className="cursor-help text-slate-300 text-[11px]" />
-                </Tooltip>
-                <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#DAF3FF] px-1 text-[9px] font-bold text-slate-700">
-                  {
-                    addOnCatalog.filter((n) => quoteDraft.addOnsIncluded?.[n])
-                      .length
-                  }
-                  /{addOnCatalog.length}
-                </span>
-              </div>
-              <Space size={6}>
-                <button
-                  onClick={() =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      addOns: addOnCatalog.reduce(
-                        (a, n) => ({ ...a, [n]: 0 }),
-                        {},
-                      ),
-                      addOnsIncluded: addOnCatalog.reduce(
-                        (a, n) => ({ ...a, [n]: true }),
-                        {},
-                      ),
-                    }))
-                  }
-                  className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-200 transition-colors cursor-pointer border-0"
-                >
-                  ✓ Select All
-                </button>
-                <button
-                  onClick={() =>
-                    setQuoteDraft((p) => ({
-                      ...p,
-                      addOns: addOnCatalog.reduce(
-                        (a, n) => ({ ...a, [n]: 0 }),
-                        {},
-                      ),
-                      addOnsIncluded: addOnCatalog.reduce(
-                        (a, n) => ({ ...a, [n]: false }),
-                        {},
-                      ),
-                    }))
-                  }
-                  className="rounded-lg bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100 transition-colors cursor-pointer border-0"
-                >
-                  ✕ Clear All
-                </button>
-              </Space>
-            </div>
-
-            {previousSelectedAddOns.length ? (
-              <div className="mb-4 rounded-2xl border border-[#9FC0FF] bg-gradient-to-r from-[#DAF3FF]/60 via-white to-[#DAF3FF]/35 px-4 py-3 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                  <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">
-                    Previous-year add-on preset
+          {allowsAddOns && (
+            <section className="rounded-2xl bg-white px-5 pb-5 pt-4 md:px-6 md:pb-6 md:pt-5 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-400">
+                    Additional Add-ons
                   </p>
-                  <button
-                    onClick={applyPreviousYearAddOns}
-                    className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer border-0"
-                  >
-                    One-click apply
-                  </button>
+                  <Tooltip title="Select ₹0 to include without extra charges, or enter a custom amount.">
+                    <InfoCircleOutlined className="cursor-help text-slate-300 text-[11px]" />
+                  </Tooltip>
+                  <span className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full bg-[#DAF3FF] px-1 text-[9px] font-bold text-slate-700">
+                    {
+                      addOnCatalog.filter((n) => quoteDraft.addOnsIncluded?.[n])
+                        .length
+                    }
+                    /{addOnCatalog.length}
+                  </span>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {previousSelectedAddOns.map((name) => (
-                    <span
-                      key={`prev-${name}`}
-                      className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-                <p className="m-0 mt-2 text-[11px] text-slate-500">
-                  Applies last-year add-ons only. Amounts remain editable below.
-                </p>
-              </div>
-            ) : null}
-
-            {/* Pill strip */}
-            <div className="flex flex-wrap gap-2 mb-5">
-              {addOnCatalog.map((name, i) => {
-                const palette = addonPalette[i % addonPalette.length];
-                const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
-                return (
+                <Space size={6}>
                   <button
-                    key={name}
-                    onClick={() => {
-                      const on = !included;
+                    onClick={() =>
                       setQuoteDraft((p) => ({
                         ...p,
-                        addOnsIncluded: {
-                          ...p.addOnsIncluded,
-                          [name]: on,
-                        },
-                        addOns: {
-                          ...p.addOns,
-                          [name]: on ? Number(p.addOns?.[name] || 0) : 0,
-                        },
-                      }));
-                    }}
-                    className={`
-                      flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold
-                      ring-1 transition-all duration-150 cursor-pointer border-0
-                      ${included
-                        ? `${palette.activeBg} ${palette.activeRing} ${palette.text} shadow-sm`
-                        : "bg-white ring-slate-200 text-slate-500 hover:bg-slate-50"
-                      }
-                    `}
+                        addOns: addOnCatalog.reduce(
+                          (a, n) => ({ ...a, [n]: 0 }),
+                          {},
+                        ),
+                        addOnsIncluded: addOnCatalog.reduce(
+                          (a, n) => ({ ...a, [n]: true }),
+                          {},
+                        ),
+                      }))
+                    }
+                    className="rounded-lg bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-300 hover:bg-slate-200 transition-colors cursor-pointer border-0"
                   >
-                    <span
-                      className={`h-1.5 w-1.5 rounded-full transition-colors ${included ? palette.dot : "bg-slate-300"
-                        }`}
-                    />
-                    {name}
-                    {included && (
-                      <span className="ml-0.5 text-[10px] opacity-70">✓</span>
-                    )}
+                    ✓ Select All
                   </button>
-                );
-              })}
-            </div>
+                  <button
+                    onClick={() =>
+                      setQuoteDraft((p) => ({
+                        ...p,
+                        addOns: addOnCatalog.reduce(
+                          (a, n) => ({ ...a, [n]: 0 }),
+                          {},
+                        ),
+                        addOnsIncluded: addOnCatalog.reduce(
+                          (a, n) => ({ ...a, [n]: false }),
+                          {},
+                        ),
+                      }))
+                    }
+                    className="rounded-lg bg-white px-3 py-1 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-300 hover:bg-slate-100 transition-colors cursor-pointer border-0"
+                  >
+                    ✕ Clear All
+                  </button>
+                </Space>
+              </div>
 
-            {/* Amount inputs for selected add-ons */}
-            {addOnCatalog.some((n) => quoteDraft.addOnsIncluded?.[n]) ? (
-              <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-4">
-                <p className="m-0 mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                  Set Amounts for Selected Add-ons
-                </p>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {addOnCatalog.map((name, i) => {
-                    const palette = addonPalette[i % addonPalette.length];
-                    const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
-                    if (!included) return null;
-                    const amt = Number(quoteDraft.addOns?.[name] || 0);
-                    return (
-                      <div
-                        key={name}
-                        className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ${palette.bg} ${palette.ring}`}
+              {previousSelectedAddOns.length ? (
+                <div className="mb-4 rounded-2xl border border-[#9FC0FF] bg-gradient-to-r from-[#DAF3FF]/60 via-white to-[#DAF3FF]/35 px-4 py-3 shadow-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="m-0 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+                      Previous-year add-on preset
+                    </p>
+                    <button
+                      onClick={applyPreviousYearAddOns}
+                      className="rounded-lg bg-blue-50 px-3 py-1.5 text-[11px] font-semibold text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer border-0"
+                    >
+                      One-click apply
+                    </button>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {previousSelectedAddOns.map((name) => (
+                      <span
+                        key={`prev-${name}`}
+                        className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200 shadow-[0_1px_0_rgba(15,23,42,0.04)]"
                       >
-                        <span
-                          className={`shrink-0 text-[11px] font-semibold ${palette.text} flex-1 leading-snug`}
-                        >
-                          {name}
-                        </span>
-                        <InputNumber
-                          min={0}
-                          size="small"
-                          value={amt}
-                          addonBefore="₹"
-                          controls={false}
-                          placeholder="0"
-                          {...inrInputProps}
-                          onChange={(v) =>
-                            setQuoteDraft((p) => ({
-                              ...p,
-                              addOns: {
-                                ...p.addOns,
-                                [name]: Number(v ?? 0),
-                              },
-                            }))
-                          }
-                          className="w-32 shrink-0"
-                        />
-                      </div>
-                    );
-                  })}
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="m-0 mt-2 text-[11px] text-slate-500">
+                    Applies last-year add-ons only. Amounts remain editable below.
+                  </p>
                 </div>
+              ) : null}
+
+              {/* Pill strip */}
+              <div className="flex flex-wrap gap-2 mb-5">
+                {addOnCatalog.map((name, i) => {
+                  const palette = addonPalette[i % addonPalette.length];
+                  const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
+                  return (
+                    <button
+                      key={name}
+                      onClick={() => {
+                        const on = !included;
+                        setQuoteDraft((p) => ({
+                          ...p,
+                          addOnsIncluded: {
+                            ...p.addOnsIncluded,
+                            [name]: on,
+                          },
+                          addOns: {
+                            ...p.addOns,
+                            [name]: on ? Number(p.addOns?.[name] || 0) : 0,
+                          },
+                        }));
+                      }}
+                      className={`
+                        flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12px] font-semibold
+                        ring-1 transition-all duration-150 cursor-pointer border-0
+                        ${included
+                          ? `${palette.activeBg} ${palette.activeRing} ${palette.text} shadow-sm`
+                          : "bg-white ring-slate-200 text-slate-500 hover:bg-slate-50"
+                        }
+                      `}
+                    >
+                      <span
+                        className={`h-1.5 w-1.5 rounded-full transition-colors ${included ? palette.dot : "bg-slate-300"
+                          }`}
+                      />
+                      {name}
+                      {included && (
+                        <span className="ml-0.5 text-[10px] opacity-70">✓</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
-            ) : (
-              <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-4 py-5 text-center">
-                <p className="m-0 text-xs text-slate-400">
-                  No add-ons selected. Click any pill above to include it.
-                </p>
-              </div>
-            )}
-          </section>
+
+              {/* Amount inputs for selected add-ons */}
+              {addOnCatalog.some((n) => quoteDraft.addOnsIncluded?.[n]) ? (
+                <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 p-4">
+                  <p className="m-0 mb-3 text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                    Set Amounts for Selected Add-ons
+                  </p>
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {addOnCatalog.map((name, i) => {
+                      const palette = addonPalette[i % addonPalette.length];
+                      const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
+                      if (!included) return null;
+                      const amt = Number(quoteDraft.addOns?.[name] || 0);
+                      return (
+                        <div
+                          key={name}
+                          className={`flex items-center gap-3 rounded-lg px-3 py-2.5 ring-1 ${palette.bg} ${palette.ring}`}
+                        >
+                          <span
+                            className={`shrink-0 text-[11px] font-semibold ${palette.text} flex-1 leading-snug`}
+                          >
+                            {name}
+                          </span>
+                          <InputNumber
+                            min={0}
+                            size="small"
+                            value={amt}
+                            addonBefore="₹"
+                            controls={false}
+                            placeholder="0"
+                            {...inrInputProps}
+                            onChange={(v) =>
+                              setQuoteDraft((p) => ({
+                                ...p,
+                                addOns: {
+                                  ...p.addOns,
+                                  [name]: Number(v ?? 0),
+                                },
+                              }))
+                            }
+                            className="w-32 shrink-0"
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : (
+                <div className="rounded-xl bg-slate-50 ring-1 ring-slate-100 px-4 py-5 text-center">
+                  <p className="m-0 text-xs text-slate-400">
+                    No add-ons selected. Click any pill above to include it.
+                  </p>
+                </div>
+              )}
+            </section>
+          )}
 
           {/* Action Row */}
           <div className="flex flex-wrap items-center gap-3 rounded-2xl bg-gradient-to-r from-white via-slate-50/50 to-white p-3 ring-1 ring-slate-200 shadow-sm shadow-slate-900/5">
@@ -1742,25 +1759,27 @@ const Step4InsuranceQuotes = ({
               </div>
             </div>
 
-            <div
-              className={`rounded-xl border px-4 py-3.5 ${ncbPct > 0
-                  ? "border-amber-300/90 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm shadow-amber-200/40"
-                  : "border-slate-200 bg-slate-50/90"
-                }`}
-            >
-              <p
-                className={`m-0 text-[10px] font-bold uppercase tracking-widest ${ncbPct > 0 ? "text-amber-800" : "text-slate-500"
+            {includesOd && (
+              <div
+                className={`rounded-xl border px-4 py-3.5 ${ncbPct > 0
+                    ? "border-amber-300/90 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm shadow-amber-200/40"
+                    : "border-slate-200 bg-slate-50/90"
                   }`}
               >
-                NCB (reference)
-              </p>
-              <p
-                className={`m-0 mt-2 text-2xl font-black tabular-nums tracking-tight ${ncbPct > 0 ? "text-amber-900" : "text-slate-400"
-                  }`}
-              >
-                {ncbPct}%
-              </p>
-            </div>
+                <p
+                  className={`m-0 text-[10px] font-bold uppercase tracking-widest ${ncbPct > 0 ? "text-amber-800" : "text-slate-500"
+                    }`}
+                >
+                  NCB (reference)
+                </p>
+                <p
+                  className={`m-0 mt-2 text-2xl font-black tabular-nums tracking-tight ${ncbPct > 0 ? "text-amber-900" : "text-slate-400"
+                    }`}
+                >
+                  {ncbPct}%
+                </p>
+              </div>
+            )}
 
             {includesOd ? (
               <>
@@ -1903,40 +1922,44 @@ const Step4InsuranceQuotes = ({
                   )}
                 </div>
               </div>
-              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                  IDV
+              {acceptedQuote?.coverageType !== "Third Party" && (
+                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                    IDV
+                  </div>
+                  <div className="mt-1 text-lg font-black text-slate-900">
+                    {toINR(
+                      acceptedQuoteBreakup?.totalIdv ||
+                      acceptedQuote?.totalIdv ||
+                      0,
+                    )}
+                  </div>
                 </div>
-                <div className="mt-1 text-lg font-black text-slate-900">
-                  {toINR(
-                    acceptedQuoteBreakup?.totalIdv ||
-                    acceptedQuote?.totalIdv ||
-                    0,
+              )}
+            </div>
+            {acceptedQuote?.coverageType !== "Third Party" && (
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+                <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                  Accepted Add-ons
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {acceptedQuoteAddOns.length ? (
+                    acceptedQuoteAddOns.map((addon) => (
+                      <span
+                        key={addon}
+                        className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
+                      >
+                        {addon}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-sm text-slate-500">
+                      No add-ons selected.
+                    </span>
                   )}
                 </div>
               </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
-              <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">
-                Accepted Add-ons
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {acceptedQuoteAddOns.length ? (
-                  acceptedQuoteAddOns.map((addon) => (
-                    <span
-                      key={addon}
-                      className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700"
-                    >
-                      {addon}
-                    </span>
-                  ))
-                ) : (
-                  <span className="text-sm text-slate-500">
-                    No add-ons selected.
-                  </span>
-                )}
-              </div>
-            </div>
+            )}
             <div className="flex flex-wrap justify-end gap-2">
               <Button onClick={handleShareAcceptedQuote}>Share Quote</Button>
               <Button type="primary" onClick={handleDownloadAcceptedQuote}>

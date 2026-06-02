@@ -715,6 +715,7 @@ const QuotePreviewCard = ({
         onToggleAddons={() => setShowAllAddons((p) => !p)}
         totalAmount={formatStoredOrComputedPremium(row)}
         isAccepted={isAccepted}
+        coverageType={row.coverageType || breakup?.coverageType}
       />
 
       <div className="px-5 pb-5">
