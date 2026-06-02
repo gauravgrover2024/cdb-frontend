@@ -1,29 +1,23 @@
 import { Modal } from "antd";
 
-export const openNewCaseConfirmation = ({
-  moduleLabel,
-  onSaveAndNew,
-  onDiscardAndStartFresh,
-}) => {
+export const openNewCaseConfirmation = ({ moduleLabel, onSaveAndNew }) => {
   Modal.confirm({
-    title: `New ${moduleLabel} Case`,
-    content: `You are currently working on a ${moduleLabel.toLowerCase()} case. Would you like to save your progress before starting a new one?`,
-    okText: "Save & New",
-    cancelText: "Discard & Start Fresh",
+    title: `Save and Exit ${moduleLabel} Case?`,
+    content: `You have unsaved changes. Save your progress before continuing?`,
+    okText: "Save and Exit",
+    cancelText: "Cancel",
     okButtonProps: {
-      className: "bg-blue-600 hover:bg-blue-700 border-blue-600",
+      className: "bg-emerald-600 hover:bg-emerald-700 border-emerald-600",
     },
     cancelButtonProps: {
-      danger: true,
+      className: "border-slate-300",
     },
-    maskClosable: true,
+    maskClosable: false,
     onOk: () => {
       onSaveAndNew?.();
     },
-    onCancel: (e) => {
-      if (e?.triggerCancel) return;
-      onDiscardAndStartFresh?.();
+    onCancel: () => {
+      // Do nothing - user cancelled the operation
     },
   });
 };
-

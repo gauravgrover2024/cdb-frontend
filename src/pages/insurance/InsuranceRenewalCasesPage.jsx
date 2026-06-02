@@ -43,6 +43,7 @@ import {
   resolveInsuranceChannelContext,
   resolveInsuranceReference,
   shouldShowInsuranceChannelBadge,
+  getPolicyOriginType,
 } from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
 import { getEmployees } from "../../api/employees";
@@ -1057,6 +1058,7 @@ const InsuranceRenewalCasesPage = () => {
                 resolveInsuranceReference(row);
               const channelCtx = resolveInsuranceChannelContext(row);
               const contactPersonName = row?.contactPersonName || "";
+              const policyOriginType = getPolicyOriginType(row);
               const lifecycleBadge =
                 viewTab === "renewed" ? "Completed" : status || "Active";
               const vehicleOwnershipBadge = row?.vehicleType || "Used Car";
@@ -1109,10 +1111,21 @@ const InsuranceRenewalCasesPage = () => {
                         <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
                           {row.caseId || "—"}
                         </span>
+                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
+                          {["extended warranty", "ew policy"].includes(String(row.policyCategory || row.policyTypeSelector || "").trim().toLowerCase())
+                            ? "EW Policy"
+                            : (String(row.policyCategory || row.policyTypeSelector || "Insurance").replace(" Policy", ""))}
+                        </span>
                         <span
                           className={`rounded-md px-2 py-0.5 text-xs font-semibold ${statusChipClass}`}
                         >
                           {status}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-700">
+                          {row.vehicleType || "Used Car"}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
+                          {row.typesOfVehicle || "4W"}
                         </span>
                         <span
                           className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
@@ -1156,6 +1169,19 @@ const InsuranceRenewalCasesPage = () => {
                             <Eye size={14} />
                           </motion.button>
                         </Tooltip>
+                         {days !== null && days < 30 && viewTab === "renewal" && (
+                          <motion.button
+                            whileHover={{ scale: 1.03 }}
+                            whileTap={{ scale: 0.97 }}
+                            type="button"
+                            onClick={() =>
+                              navigate(`/insurance/new?renewFrom=${id}`)
+                            }
+                            className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-[0.08em] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors mr-1"
+                          >
+                            Renew Now
+                          </motion.button>
+                        )}
                         <Tooltip title="Renew">
                           <motion.button
                             whileHover={{ scale: 1.06 }}
@@ -1293,17 +1319,6 @@ const InsuranceRenewalCasesPage = () => {
                           className="px-3 py-3 border-b"
                           style={{ borderColor: "#e2e8f0" }}
                         >
-                          <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
-                              {lifecycleBadge}
-                            </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-700">
-                              {vehicleOwnershipBadge}
-                            </span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-700">
-                              {wheelTypeBadge}
-                            </span>
-                          </div>
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
@@ -1464,6 +1479,11 @@ const InsuranceRenewalCasesPage = () => {
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
                               NCB {Number(activePolicy.ncbDiscount || 0)}%
                             </span>
+                            {policyOriginType && row.vehicleType?.toLowerCase() !== "new car" ? (
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
+                                {policyOriginType}
+                              </span>
+                            ) : null}
                           </div>
                           <div className="space-y-1">
                             <p className="text-[11px] text-slate-500 truncate">
@@ -1895,6 +1915,7 @@ const InsuranceRenewalCasesPage = () => {
             const ownDamage = Number(modalPolicy.ownDamage || 0);
             const ncbPercent = Number(modalPolicy.ncbDiscount || 0);
             const ncbAmount = Number(modalPolicy.ncbAmount || 0);
+            const idv = policyModal.row?.newIdvAmount || policyModal.row?.previousIdvAmount || "";
             const includedAddons = parsePolicyIncludedAddons(
               policyModal.row,
               modalPolicy,
@@ -1912,6 +1933,8 @@ const InsuranceRenewalCasesPage = () => {
                   addOnsTotal: Number(modalPolicy.addOnsTotal || 0),
                   totalAmount: Number(modalPolicy.totalPremium || 0),
                 }}
+                coverageType={modalPolicy.policyType}
+                idv={idv}
                 formatCurrency={(n) =>
                   Number(n || 0).toLocaleString("en-IN", {
                     style: "currency",

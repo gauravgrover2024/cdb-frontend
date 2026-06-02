@@ -37,6 +37,10 @@ import {
   shouldShowInsuranceChannelBadge,
   parsePolicyIncludedAddons,
   resolveActivePolicySnapshot,
+  getPolicyPulseExpiryDate,
+  daysUntilExpiry,
+  getCycleAdjustedExpiryDate,
+  getPolicyOriginType,
 } from "../../utils/insurancePolicyDisplay";
 
 dayjs.extend(customParseFormat);
@@ -228,37 +232,6 @@ const isThirdPartyOnlyPolicy = (policyType) => {
   return value.includes("third") || value === "tp";
 };
 
-const getPolicyPulseExpiryDate = (c) => {
-  const { acceptedQuote } = getAcceptedQuoteContext(c);
-  const policyType =
-    c?.newPolicyType ||
-    c?.coverageType ||
-    acceptedQuote?.coverageType ||
-    c?.previousPolicyType ||
-    "";
-
-  if (isThirdPartyOnlyPolicy(policyType)) {
-    return (
-      c?.newTpExpiryDate || c?.previousTpExpiryDate || c?.policyExpiry || ""
-    );
-  }
-
-  return (
-    c?.newOdExpiryDate ||
-    c?.previousOdExpiryDate ||
-    c?.newTpExpiryDate ||
-    c?.policyExpiry ||
-    ""
-  );
-};
-
-const daysUntilExpiry = (c) => {
-  const expiryDate = getPolicyPulseExpiryDate(c);
-  if (!expiryDate) return null;
-  const expiry = parseInsuranceDate(expiryDate);
-  if (!expiry) return null;
-  return expiry.startOf("day").diff(dayjs().startOf("day"), "day");
-};
 
 const isExpiringSoonCase = (record = {}, renewedCaseIds = new Set()) => {
   const days = daysUntilExpiry(record);
@@ -303,67 +276,7 @@ const getVehicleDisplayYear = (record = {}) => {
   );
 };
 
-const normalizeInsurerToken = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase()
-    .replace(/\s+/g, " ");
 
-const normalizeUsedCarFlowLabel = (value) => {
-  const raw = String(value || "").trim();
-  const lower = raw.toLowerCase();
-  if (!raw) return "";
-  if (lower.includes("sale") || lower.includes("purchase"))
-    return "Sale/Purchase";
-  if (lower.includes("expired")) return "Policy Already Expired";
-  if (lower.includes("rollover")) return "Rollover";
-  if (lower.includes("renew")) return "Renewal";
-  return raw;
-};
-
-const getPolicyOriginType = (record = {}) => {
-  const policyCategoryKey = String(
-    record.policyCategory || record.policyTypeSelector || "",
-  ).trim().toLowerCase();
-  const isExtendedWarranty =
-    policyCategoryKey === "extended warranty" ||
-    policyCategoryKey === "ew policy";
-  if (isExtendedWarranty) return "EW Policy";
-
-  const vehicleType = String(record.vehicleType || "")
-    .trim()
-    .toLowerCase();
-  const usedCarType = normalizeUsedCarFlowLabel(
-    record.usedCarFlowType || record.usedCarFlow,
-  );
-  const persistedClassification = normalizeUsedCarFlowLabel(
-    record.policyOriginType ||
-    record.journeyClassification ||
-    record.journeyType,
-  );
-
-  if (vehicleType === "used car") {
-    if (usedCarType === "Renewal") {
-      const previousInsurer = normalizeInsurerToken(
-        record.previousInsuranceCompany,
-      );
-      const acceptedInsurer = normalizeInsurerToken(record.newInsuranceCompany);
-      if (previousInsurer && acceptedInsurer) {
-        return previousInsurer === acceptedInsurer ? "Renewal" : "Rollover";
-      }
-      return "Renewal";
-    }
-    if (
-      usedCarType === "Policy Already Expired" ||
-      usedCarType === "Sale/Purchase"
-    ) {
-      return usedCarType;
-    }
-    return persistedClassification || usedCarType || "Renewal";
-  }
-
-  return persistedClassification || usedCarType || "";
-};
 
 const getRenewedFromId = (record = {}) =>
   record.renewedFromCaseId ||
@@ -1072,29 +985,6 @@ const PolicyCard = ({
                 {policy.typesOfVehicle || "4W"}
               </span>
 
-              {!["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && policy.policyType ? (
-                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-cyan-50 text-cyan-700 border border-cyan-200">
-                  {policy.policyType}
-                </span>
-              ) : null}
-
-              {!["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && policy.policyOriginType ? (
-                <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                  {policy.policyOriginType}
-                </span>
-              ) : null}
-
-              {policy.vehicleYear ? (
-                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-                  Yr: {policy.vehicleYear}
-                </span>
-              ) : null}
-
-              {policy.referenceName ? (
-                <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200">
-                  Ref: {policy.referenceName}
-                </span>
-              ) : null}
 
               {openDues > 0 && (
                 <div className="flex flex-wrap gap-2 mt-0">
@@ -1644,54 +1534,34 @@ const PolicyCard = ({
                     {policy.createdLabel}
                   </span>
                 </div>
+
+                {policy.expiryLabel && policy.expiryLabel !== "—" && (
+                  <div className="flex justify-between gap-2">
+                    <span className="text-slate-600">Expiry</span>
+                    <span className="font-semibold text-slate-900 text-right truncate">
+                      {policy.expiryLabel}
+                      {pulseDays !== null && (
+                        <span className="ml-1 text-slate-500 font-normal">
+                          ({pulseDays < 0 ? `${Math.abs(pulseDays)}d overdue` : `${pulseDays}d left`})
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                )}
+
+                {pulseDays !== null && pulseDays < 30 && !policy.alreadyRenewed && (
+                  <div className="flex justify-end pt-1">
+                    <button
+                      type="button"
+                      onClick={onRenew}
+                      className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-[0.08em] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                    >
+                      Renew Now
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {!isDraft && !["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && (
-                <div>
-                  <div
-                    className="rounded-xl border px-2.5 py-2"
-                    style={{
-                      borderColor: `${policyPulseTone.color}33`,
-                      background: policyPulseTone.bg,
-                    }}
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <span
-                          className="h-7 w-7 rounded-full inline-flex items-center justify-center"
-                          style={{
-                            background: "#ffffff",
-                            color: policyPulseTone.color,
-                          }}
-                        >
-                          <Clock3 size={13} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                            Policy Pulse
-                          </p>
-                          <p
-                            className="text-[11px] font-semibold truncate"
-                            style={{ color: policyPulseTone.color }}
-                          >
-                            {policyPulseTone.detail}
-                          </p>
-                        </div>
-                      </div>
-                      {policy.canRenewNow ? (
-                        <button
-                          type="button"
-                          onClick={onRenew}
-                          className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-[0.12em]"
-                          style={{ color: policyPulseTone.color }}
-                        >
-                          Renew Now
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </div>

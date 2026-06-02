@@ -399,36 +399,31 @@ const Header = () => {
 
   const handleNavigation = (path) => {
     if (path === "/insurance/new") {
+      if (location.pathname === path) {
+        setMobileMenuOpen(false);
+        setProfileOpen(false);
+        return;
+      }
+
       const isInInsuranceForm =
         location.pathname === "/insurance/new" ||
         location.pathname.startsWith("/insurance/edit");
 
       if (isInInsuranceForm) {
-        if (!window.__isInsuranceFormDirty) {
-          navigate(path);
-          setMobileMenuOpen(false);
-          setProfileOpen(false);
-          return;
-        }
-
-        openNewCaseConfirmation({
-          moduleLabel: "Insurance",
-          onSaveAndNew: () => {
-            window.dispatchEvent(new CustomEvent("SAVE_AND_NEW_INSURANCE"));
-            setMobileMenuOpen(false);
-            setProfileOpen(false);
-          },
-          onDiscardAndStartFresh: () => {
-            navigate(`${path}?fresh=${Date.now()}`);
-            setMobileMenuOpen(false);
-            setProfileOpen(false);
-          },
-        });
+        navigate(path);
+        setMobileMenuOpen(false);
+        setProfileOpen(false);
         return;
       }
     }
 
     if (path === "/loans/new") {
+      if (location.pathname === path) {
+        setMobileMenuOpen(false);
+        setProfileOpen(false);
+        return;
+      }
+
       const isInLoanForm =
         location.pathname === "/loans/new" ||
         location.pathname.startsWith("/loans/edit");
@@ -446,11 +441,6 @@ const Header = () => {
           moduleLabel: "Loan",
           onSaveAndNew: () => {
             window.dispatchEvent(new CustomEvent("SAVE_AND_NEW_LOAN"));
-            setMobileMenuOpen(false);
-            setProfileOpen(false);
-          },
-          onDiscardAndStartFresh: () => {
-            startNewLoanCase(navigate, "global-header");
             setMobileMenuOpen(false);
             setProfileOpen(false);
           },
@@ -691,20 +681,23 @@ const Header = () => {
 
       {/* Mobile Sidebar Navigation */}
       <div
-        className={`fixed inset-0 z-[2000] lg:hidden transition-all duration-500 ease-in-out ${mobileMenuOpen ? "visible" : "invisible"
-          }`}
+        className={`fixed inset-0 z-[2000] lg:hidden transition-all duration-500 ease-in-out ${
+          mobileMenuOpen ? "visible" : "invisible"
+        }`}
       >
         {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-500 ${mobileMenuOpen ? "opacity-100" : "opacity-0"
-            }`}
+          className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-500 ${
+            mobileMenuOpen ? "opacity-100" : "opacity-0"
+          }`}
           onClick={() => setMobileMenuOpen(false)}
         />
 
         {/* Sidebar Content */}
         <div
-          className={`absolute top-0 right-0 bottom-0 w-full max-w-[340px] bg-white dark:bg-black shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${mobileMenuOpen ? "translate-x-0" : "translate-x-full"
-            }`}
+          className={`absolute top-0 right-0 bottom-0 w-full max-w-[340px] bg-white dark:bg-black shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
+            mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
         >
           <div className="flex flex-col h-full bg-gradient-to-b from-white to-muted/20 dark:from-black dark:to-zinc-900/50">
             {/* Header */}
@@ -747,10 +740,11 @@ const Header = () => {
                             <button
                               key={child.path}
                               onClick={() => handleNavigation(child.path)}
-                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl border transition-all duration-200 ${isActive(child.path)
-                                ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
-                                }`}
+                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl border transition-all duration-200 ${
+                                isActive(child.path)
+                                  ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                                  : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
+                              }`}
                             >
                               <span className="text-sm font-bold tracking-tight">
                                 {child.label}
@@ -767,10 +761,11 @@ const Header = () => {
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-200 font-bold ${isActive(group.path)
-                          ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                          : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
-                          }`}
+                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-200 font-bold ${
+                          isActive(group.path)
+                            ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
+                            : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
+                        }`}
                       >
                         <span
                           className={`opacity-60 ${isActive(group.path) ? "text-white" : ""}`}

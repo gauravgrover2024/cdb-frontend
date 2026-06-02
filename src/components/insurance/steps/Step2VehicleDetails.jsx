@@ -24,11 +24,10 @@ import { lenderHypothecationOptions } from "../../../constants/lenderHypothecati
 
 const { Text } = Typography;
 
-const shellStyle =
-  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
+const shellStyle = "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
-  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
+  "text-[9px] font-bold uppercase tracking-[0.24em] text-slate-400 sm:text-[10px]";
 
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
@@ -80,7 +79,8 @@ const normalizeVehicleToken = (value) =>
 const normalizeVehicleMakeToken = (value) => {
   const token = normalizeVehicleToken(value);
   if (!token) return "";
-  if (token === "marutisuzuki" || token === "marutisuzukiindia") return "maruti";
+  if (token === "marutisuzuki" || token === "marutisuzukiindia")
+    return "maruti";
   if (token === "bmwindia" || token === "bayerischemotorenwerke") return "bmw";
   return token;
 };
@@ -276,7 +276,9 @@ const Step2VehicleDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Registration Allotted?" required>
-                    <Select size="large" allowClear
+                    <Select
+                      size="large"
+                      allowClear
                       value={formData.registrationAllotted || "Yes"}
                       onChange={(nextValue) => {
                         const resolved = nextValue || "Yes";
@@ -320,9 +322,7 @@ const Step2VehicleDetails = ({
                       allowClear
                       value={formData.registrationNumber}
                       readOnly
-                      prefix={
-                        <SearchOutlined className="text-slate-400" />
-                      }
+                      prefix={<SearchOutlined className="text-slate-400" />}
                       status={
                         showErrors && step2Errors.registrationNumber
                           ? "error"
@@ -418,10 +418,11 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Reg Authority">
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         value={formData.regAuthority}
                         onChange={handleChange("regAuthority")}
-                       
                         placeholder="e.g. DL-01"
                       />
                     </CleanField>
@@ -468,7 +469,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Month" required>
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     value={formData.manufactureMonth}
                     onChange={handleChange("manufactureMonth")}
                     status={
@@ -486,7 +489,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Year" required>
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     value={formData.manufactureYear}
                     onChange={handleChange("manufactureYear")}
                     status={
@@ -504,7 +509,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Date of Reg">
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     type="date"
                     value={formData.dateOfReg}
                     onChange={handleChange("dateOfReg")}
@@ -516,7 +523,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Make" required>
-                  <AutoComplete size="large" allowClear
+                  <AutoComplete
+                    size="large"
+                    allowClear
                     value={formData.vehicleMake || ""}
                     placeholder="Select or type Make"
                     onChange={(val) => {
@@ -547,7 +556,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Model" required>
-                  <AutoComplete size="large" allowClear
+                  <AutoComplete
+                    size="large"
+                    allowClear
                     value={formData.vehicleModel || ""}
                     placeholder="Select or type Model"
                     onChange={(val) => {
@@ -578,7 +589,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Vehicle Variant" required>
-                  <AutoComplete size="large" allowClear
+                  <AutoComplete
+                    size="large"
+                    allowClear
                     value={formData.vehicleVariant || ""}
                     placeholder="Select or type Variant"
                     onChange={(val) => {
@@ -597,7 +610,9 @@ const Step2VehicleDetails = ({
                     }}
                     disabled={!formData.vehicleMake || !formData.vehicleModel}
                     style={controlStyle}
-                    options={variantOptions.map((variant) => ({ value: variant }))}
+                    options={variantOptions.map((variant) => ({
+                      value: variant,
+                    }))}
                     filterOption={(input, option) =>
                       String(option?.value || "")
                         .toLowerCase()
@@ -617,7 +632,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Fuel Type">
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={formData.fuelType || undefined}
                     onChange={(v) => setField("fuelType", v || "")}
                     style={controlStyle}
@@ -631,10 +648,11 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Cubic Capacity (cc)">
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     value={formData.cubicCapacity}
                     onChange={handleChange("cubicCapacity")}
-                   
                     placeholder="Auto-filled"
                   />
                 </CleanField>
@@ -644,7 +662,9 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Type of Vehicle">
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={formData.typesOfVehicle || "Four Wheeler"}
                     onChange={(v) =>
                       setField("typesOfVehicle", v || "Four Wheeler")
@@ -682,10 +702,11 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Engine Number" required>
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     value={formData.engineNumber}
                     onChange={handleChange("engineNumber")}
-                   
                     status={
                       showErrors && step2Errors.engineNumber ? "error" : ""
                     }
@@ -701,10 +722,11 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Chassis Number" required>
-                  <Input size="large" allowClear
+                  <Input
+                    size="large"
+                    allowClear
                     value={formData.chassisNumber}
                     onChange={handleChange("chassisNumber")}
-                   
                     status={
                       showErrors && step2Errors.chassisNumber ? "error" : ""
                     }
@@ -721,7 +743,9 @@ const Step2VehicleDetails = ({
               <Col xs={24} md={16}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Hypothecation">
-                    <Select size="large" allowClear
+                    <Select
+                      size="large"
+                      allowClear
                       value={formData.hypothecation || "Not applicable"}
                       onChange={(v) =>
                         setField("hypothecation", v || "Not applicable")
@@ -745,10 +769,11 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Battery Number">
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         value={formData.batteryNumber}
                         onChange={handleChange("batteryNumber")}
-                       
                         placeholder="Battery number"
                       />
                     </CleanField>
@@ -758,10 +783,11 @@ const Step2VehicleDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Charger Number">
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         value={formData.chargerNumber}
                         onChange={handleChange("chargerNumber")}
-                       
                         placeholder="Charger number"
                       />
                     </CleanField>
@@ -827,10 +853,10 @@ const Step2VehicleDetails = ({
         <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Vehicle information</div>
-            <div className="mt-1 text-[20px] font-black tracking-tight text-slate-800 sm:text-[24px]">
+            <div className="mt-1 text-xl font-black tracking-tight text-slate-800 sm:text-2xl">
               Vehicle details
             </div>
-            <div className="mt-1 max-w-2xl text-sm leading-relaxed text-slate-500">
+            <div className="mt-1 max-w-xl text-sm leading-6 text-slate-500 sm:max-w-2xl">
               Registration-first capture with make/model autofill and
               policy-safe identity fields
             </div>
@@ -1009,7 +1035,8 @@ const Step2VehicleDetails = ({
             </div>
 
             {!isNewCar &&
-            (customerVehicleLoading || filteredCustomerVehicleRows.length > 0) ? (
+            (customerVehicleLoading ||
+              filteredCustomerVehicleRows.length > 0) ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_6px_18px_rgba(15,23,42,0.06)]">
                 <div className="mb-3 flex items-center justify-between gap-2">
                   <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600">
@@ -1142,7 +1169,9 @@ const Step2VehicleDetails = ({
                           type="primary"
                           size="middle"
                           loading={vehicleMergeLoading}
-                          onClick={() => onMergeVehicleMatch?.(vehiclePotentialMatch)}
+                          onClick={() =>
+                            onMergeVehicleMatch?.(vehiclePotentialMatch)
+                          }
                         >
                           Merge
                         </Button>
@@ -1195,7 +1224,6 @@ const Step2VehicleDetails = ({
                 )}
               </div>
             )}
-
           </div>
         </Col>
 
