@@ -16,6 +16,7 @@ import { FEATURE_ACCESS } from "../../hooks/useRBAC";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
 import PayoutSetupModal from "../payout/PayoutSetupModal";
 import { openNewCaseConfirmation } from "./NewCaseConfirmation";
+import { showUnsavedChangesModal } from "./UnsavedChangesModal";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -397,40 +398,67 @@ const Header = () => {
     );
   };
 
+  // Returns true if the current page is an insurance create/edit form.
+  const isOnInsuranceForm =
+    location.pathname === "/insurance/new" ||
+    location.pathname.startsWith("/insurance/edit");
+
+  // Shows the unified 3-button unsaved-changes modal when the insurance form
+  // has pending edits, then runs `action` on Save or Discard.
+  const withInsuranceGuard = (action) => {
+    if (isOnInsuranceForm && window.__isInsuranceFormDirty) {
+      showUnsavedChangesModal({
+        onSave: () => {
+          // Ask the mounted form to save first, then execute the action.
+          window.dispatchEvent(
+            new CustomEvent("SAVE_AND_NAVIGATE_INSURANCE", {
+              detail: { afterSave: action },
+            }),
+          );
+        },
+        onDiscard: action,
+        onCancel: () => {},
+      });
+      return true; // guarded — caller should not proceed
+    }
+    return false; // not guarded — caller may proceed
+  };
+
   const handleNavigation = (path) => {
-    if (path === "/insurance/new") {
-      if (location.pathname === path) {
-        setMobileMenuOpen(false);
-        setProfileOpen(false);
-        return;
-      }
+    if (path === "__payout_setup__") {
+      setIsPayoutModalOpen(true);
+      setMobileMenuOpen(false);
+      return;
+    }
 
-      const isInInsuranceForm =
-        location.pathname === "/insurance/new" ||
-        location.pathname.startsWith("/insurance/edit");
+    // Same page — just close menus, no navigation needed.
+    if (path === location.pathname) {
+      setMobileMenuOpen(false);
+      setProfileOpen(false);
+      return;
+    }
 
-      if (isInInsuranceForm) {
+    // ── Insurance form guard ─────────────────────────────────────────────────
+    // Any navigation away from an insurance form page (create or edit) must
+    // pass through the unsaved-changes check.
+    if (
+      withInsuranceGuard(() => {
         navigate(path);
         setMobileMenuOpen(false);
         setProfileOpen(false);
-        return;
-      }
+      })
+    ) {
+      return;
     }
 
+    // ── Loan form guard (existing behaviour) ─────────────────────────────────
     if (path === "/loans/new") {
-      if (location.pathname === path) {
-        setMobileMenuOpen(false);
-        setProfileOpen(false);
-        return;
-      }
-
       const isInLoanForm =
         location.pathname === "/loans/new" ||
         location.pathname.startsWith("/loans/edit");
 
       if (isInLoanForm) {
         if (window.__isLoanFormDirty === false) {
-          // If explicitly clean, allow free navigation. (If undefined/legacy, defaults to showing popup)
           startNewLoanCase(navigate, "global-header");
           setMobileMenuOpen(false);
           setProfileOpen(false);
@@ -447,26 +475,24 @@ const Header = () => {
         });
         return;
       }
-    }
 
-    if (path === "__payout_setup__") {
-      setIsPayoutModalOpen(true);
-      setMobileMenuOpen(false);
-      return;
-    }
-    if (path === "/loans/new") {
       startNewLoanCase(navigate, "global-header");
       setMobileMenuOpen(false);
       return;
     }
+
     navigate(path);
     setMobileMenuOpen(false);
     setProfileOpen(false);
   };
 
   const handleLogout = () => {
-    logout();
-    navigate("/login");
+    const doLogout = () => {
+      logout();
+      navigate("/login");
+    };
+    if (withInsuranceGuard(doLogout)) return;
+    doLogout();
   };
 
   const navItemBaseClass =

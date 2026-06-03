@@ -27,7 +27,7 @@ const { Text } = Typography;
 const shellStyle = "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
-  "text-[9px] font-bold uppercase tracking-[0.24em] text-slate-400 sm:text-[10px]";
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
 const labelClass =
   "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
@@ -244,32 +244,30 @@ const Step2VehicleDetails = ({
       ),
       children: (
         <div className="pt-3">
-          <div className="mb-4 rounded-xl border border-slate-200/80 bg-gradient-to-r from-slate-50/95 to-white px-3 py-2.5 sm:px-4">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="m-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Registration Lookup
-              </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setField("vehicleMake", "");
-                  setField("vehicleModel", "");
-                  setField("vehicleVariant", "");
-                  setField("registrationNumber", "");
-                  setField("fuelType", "");
-                  setField("cubicCapacity", "");
-                  setField("seatingCapacity", "");
-                  setField("grossVehicleWeight", "");
-                  setField("engineNumber", "");
-                  setField("chassisNumber", "");
-                  setField("registrationAllotted", "Yes");
-                }}
-                className="group inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-all hover:border-rose-300 hover:bg-rose-100 sm:w-auto sm:justify-start"
-              >
-                <RotateLeftOutlined className="text-[12px] transition-transform group-hover:rotate-[-45deg]" />
-                Clear Selection
-              </button>
-            </div>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">
+              Registration Lookup
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setField("vehicleMake", "");
+                setField("vehicleModel", "");
+                setField("vehicleVariant", "");
+                setField("registrationNumber", "");
+                setField("fuelType", "");
+                setField("cubicCapacity", "");
+                setField("seatingCapacity", "");
+                setField("grossVehicleWeight", "");
+                setField("engineNumber", "");
+                setField("chassisNumber", "");
+                setField("registrationAllotted", "Yes");
+              }}
+              className="group inline-flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-[11px] font-bold text-rose-600 transition-all hover:border-rose-300 hover:bg-rose-100"
+            >
+              <RotateLeftOutlined className="text-[12px] transition-transform group-hover:rotate-[-45deg]" />
+              Clear Selection
+            </button>
           </div>
           <Row gutter={[16, 16]}>
             {isNewCar ? (
@@ -932,7 +930,8 @@ const Step2VehicleDetails = ({
       </div>
 
       <Row gutter={[16, 16]} align="stretch">
-        <Col xs={24} xl={8} className="xl:self-stretch">
+        {/* Sidebar — show BELOW the form on mobile (order-2), LEFT on desktop (xl:order-1) */}
+        <Col xs={24} xl={8} className="xl:self-stretch order-2 xl:order-1">
           <div className="flex flex-col gap-4 xl:sticky xl:top-[150px]">
             <div className="relative overflow-hidden rounded-xl border border-slate-200/70 bg-white shadow-sm">
               <div className="px-5 pt-5 pb-4">
@@ -1227,14 +1226,20 @@ const Step2VehicleDetails = ({
           </div>
         </Col>
 
-        <Col xs={24} xl={16}>
-          <div className={`${shellStyle} p-2 md:p-3`}>
-            <Collapse
-              ghost
-              defaultActiveKey={["1", "2", "3"]}
-              expandIconPosition="end"
-              items={collapseItems}
-            />
+        {/* Form — show FIRST on mobile (order-1), RIGHT on desktop (xl:order-2) */}
+        <Col xs={24} xl={16} className="order-1 xl:order-2">
+          <div className="flex flex-col gap-4">
+            {collapseItems.map((item) => (
+              <div
+                key={item.key}
+                className="rounded-xl border border-slate-200/75 bg-white p-4 shadow-sm sm:p-5"
+              >
+                <div className="pb-3 border-b border-slate-100">
+                  {item.label}
+                </div>
+                {item.children}
+              </div>
+            ))}
           </div>
         </Col>
       </Row>
