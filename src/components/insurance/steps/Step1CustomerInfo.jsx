@@ -24,9 +24,9 @@ const shellStyle =
   "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
-  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-500";
+  "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
-const labelClass = "text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600";
+const labelClass = "text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500";
 
 const fieldWrapClass = "insurance-field-wrap";
 
@@ -1473,13 +1473,18 @@ const Step1CustomerInfo = ({
         </Col>
 
         <Col xs={24} xl={16}>
-          <div className={`${shellStyle} p-4 md:p-5`}>
-            <Collapse
-              ghost
-              defaultActiveKey={["1", "2", "3"]}
-              expandIconPosition="end"
-              items={collapseItems}
-            />
+          <div className="flex flex-col gap-4">
+            {collapseItems.map((item) => (
+              <div
+                key={item.key}
+                className="rounded-xl border border-slate-200/75 bg-white p-4 shadow-sm sm:p-5"
+              >
+                <div className="pb-3 border-b border-slate-100">
+                  {item.label}
+                </div>
+                {item.children}
+              </div>
+            ))}
           </div>
         </Col>
       </Row>

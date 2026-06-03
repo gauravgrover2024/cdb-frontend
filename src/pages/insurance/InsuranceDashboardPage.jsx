@@ -787,17 +787,19 @@ const MetricCard = ({
                 className="text-[17px] font-extrabold leading-none tracking-[-0.045em] tabular-nums"
                 style={{ color: valueColor }}
               >
-                {subtitle}
+                {subtitle != null ? subtitle : value}
               </p>
 
-              <span
-                className="text-[9px] font-semibold leading-none tabular-nums"
-                style={{
-                  color: isActive ? "rgba(255,255,255,0.88)" : valueColor,
-                }}
-              >
-                ({value})
-              </span>
+              {subtitle != null && (
+                <span
+                  className="text-[9px] font-semibold leading-none tabular-nums"
+                  style={{
+                    color: isActive ? "rgba(255,255,255,0.88)" : valueColor,
+                  }}
+                >
+                  ({value})
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -1630,7 +1632,14 @@ const InsuranceDashboardPage = () => {
     setError(null);
     try {
       const res = await insuranceApi.getAll({ search: query });
-      const rows = Array.isArray(res?.data) ? res.data : res?.items || [];
+      const raw = Array.isArray(res?.data) ? res.data : res?.items || [];
+      const seen = new Set();
+      const rows = raw.filter((row) => {
+        const id = getCaseId(row);
+        if (!id || seen.has(id)) return false;
+        seen.add(id);
+        return true;
+      });
       setCases(rows);
     } catch (err) {
       console.error("[InsuranceDashboard] load error:", err);
@@ -2194,15 +2203,15 @@ const InsuranceDashboardPage = () => {
       const subventionRows = [];
       if (effectiveSubventionNr > 0) {
         subventionRows.push({
-          label: "Subvention",
+          label: "Subvention (Non-recoverable)",
           amount: effectiveSubventionNr,
           type: "accent",
           date: latestSubventionNrRow?.date || null,
         });
       }
-      if (effectiveSubventionRefund > 0) {
+      if (effectiveSubventionRefund > 0 && effectiveSubventionRefund !== effectiveSubventionNr) {
         subventionRows.push({
-          label: "Subvention",
+          label: "Subvention Refund",
           amount: effectiveSubventionRefund,
           type: "accent",
           date: latestSubventionRefundRow?.date || null,

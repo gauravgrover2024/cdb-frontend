@@ -49,6 +49,7 @@ import {
   normalizePincode,
 } from "../../modules/loans/components/loan-form/pre-file/pincodeCityLookup";
 import { usePreventPageRefresh } from "../../utils/formDataProtection";
+import UnsavedChangesModal from "../ui/UnsavedChangesModal";
 import {
   collectLinkedDocumentsForInsurance,
   mergeLinkedIntoExistingDocuments,
@@ -843,6 +844,10 @@ const NewInsuranceCaseForm = ({
     ...initialFormState,
     ...(initialValues || {}),
   });
+  const [quotes, setQuotes] = useState([]);
+  const [acceptedQuoteId, setAcceptedQuoteId] = useState(null);
+  const [documents, setDocuments] = useState([]);
+  const [paymentHistory, setPaymentHistory] = useState([]);
   const isCreateMode = mode === "create";
   const freshDraft = React.useMemo(
     () => new URLSearchParams(location.search).has("fresh"),
@@ -852,16 +857,41 @@ const NewInsuranceCaseForm = ({
   const lastSavedDraftSnapshotRef = React.useRef(null);
   const currentDraftRef = React.useRef({});
 
-  const originalDataRef = React.useRef(null);
-  useEffect(() => {
-    if (originalDataRef.current === null) {
-      originalDataRef.current = JSON.stringify(formData);
-    }
-  }, [formData]);
+  // Snapshot baseline — set once on mount (after initial values load), then
+  // reset to current state after every successful save so the form becomes
+  // "clean" again immediately after saving.
+  const savedSnapshotRef = React.useRef(null);
+  // Mirror of the current snapshot kept fresh in a ref so persistNow (which
+  // closes over stale state) can still read the latest value without being
+  // added to its dependency array.
+  const currentSnapshotRef = React.useRef(null);
 
-  const isFormDirty =
-    originalDataRef.current !== null &&
-    JSON.stringify(formData) !== originalDataRef.current;
+  useEffect(() => {
+    const snap = JSON.stringify({
+      formData,
+      quotes,
+      acceptedQuoteId,
+      paymentHistory,
+      docs: (documents || []).map((d) => ({ name: d?.name, tag: d?.tag, url: d?.url })),
+    });
+    currentSnapshotRef.current = snap;
+    // First render: initialise the baseline so nothing looks dirty yet.
+    if (savedSnapshotRef.current === null) {
+      savedSnapshotRef.current = snap;
+    }
+  }, [formData, quotes, acceptedQuoteId, paymentHistory, documents]);
+
+  const isFormDirty = useMemo(() => {
+    if (savedSnapshotRef.current === null) return false;
+    const snap = JSON.stringify({
+      formData,
+      quotes,
+      acceptedQuoteId,
+      paymentHistory,
+      docs: (documents || []).map((d) => ({ name: d?.name, tag: d?.tag, url: d?.url })),
+    });
+    return snap !== savedSnapshotRef.current;
+  }, [formData, quotes, acceptedQuoteId, paymentHistory, documents]);
 
   useEffect(() => {
     window.__isInsuranceFormDirty = isFormDirty;
@@ -871,18 +901,20 @@ const NewInsuranceCaseForm = ({
   }, [isFormDirty]);
 
   usePreventPageRefresh(isFormDirty);
+
+  // Unsaved-changes modal state
+  const [unsavedModal, setUnsavedModal] = React.useState({
+    open: false,
+    pendingAction: null,
+  });
   const [quoteDraft, setQuoteDraft] = useState(initialQuoteDraft);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [quotes, setQuotes] = useState([]);
-  const [acceptedQuoteId, setAcceptedQuoteId] = useState(null);
-  const [documents, setDocuments] = useState([]);
   const [showErrors, setShowErrors] = useState(false);
   const [planFeaturesModal, setPlanFeaturesModal] = useState({
     open: false,
     row: null,
   });
-  const [paymentHistory, setPaymentHistory] = useState([]);
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
     amount: 0,
@@ -2964,11 +2996,15 @@ const NewInsuranceCaseForm = ({
             const id = created?._id || created?.id || created?.data?._id;
             if (id) setInsuranceDbId(id);
             setLastSavedAt(new Date().toISOString());
+            // Mark form as clean relative to this save point
+            savedSnapshotRef.current = currentSnapshotRef.current;
             if (!silent) message.success("Draft saved ✓");
             return created;
           }
           const res = await insuranceApi.update(insuranceDbId, payload);
           setLastSavedAt(new Date().toISOString());
+          // Mark form as clean relative to this save point
+          savedSnapshotRef.current = currentSnapshotRef.current;
           if (!silent) message.success("Draft saved ✓");
           return res?.data || res;
         } catch (err) {
@@ -3415,26 +3451,24 @@ const NewInsuranceCaseForm = ({
     });
   };
 
-  const handleDiscard = () => {
-    Modal.confirm({
-      title: "Discard Changes",
-      content:
-        "Are you sure you want to discard all changes and exit without saving?",
-      okText: "Discard & Exit",
-      okType: "danger",
-      cancelText: "Cancel",
-      onOk: () => {
-        onCancel();
-      },
-    });
-  };
+  // Unified exit guard — shows the 3-option modal only when there are actual
+  // unsaved changes.  When the form is clean, the action runs immediately.
+  const handleRequestExit = React.useCallback(
+    (afterAction = null) => {
+      const doExit = afterAction ?? (() => onCancel?.());
+      if (!isFormDirty) {
+        doExit();
+        return;
+      }
+      setUnsavedModal({ open: true, pendingAction: doExit });
+    },
+    [isFormDirty, onCancel],
+  );
 
-  const handleSaveAndExit = async () => {
-    const success = await persistNow({ silent: false });
-    if (success) {
-      onCancel();
-    }
-  };
+  // Keep the old names as aliases so the footer + any other call-sites continue
+  // to work without change.
+  const handleDiscard = () => handleRequestExit();
+  const handleSaveAndExit = () => handleRequestExit();
 
   keyboardActionsRef.current = {
     goNext,
@@ -3499,6 +3533,26 @@ const NewInsuranceCaseForm = ({
         "SAVE_AND_NEW_INSURANCE",
         handleSaveAndNewInsurance,
       );
+    };
+  }, [navigate, persistNow]);
+
+  // Generic "save then navigate" event dispatched by the Header when the user
+  // chooses "Save Changes" in the unsaved-changes modal.
+  useEffect(() => {
+    const handleSaveAndNavigate = async (event) => {
+      const { targetPath, afterSave } = event?.detail || {};
+      const saved = await persistNow({ silent: false });
+      if (!saved) return;
+      if (typeof afterSave === "function") {
+        afterSave();
+      } else if (targetPath) {
+        navigate(targetPath);
+      }
+    };
+
+    window.addEventListener("SAVE_AND_NAVIGATE_INSURANCE", handleSaveAndNavigate);
+    return () => {
+      window.removeEventListener("SAVE_AND_NAVIGATE_INSURANCE", handleSaveAndNavigate);
     };
   }, [navigate, persistNow]);
 
@@ -4223,14 +4277,12 @@ const NewInsuranceCaseForm = ({
         [&_.ant-card-body]:!p-5
         [&_.ant-form-item]:!mb-4
         [&_.ant-form-item-label_>label]:!text-sm [&_.ant-form-item-label_>label]:!font-medium
-        [&_.ant-input]:!min-h-10 [&_.ant-input]:!rounded-xl
-        [&_.ant-input-affix-wrapper]:!min-h-10 [&_.ant-input-affix-wrapper]:!rounded-xl
-        [&_.ant-input-number]:!h-10 [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-xl
-        [&_.ant-select-selector]:!h-10 [&_.ant-select-selector]:!rounded-xl
-        [&_.ant-select-selection-item]:!leading-10
+        [&_.ant-input]:!rounded-xl
+        [&_.ant-input-affix-wrapper]:!rounded-xl
+        [&_.ant-input-number]:!w-full [&_.ant-input-number]:!rounded-xl
+        [&_.ant-select-selector]:!rounded-xl
         [&_.ant-btn]:!rounded-xl
-        [&_.ant-picker]:!h-10 [&_.ant-picker]:!rounded-xl
-        [&_.ant-picker-input_>input]:!h-8
+        [&_.ant-picker]:!rounded-xl
         [&_.ant-radio-group_.ant-radio-button-wrapper]:!h-10 [&_.ant-radio-group_.ant-radio-button-wrapper]:!leading-10`;
 
   return (
@@ -4422,6 +4474,7 @@ const NewInsuranceCaseForm = ({
                 <Col xs={24} md={12}>
                   <Text strong>Amount (₹) *</Text>
                   <InputNumber
+                    size="large"
                     min={0}
                     value={paymentForm.amount}
                     onChange={(v) =>
@@ -4434,6 +4487,7 @@ const NewInsuranceCaseForm = ({
                 <Col xs={24} md={12}>
                   <Text strong>Date *</Text>
                   <Input
+                    size="large"
                     type="date"
                     value={paymentForm.date}
                     onChange={(e) =>
@@ -4448,6 +4502,7 @@ const NewInsuranceCaseForm = ({
                 <Col xs={24} md={12}>
                   <Text strong>Payment Mode *</Text>
                   <Select
+                    size="large"
                     value={paymentForm.paymentMode}
                     onChange={(v) =>
                       setPaymentForm((prev) => ({ ...prev, paymentMode: v }))
@@ -4467,6 +4522,7 @@ const NewInsuranceCaseForm = ({
                 <Col xs={24} md={12}>
                   <Text strong>Transaction Ref</Text>
                   <Input
+                    size="large"
                     value={paymentForm.transactionRef}
                     onChange={(e) =>
                       setPaymentForm((prev) => ({
@@ -4498,6 +4554,30 @@ const NewInsuranceCaseForm = ({
           </Modal>
         </div>
       )}
+
+      {/* Unsaved-changes guard — shown whenever the user tries to leave with
+          un-persisted edits (exit button, discard button, header navigation). */}
+      <UnsavedChangesModal
+        open={unsavedModal.open}
+        saving={saving}
+        onSave={async () => {
+          const success = await persistNow({ silent: false });
+          if (success) {
+            setUnsavedModal({ open: false, pendingAction: null });
+            unsavedModal.pendingAction?.();
+          }
+        }}
+        onDiscard={() => {
+          // Reset the snapshot so window.__isInsuranceFormDirty clears
+          // before navigation to avoid any double-prompt.
+          savedSnapshotRef.current = currentSnapshotRef.current;
+          setUnsavedModal({ open: false, pendingAction: null });
+          unsavedModal.pendingAction?.();
+        }}
+        onCancel={() => {
+          setUnsavedModal({ open: false, pendingAction: null });
+        }}
+      />
     </InsuranceAntdProvider>
   );
 };

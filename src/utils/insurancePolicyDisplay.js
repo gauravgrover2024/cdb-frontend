@@ -43,9 +43,10 @@ export const hasDisplayValue = (value) => {
   return text.length > 0 && text.toLowerCase() !== "n/a";
 };
 
-export const pickPolicyValue = (primary, fallback = "") => {
-  if (hasDisplayValue(primary)) return String(primary).trim();
-  if (hasDisplayValue(fallback)) return String(fallback).trim();
+export const pickPolicyValue = (...args) => {
+  for (const val of args) {
+    if (hasDisplayValue(val)) return String(val).trim();
+  }
   return "";
 };
 
@@ -254,9 +255,9 @@ export const getCycleAdjustedExpiryDate = (expiryDateStr, baseDate = dayjs()) =>
 export const daysUntilExpiry = (record) => {
   const expiryDate = getPolicyPulseExpiryDate(record);
   if (!expiryDate) return null;
-  const cycleAdjusted = getCycleAdjustedExpiryDate(expiryDate);
-  if (!cycleAdjusted) return null;
-  return cycleAdjusted.diff(dayjs().startOf("day"), "day");
+  const parsed = parseInsuranceDate(expiryDate);
+  if (!parsed || !parsed.isValid()) return null;
+  return parsed.startOf("day").diff(dayjs().startOf("day"), "day");
 };
 
 export const getPolicyPulseMeta = (days, alreadyRenewed = false) => {
@@ -712,15 +713,15 @@ export const buildInsurancePaymentTimeline = (record) => {
   const subventionRows = [];
   if (effectiveSubventionNr > 0) {
     subventionRows.push({
-      label: "Subvention",
+      label: "Subvention (Non-recoverable)",
       amount: effectiveSubventionNr,
       type: "accent",
       date: latestSubventionNrRow?.date || null,
     });
   }
-  if (effectiveSubventionRefund > 0) {
+  if (effectiveSubventionRefund > 0 && effectiveSubventionRefund !== effectiveSubventionNr) {
     subventionRows.push({
-      label: "Subvention",
+      label: "Subvention Refund",
       amount: effectiveSubventionRefund,
       type: "accent",
       date: latestSubventionRefundRow?.date || null,

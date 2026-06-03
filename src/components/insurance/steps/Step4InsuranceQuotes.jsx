@@ -330,7 +330,7 @@ const FieldBlock = ({
     className={`flex flex-col gap-1.5 insurance-field-block ${className}`}
     data-ins-field="true"
   >
-    <label className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
+    <label className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
       {label}
       {required && <span className="ml-0.5 text-[#FF8EAD]">*</span>}
     </label>

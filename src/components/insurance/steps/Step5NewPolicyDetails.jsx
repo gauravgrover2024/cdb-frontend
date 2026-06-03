@@ -1222,13 +1222,18 @@ const Step5NewPolicyDetails = ({
         </Col>
 
         <Col xs={24} xl={16}>
-          <div className={`${shellStyle} p-2 md:p-3`}>
-            <Collapse
-              ghost
-              defaultActiveKey={["1"]}
-              expandIconPosition="end"
-              items={collapseItems}
-            />
+          <div className="flex flex-col gap-4">
+            {collapseItems.map((item) => (
+              <div
+                key={item.key}
+                className="rounded-xl border border-slate-200/75 bg-white p-4 shadow-sm sm:p-5"
+              >
+                <div className="pb-3 border-b border-slate-100">
+                  {item.label}
+                </div>
+                {item.children}
+              </div>
+            ))}
           </div>
         </Col>
       </Row>

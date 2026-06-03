@@ -1,4 +1,18 @@
-/* Insurance wizard field layout — matches Loan full-width column pattern */
+/* =============================================================================
+   Insurance form field normalisation
+   Scoped to .insurance-case-skin (wizard) and .insurance-antd-page (dashboard)
+   so nothing bleeds into the rest of the app.
+
+   Design rules:
+   • Every field:  height 44 px, font-size 14 px, font-weight 500, radius 10 px
+   • Border:       1 px solid #d1d5db (gray-300) at rest
+   • Hover:        NO border-color change, NO box-shadow
+   • Focus/active: border → #94a3b8 (slate-400), NO box-shadow / glow
+   • Placeholder:  #94a3b8 (slate-400), same font-size, weight 400
+   • Clear (×):    vertically centred, consistent size
+   ============================================================================= */
+
+/* ── 1. Full-width field wrappers ─────────────────────────────────────────── */
 .insurance-field-wrap {
   width: 100%;
   min-width: 0;
@@ -9,14 +23,111 @@
 .insurance-case-skin .insurance-field-wrap .ant-select,
 .insurance-case-skin .insurance-field-wrap .ant-picker,
 .insurance-case-skin .insurance-field-wrap .ant-input-number,
-.insurance-case-skin .insurance-field-wrap .ant-input-number-group-wrapper {
+.insurance-case-skin .insurance-field-wrap .ant-input-number-group-wrapper,
+/* Step-4 uses a wrapper without insurance-field-wrap, so target by block */
+.insurance-case-skin .insurance-field-block .ant-input,
+.insurance-case-skin .insurance-field-block .ant-input-affix-wrapper,
+.insurance-case-skin .insurance-field-block .ant-select,
+.insurance-case-skin .insurance-field-block .ant-picker,
+.insurance-case-skin .insurance-field-block .ant-input-number,
+.insurance-case-skin .insurance-field-block .ant-input-number-group-wrapper {
   width: 100%;
   max-width: 100%;
 }
 
-/* Dashboard / renewal pages using InsuranceAntdProvider without wizard shell */
+/* Dashboard pages */
 .insurance-antd-page .ant-select:not(.ant-select-customize-input),
 .insurance-antd-page .ant-picker {
   width: 100%;
   max-width: 100%;
+}
+
+/* ── 2. Uniform font & weight for large-size fields ──────────────────────── */
+.insurance-case-skin .ant-input-lg,
+.insurance-case-skin .ant-input-affix-wrapper-lg,
+.insurance-case-skin .ant-input-number-lg,
+.insurance-case-skin .ant-input-number-lg .ant-input-number-input,
+.insurance-case-skin .ant-select-lg .ant-select-selector,
+.insurance-case-skin .ant-select-lg .ant-select-selection-item,
+.insurance-case-skin .ant-select-lg .ant-select-selection-placeholder,
+.insurance-case-skin .ant-select-lg .ant-select-selection-search-input,
+.insurance-case-skin .ant-picker-large,
+.insurance-case-skin .ant-picker-large .ant-picker-input > input {
+  font-size: 14px !important;
+  font-weight: 500 !important;
+}
+
+/* ── 6. Placeholder — consistent color & weight ──────────────────────────── */
+.insurance-case-skin .ant-input::placeholder,
+.insurance-case-skin .ant-input-lg::placeholder,
+.insurance-case-skin .ant-input-number-input::placeholder,
+.insurance-case-skin .ant-picker-input > input::placeholder,
+.insurance-case-skin .ant-select-selection-placeholder {
+  color: #94a3b8 !important;
+  font-weight: 400 !important;
+  font-size: 14px !important;
+}
+
+/* ── 7. Selected value text ───────────────────────────────────────────────── */
+.insurance-case-skin .ant-select-selection-item {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1e293b; /* slate-800 */
+}
+
+/* ── 8. Clear (×) button — consistent position & size ───────────────────── */
+.insurance-case-skin .ant-input-clear-icon,
+.insurance-case-skin .ant-select-clear,
+.insurance-case-skin .ant-picker-clear {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #94a3b8;
+  transition: color 0.15s;
+}
+.insurance-case-skin .ant-input-clear-icon:hover,
+.insurance-case-skin .ant-select-clear:hover,
+.insurance-case-skin .ant-picker-clear:hover {
+  color: #64748b;
+}
+
+/* ── 9. InputNumber — remove spin handles overlap ────────────────────────── */
+.insurance-case-skin .ant-input-number-handler-wrap {
+  border-left: 1px solid #e2e8f0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.insurance-case-skin .ant-input-number:hover .ant-input-number-handler-wrap,
+.insurance-case-skin .ant-input-number:focus-within .ant-input-number-handler-wrap {
+  opacity: 1;
+}
+.insurance-case-skin .ant-input-number-handler {
+  border-color: #e2e8f0;
+}
+
+/* ── 10. Select dropdown option rows ─────────────────────────────────────── */
+.insurance-case-skin .ant-select-item-option-content {
+  font-size: 14px;
+  font-weight: 400;
+}
+.insurance-case-skin .ant-select-item-option-selected .ant-select-item-option-content {
+  font-weight: 600;
+}
+
+/* ── 11. DatePicker icon colour ───────────────────────────────────────────── */
+.insurance-case-skin .ant-picker-suffix {
+  color: #94a3b8;
+}
+
+/* ── 12. Disabled fields — consistent muted appearance ──────────────────── */
+.insurance-case-skin .ant-input[disabled],
+.insurance-case-skin .ant-input-affix-wrapper-disabled,
+.insurance-case-skin .ant-select-disabled .ant-select-selector,
+.insurance-case-skin .ant-picker.ant-picker-disabled,
+.insurance-case-skin .ant-input-number-disabled {
+  background-color: #f8fafc !important;
+  color: #94a3b8 !important;
+  border-color: #e2e8f0 !important;
+  cursor: not-allowed;
 }
