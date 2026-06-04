@@ -9,6 +9,7 @@ import AciAssistBrandsScreen from "../screens/AciAssistBrandsScreen";
 import AciAssistVariantAdvisorScreen from "../screens/AciAssistVariantAdvisorScreen";
 import AciAssistQuotationScreen from "../screens/AciAssistQuotationScreen";
 import AciAssistOffersScreen from "../screens/AciAssistOffersScreen";
+import AciAssistDiagnosticCanvasScreen from "../screens/AciAssistDiagnosticCanvasScreen";
 
 export const ACI_V2_SCREENS = Object.freeze({
   HOME: "home",
@@ -24,6 +25,7 @@ export const ACI_V2_SCREENS = Object.freeze({
   QUOTATION: "quotation",
   OFFERS: "offers",
   SAFETY: "safety",
+  DIAGNOSTIC: "diagnostic",
 });
 
 export const normalizeCanvasType = (value = "") => {
@@ -81,6 +83,7 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = Object.freeze({
   comparison_canvas: ACI_V2_SCREENS.COMPARISON,
   compare_canvas: ACI_V2_SCREENS.COMPARISON,
   vehicle_comparison_canvas: ACI_V2_SCREENS.COMPARISON,
+  feature_comparison_canvas: ACI_V2_SCREENS.COMPARISON,
 
   // Recommendations / decision support
   recommendation_canvas: ACI_V2_SCREENS.RECOMMENDATION,
@@ -89,6 +92,10 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = Object.freeze({
   vehicle_recommendation_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   vehicle_recommendation_results_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   similar_cars_canvas: ACI_V2_SCREENS.RECOMMENDATION,
+  score_insight_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  diagnostic_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  decision_diagnostic_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  vehicle_score_insight_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
   fuel_decision_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   safety_ranking_canvas: ACI_V2_SCREENS.RECOMMENDATION,
   safety_advisor_canvas: ACI_V2_SCREENS.RECOMMENDATION,
@@ -97,11 +104,13 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = Object.freeze({
   brand_models_canvas: ACI_V2_SCREENS.BRANDS,
   brands_canvas: ACI_V2_SCREENS.BRANDS,
   brand_canvas: ACI_V2_SCREENS.BRANDS,
+  brand_results_canvas: ACI_V2_SCREENS.BRANDS,
 
   // Variant advisor
   variant_advisor_canvas: ACI_V2_SCREENS.VARIANT_ADVISOR,
   variant_selector_canvas: ACI_V2_SCREENS.VARIANT_ADVISOR,
   variant_ambiguity_canvas: ACI_V2_SCREENS.VARIANT_ADVISOR,
+  variant_finder_canvas: ACI_V2_SCREENS.VARIANT_ADVISOR,
 
   // Quotation / lead capture
   aci_quotation_canvas: ACI_V2_SCREENS.QUOTATION,
@@ -112,6 +121,24 @@ export const ACI_V2_CANVAS_TYPE_TO_SCREEN = Object.freeze({
   // Offers
   offers_canvas: ACI_V2_SCREENS.OFFERS,
   vehicle_offers_canvas: ACI_V2_SCREENS.OFFERS,
+
+  // Generic diagnostic / verification fallbacks
+  availability_waiting_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  explainer_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  finance_guide_canvas: ACI_V2_SCREENS.EMI,
+  lifestyle_fit_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  monthly_budget_planner_canvas: ACI_V2_SCREENS.EMI,
+  ownership_service_warranty_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  performance_spec_ranking_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  price_history_canvas: ACI_V2_SCREENS.PRICELIST,
+  resale_value_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  senior_friendly_advisor_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  service_center_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  space_practicality_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  tco_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  unavailable_notice_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  unsupported_city_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
+  variant_upgrade_value_canvas: ACI_V2_SCREENS.DIAGNOSTIC,
 });
 
 export const ACI_V2_SCREEN_COMPONENTS = Object.freeze({
@@ -127,6 +154,7 @@ export const ACI_V2_SCREEN_COMPONENTS = Object.freeze({
   [ACI_V2_SCREENS.QUOTATION]: AciAssistQuotationScreen,
   [ACI_V2_SCREENS.OFFERS]: AciAssistOffersScreen,
   [ACI_V2_SCREENS.SAFETY]: AciAssistRecommendationScreen,
+  [ACI_V2_SCREENS.DIAGNOSTIC]: AciAssistDiagnosticCanvasScreen,
 });
 
 export const resolveScreenFromCanvasType = (canvasType = "") => {
