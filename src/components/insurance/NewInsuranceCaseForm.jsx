@@ -2860,7 +2860,7 @@ const NewInsuranceCaseForm = ({
       }
       return { ...prev, [field]: nextValue };
     });
-    // schedulePersist();
+    schedulePersist();
   };
 
   const buildPersistPayload = useCallback(
@@ -3126,8 +3126,8 @@ const NewInsuranceCaseForm = ({
 
   const setField = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // schedulePersist();
-  }, []);
+    schedulePersist();
+  }, [schedulePersist]);
 
   const draftSnapshot = React.useMemo(
     () =>
@@ -3656,7 +3656,7 @@ const NewInsuranceCaseForm = ({
     setQuotes((prev) => [...prev, newQuote]);
     resetQuoteDraft();
     setShowErrors(false);
-    // persistNow({ silent: true });
+    schedulePersist(300);
   };
 
   const acceptQuote = async (id) => {
@@ -3831,7 +3831,7 @@ const NewInsuranceCaseForm = ({
 
       return next;
     });
-    // schedulePersist();
+    schedulePersist();
   };
 
   const handleNewPolicyStartOrDuration = (updated) => {
@@ -3871,7 +3871,7 @@ const NewInsuranceCaseForm = ({
 
       return next;
     });
-    // schedulePersist();
+    schedulePersist();
   };
 
   const handleSubmitFinal = async (event) => {

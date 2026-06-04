@@ -40,7 +40,6 @@ import {
   getPolicyPulseMeta,
   parsePolicyIncludedAddons,
   resolveActivePolicySnapshot,
-  resolveInsuranceChannelContext,
   resolveInsuranceReference,
   shouldShowInsuranceChannelBadge,
   getPolicyOriginType,
@@ -249,6 +248,88 @@ const paymentSignalMeta = {
   },
 };
 
+const hasDisplayValue = (value) => {
+  if (value == null) return false;
+  const text = String(value).trim();
+  return text.length > 0 && text.toLowerCase() !== "n/a";
+};
+
+const parseInsuranceDate = (value) => {
+  if (!hasDisplayValue(value)) return null;
+  const parsed = dayjs(
+    String(value).trim(),
+    [
+      "YYYY-MM-DD",
+      "DD/MM/YYYY",
+      "DD-MM-YYYY",
+      "D/M/YYYY",
+      "D-M-YYYY",
+      "DD MMM YYYY",
+      "D MMM YYYY",
+    ],
+    true,
+  );
+  if (parsed.isValid()) return parsed;
+  const fallback = dayjs(value);
+  return fallback.isValid() ? fallback : null;
+};
+
+const resolveInsuranceCustomerDisplay = ({
+  customerName = "",
+  companyName = "",
+  contactPersonName = "",
+  sourceName = "",
+  dealerChannelName = "",
+} = {}) => {
+  const name = String(customerName || "").trim();
+  const company = String(companyName || "").trim();
+  const contact = String(contactPersonName || "").trim();
+  const channel = String(sourceName || dealerChannelName || "").trim();
+
+  if (!name) return contact || company || "";
+
+  const parenMatch = name.match(/^(.+?)\s*\(([^)]+)\)\s*$/);
+  if (!parenMatch) return name;
+
+  const [, baseName, parenLabel] = parenMatch;
+  const baseNorm = baseName.trim().toLowerCase();
+  const parenNorm = parenLabel.trim().toLowerCase();
+  const contactNorm = contact.toLowerCase();
+  const companyNorm = company.toLowerCase();
+  const channelNorm = channel.toLowerCase();
+
+  if (contact && contactNorm === baseNorm) {
+    if (!company || companyNorm !== parenNorm) return contact;
+    if (channel && channelNorm !== parenNorm) return contact;
+    return contact;
+  }
+
+  if (company && companyNorm !== parenNorm) return baseName.trim();
+  if (channel && channelNorm !== parenNorm) return baseName.trim();
+
+  return name;
+};
+
+const getVehicleDisplayYear = (record = {}) => {
+  const regDate =
+    record.dateOfReg ||
+    record.registrationDate ||
+    record.regDate ||
+    record.rc_redg_date ||
+    record.vehicleRegistrationDate ||
+    "";
+  const parsed = parseInsuranceDate(regDate);
+  if (parsed) return parsed.format("YYYY");
+  return (
+    record.mfgYear ||
+    record.manufactureYear ||
+    record.manufacturingYear ||
+    record.vehicleYear ||
+    record.registrationYear ||
+    ""
+  );
+};
+
 const InsuranceRenewalCasesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -263,6 +344,9 @@ const InsuranceRenewalCasesPage = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [activeTab, setActiveTab] = useState("all");
   const [viewTab, setViewTab] = useState("renewal");
+  const [vehicleTypeFilter, setVehicleTypeFilter] = useState("all");
+  const [sourceFilter, setSourceFilter] = useState("all");
+  const [selectedStatCard, setSelectedStatCard] = useState("all");
   const [selectedIds, setSelectedIds] = useState([]);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [assigneeId, setAssigneeId] = useState("");
@@ -288,7 +372,100 @@ const InsuranceRenewalCasesPage = () => {
     pendingRenewals: 0,
     renewed: 0,
     external: 0,
+    highValue: 0,
+    nonAssigned: 0,
   });
+
+  const handleStatCardClick = (cardKey) => {
+    if (cardKey === "renewal" || cardKey === "renewed" || cardKey === "external") {
+      setViewTab(cardKey);
+      setSelectedStatCard("all");
+      return;
+    }
+    setSelectedStatCard((prev) => (prev === cardKey ? "all" : cardKey));
+  };
+
+  const isCardActive = (key) => {
+    if (key === "renewal") return viewTab === "renewal" && selectedStatCard === "all";
+    if (key === "renewed") return viewTab === "renewed" && selectedStatCard === "all";
+    if (key === "external") return viewTab === "external" && selectedStatCard === "all";
+    return selectedStatCard === key;
+  };
+
+  const statCards = [
+    {
+      key: "renewal",
+      label: "Pending Renewals",
+      count: Number(summary?.pendingRenewals || 0),
+      activeBg: "bg-rose-600 text-white border-rose-600 shadow-[0_4px_12px_rgba(225,29,72,0.25)]",
+      inactiveBg: "bg-rose-50 border-rose-100 text-rose-900 hover:bg-rose-100/50",
+      labelActive: "text-rose-200",
+      labelInactive: "text-rose-600/80",
+    },
+    {
+      key: "renewed",
+      label: "Renewed",
+      count: Number(summary?.renewed || 0),
+      activeBg: "bg-emerald-600 text-white border-emerald-600 shadow-[0_4px_12px_rgba(5,150,105,0.25)]",
+      inactiveBg: "bg-emerald-50 border-emerald-100 text-emerald-900 hover:bg-emerald-100/50",
+      labelActive: "text-emerald-200",
+      labelInactive: "text-emerald-600/80",
+    },
+    {
+      key: "external",
+      label: "External",
+      count: Number(summary?.external || 0),
+      activeBg: "bg-indigo-600 text-white border-indigo-600 shadow-[0_4px_12px_rgba(79,70,229,0.25)]",
+      inactiveBg: "bg-indigo-50 border-indigo-100 text-indigo-900 hover:bg-indigo-100/50",
+      labelActive: "text-indigo-200",
+      labelInactive: "text-indigo-600/80",
+    },
+    {
+      key: "active",
+      label: "Active Cases",
+      count: Number(summary?.activeCases || 0),
+      activeBg: "bg-blue-600 text-white border-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.25)]",
+      inactiveBg: "bg-blue-50 border-blue-100 text-blue-900 hover:bg-blue-100/50",
+      labelActive: "text-blue-200",
+      labelInactive: "text-blue-600/80",
+    },
+    {
+      key: "policiesPending",
+      label: "Policies Pending",
+      count: Number(summary?.policiesPending || 0),
+      activeBg: "bg-purple-600 text-white border-purple-600 shadow-[0_4px_12px_rgba(124,58,237,0.25)]",
+      inactiveBg: "bg-purple-50 border-purple-100 text-purple-900 hover:bg-purple-100/50",
+      labelActive: "text-purple-200",
+      labelInactive: "text-purple-600/80",
+    },
+    {
+      key: "paymentPending",
+      label: "Payment Pending",
+      count: Number(summary?.paymentPending || 0),
+      activeBg: "bg-amber-600 text-white border-amber-600 shadow-[0_4px_12px_rgba(217,119,6,0.25)]",
+      inactiveBg: "bg-amber-50 border-amber-100 text-amber-900 hover:bg-amber-100/50",
+      labelActive: "text-amber-200",
+      labelInactive: "text-amber-600/80",
+    },
+    {
+      key: "highValue",
+      label: "High Value (>50K)",
+      count: Number(summary?.highValue || 0),
+      activeBg: "bg-teal-600 text-white border-teal-600 shadow-[0_4px_12px_rgba(13,148,136,0.25)]",
+      inactiveBg: "bg-teal-50 border-teal-100 text-teal-900 hover:bg-teal-100/50",
+      labelActive: "text-teal-200",
+      labelInactive: "text-teal-600/80",
+    },
+    {
+      key: "nonAssigned",
+      label: "Non-Assigned",
+      count: Number(summary?.nonAssigned || 0),
+      activeBg: "bg-cyan-600 text-white border-cyan-600 shadow-[0_4px_12px_rgba(8,145,178,0.25)]",
+      inactiveBg: "bg-cyan-50 border-cyan-100 text-cyan-900 hover:bg-cyan-100/50",
+      labelActive: "text-cyan-200",
+      labelInactive: "text-cyan-600/80",
+    },
+  ];
 
   const role = String(user?.role || "").toLowerCase();
   const isAdminLike = [
@@ -380,6 +557,33 @@ const InsuranceRenewalCasesPage = () => {
       );
     }
 
+    if (selectedStatCard !== "all") {
+      if (selectedStatCard === "active") {
+        rows = rows.filter((row) => String(row?.renewalLeadStatus || "New").toLowerCase() !== "closed");
+      } else if (selectedStatCard === "policiesPending") {
+        rows = rows.filter((row) => !String(row?.newPolicyNumber || "").trim());
+      } else if (selectedStatCard === "paymentPending") {
+        rows = rows.filter((row) => String(row?.renewalLeadStatus || "New").toLowerCase() === "payment pending");
+      } else if (selectedStatCard === "highValue") {
+        rows = rows.filter((row) => {
+          const newPremium = Number(row.newTotalPremium || 0);
+          const premium = Number(row.totalPremium || 0);
+          const prevPremium = Number(row.previousTotalPremium || 0);
+          return newPremium > 50000 || premium > 50000 || prevPremium > 50000;
+        });
+      } else if (selectedStatCard === "nonAssigned") {
+        rows = rows.filter((row) => !row?.renewalAssignedToId);
+      }
+    }
+
+    if (vehicleTypeFilter !== "all") {
+      rows = rows.filter((row) => String(row?.vehicleType || "").toLowerCase() === vehicleTypeFilter.toLowerCase());
+    }
+
+    if (sourceFilter !== "all") {
+      rows = rows.filter((row) => String(row?.source || "").toLowerCase() === sourceFilter.toLowerCase());
+    }
+
     return rows.sort((a, b) => {
       const aFollow = parseDate(a?.renewalFollowUpDate);
       const bFollow = parseDate(b?.renewalFollowUpDate);
@@ -403,9 +607,12 @@ const InsuranceRenewalCasesPage = () => {
     activeTab,
     assignedFilter,
     cases,
-    isAdminLike,
+    canViewAllRenewals,
     meId,
     statusFilter,
+    selectedStatCard,
+    vehicleTypeFilter,
+    sourceFilter,
   ]);
 
   const pendingCount = cases.length;
@@ -619,6 +826,9 @@ const InsuranceRenewalCasesPage = () => {
     setTierFilter("all");
     setAssignedFilter("all");
     setStatusFilter("all");
+    setVehicleTypeFilter("all");
+    setSourceFilter("all");
+    setSelectedStatCard("all");
     if (isAdminLike) setActiveTab("all");
     setViewTab("renewal");
   };
@@ -822,43 +1032,26 @@ const InsuranceRenewalCasesPage = () => {
               </div>
             </div>
           </div>
-          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-            <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 transition-all hover:bg-blue-100/50 hover:shadow-sm">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-blue-600/80">Active Cases</div>
-              <div className="mt-0.5 text-xl font-black text-blue-900">
-                {Number(summary?.activeCases || 0)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-purple-100 bg-purple-50 px-3 py-2 transition-all hover:bg-purple-100/50 hover:shadow-sm">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-purple-600/80">Policies Pending</div>
-              <div className="mt-0.5 text-xl font-black text-purple-900">
-                {Number(summary?.policiesPending || 0)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2 transition-all hover:bg-amber-100/50 hover:shadow-sm">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-amber-600/80">Payment Pending</div>
-              <div className="mt-0.5 text-xl font-black text-amber-900">
-                {Number(summary?.paymentPending || 0)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 transition-all hover:bg-rose-100/50 hover:shadow-sm">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-rose-600/80">Pending Renewals</div>
-              <div className="mt-0.5 text-xl font-black text-rose-900">
-                {Number(summary?.pendingRenewals || 0)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 transition-all hover:bg-emerald-100/50 hover:shadow-sm">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-emerald-600/80">Renewed</div>
-              <div className="mt-0.5 text-xl font-black text-emerald-900">
-                {Number(summary?.renewed || 0)}
-              </div>
-            </div>
-            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2 transition-all hover:bg-indigo-100/50 hover:shadow-sm">
-              <div className="text-[11px] font-bold uppercase tracking-wider text-indigo-600/80">External</div>
-              <div className="mt-0.5 text-xl font-black text-indigo-900">
-                {Number(summary?.external || 0)}
-              </div>
-            </div>
+          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
+            {statCards.map((card) => {
+              const active = isCardActive(card.key);
+              return (
+                <div
+                  key={card.key}
+                  onClick={() => handleStatCardClick(card.key)}
+                  className={`cursor-pointer rounded-xl border px-3 py-2.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
+                    active ? card.activeBg : card.inactiveBg
+                  }`}
+                >
+                  <div className={`text-[11px] font-bold uppercase tracking-wider ${active ? card.labelActive : card.labelInactive}`}>
+                    {card.label}
+                  </div>
+                  <div className="mt-0.5 text-xl font-black">
+                    {card.count}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -998,6 +1191,24 @@ const InsuranceRenewalCasesPage = () => {
               <option value="premium">Premium (₹20K - ₹50K)</option>
               <option value="basic">Basic (&lt; ₹20K)</option>
             </select>
+            <select
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              value={vehicleTypeFilter}
+              onChange={(e) => setVehicleTypeFilter(e.target.value)}
+            >
+              <option value="all">Vehicle Type: All</option>
+              <option value="New Car">New Car</option>
+              <option value="Used Car">Used Car</option>
+            </select>
+            <select
+              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              value={sourceFilter}
+              onChange={(e) => setSourceFilter(e.target.value)}
+            >
+              <option value="all">Source: All</option>
+              <option value="Direct">Direct</option>
+              <option value="Indirect">Indirect</option>
+            </select>
           </div>
         </div>
 
@@ -1051,13 +1262,106 @@ const InsuranceRenewalCasesPage = () => {
               const hasPaymentActivity = secondaryPaymentRows.some(
                 (item) => Number(item.amount || 0) > 0,
               );
-              const sourceLabel = String(
-                row?.source || row?.sourceOrigin || "",
-              ).trim();
               const { referenceName, referencePhone } =
                 resolveInsuranceReference(row);
-              const channelCtx = resolveInsuranceChannelContext(row);
-              const contactPersonName = row?.contactPersonName || "";
+              const snap = row.customerSnapshot || {};
+              const companyName = snap.companyName || row.companyName || "";
+              const contactPerson =
+                snap.contactPersonName || row.contactPersonName || "";
+              const customerName =
+                resolveInsuranceCustomerDisplay({
+                  customerName: snap.customerName || row.customerName || "",
+                  companyName,
+                  contactPersonName: contactPerson,
+                  sourceName: row.sourceName,
+                  dealerChannelName: row.dealerChannelName,
+                }) ||
+                snap.customerName ||
+                row.customerName ||
+                "—";
+              const buyerType = String(
+                snap.buyerType || row.buyerType || "Individual",
+              )
+                .trim()
+                .toLowerCase();
+              const sourceIdentity = String(
+                row.sourceName ||
+                row.dealerChannelName ||
+                row.referenceName ||
+                "",
+              )
+                .trim()
+                .toLowerCase();
+              const customerIdentity = String(customerName || "")
+                .trim()
+                .toLowerCase();
+              const customerLooksLikeSource =
+                Boolean(sourceIdentity) && sourceIdentity === customerIdentity;
+              const customerLooksLikeChannelAlias =
+                /(broker|broking|dealer|agency|channel|dsa|pos|crm)/i.test(
+                  String(customerName || ""),
+                );
+              const displayName =
+                buyerType === "company"
+                  ? companyName || contactPerson || customerName || "—"
+                  : customerLooksLikeSource || customerLooksLikeChannelAlias
+                    ? contactPerson || customerName || companyName || "—"
+                    : customerName || contactPerson || companyName || "—";
+
+              const mobile = snap.primaryMobile || row.mobile || "—";
+              const sourceRaw = String(
+                row.source || row.sourceOrigin || "",
+              ).trim();
+              const source = sourceRaw || (row.sourceName ? "Indirect" : "Direct");
+              const isIndirectSource = source.toLowerCase() === "indirect";
+              const policyDoneByRaw = String(
+                row.policyDoneBy || row.policy_done_by || "",
+              ).trim();
+              const policyDoneByLower = policyDoneByRaw.toLowerCase();
+              const policyDoneByLabel = policyDoneByRaw || "—";
+              const brokerName = String(row.brokerName || "").trim();
+              const showroomName = String(row.showroomName || "").trim();
+              const dealerChannelName = String(row.dealerChannelName || "").trim();
+              const vehicleYear = getVehicleDisplayYear(row);
+
+              const channelPartnerName =
+                policyDoneByLower === "broker"
+                  ? brokerName
+                  : policyDoneByLower === "showroom"
+                    ? showroomName
+                    : "";
+
+              const sourceDetailsName = isIndirectSource
+                ? dealerChannelName || referenceName
+                : "";
+
+              const sourceDetailsContact = isIndirectSource
+                ? String(
+                    row.dealerChannelMobile ||
+                    row.dealerChannelContact ||
+                    row.sourceContactNumber ||
+                    "",
+                  ).trim()
+                : "";
+
+              const channelDealerNo =
+                row.channelDealerNo ||
+                row.channel_dealer_no ||
+                row.channelDealerNumber ||
+                row.dealerChannelNumber ||
+                row.dealer_channel_number ||
+                "";
+
+              const vehicle = [
+                row.vehicleMake,
+                row.vehicleModel,
+                row.vehicleVariant,
+              ]
+                .filter(Boolean)
+                .join(" ")
+                .trim();
+              const vehicleLabel = vehicle || "—";
+              const reg = row.registrationNumber || row.vehicleNumber || "";
               const policyOriginType = getPolicyOriginType(row);
               const lifecycleBadge =
                 viewTab === "renewed" ? "Completed" : status || "Active";
@@ -1326,13 +1630,12 @@ const InsuranceRenewalCasesPage = () => {
                                 Customer &amp; Vehicle
                               </p>
                               <p className="text-[13px] font-semibold text-slate-900 mt-1 truncate">
-                                {row.customerName || row.companyName || "—"}
+                                {displayName || "—"}
                               </p>
-                              {contactPersonName &&
-                              contactPersonName !==
-                                (row.customerName || row.companyName || "") ? (
+                              {contactPerson &&
+                              contactPerson !== displayName ? (
                                 <p className="text-[11px] text-slate-500 truncate">
-                                  {contactPersonName}
+                                  {contactPerson}
                                 </p>
                               ) : null}
                             </div>
@@ -1343,7 +1646,7 @@ const InsuranceRenewalCasesPage = () => {
                           <div>
                             <div className="flex items-center gap-2 text-[11px] text-slate-600">
                               <Phone size={11} className="shrink-0" />
-                              <span className="truncate">{row.mobile || "—"}</span>
+                              <span className="truncate">{mobile || "—"}</span>
                             </div>
 
                             <div className="mt-2.5 space-y-1.5">
@@ -1352,16 +1655,16 @@ const InsuranceRenewalCasesPage = () => {
                                   Source:
                                 </span>
                                 <span className="text-slate-700 font-bold">
-                                  {sourceLabel || channelCtx.source || "Direct"}
+                                  {source || "Direct"}
                                 </span>
                               </div>
-                              {channelCtx.isIndirectSource && channelCtx.sourceDetailsName ? (
+                              {isIndirectSource && sourceDetailsName ? (
                                 <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                                   <span className="font-bold uppercase tracking-wider text-slate-400">
                                     Channel Partner:
                                   </span>
                                   <span className="truncate font-semibold text-slate-700">
-                                    {[channelCtx.sourceDetailsName, channelCtx.sourceDetailsContact].filter(Boolean).join(" · ")}
+                                    {[sourceDetailsName, sourceDetailsContact].filter(Boolean).join(" · ")}
                                   </span>
                                 </div>
                               ) : null}
@@ -1375,28 +1678,33 @@ const InsuranceRenewalCasesPage = () => {
                                   </span>
                                 </div>
                               ) : null}
-                              {shouldShowInsuranceChannelBadge(channelCtx) &&
-                                !channelCtx.isIndirectSource &&
-                                channelCtx.channelPartnerName ? (
+                              {shouldShowInsuranceChannelBadge({
+                                isIndirectSource,
+                                channelPartnerName,
+                                channelDealerNo,
+                                sourceDetailsName,
+                              }) &&
+                                !isIndirectSource &&
+                                channelPartnerName ? (
                                 <div
                                   className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${
-                                    channelCtx.policyDoneByLabel?.toLowerCase().includes("broker")
+                                    policyDoneByLabel?.toLowerCase() === "broker"
                                       ? "bg-amber-50 border-amber-100"
                                       : "bg-blue-50 border-blue-100"
                                   }`}
                                 >
                                   <span
                                     className={`text-[10px] font-bold truncate ${
-                                      channelCtx.policyDoneByLabel?.toLowerCase().includes("broker")
+                                      policyDoneByLabel?.toLowerCase() === "broker"
                                         ? "text-amber-700"
                                         : "text-blue-700"
                                     }`}
-                                    title={`${channelCtx.policyDoneByLabel}: ${channelCtx.channelPartnerName}${channelCtx.channelDealerNo ? ` (#${channelCtx.channelDealerNo})` : ""}`}
+                                    title={`${policyDoneByLabel}: ${channelPartnerName}${channelDealerNo ? ` (#${channelDealerNo})` : ""}`}
                                   >
-                                    {channelCtx.policyDoneByLabel}: {channelCtx.channelPartnerName}
-                                    {channelCtx.channelDealerNo ? (
+                                    {policyDoneByLabel}: {channelPartnerName}
+                                    {channelDealerNo ? (
                                       <span className="ml-1 opacity-60">
-                                        #{channelCtx.channelDealerNo}
+                                        #{channelDealerNo}
                                       </span>
                                     ) : null}
                                   </span>
@@ -1416,18 +1724,21 @@ const InsuranceRenewalCasesPage = () => {
 
                             <p
                               className="text-[13px] font-semibold text-slate-900 truncate"
-                              title={[row.vehicleMake, row.vehicleModel, row.vehicleVariant].filter(Boolean).join(" ")}
+                              title={vehicleLabel}
                             >
-                              {[row.vehicleMake, row.vehicleModel, row.vehicleVariant].filter(Boolean).join(" ") || "—"}
-                              {row.manufactureYear ? (
+                              {vehicleLabel || "—"}
+                              {vehicleYear ? (
                                 <span className="text-slate-500">
                                   {" "}
-                                  · {row.manufactureYear}
+                                  · {vehicleYear}
                                 </span>
                               ) : null}
                             </p>
-                            <p className="text-[11px] text-slate-600 mt-0.5">
-                              {row.registrationNumber || "—"}
+                            <p
+                              className="text-[11px] text-slate-600 mt-0.5"
+                              style={{ fontFamily: "var(--default-mono-font-family)" }}
+                            >
+                              {reg || "—"}
                             </p>
                           </div>
                         </div>
@@ -1505,8 +1816,8 @@ const InsuranceRenewalCasesPage = () => {
                               </p>
                             ) : null}
                             {activePolicy.tpExpiryDate &&
-                            activePolicy.tpExpiryDate !==
-                              activePolicy.expiryDate ? (
+                            activePolicy.tpExpiryDate !== activePolicy.expiryDate &&
+                            activePolicy.policyType !== "Stand Alone OD" ? (
                               <p className="text-[11px] text-slate-500 truncate">
                                 TP Expiry:{" "}
                                 {dayjs(activePolicy.tpExpiryDate).format(

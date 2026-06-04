@@ -50,6 +50,18 @@ export const pickPolicyValue = (...args) => {
   return "";
 };
 
+const POLICY_DURATION_DISPLAY = {
+  "1yr OD + 1yr TP": "1 Year Own Damage (OD) + 1 Year Third Party (TP)",
+  "1yr OD + 3yr TP": "1 Year Own Damage (OD) + 3 Years Third Party (TP)",
+  "2yr OD + 3yr TP": "2 Years Own Damage (OD) + 3 Years Third Party (TP)",
+  "3yr OD + 3yr TP": "3 Years Own Damage (OD) + 3 Years Third Party (TP)",
+};
+
+export const formatPolicyDuration = (value) => {
+  const key = String(value || "").trim();
+  return POLICY_DURATION_DISPLAY[key] || key;
+};
+
 export const pickPolicyNumber = (primary, fallback = 0) => {
   const a = Number(primary);
   if (Number.isFinite(a) && a > 0) return a;

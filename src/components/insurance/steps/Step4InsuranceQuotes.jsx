@@ -27,6 +27,7 @@ import {
   ShareAltOutlined,
 } from "@ant-design/icons";
 import { addOnCatalog } from "./allSteps";
+import { formatPolicyDuration } from "../../../utils/insurancePolicyDisplay";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import {
@@ -549,7 +550,7 @@ const QuoteCard = ({
                 )}
                 {row.policyDuration && (
                   <span className="text-[11px] text-slate-500">
-                    {row.policyDuration}
+                    {formatPolicyDuration(row.policyDuration)}
                   </span>
                 )}
               </div>
@@ -1198,7 +1199,7 @@ const Step4InsuranceQuotes = ({
                   placeholder="Duration"
                   className="w-full quote-control"
                   options={durationSelectOptions.map((d) => ({
-                    label: d,
+                    label: formatPolicyDuration(d),
                     value: d,
                   }))}
                 />
@@ -1906,7 +1907,7 @@ const Step4InsuranceQuotes = ({
               </div>
               <div className="mt-1 text-sm text-slate-600">
                 {acceptedQuote.coverageType || "—"} ·{" "}
-                {acceptedQuote.policyDuration || "—"}
+                {formatPolicyDuration(acceptedQuote.policyDuration) || "—"}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">

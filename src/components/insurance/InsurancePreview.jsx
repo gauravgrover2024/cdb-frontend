@@ -31,6 +31,7 @@ import {
   escapeHtmlText,
   scheduleWindowPrint,
 } from "../../utils/scheduleWindowPrint";
+import { formatPolicyDuration } from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
 import API_BASE_URL from "../../config/apiBaseUrl";
 import PremiumBreakupCard from "./PremiumBreakupCard";
@@ -678,7 +679,7 @@ const QuotePreviewCard = ({
                 )}
                 {row?.policyDuration && (
                   <span className="text-[11px] text-slate-500 dark:text-slate-400">
-                    {row.policyDuration}
+                    {formatPolicyDuration(row.policyDuration)}
                   </span>
                 )}
               </div>
@@ -1807,6 +1808,7 @@ const InsurancePreview = ({
                     {
                       label: "Policy Duration",
                       value: data.previousPolicyDuration,
+                      formatter: formatPolicyDuration,
                     },
                     {
                       label: "NCB Discount",
@@ -1819,12 +1821,12 @@ const InsurancePreview = ({
                     },
                     {
                       label: "OD Expiry Date",
-                      value: data.previousOdExpiryDate,
+                      value: data.previousPolicyType !== "Third Party" ? data.previousOdExpiryDate : null,
                       formatter: asDateInput,
                     },
                     {
                       label: "TP Expiry Date",
-                      value: data.previousTpExpiryDate,
+                      value: data.previousPolicyType === "Stand Alone OD" ? null : data.previousTpExpiryDate,
                       formatter: asDateInput,
                     },
                     {
@@ -1992,15 +1994,16 @@ const InsurancePreview = ({
                     {
                       label: "Insurance Duration",
                       value: data.newInsuranceDuration,
+                      formatter: formatPolicyDuration,
                     },
                     {
                       label: "OD Expiry Date",
-                      value: data.newOdExpiryDate,
+                      value: data.newPolicyType !== "Third Party" ? data.newOdExpiryDate : null,
                       formatter: asDateInput,
                     },
                     {
                       label: "TP Expiry Date",
-                      value: data.newTpExpiryDate,
+                      value: data.newPolicyType === "Stand Alone OD" ? null : data.newTpExpiryDate,
                       formatter: asDateInput,
                     },
                     {
