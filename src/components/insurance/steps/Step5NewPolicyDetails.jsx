@@ -20,6 +20,7 @@ import {
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 import PremiumBreakupCard from "../PremiumBreakupCard";
+import { formatPolicyDuration } from "../../../utils/insurancePolicyDisplay";
 
 const shellStyle =
   "rounded-xl border border-slate-200/75 bg-white shadow-sm";
@@ -268,11 +269,11 @@ const Step5NewPolicyDetails = ({
     formData.newPolicyType === "Comprehensive"
       ? isNewCar
         ? [
-            { label: "1yr OD + 3yr TP", value: "1yr OD + 3yr TP" },
-            { label: "2yr OD + 3yr TP", value: "2yr OD + 3yr TP" },
-            { label: "3yr OD + 3yr TP", value: "3yr OD + 3yr TP" },
+            { label: "1 Year Own Damage (OD) + 3 Years Third Party (TP)", value: "1yr OD + 3yr TP" },
+            { label: "2 Years Own Damage (OD) + 3 Years Third Party (TP)", value: "2yr OD + 3yr TP" },
+            { label: "3 Years Own Damage (OD) + 3 Years Third Party (TP)", value: "3yr OD + 3yr TP" },
           ]
-        : [{ label: "1yr OD + 1yr TP", value: "1yr OD + 1yr TP" }]
+        : [{ label: "1 Year Own Damage (OD) + 1 Year Third Party (TP)", value: "1yr OD + 1yr TP" }]
       : formData.newPolicyType === "Stand Alone OD"
         ? [
             { label: "1 Year", value: "1 Year" },
@@ -286,7 +287,7 @@ const Step5NewPolicyDetails = ({
               { label: "3 Years", value: "3 Years" },
             ]
           : durationOptions.map((d) => ({
-              label: d,
+              label: formatPolicyDuration(d),
               value: d,
             }));
 

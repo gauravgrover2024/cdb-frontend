@@ -1,6 +1,7 @@
 import React from "react";
 import { CheckCircleFilled, DownOutlined, UpOutlined } from "@ant-design/icons";
 import { formatINR } from "../../utils/currency";
+import { formatPolicyDuration } from "../../utils/insurancePolicyDisplay";
 
 // Utility for conditional classes
 const cx = (...classes) => classes.filter(Boolean).join(" ");
@@ -173,7 +174,7 @@ const PremiumBreakupCard = ({
                   )}
                   {policyDuration && (
                     <span className="text-[11px] text-slate-500 font-medium">
-                      {policyDuration}
+                      {formatPolicyDuration(policyDuration)}
                     </span>
                   )}
                   {!coverageType && !policyDuration && title && (

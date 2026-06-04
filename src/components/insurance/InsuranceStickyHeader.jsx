@@ -1,6 +1,7 @@
 // src/components/insurance/InsuranceStickyHeader.jsx
 import React, { useMemo } from "react";
 import Icon from "../../components/AppIcon";
+import { formatPolicyDuration } from "../../utils/insurancePolicyDisplay";
 
 const hasValue = (v) =>
   v !== undefined && v !== null && !(typeof v === "string" && v.trim() === "");
@@ -191,7 +192,7 @@ const InsuranceStickyHeader = ({
               colorIdx={1}
               title={policyCoreLabel}
               line1={
-                [data.newPolicyType, data.newInsuranceDuration]
+                [data.newPolicyType, data.newInsuranceDuration ? formatPolicyDuration(data.newInsuranceDuration) : null]
                   .filter(Boolean)
                   .join(" · ") || "—"
               }
