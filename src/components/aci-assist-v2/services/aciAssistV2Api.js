@@ -1352,48 +1352,89 @@ const compactVehicleForChat = (vehicle = {}) => {
   if (!isObject(vehicle)) return null;
 
   const make = vehicle.make || vehicle.brand || "";
-  const brand = vehicle.brand || vehicle.make || "";
   const model = vehicle.model || vehicle.modelName || "";
-  const displayName =
-    vehicle.displayName ||
-    vehicle.name ||
-    [make, model].filter(Boolean).join(" ");
 
   if (
     !make &&
-    !brand &&
     !model &&
-    !displayName &&
-    !vehicle.id &&
-    !vehicle._id
+    !vehicle.fullModel
   ) {
     return null;
   }
 
-  const selectedColor = compactColorForChat(vehicle.selectedColor || {});
-
   return {
-    id: compactText(
-      vehicle.id || vehicle._id || vehicle.vehicleId || vehicle.modelId,
-      100,
-    ),
     make: compactText(make, 80),
-    brand: compactText(brand, 80),
     model: compactText(model, 100),
-    modelName: compactText(vehicle.modelName || model, 100),
-    displayName: compactText(displayName, 140),
+    fullModel: compactText(vehicle.fullModel || [make, model].filter(Boolean).join(" "), 140),
+    makeKey: compactText(vehicle.makeKey, 120),
+    modelKey: compactText(vehicle.modelKey, 160),
+    shortModelKey: compactText(vehicle.shortModelKey, 120),
     variant: compactText(vehicle.variant || vehicle.variantName, 120),
-    variantName: compactText(vehicle.variantName || vehicle.variant, 120),
+    variantKey: compactText(vehicle.variantKey, 160),
+    fuelType: compactText(vehicle.fuelType || vehicle.fuel, 80),
+    fuelKey: compactText(vehicle.fuelKey, 80),
+    transmission: compactText(vehicle.transmission, 80),
+    transmissionKey: compactText(vehicle.transmissionKey, 80),
     city: compactText(vehicle.city || vehicle.cityName, 80),
     citySlug: compactText(vehicle.citySlug, 80),
-    colorName: compactText(
-      vehicle.colorName ||
-        selectedColor?.colorName ||
-        vehicle.selectedColor?.colorName ||
-        vehicle.selectedColor?.name,
-      80,
-    ),
-    selectedColor,
+    confidence: Number(vehicle.confidence) || 0,
+    source: compactText(vehicle.source, 80),
+  };
+};
+
+const compactAciContextStateForChat = (state = {}) => {
+  if (!isObject(state)) return null;
+  const selectedVehicle = compactVehicleForChat(state.selectedVehicle || {});
+  const comparisonVehicles = Array.isArray(state.activeComparison?.vehicles)
+    ? state.activeComparison.vehicles.map(compactVehicleForChat).filter(Boolean)
+    : [];
+
+  return {
+    schemaVersion: state.schemaVersion || "aci_context_state_v1",
+    selectedVehicle: selectedVehicle || {},
+    activeComparison: {
+      vehicles: comparisonVehicles,
+      fuelKey: compactText(state.activeComparison?.fuelKey, 80),
+      transmissionKey: compactText(state.activeComparison?.transmissionKey, 80),
+      city: compactText(state.activeComparison?.city, 80),
+      citySlug: compactText(state.activeComparison?.citySlug, 80),
+      features: Array.isArray(state.activeComparison?.features)
+        ? state.activeComparison.features
+        : [],
+      confidence: Number(state.activeComparison?.confidence) || 0,
+      source: compactText(state.activeComparison?.source, 80),
+    },
+    requested: {
+      facts: isObject(state.requested?.facts) ? state.requested.facts : {},
+      features: Array.isArray(state.requested?.features) ? state.requested.features : [],
+      topics: Array.isArray(state.requested?.topics) ? state.requested.topics : [],
+      specAttributes: Array.isArray(state.requested?.specAttributes)
+        ? state.requested.specAttributes
+        : [],
+      topic: compactText(state.requested?.topic, 120),
+      budget: isObject(state.requested?.budget) ? state.requested.budget : {},
+      city: compactText(state.requested?.city, 80),
+      citySlug: compactText(state.requested?.citySlug, 80),
+    },
+    anchors: {
+      primaryVehicle: compactVehicleForChat(state.anchors?.primaryVehicle || {}) || {},
+      comparisonTargets: Array.isArray(state.anchors?.comparisonTargets)
+        ? state.anchors.comparisonTargets.map(compactVehicleForChat).filter(Boolean)
+        : [],
+    },
+    confidence: {
+      entityConfidence: Number(state.confidence?.entityConfidence) || 0,
+      modelConfidence: Number(state.confidence?.modelConfidence) || 0,
+      variantConfidence: Number(state.confidence?.variantConfidence) || 0,
+      contextConfidence: Number(state.confidence?.contextConfidence) || 0,
+      resolutionSource: compactText(state.confidence?.resolutionSource, 100),
+    },
+    provenance: {
+      sources: Array.isArray(state.provenance?.sources) ? state.provenance.sources : [],
+      warnings: Array.isArray(state.provenance?.warnings) ? state.provenance.warnings : [],
+      isolation: compactText(state.provenance?.isolation, 100),
+      updatedBy: compactText(state.provenance?.updatedBy, 120),
+    },
   };
 };
 
@@ -1452,7 +1493,17 @@ const compactAciChatContext = (context = {}) => {
       }
     : null;
 
+  const durableContextState = compactAciContextStateForChat(
+      context.contextState ||
+      context.aciContextState ||
+      context.contextPatch?.contextState ||
+      context.contextPatch?.aciContextState ||
+      null,
+  );
+
   return {
+    contextState: durableContextState,
+    aciContextState: durableContextState,
     selectedVehicle: scopedSelectedVehicle,
     selectedColor,
 
@@ -1475,6 +1526,13 @@ const compactAciChatContext = (context = {}) => {
     selectedComparisonSet: isObject(context.selectedComparisonSet)
       ? context.selectedComparisonSet
       : {},
+    activeComparison: isObject(context.activeComparison)
+      ? context.activeComparison
+      : isObject(context.contextState?.activeComparison)
+        ? context.contextState.activeComparison
+        : isObject(context.aciContextState?.activeComparison)
+          ? context.aciContextState.activeComparison
+          : {},
 
     activeScreen: compactText(context.activeScreen || context.screen, 80),
     activeCanvasType: compactText(

@@ -260,9 +260,6 @@ export const compactVehicleForBackend = (vehicle = {}) => {
   const normalized = normalizeVehicle(vehicle);
   if (!normalized) return null;
 
-  const selectedColor = compactColorForBackend(
-    normalized.selectedColor || vehicle.selectedColor,
-  );
   const variant = firstValue(
     normalized.variant,
     normalized.variantName,
@@ -270,25 +267,78 @@ export const compactVehicleForBackend = (vehicle = {}) => {
   );
 
   return {
-    id: firstValue(
-      normalized.id,
-      normalized._id,
-      normalized.vehicleId,
-      normalized.modelId,
-    ),
     make: firstValue(normalized.make, normalized.brand),
-    brand: firstValue(normalized.brand, normalized.make),
     model: normalized.model || "",
-    modelName: normalized.modelName || normalized.model || "",
-    displayName: normalized.displayName || "",
     fullModel: normalized.fullModel || "",
+    makeKey: normalized.makeKey || "",
+    modelKey: normalized.modelKey || "",
+    shortModelKey: normalized.shortModelKey || "",
     variant,
-    variantName: variant,
-    selectedVariant: variant,
+    variantKey: normalized.variantKey || "",
+    fuelType: firstValue(normalized.fuelType, normalized.fuel),
+    fuelKey: normalized.fuelKey || "",
+    transmission: normalized.transmission || "",
+    transmissionKey: normalized.transmissionKey || "",
     city: firstValue(normalized.city, normalized.cityName),
     citySlug: normalized.citySlug || "",
-    colorName: firstValue(normalized.colorName, selectedColor?.colorName),
-    selectedColor,
+    confidence: normalized.confidence || 0,
+    source: normalized.source || "",
+  };
+};
+
+const compactAciContextStateForBackend = (state = {}) => {
+  if (!isObject(state)) return null;
+  const selectedVehicle = compactVehicleForBackend(state.selectedVehicle || {});
+  const comparisonVehicles = Array.isArray(state.activeComparison?.vehicles)
+    ? state.activeComparison.vehicles.map(compactVehicleForBackend).filter(Boolean)
+    : [];
+
+  return {
+    schemaVersion: state.schemaVersion || "aci_context_state_v1",
+    selectedVehicle: selectedVehicle || {},
+    activeComparison: {
+      vehicles: comparisonVehicles,
+      fuelKey: state.activeComparison?.fuelKey || "",
+      transmissionKey: state.activeComparison?.transmissionKey || "",
+      city: state.activeComparison?.city || "",
+      citySlug: state.activeComparison?.citySlug || "",
+      features: Array.isArray(state.activeComparison?.features)
+        ? state.activeComparison.features
+        : [],
+      confidence: state.activeComparison?.confidence || 0,
+      source: state.activeComparison?.source || "",
+    },
+    requested: {
+      facts: isObject(state.requested?.facts) ? state.requested.facts : {},
+      features: Array.isArray(state.requested?.features) ? state.requested.features : [],
+      topics: Array.isArray(state.requested?.topics) ? state.requested.topics : [],
+      specAttributes: Array.isArray(state.requested?.specAttributes)
+        ? state.requested.specAttributes
+        : [],
+      topic: state.requested?.topic || "",
+      budget: isObject(state.requested?.budget) ? state.requested.budget : {},
+      city: state.requested?.city || "",
+      citySlug: state.requested?.citySlug || "",
+    },
+    anchors: {
+      primaryVehicle: compactVehicleForBackend(state.anchors?.primaryVehicle || {}) || {},
+      comparisonTargets: Array.isArray(state.anchors?.comparisonTargets)
+        ? state.anchors.comparisonTargets.map(compactVehicleForBackend).filter(Boolean)
+        : [],
+    },
+    confidence: {
+      entityConfidence: state.confidence?.entityConfidence || 0,
+      modelConfidence: state.confidence?.modelConfidence || 0,
+      variantConfidence: state.confidence?.variantConfidence || 0,
+      contextConfidence: state.confidence?.contextConfidence || 0,
+      resolutionSource: state.confidence?.resolutionSource || "",
+    },
+    provenance: {
+      sources: Array.isArray(state.provenance?.sources) ? state.provenance.sources : [],
+      warnings: Array.isArray(state.provenance?.warnings) ? state.provenance.warnings : [],
+      isolation: state.provenance?.isolation || "",
+      updatedBy: state.provenance?.updatedBy || "",
+    },
   };
 };
 
@@ -319,7 +369,17 @@ export const compactContextForBackend = ({
         selectedVehicle?.selectedVariant,
       );
 
+  const durableContextState = compactAciContextStateForBackend(
+      effectiveContext.contextState ||
+      effectiveContext.aciContextState ||
+      action.contextPatch?.contextState ||
+      action.contextPatch?.aciContextState ||
+      null,
+  );
+
   return {
+    contextState: durableContextState,
+    aciContextState: durableContextState,
     selectedVehicle: selectedVehicle
       ? {
           ...selectedVehicle,
@@ -346,6 +406,11 @@ export const compactContextForBackend = ({
     ),
     selectedColor,
     selectedComparisonSet: effectiveContext.selectedComparisonSet || {},
+    activeComparison:
+      effectiveContext.activeComparison ||
+      effectiveContext.contextState?.activeComparison ||
+      effectiveContext.aciContextState?.activeComparison ||
+      {},
     activeScreen: screen || effectiveContext.activeScreen || "",
     activeCanvasType: firstValue(
       activeCanvasPayload?.canvasType,
