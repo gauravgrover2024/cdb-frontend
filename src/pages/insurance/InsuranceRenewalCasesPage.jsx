@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Button,
@@ -60,11 +60,6 @@ const CLOSE_REASONS = [
   "Not Interested",
   "Already renewed from somewhere else",
   "Other",
-];
-const VIEW_TABS = [
-  { key: "renewal", label: "Renewal" },
-  { key: "renewed", label: "Renewed" },
-  { key: "external", label: "External" },
 ];
 const RENEWAL_STATUS_ACTION_GROUPS = [
   {
@@ -337,6 +332,12 @@ const InsuranceRenewalCasesPage = () => {
   const [cases, setCases] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
   const [windowFilter, setWindowFilter] = useState("all");
   const [policyStatusFilter, setPolicyStatusFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
@@ -474,7 +475,12 @@ const InsuranceRenewalCasesPage = () => {
     "team_lead",
     "insurance_team_lead",
   ].includes(role);
-  const canViewAllRenewals = ["superadmin", "admin"].includes(role);
+  const canViewAllRenewals = [
+    "superadmin",
+    "admin",
+    "team_lead",
+    "insurance_team_lead",
+  ].includes(role);
   const meId = String(user?._id || user?.id || "");
 
   const load = useCallback(async () => {
@@ -486,7 +492,7 @@ const InsuranceRenewalCasesPage = () => {
           window: windowFilter !== "all" ? windowFilter : undefined,
           status: policyStatusFilter !== "all" ? policyStatusFilter : undefined,
           tier: tierFilter !== "all" ? tierFilter : undefined,
-          search: search || undefined,
+          search: debouncedSearch || undefined,
           ...(canViewAllRenewals
             ? {}
             : { assignedOnly: 1, assignedToId: meId }),
@@ -509,7 +515,7 @@ const InsuranceRenewalCasesPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [canViewAllRenewals, meId, viewTab, windowFilter, policyStatusFilter, tierFilter, search]);
+  }, [canViewAllRenewals, meId, viewTab, windowFilter, policyStatusFilter, tierFilter, debouncedSearch]);
 
   React.useEffect(() => {
     load();
@@ -532,11 +538,6 @@ const InsuranceRenewalCasesPage = () => {
       rows = rows.filter((row) => !row?.renewalAssignedToId);
     } else if (activeTab === "assigned") {
       rows = rows.filter((row) => row?.renewalAssignedToId);
-    }
-    if (!canViewAllRenewals) {
-      rows = rows.filter(
-        (row) => String(row?.renewalAssignedToId || "") === String(meId),
-      );
     }
 
     if (assignedFilter !== "all") {
@@ -607,8 +608,6 @@ const InsuranceRenewalCasesPage = () => {
     activeTab,
     assignedFilter,
     cases,
-    canViewAllRenewals,
-    meId,
     statusFilter,
     selectedStatCard,
     vehicleTypeFilter,
@@ -1056,42 +1055,6 @@ const InsuranceRenewalCasesPage = () => {
         </div>
 
         <div className="rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
-          <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-            {VIEW_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                type="button"
-                onClick={() => setViewTab(tab.key)}
-                className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                  viewTab === tab.key
-                    ? "border-slate-900 bg-slate-900 text-white"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-            {isAdminLike &&
-              ["non-assigned", "assigned", "all"].map((tab) => (
-                <button
-                  key={tab}
-                  type="button"
-                  onClick={() => setActiveTab(tab)}
-                  className={`rounded-lg border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                    activeTab === tab
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  }`}
-                >
-                  {tab === "non-assigned"
-                    ? "Non-Assigned"
-                    : tab === "assigned"
-                      ? "Assigned"
-                      : "All"}
-                </button>
-              ))}
-          </div>
-
           <div className="mb-3 flex flex-col gap-3 lg:flex-row">
             <div className="relative flex-1">
               <Search
@@ -1790,7 +1753,9 @@ const InsuranceRenewalCasesPage = () => {
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
                               NCB {Number(activePolicy.ncbDiscount || 0)}%
                             </span>
-                            {policyOriginType && row.vehicleType?.toLowerCase() !== "new car" ? (
+                            {policyOriginType &&
+                              policyOriginType !== "EW Policy" &&
+                              row.vehicleType?.toLowerCase() !== "new car" ? (
                               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
                                 {policyOriginType}
                               </span>

@@ -1770,6 +1770,8 @@ const InsurancePreview = ({
                       formatter: asDateInput,
                     },
                     { label: "Hypothecation", value: data.hypothecation },
+                    { label: "Battery Number", value: data.batteryNumber },
+                    { label: "Charger Number", value: data.chargerNumber },
                   ]}
                 />
               </ContinuousPageSection>
@@ -1843,6 +1845,27 @@ const InsurancePreview = ({
                       label: "Previous premium",
                       value: data.previousTotalPremium,
                       formatter: asMoney,
+                    },
+                    {
+                      label: "Prev OD Amount",
+                      value: firstFilled(data.previousOwnDamageAmount, data.previousBasicOwnDamageAmount),
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "Prev TP Amount",
+                      value: firstFilled(data.previousThirdPartyAmount, data.previousBasicThirdPartyAmount),
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "Prev Add-ons Total",
+                      value: data.previousAddOnsTotal,
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "Prev Selected Add-ons",
+                      value: Array.isArray(data.previousSelectedAddOns) && data.previousSelectedAddOns.length
+                        ? data.previousSelectedAddOns.join(", ")
+                        : null,
                     },
                   ]}
                 />
@@ -2021,6 +2044,26 @@ const InsurancePreview = ({
                       formatter: asMoney,
                     },
                     {
+                      label: "Vehicle IDV",
+                      value: data.newVehicleIdv,
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "CNG IDV",
+                      value: data.newCngIdv,
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "Accessories IDV",
+                      value: data.newAccessoriesIdv,
+                      formatter: asMoney,
+                    },
+                    {
+                      label: "Policy Purchase Date",
+                      value: data.policyPurchaseDate,
+                      formatter: asDateInput,
+                    },
+                    {
                       label: "Total Premium",
                       value: data.newTotalPremium,
                       formatter: asMoney,
@@ -2047,6 +2090,38 @@ const InsurancePreview = ({
                       formatter: asDateInput,
                     },
                     { label: "Kms Coverage", value: data.kmsCoverage },
+                  ]}
+                />
+              </ContinuousPageSection>
+            )}
+
+            {hasStage("policy") && (data.isRenewal || hasValue(data.renewalLeadStatus) || hasValue(data.renewalFollowUpStatus)) && (
+              <ContinuousPageSection
+                ref={(node) => { sectionRefs.current.renewal = node; }}
+                icon={Shield}
+                title="Renewal Tracking"
+                page="Renewal"
+                tone="rose"
+                active={activeStage === "renewal"}
+              >
+                <SectionCard
+                  title="Renewal Info"
+                  tone="rose"
+                  query={searchQuery}
+                  fields={[
+                    { label: "Is Renewal", value: data.isRenewal ? "Yes" : null },
+                    { label: "Renewal Lead Status", value: data.renewalLeadStatus },
+                    { label: "Follow-up Status", value: data.renewalFollowUpStatus },
+                    { label: "Follow-up Date", value: data.renewalFollowUpDate },
+                    { label: "Next Follow-up", value: data.renewalNextFollowUpDate, formatter: asDateInput },
+                    { label: "Last Contacted", value: data.renewalLastContactedAt, formatter: asDateInput },
+                    { label: "Assigned To", value: data.renewalAssignedToName },
+                    { label: "Assigned By", value: data.renewalAssignedBy },
+                    { label: "Assigned At", value: data.renewalAssignedAt, formatter: asDateInput },
+                    { label: "Renewal Outcome", value: data.renewalOutcome !== "NONE" ? data.renewalOutcome : null },
+                    { label: "Closed Reason", value: data.renewalClosedReason },
+                    { label: "Comment", value: data.renewalComment },
+                    { label: "Follow-up Notes", value: data.renewalFollowUpNotes },
                   ]}
                 />
               </ContinuousPageSection>
@@ -2200,6 +2275,19 @@ const InsurancePreview = ({
                 tone={stageByKey.get("payment")?.tone || "cream"}
                 active={activeStage === "payment"}
               >
+                {(hasValue(data.customerPaymentExpected) || hasValue(data.inhousePaymentExpected)) && (
+                  <SectionCard
+                    title="Payment Setup"
+                    tone="mint"
+                    query={searchQuery}
+                    fields={[
+                      { label: "Customer Payment Expected", value: data.customerPaymentExpected, formatter: asMoney },
+                      { label: "Customer Payment Received", value: data.customerPaymentReceived, formatter: asMoney },
+                      { label: "Inhouse Payment Expected", value: data.inhousePaymentExpected, formatter: asMoney },
+                      { label: "Inhouse Payment Received", value: data.inhousePaymentReceived, formatter: asMoney },
+                    ]}
+                  />
+                )}
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
                   <PaymentMetricCard
                     title="Total Premium"

@@ -1281,16 +1281,25 @@ const PolicyCard = ({
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
                       NCB {policy.ncb}
                     </span>
-                    {policy.policyOriginType && !policy.isNewCarCase ? (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
-                        {policy.policyOriginType}
-                      </span>
-                    ) : null}
-                    {policy.policyType ? (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
-                        {policy.policyType}
-                      </span>
-                    ) : null}
+                    {(() => {
+                      const isEW = ["extended warranty", "ew policy"].includes(
+                        String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()
+                      );
+                      return (
+                        <>
+                          {policy.policyOriginType && !policy.isNewCarCase && !isEW ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-indigo-50 text-indigo-600">
+                              {policy.policyOriginType}
+                            </span>
+                          ) : null}
+                          {policy.policyType && !isEW ? (
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700">
+                              {policy.policyType}
+                            </span>
+                          ) : null}
+                        </>
+                      );
+                    })()}
                   </div>
 
                   {/* Hypothecation */}
@@ -1539,28 +1548,25 @@ const PolicyCard = ({
                 </div>
 
                 {policy.expiryLabel && policy.expiryLabel !== "—" && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-600">Expiry</span>
+                  <div className="flex justify-between gap-2 items-center">
+                    <span className="text-slate-600 shrink-0">Expiry</span>
                     <span className="font-semibold text-slate-900 text-right truncate">
                       {policy.expiryLabel}
                       {pulseDays !== null && (
-                        <span className="ml-1 text-slate-500 font-normal">
+                        <span className={`ml-1 font-normal ${pulseDays < 30 ? "text-red-500" : "text-slate-500"}`}>
                           ({pulseDays < 0 ? `${Math.abs(pulseDays)}d overdue` : `${pulseDays}d left`})
                         </span>
                       )}
                     </span>
-                  </div>
-                )}
-
-                {pulseDays !== null && pulseDays < 30 && !policy.alreadyRenewed && (
-                  <div className="flex justify-end pt-1">
-                    <button
-                      type="button"
-                      onClick={onRenew}
-                      className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-[0.08em] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
-                    >
-                      Renew Now
-                    </button>
+                    {pulseDays !== null && pulseDays < 30 && !policy.alreadyRenewed && (
+                      <button
+                        type="button"
+                        onClick={onRenew}
+                        className="shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
+                      >
+                        Renew
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1631,7 +1637,7 @@ const InsuranceDashboardPage = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await insuranceApi.getAll({ search: query });
+      const res = await insuranceApi.getAll({ search: query, limit: 200 });
       const raw = Array.isArray(res?.data) ? res.data : res?.items || [];
       const seen = new Set();
       const rows = raw.filter((row) => {
@@ -2428,7 +2434,7 @@ const InsuranceDashboardPage = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={loadCases}
+                onClick={() => loadCases(debouncedSearch)}
                 className="px-4 py-2.5 rounded-lg font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
               >
                 <RefreshCw size={16} />
@@ -2600,7 +2606,7 @@ const InsuranceDashboardPage = () => {
           {/* Footer */}
           {!loading && filteredCases.length > 0 && (
             <div className="text-center text-sm text-slate-500 pb-4">
-              Showing {filteredCases.length} of {totalCount} policies
+              Showing {Math.min(page * pageSize, filteredCases.length)} of {filteredCases.length} policies
             </div>
           )}
 

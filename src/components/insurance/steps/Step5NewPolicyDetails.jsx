@@ -723,8 +723,10 @@ const Step5NewPolicyDetails = ({
                   <AutoComplete
                     style={{ width: "100%" }}
                     className="w-full"
+                    size="large"
                     value={formData.newInsuranceCompany}
                     allowClear
+                    placeholder="e.g. HDFC ERGO General Insurance Company Limited"
                     options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                       value: name,
                     }))}
@@ -736,13 +738,7 @@ const Step5NewPolicyDetails = ({
                         .toLowerCase()
                         .includes(String(inputValue || "").toLowerCase())
                     }
-                  >
-                    <Input
-                      size="large"
-                      style={controlStyle}
-                      placeholder="e.g. HDFC ERGO General Insurance Company Limited"
-                    />
-                  </AutoComplete>
+                  />
                 </CleanField>
               </div>
             </Col>

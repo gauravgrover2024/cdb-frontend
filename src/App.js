@@ -41,6 +41,7 @@ import CustomerProfilePage from "./pages/customers/CustomerProfilePage";
 import InsuranceDashboardPage from "./pages/insurance/InsuranceDashboardPage";
 import InsuranceCasePage from "./pages/insurance/InsuranceCasePage";
 import InsuranceRenewalCasesPage from "./pages/insurance/InsuranceRenewalCasesPage";
+import InsuranceQuoteSharePage from "./pages/insurance/InsuranceQuoteSharePage";
 import UsedCarsProcurementPage from "./modules/used-cars/pages/UsedCarsProcurementPage";
 import UsedCarsInspectionPage from "./modules/used-cars/pages/UsedCarsInspectionPage";
 import UsedCarsBackgroundCheckPage from "./modules/used-cars/pages/UsedCarsBackgroundCheckPage";
@@ -107,6 +108,9 @@ function App() {
 
           {/* Customer-Facing Portal (public, no auth) */}
           <Route path="/portal" element={<CDrivePremiumPortal />} />
+
+          {/* Public: Insurance quote share link (sent to customers) */}
+          <Route path="/quote-share" element={<InsuranceQuoteSharePage />} />
 
           {/* ── ALL routes below require authentication ── */}
           <Route

@@ -334,6 +334,14 @@ const Step2VehicleDetails = ({
                       options={registrationLookupOptions}
                       onSearch={handleRegistrationSearch}
                       allowClear
+                      size="large"
+                      prefix={<SearchOutlined className="text-slate-400" />}
+                      status={
+                        showErrors && step2Errors.registrationNumber
+                          ? "error"
+                          : ""
+                      }
+                      placeholder="e.g. DL01AB1234"
                       onChange={(value) =>
                         setField(
                           "registrationNumber",
@@ -390,19 +398,7 @@ const Step2VehicleDetails = ({
                           ? "Searching..."
                           : "No matching registration"
                       }
-                    >
-                      <Input
-                        size="large"
-                        prefix={<SearchOutlined className="text-slate-400" />}
-                        style={controlStyle}
-                        status={
-                          showErrors && step2Errors.registrationNumber
-                            ? "error"
-                            : ""
-                        }
-                        placeholder="e.g. DL01AB1234"
-                      />
-                    </AutoComplete>
+                    />
                   )}
                 </CleanField>
               </div>
