@@ -4154,6 +4154,15 @@ const NewInsuranceCaseForm = ({
               previousNcbDiscount: formData.previousNcbDiscount,
               previousSelectedAddOns: formData.previousSelectedAddOns || [],
               claimTakenLastYear: formData.claimTakenLastYear,
+              customerName: formData.customerName || formData.contactPersonName || "",
+              mobile: formData.mobile || "",
+              registrationNumber: formData.registrationNumber || "",
+              vehicleMake: formData.vehicleMake || "",
+              vehicleModel: formData.vehicleModel || "",
+              vehicleVariant: formData.vehicleVariant || "",
+              fuelType: formData.fuelType || "",
+              manufactureYear: formData.manufactureYear || "",
+              vehicleType: formData.vehicleType || "",
             }}
           />
         );

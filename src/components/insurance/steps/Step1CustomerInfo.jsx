@@ -6,6 +6,7 @@ import {
   DatePicker,
   Input,
   InputNumber,
+  Modal,
   Radio,
   Row,
   Select,
@@ -255,6 +256,39 @@ const Step1CustomerInfo = ({
     formData.dealerChannelName,
     sourceMode,
   ]);
+
+  const [customerDataLoaded, setCustomerDataLoaded] = React.useState(false);
+  const [pendingChange, setPendingChange] = React.useState(null);
+  const [confirmOpen, setConfirmOpen] = React.useState(false);
+
+  const guardedSetField = React.useCallback(
+    (key, value) => {
+      if (customerDataLoaded) {
+        setPendingChange(() => () => setField(key, value));
+        setConfirmOpen(true);
+      } else {
+        setField(key, value);
+      }
+    },
+    [customerDataLoaded, setField],
+  );
+
+  const guardedHandleChange = React.useCallback(
+    (key) => (e) => guardedSetField(key, e?.target?.value ?? ""),
+    [guardedSetField],
+  );
+
+  const handleConfirmYes = React.useCallback(() => {
+    if (pendingChange) pendingChange();
+    setCustomerDataLoaded(false);
+    setPendingChange(null);
+    setConfirmOpen(false);
+  }, [pendingChange]);
+
+  const handleConfirmNo = React.useCallback(() => {
+    setPendingChange(null);
+    setConfirmOpen(false);
+  }, []);
 
   const primaryName = isCompany
     ? formData.companyName || "Company details"
@@ -771,7 +805,10 @@ const Step1CustomerInfo = ({
                             customerSearchResults,
                             getCustomerId,
                           );
-                          if (selected) applyCustomerToForm(selected);
+                          if (selected) {
+                            applyCustomerToForm(selected);
+                            setCustomerDataLoaded(true);
+                          }
                         }}
                         style={{ width: "100%", marginTop: 8 }}
                         popupClassName="customer-autocomplete-dropdown"
@@ -840,7 +877,10 @@ const Step1CustomerInfo = ({
                           customerSearchResults,
                           getCustomerId,
                         );
-                        if (selected) applyCustomerToForm(selected);
+                        if (selected) {
+                          applyCustomerToForm(selected);
+                          setCustomerDataLoaded(true);
+                        }
                       }}
                       style={{ width: "100%", marginTop: 8 }}
                       popupClassName="customer-autocomplete-dropdown"
@@ -899,7 +939,10 @@ const Step1CustomerInfo = ({
                         customerSearchResults,
                         getCustomerId,
                       );
-                      if (selected) applyCustomerToForm(selected);
+                      if (selected) {
+                        applyCustomerToForm(selected);
+                        setCustomerDataLoaded(true);
+                      }
                     }}
                     options={customerOptions.slice(0, 10)}
                     style={{ width: "100%", marginTop: 8 }}
@@ -933,7 +976,7 @@ const Step1CustomerInfo = ({
                       const digits = String(e?.target?.value || "")
                         .replace(/\D/g, "")
                         .slice(0, 10);
-                      setField("alternatePhone", digits);
+                      guardedSetField("alternatePhone", digits);
                     }}
                     maxLength={10}
                     placeholder="Alternate Phone"
@@ -948,8 +991,8 @@ const Step1CustomerInfo = ({
                 <CleanField label="Email Address">
                   <Input size="large" allowClear
                     value={formData.email}
-                    onChange={handleChange("email")}
-                   
+                    onChange={guardedHandleChange("email")}
+
                     status={showErrors && step1Errors.email ? "error" : ""}
                     placeholder="Email Address"
                   />
@@ -966,7 +1009,7 @@ const Step1CustomerInfo = ({
                   <CleanField label="Gender" required>
                     <Select size="large" allowClear
                       value={formData.gender || undefined}
-                      onChange={(v) => setField("gender", v)}
+                      onChange={(v) => guardedSetField("gender", v)}
                       style={controlStyle}
                       status={showErrors && step1Errors.gender ? "error" : ""}
                       options={[
@@ -989,7 +1032,7 @@ const Step1CustomerInfo = ({
                 <CleanField label={`PAN Number ${isCompany ? "*" : ""}`}>
                   <Input size="large" allowClear
                     value={formData.panNumber}
-                    onChange={handleChange("panNumber")}
+                    onChange={guardedHandleChange("panNumber")}
                    
                     status={showErrors && step1Errors.panNumber ? "error" : ""}
                     placeholder="e.g. ABCDE1234F"
@@ -1007,7 +1050,7 @@ const Step1CustomerInfo = ({
                   <CleanField label="GST Number">
                     <Input size="large" allowClear
                       value={formData.gstNumber}
-                      onChange={handleChange("gstNumber")}
+                      onChange={guardedHandleChange("gstNumber")}
                      
                       placeholder="Optional"
                     />
@@ -1020,7 +1063,7 @@ const Step1CustomerInfo = ({
                   <CleanField label="Aadhaar Number">
                     <Input size="large" allowClear
                       value={formData.aadhaarNumber}
-                      onChange={handleChange("aadhaarNumber")}
+                      onChange={guardedHandleChange("aadhaarNumber")}
                      
                       placeholder="Optional"
                     />
@@ -1037,7 +1080,7 @@ const Step1CustomerInfo = ({
                 <Input.TextArea allowClear
                   rows={2}
                   value={formData.residenceAddress}
-                  onChange={handleChange("residenceAddress")}
+                  onChange={guardedHandleChange("residenceAddress")}
                  
                   status={
                     showErrors && step1Errors.residenceAddress ? "error" : ""
@@ -1059,7 +1102,7 @@ const Step1CustomerInfo = ({
                       const digits = String(e?.target?.value || "")
                         .replace(/\D/g, "")
                         .slice(0, 6);
-                      setField("pincode", digits);
+                      guardedSetField("pincode", digits);
                     }}
                     maxLength={6}
                    
@@ -1088,7 +1131,7 @@ const Step1CustomerInfo = ({
                 >
                   <Input size="large" allowClear
                     value={formData.city}
-                    onChange={handleChange("city")}
+                    onChange={guardedHandleChange("city")}
                    
                     status={showErrors && step1Errors.city ? "error" : ""}
                     placeholder="City"
@@ -1488,6 +1531,34 @@ const Step1CustomerInfo = ({
           </div>
         </Col>
       </Row>
+
+      <Modal
+        open={confirmOpen}
+        title="Override customer data?"
+        onCancel={handleConfirmNo}
+        footer={[
+          <button
+            key="no"
+            type="button"
+            onClick={handleConfirmNo}
+            className="mr-2 rounded-lg border border-slate-300 bg-white px-4 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            No
+          </button>,
+          <button
+            key="yes"
+            type="button"
+            onClick={handleConfirmYes}
+            className="rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-blue-700"
+          >
+            Yes
+          </button>,
+        ]}
+      >
+        <p className="text-slate-600">
+          Customer details were loaded from CRM. Do you want to override this field?
+        </p>
+      </Modal>
     </div>
   );
 };

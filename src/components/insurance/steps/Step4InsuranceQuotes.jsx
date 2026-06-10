@@ -979,25 +979,68 @@ const Step4InsuranceQuotes = ({
     [computeQuoteBreakupFromRow, previousPolicyContext],
   );
 
+  const buildShareUrl = React.useCallback(
+    (quotesToShare) => {
+      const validQuotes = quotesToShare.filter(Boolean);
+      if (!validQuotes.length) return null;
+      const payload = {
+        customer: {
+          name: previousPolicyContext?.customerName || "",
+          mobile: previousPolicyContext?.mobile || "",
+        },
+        vehicle: {
+          registration: previousPolicyContext?.registrationNumber || "",
+          make: previousPolicyContext?.vehicleMake || "",
+          model: previousPolicyContext?.vehicleModel || "",
+          variant: previousPolicyContext?.vehicleVariant || "",
+          fuelType: previousPolicyContext?.fuelType || "",
+          year: previousPolicyContext?.manufactureYear || "",
+          type: previousPolicyContext?.vehicleType || "",
+        },
+        quotes: validQuotes.map((q) => {
+          const b = computeQuoteBreakupFromRow(q);
+          return {
+            insuranceCompany: q.insuranceCompany || "",
+            coverageType: q.coverageType || "",
+            policyDuration: q.policyDuration || "",
+            idv: Number(b?.idv || q.totalIdv || q.vehicleIdv || 0),
+            ncbDiscount: Number(q.ncbDiscount || 0),
+            odAmount: Number(b?.odAmt || q.odAmount || 0),
+            tpAmount: Number(b?.tpAmt || q.thirdPartyAmount || 0),
+            addOnsTotal: Number(b?.addOnsTotal || q.addOnsTotal || 0),
+            gstAmount: Number(b?.gstAmt || q.gstAmount || 0),
+            totalPremium: Number(b?.totalPremium || q.totalPremium || 0),
+            isAccepted: Boolean(q.isAccepted),
+            addOns: Object.entries(q.addOns || {})
+              .filter(([, v]) => Number(v) > 0)
+              .map(([k, v]) => ({ name: k, amount: Number(v) })),
+          };
+        }),
+      };
+      const encoded = encodeURIComponent(JSON.stringify(payload));
+      return `${window.location.origin}/quote-share?d=${encoded}`;
+    },
+    [previousPolicyContext, computeQuoteBreakupFromRow],
+  );
+
   const handleShareQuote = React.useCallback(
     async (quote) => {
       if (!quote) return;
-      const { title, summary } = buildQuoteShareContext(quote);
+      const url = buildShareUrl([quote]);
+      if (!url) return;
+      const title = `Insurance Quote – ${previousPolicyContext?.customerName || "Customer"}`;
       if (navigator.share) {
-        await navigator.share({ title, text: summary });
+        await navigator.share({ title, url });
         return;
       }
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(summary);
-        Modal.success({
-          title: "Quote copied",
-          content: "Quote summary copied to clipboard.",
-        });
+        await navigator.clipboard.writeText(url);
+        Modal.success({ title: "Link copied!", content: "Share this link with your customer to view the quote." });
         return;
       }
-      Modal.info({ title: "Share quote", content: summary });
+      Modal.info({ title: "Share Quote Link", content: url });
     },
-    [buildQuoteShareContext],
+    [buildShareUrl, previousPolicyContext],
   );
 
   const handleDownloadQuote = React.useCallback(
@@ -1029,55 +1072,35 @@ const Step4InsuranceQuotes = ({
   }, [selectedQuoteIds, quoteRows, getQuoteRowId, handleDownloadQuote, quoteDraft, canAddQuote]);
 
   const handleShareSelectedOrDraft = React.useCallback(async () => {
+    let quotesToShare = [];
     if (selectedQuoteIds.length > 0) {
-      const summaries = selectedQuoteIds
-        .map((id) => {
-          const quote = quoteRows.find((q) => String(getQuoteRowId(q)) === String(id));
-          if (!quote) return null;
-          const breakup = computeQuoteBreakupFromRow(quote);
-          return buildQuoteSummaryText({
-            quote,
-            breakup,
-            customerName: previousPolicyContext?.customerName || "",
-            vehicleLabel: [
-              previousPolicyContext?.registrationNumber,
-              previousPolicyContext?.vehicleMake,
-              previousPolicyContext?.vehicleModel,
-              previousPolicyContext?.vehicleVariant,
-            ]
-              .filter(Boolean)
-              .join(" "),
-          });
-        })
+      quotesToShare = selectedQuoteIds
+        .map((id) => quoteRows.find((q) => String(getQuoteRowId(q)) === String(id)))
         .filter(Boolean);
-
-      if (summaries.length === 0) return;
-      const combinedSummary = summaries.join("\n\n" + "─".repeat(20) + "\n\n");
-      const title = `${summaries.length} Selected Insurance Quotes`;
-
-      if (navigator.share) {
-        await navigator.share({ title, text: combinedSummary });
-        return;
-      }
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(combinedSummary);
-        Modal.success({
-          title: "Quotes copied",
-          content: `${summaries.length} Quote summaries copied to clipboard.`,
-        });
-        return;
-      }
-      Modal.info({ title: "Share selected quotes", content: combinedSummary });
-    } else if (canAddQuote) {
-      await handleShareQuote(quoteDraft);
+    } else if (canAddQuote && quoteDraft) {
+      quotesToShare = [quoteDraft];
     }
+    if (!quotesToShare.length) return;
+
+    const url = buildShareUrl(quotesToShare);
+    if (!url) return;
+    const title = `Insurance Quotes – ${previousPolicyContext?.customerName || "Customer"}`;
+    if (navigator.share) {
+      await navigator.share({ title, url });
+      return;
+    }
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(url);
+      Modal.success({ title: "Link copied!", content: "Share this link with your customer to view the quotes." });
+      return;
+    }
+    Modal.info({ title: "Share Quote Link", content: url });
   }, [
     selectedQuoteIds,
     quoteRows,
     getQuoteRowId,
-    computeQuoteBreakupFromRow,
+    buildShareUrl,
     previousPolicyContext,
-    handleShareQuote,
     quoteDraft,
     canAddQuote,
   ]);
@@ -1144,9 +1167,11 @@ const Step4InsuranceQuotes = ({
               >
                 <AutoComplete
                   value={quoteDraft.insuranceCompany}
+                  size="large"
                   style={{ width: "100%" }}
                   className="w-full"
                   allowClear
+                  placeholder="e.g. HDFC ERGO"
                   options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
                     value: name,
                   }))}
@@ -1161,13 +1186,7 @@ const Step4InsuranceQuotes = ({
                       .toLowerCase()
                       .includes(String(inputValue || "").toLowerCase())
                   }
-                >
-                  <Input
-                    size="large"
-                    className="quote-control"
-                    placeholder="e.g. HDFC ERGO"
-                  />
-                </AutoComplete>
+                />
               </FieldBlock>
 
               <FieldBlock label="Coverage Type" required>
