@@ -288,20 +288,73 @@ const getRenewedFromId = (record = {}) =>
   record.sourceCaseId ||
   "";
 
-const isPolicyRenewedElsewhere = (record = {}, allCases = []) => {
-  const currentId = String(getCaseId(record) || record.caseId || "");
-  if (!currentId) return false;
-  return (allCases || []).some((candidate) => {
-    if (String(getCaseId(candidate)) === currentId) return false;
-    return String(getRenewedFromId(candidate) || "") === currentId;
+const normalizeVehicleKey = (record = {}) => {
+  const reg = String(record.registrationNumber || record.vehicleNumber || "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase();
+  if (reg) return `REG:${reg}`;
+  const chassis = String(record.chassisNumber || "")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase();
+  if (chassis) return `CH:${chassis}`;
+  return "";
+};
+
+const getPolicySortStamp = (record = {}) => {
+  const expiry = parseInsuranceDate(getPolicyPulseExpiryDate(record));
+  if (expiry && expiry.isValid()) return expiry.valueOf();
+  const start = parseInsuranceDate(
+    record.newPolicyStartDate || record.newIssueDate || record.createdAt || "",
+  );
+  return start && start.isValid() ? start.valueOf() : 0;
+};
+
+/**
+ * Case ids that are "renewed" for dashboard purposes: either another case
+ * points at them via renewedFrom linkage, or the same vehicle (reg/chassis
+ * number) has a case with a later policy expiry — old policy cycles of a
+ * vehicle should not keep showing as expired/overdue here.
+ */
+const collectRenewedCaseIds = (cases = []) => {
+  const ids = new Set(
+    (cases || []).map((c) => String(getRenewedFromId(c) || "")).filter(Boolean),
+  );
+
+  const groups = new Map();
+  (cases || []).forEach((c) => {
+    const key = normalizeVehicleKey(c);
+    if (!key) return;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(c);
   });
+
+  groups.forEach((rows) => {
+    if (rows.length < 2) return;
+    const latest = rows.reduce((a, b) =>
+      getPolicySortStamp(b) > getPolicySortStamp(a) ? b : a,
+    );
+    const latestId = String(getCaseId(latest) || "");
+    const latestStamp = getPolicySortStamp(latest);
+    rows.forEach((c) => {
+      const id = String(getCaseId(c) || "");
+      if (!id || id === latestId) return;
+      // Only supersede cases with their own expiry older than the latest
+      // policy — drafts without an expiry yet are left untouched.
+      const expiry = parseInsuranceDate(getPolicyPulseExpiryDate(c));
+      if (expiry && expiry.isValid() && expiry.valueOf() < latestStamp) {
+        ids.add(id);
+      }
+    });
+  });
+
+  return ids;
 };
 
 const getPolicyPulseMeta = (days, alreadyRenewed = false) => {
   if (alreadyRenewed) {
     return {
       label: "Already Renewed",
-      detail: "Renewal case created",
+      detail: "Newer policy exists",
       color: "#2563eb",
       bg: "#eff6ff",
     };
@@ -1552,11 +1605,15 @@ const PolicyCard = ({
                     <span className="text-slate-600 shrink-0">Expiry</span>
                     <span className="font-semibold text-slate-900 text-right truncate">
                       {policy.expiryLabel}
-                      {pulseDays !== null && (
+                      {policy.alreadyRenewed ? (
+                        <span className="ml-1 font-normal text-blue-500">
+                          (Renewed)
+                        </span>
+                      ) : pulseDays !== null ? (
                         <span className={`ml-1 font-normal ${pulseDays < 30 ? "text-red-500" : "text-slate-500"}`}>
                           ({pulseDays < 0 ? `${Math.abs(pulseDays)}d overdue` : `${pulseDays}d left`})
                         </span>
-                      )}
+                      ) : null}
                     </span>
                     {pulseDays !== null && pulseDays < 30 && !policy.alreadyRenewed && (
                       <button
@@ -1707,15 +1764,12 @@ const InsuranceDashboardPage = () => {
   // COMPUTATIONS (PRESERVED)
   // ============================================
 
+  const renewedCaseIds = useMemo(() => collectRenewedCaseIds(cases), [cases]);
+
   const stats = useMemo(() => {
     const total = cases.length;
     const draft = cases.filter(isDraftPolicy).length;
     const completed = cases.filter(isCompletedPolicy).length;
-    const renewedIds = new Set(
-      (cases || [])
-        .map((c) => String(getRenewedFromId(c) || ""))
-        .filter(Boolean),
-    );
     const paymentDueRows = cases
       .map((c) => ({ record: c, due: getInsurancePaymentDueSnapshot(c) }))
       .filter((row) => row.due.isDue);
@@ -1725,7 +1779,7 @@ const InsuranceDashboardPage = () => {
       0,
     );
     const renewal30 = cases.filter((c) =>
-      isExpiringSoonCase(c, renewedIds),
+      isExpiringSoonCase(c, renewedCaseIds),
     ).length;
     return {
       total,
@@ -1735,26 +1789,16 @@ const InsuranceDashboardPage = () => {
       paymentDueAmount,
       expiringSoon: renewal30,
     };
-  }, [cases]);
+  }, [cases, renewedCaseIds]);
 
   const criticalAlerts = useMemo(
     () =>
       cases.filter((c) => {
-        if (isPolicyRenewedElsewhere(c, cases)) return false;
+        if (renewedCaseIds.has(String(getCaseId(c) || ""))) return false;
         const days = daysUntilExpiry(c);
         return days !== null && days >= 0 && days <= 7;
       }),
-    [cases],
-  );
-
-  const renewedCaseIds = useMemo(
-    () =>
-      new Set(
-        (cases || [])
-          .map((c) => String(getRenewedFromId(c) || ""))
-          .filter(Boolean),
-      ),
-    [cases],
+    [cases, renewedCaseIds],
   );
 
   const filterCounts = useMemo(() => {

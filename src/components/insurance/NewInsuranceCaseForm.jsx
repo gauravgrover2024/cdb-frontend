@@ -830,6 +830,31 @@ const validateStep3 = (data) => {
   return errors;
 };
 
+/** Customer fields tracked against the CRM-loaded snapshot for change detection */
+const CRM_CUSTOMER_FIELD_LABELS = {
+  customerName: "Customer Name",
+  companyName: "Company Name",
+  contactPersonName: "Contact Person",
+  mobile: "Mobile",
+  alternatePhone: "Alternate Phone",
+  email: "Email",
+  gender: "Gender",
+  panNumber: "PAN Number",
+  aadhaarNumber: "Aadhaar Number",
+  gstNumber: "GST Number",
+  residenceAddress: "Address",
+  pincode: "Pincode",
+  city: "City",
+};
+
+const pickCrmCustomerSnapshot = (data) => {
+  const snapshot = {};
+  Object.keys(CRM_CUSTOMER_FIELD_LABELS).forEach((key) => {
+    snapshot[key] = String(data?.[key] ?? "").trim();
+  });
+  return snapshot;
+};
+
 const NewInsuranceCaseForm = ({
   onCancel,
   onSubmit,
@@ -955,6 +980,13 @@ const NewInsuranceCaseForm = ({
   const customerSearchDebounceRef = React.useRef(null);
   const cityLookupSeqRef = React.useRef(0);
 
+  /**
+   * Snapshot of customer fields right after an existing CRM customer is
+   * loaded into the form. Used to detect edits to that data and warn the
+   * user on change, on next-step and on final save.
+   */
+  const [crmCustomerSnapshot, setCrmCustomerSnapshot] = useState(null);
+
   /** Staff / users from DB for Employee field (not customer records) */
   const [employeesList, setEmployeesList] = useState([]);
   const [employeesLoading, setEmployeesLoading] = useState(false);
@@ -1041,6 +1073,8 @@ const NewInsuranceCaseForm = ({
     return Math.round(previousIdv * 0.9);
   }, [formData.previousIdvAmount]);
 
+  const crmSnapshotPendingRef = React.useRef(false);
+
   const applyCustomerToForm = useCallback((customer) => {
     if (!customer) return;
 
@@ -1048,6 +1082,7 @@ const NewInsuranceCaseForm = ({
       ...customer,
       ...mapCustomerToInsuranceFields(customer),
     };
+    crmSnapshotPendingRef.current = true;
     setFormData((prev) =>
       mergeInsuranceCustomerFields(prev, normalized, { fillEmptyOnly: true }),
     );
@@ -1060,6 +1095,7 @@ const NewInsuranceCaseForm = ({
           const raw = res?.data?.data ?? res?.data ?? res;
           if (!raw || typeof raw !== "object") return;
           const full = { ...raw, ...mapCustomerToInsuranceFields(raw) };
+          crmSnapshotPendingRef.current = true;
           setFormData((prev) =>
             mergeInsuranceCustomerFields(prev, full, { fillEmptyOnly: true }),
           );
@@ -1069,6 +1105,60 @@ const NewInsuranceCaseForm = ({
         });
     }
   }, []);
+
+  // Capture the post-merge form values as the CRM baseline once the merge
+  // from applyCustomerToForm has been applied to formData.
+  useEffect(() => {
+    if (!crmSnapshotPendingRef.current) return;
+    crmSnapshotPendingRef.current = false;
+    setCrmCustomerSnapshot(pickCrmCustomerSnapshot(formData));
+  }, [formData]);
+
+  /** Labels of CRM-loaded customer fields the user has edited afterwards */
+  const modifiedCrmFields = useMemo(() => {
+    if (!crmCustomerSnapshot) return [];
+    return Object.entries(CRM_CUSTOMER_FIELD_LABELS)
+      .filter(
+        ([key]) =>
+          String(formData?.[key] ?? "").trim() !== crmCustomerSnapshot[key],
+      )
+      .map(([, label]) => label);
+  }, [crmCustomerSnapshot, formData]);
+
+  // Warn immediately when CRM-loaded customer data gets edited
+  const modifiedCrmFieldsLabel = modifiedCrmFields.join(", ");
+  useEffect(() => {
+    if (!modifiedCrmFieldsLabel) return;
+    message.warning({
+      key: "crm-customer-modified",
+      content: `Existing customer data changed: ${modifiedCrmFieldsLabel}`,
+      duration: 4,
+    });
+  }, [modifiedCrmFieldsLabel]);
+
+  /**
+   * Confirm before continuing when CRM-loaded customer data was edited.
+   * Resolves true to proceed (and re-baselines the snapshot so the same
+   * edits are not asked about again), false to stay.
+   */
+  const confirmCrmCustomerChanges = useCallback(() => {
+    if (!modifiedCrmFields.length) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      Modal.confirm({
+        title: "Existing customer data changed",
+        content: `You have changed these details of an existing customer: ${modifiedCrmFields.join(
+          ", ",
+        )}. Do you want to continue with the updated details?`,
+        okText: "Yes, continue",
+        cancelText: "No, review",
+        onOk: () => {
+          setCrmCustomerSnapshot(pickCrmCustomerSnapshot(formData));
+          resolve(true);
+        },
+        onCancel: () => resolve(false),
+      });
+    });
+  }, [modifiedCrmFields, formData]);
 
   const applyReferenceFromCustomer = useCallback((customer) => {
     if (!customer) return;
@@ -3310,6 +3400,7 @@ const NewInsuranceCaseForm = ({
       if (movingForward) {
         setShowErrors(true);
         if (!handleStepValidation()) return false;
+        if (step === 1 && !(await confirmCrmCustomerChanges())) return false;
       }
 
       const saved = await persistNow({ silent: true });
@@ -3319,7 +3410,7 @@ const NewInsuranceCaseForm = ({
       setShowErrors(false);
       return true;
     },
-    [handleStepValidation, persistNow, step],
+    [confirmCrmCustomerChanges, handleStepValidation, persistNow, step],
   );
 
   const goNext = useCallback(async () => {
@@ -3898,6 +3989,7 @@ const NewInsuranceCaseForm = ({
       message.error(finalSubmitErrors[0], 8);
       return;
     }
+    if (!(await confirmCrmCustomerChanges())) return;
     const saved = await persistNow({
       silent: true,
       patch: { status: "submitted" },
@@ -4043,6 +4135,7 @@ const NewInsuranceCaseForm = ({
             formData={formData}
             setField={setField}
             handleChange={handleChange}
+            modifiedCrmFields={modifiedCrmFields}
             showErrors={showErrors}
             step1Errors={step1DisplayErrors}
             isCompany={isCompany}

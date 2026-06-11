@@ -214,8 +214,16 @@ const FieldRow = ({ label, value, highlight = false }) => (
 );
 
 const SectionCard = ({ title, tone = "mint", fields = [], query = "" }) => {
+  const seenLabels = new Set();
   const visibleFields = fields
     .filter((field) => hasValue(field?.value))
+    .filter((field) => {
+      // Never render the same field label twice within one card
+      const labelKey = String(field?.label || "").trim().toLowerCase();
+      if (seenLabels.has(labelKey)) return false;
+      seenLabels.add(labelKey);
+      return true;
+    })
     .filter((field) => {
       if (!query.trim()) return true;
       const hay =
@@ -1221,10 +1229,18 @@ const InsurancePreview = ({
     });
   };
 
-  const quotes = useMemo(
-    () => (Array.isArray(data?.quotes) ? data.quotes : EMPTY_LIST),
-    [data?.quotes],
-  );
+  const quotes = useMemo(() => {
+    const rows = Array.isArray(data?.quotes) ? data.quotes : EMPTY_LIST;
+    const seen = new Set();
+    return rows.filter((row, idx) => {
+      // Drop duplicate quote rows (same quote id)
+      const key = String(getQuoteRowId(row, idx) || "").trim();
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [data?.quotes]);
   const acceptedQuoteId = firstFilled(
     data?.acceptedQuoteId,
     data?.accepted_quote_id,
@@ -1247,10 +1263,21 @@ const InsurancePreview = ({
     return EMPTY_LIST;
   }, [data?.paymentHistory, data?.payment_history]);
 
-  const paymentHistory = useMemo(
-    () => paymentHistoryRaw.map((row, idx) => normalizeLedgerRow(row, idx)),
-    [paymentHistoryRaw],
-  );
+  const paymentHistory = useMemo(() => {
+    const seen = new Set();
+    return paymentHistoryRaw
+      .filter((row) => {
+        // Drop duplicate ledger entries (same id / idempotency key)
+        const key = String(
+          row?.idempotencyKey || row?.idempotency_key || row?._id || row?.id || "",
+        ).trim();
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((row, idx) => normalizeLedgerRow(row, idx));
+  }, [paymentHistoryRaw]);
 
   const premiumAmount = Number(
     firstFilled(
@@ -1705,10 +1732,6 @@ const InsurancePreview = ({
                     {
                       label: "Assigned To (User ID)",
                       value: data.assignedTo,
-                    },
-                    {
-                      label: "Nominee Age",
-                      value: firstFilled(data.nomineeAge, data.nominee_age),
                     },
                     { label: "Reference Name", value: data.referenceName },
                     { label: "Reference Phone", value: data.referencePhone },
