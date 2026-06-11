@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Alert,
   AutoComplete,
   Col,
   Collapse,
@@ -142,6 +143,7 @@ const Step1CustomerInfo = ({
   formData,
   setField,
   handleChange,
+  modifiedCrmFields = [],
   onPolicyDoneByChange,
   onSourceChange,
   isExtendedWarranty = false,
@@ -1326,6 +1328,17 @@ const Step1CustomerInfo = ({
 
   return (
     <div className="step1-customer-info flex flex-col gap-6">
+      {modifiedCrmFields.length ? (
+        <Alert
+          type="warning"
+          showIcon
+          message="Existing customer data changed"
+          description={`You have changed these details of an existing customer: ${modifiedCrmFields.join(
+            ", ",
+          )}. You will be asked to confirm before moving to the next step or saving.`}
+        />
+      ) : null}
+
       <div className="relative overflow-hidden rounded-xl border border-slate-200/75 bg-white p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
