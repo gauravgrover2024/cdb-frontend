@@ -156,7 +156,7 @@ export default function FleetVehicleMaster() {
 
   const handleDelete = async (id) => {
     try {
-      await vehiclesApi.delete(id);
+      await vehiclesApi.deleteRecord(id);
       message.success("Vehicle deleted");
       fetchVehicles();
     } catch (err) {
