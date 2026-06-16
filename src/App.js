@@ -50,6 +50,7 @@ import UsedCarsDocumentationPage from "./modules/used-cars/pages/UsedCarsDocumen
 import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 import ACIAssistPage from "./pages/ACIAssistPage";
+import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
 
 import CDrivePremiumPortal from "./pages/CDrivePremiumPortal";
 
@@ -61,6 +62,7 @@ import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
 // Floating EMI Calculator – accessible from every authenticated screen
 import EMIFloatingLauncher from "./components/EMIFloatingLauncher";
 import AciAssistProgressPage from "./components/aci-assist-v2/progress/AciAssistProgressPage";
+import { logPageVisit } from "./utils/activityLogger";
 
 // Routes that manage their own layout (no outer padding)
 const FULL_WIDTH_ROUTES = ["/used-cars"];
@@ -71,6 +73,11 @@ function HeaderWrapper() {
   const isFullWidth = FULL_WIDTH_ROUTES.some((r) =>
     location.pathname.startsWith(r),
   );
+
+  // Log every page navigation to the session activity log
+  React.useEffect(() => {
+    logPageVisit(location.pathname);
+  }, [location.pathname]);
 
   return (
     <>
@@ -373,6 +380,13 @@ function App() {
               element={R(
                 FEATURE_ACCESS.SUPERADMIN_BANKS,
                 <DetailedBankViewPage />,
+              )}
+            />
+            <Route
+              path="superadmin/activity-log"
+              element={R(
+                FEATURE_ACCESS.SUPERADMIN_AUDIT_LOG,
+                <ActivityLogPage />,
               )}
             />
           </Route>

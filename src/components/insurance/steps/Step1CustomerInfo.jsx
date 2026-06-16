@@ -8,7 +8,6 @@ import {
   Input,
   InputNumber,
   Modal,
-  Radio,
   Row,
   Select,
   Tag,
@@ -330,213 +329,257 @@ const Step1CustomerInfo = ({
         </div>
       ),
       children: (
-        <div className="pt-3">
-          <Row gutter={[16, 16]} align="top">
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Buyer Type" required>
-                  <Radio.Group
-                    value={formData.buyerType}
-                    onChange={(e) => setField("buyerType", e.target.value)}
-                    optionType="button"
-                    buttonStyle="solid"
-                    options={[
-                      { label: "Individual", value: "Individual" },
-                      { label: "Company", value: "Company" },
-                    ]}
-                    style={{ marginTop: 8, width: "100%" }}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+        <div className="space-y-5 pt-2 pb-1">
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Vehicle Type" required>
-                  <Radio.Group
-                    value={formData.vehicleType}
-                    onChange={(e) => setField("vehicleType", e.target.value)}
-                    optionType="button"
-                    buttonStyle="solid"
-                    options={[
-                      { label: "New Car", value: "New Car" },
-                      { label: "Used Car", value: "Used Car" },
-                    ]}
-                    style={{ marginTop: 8, width: "100%" }}
-                  />
-                </CleanField>
-              </div>
-            </Col>
+          {/* ── Type toggles strip ── */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              Type Configuration
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Policy Type" required>
-                  <Radio.Group
-                    value={formData.policyCategory || "Insurance Policy"}
-                    onChange={(e) =>
-                      setField(
-                        "policyCategory",
-                        e?.target?.value || "Insurance Policy",
-                      )
+              {/* Buyer Type */}
+              <div>
+                <p className={labelClass}>
+                  Buyer Type <span className="text-[#FF8EAD]">*</span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {["Individual", "Company"].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setField("buyerType", val)}
+                      className={`flex-1 rounded-xl border py-2 text-[12px] font-bold transition-all ${
+                        formData.buyerType === val
+                          ? "border-blue-300 bg-blue-50 text-blue-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Vehicle Type */}
+              <div>
+                <p className={labelClass}>
+                  Vehicle Type <span className="text-[#FF8EAD]">*</span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {["New Car", "Used Car"].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setField("vehicleType", val)}
+                      className={`flex-1 rounded-xl border py-2 text-[12px] font-bold transition-all ${
+                        formData.vehicleType === val
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Policy Type */}
+              <div>
+                <p className={labelClass}>
+                  Policy Type <span className="text-[#FF8EAD]">*</span>
+                </p>
+                <div className="mt-2 flex gap-2">
+                  {[
+                    { label: "Insurance", value: "Insurance Policy" },
+                    { label: "EW Policy", value: "Extended Warranty" },
+                  ].map(({ label, value }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setField("policyCategory", value)}
+                      className={`flex-1 rounded-xl border py-2 text-[12px] font-bold transition-all ${
+                        (formData.policyCategory || "Insurance Policy") === value
+                          ? "border-violet-300 bg-violet-50 text-violet-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Used Car Flow — shown inline in type strip when relevant */}
+            {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
+              <div className="mt-4 border-t border-slate-200/70 pt-4">
+                <p className={labelClass}>
+                  Used Car Flow Type <span className="text-[#FF8EAD]">*</span>
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {["Renewal", "Policy Already Expired", "Sale/Purchase"].map((val) => (
+                    <button
+                      key={val}
+                      type="button"
+                      onClick={() => setField("usedCarFlowType", val)}
+                      className={`rounded-xl border px-4 py-2 text-[12px] font-bold transition-all ${
+                        (formData.usedCarFlowType || "Renewal") === val
+                          ? "border-amber-300 bg-amber-50 text-amber-700 shadow-sm"
+                          : "border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700"
+                      }`}
+                    >
+                      {val}
+                    </button>
+                  ))}
+                </div>
+                {showErrors && step1Errors.usedCarFlowType ? (
+                  <p className="mt-1 text-[11px] text-red-500">{step1Errors.usedCarFlowType}</p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          {/* ── Staff & Policy assignment ── */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
+            <div className={fieldWrapClass}>
+              <CleanField label="Employee (Staff)" required>
+                <AutoComplete
+                  size="large"
+                  value={formData.employeeName}
+                  onSearch={(val) => {
+                    setField("employeeName", val);
+                    setField("employeeUserId", "");
+                  }}
+                  onChange={(val) => {
+                    setField("employeeName", val);
+                    setField("employeeUserId", "");
+                  }}
+                  options={employeeOptions}
+                  loading={employeesLoading}
+                  placeholder="Search staff name"
+                  allowClear
+                  style={{ width: "100%" }}
+                  onSelect={(id) => {
+                    const emp = employeesList.find(
+                      (e) => String(e._id || e.id) === String(id),
+                    );
+                    if (emp) {
+                      setField("employeeName", emp.name || "");
+                      setField("employeeUserId", emp._id || emp.id || "");
                     }
-                    optionType="button"
-                    buttonStyle="solid"
-                    options={[
-                      { label: "Insurance", value: "Insurance Policy" },
-                      { label: "EW Policy", value: "Extended Warranty" },
-                    ]}
-                    style={{ marginTop: 8, width: "100%" }}
-                  />
-                </CleanField>
-              </div>
-            </Col>
-
-
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Employee (staff)" required>
-                  <AutoComplete
-                    size="large"
-                    value={formData.employeeName}
-                    onSearch={(val) => {
-                      setField("employeeName", val);
-                      setField("employeeUserId", "");
-                    }}
-                    onChange={(val) => {
-                      setField("employeeName", val);
-                      setField("employeeUserId", "");
-                    }}
-                    options={employeeOptions}
-                    loading={employeesLoading}
-                    placeholder="Staff Name"
-                    allowClear
-                    style={{ width: "100%", marginTop: 8 }}
-                    onSelect={(id) => {
-                      const emp = employeesList.find(
-                        (e) => String(e._id || e.id) === String(id),
-                      );
-                      if (emp) {
-                        setField("employeeName", emp.name || "");
-                        setField("employeeUserId", emp._id || emp.id || "");
-                      }
-                    }}
-                    status={
-                      showErrors && step1Errors.employeeName ? "error" : ""
-                    }
-                  />
-                </CleanField>
-              </div>
+                  }}
+                  status={showErrors && step1Errors.employeeName ? "error" : ""}
+                />
+              </CleanField>
               {showErrors && step1Errors.employeeName ? (
-                <Text type="danger">{step1Errors.employeeName}</Text>
+                <p className="mt-1 text-[11px] text-red-500">{step1Errors.employeeName}</p>
               ) : null}
-            </Col>
+            </div>
 
-            <Col xs={24} md={8}>
-              <div className={fieldWrapClass}>
-                <CleanField label="Policy Done By" required>
-                  <Select size="large" allowClear
-                    value={policyDoneBy || "Autocredits India LLP"}
-                    onChange={(value) => {
-                      if (onPolicyDoneByChange) onPolicyDoneByChange(value);
-                      else setField("policyDoneBy", value);
-                    }}
-                    style={controlStyle}
-                    options={POLICY_DONE_BY_OPTIONS.map((value) => ({
-                      label: value,
-                      value,
-                    }))}
-                    status={
-                      showErrors && step1Errors.policyDoneBy ? "error" : ""
-                    }
-                  />
-                </CleanField>
-              </div>
+            <div className={fieldWrapClass}>
+              <CleanField label="Policy Done By" required>
+                <Select
+                  size="large"
+                  allowClear
+                  value={policyDoneBy || "Autocredits India LLP"}
+                  onChange={(value) => {
+                    if (onPolicyDoneByChange) onPolicyDoneByChange(value);
+                    else setField("policyDoneBy", value);
+                  }}
+                  style={controlStyle}
+                  options={POLICY_DONE_BY_OPTIONS.map((value) => ({ label: value, value }))}
+                  status={showErrors && step1Errors.policyDoneBy ? "error" : ""}
+                />
+              </CleanField>
               {showErrors && step1Errors.policyDoneBy ? (
-                <Text type="danger">{step1Errors.policyDoneBy}</Text>
+                <p className="mt-1 text-[11px] text-red-500">{step1Errors.policyDoneBy}</p>
               ) : null}
-            </Col>
+            </div>
 
+            {/* Broker Name — shown when policyDoneBy = Broker */}
             {policyDoneBy === "Broker" ? (
-              <Col xs={24} md={8}>
-                <div className={fieldWrapClass}>
-                  <CleanField label="Broker Name" required>
-                    <AutoComplete
-                      size="large"
-                      allowClear
-                      value={formData.brokerName}
-                      options={brokerOptions}
-                      onSearch={searchBrokers}
-                      onSelect={(val, option) => {
-                        const p = option?.partner;
-                        setField("brokerName", p?.name || val || "");
-                        applyChannelDealerNo(p?.channelId || "");
-                      }}
-                      onChange={(val) => setField("brokerName", val)}
-                      placeholder="Type 3+ chars — broker name"
-                      status={
-                        showErrors && step1Errors.brokerName ? "error" : ""
-                      }
-                    />
-                  </CleanField>
-                </div>
-                {showErrors && step1Errors.brokerName ? (
-                  <Text type="danger">{step1Errors.brokerName}</Text>
-                ) : null}
-              </Col>
-            ) : null}
-
-            {policyDoneBy === "Showroom" ? (
-              <Col xs={24} md={8}>
-                <div className={fieldWrapClass}>
-                  <CleanField label="Showroom Name" required>
-                    <AutoComplete
-                      size="large"
-                      allowClear
-                      value={formData.showroomName}
-                      options={showroomOptions}
-                      onSearch={searchShowrooms}
-                      onSelect={(val, option) => {
-                        const s = option?.showroom;
-                        setField("showroomName", s?.name || val || "");
-                        applyChannelDealerNo(s?.showroomId || "");
-                      }}
-                      onChange={(val) => setField("showroomName", val)}
-                      placeholder="Type 3+ chars — showroom name"
-                      status={
-                        showErrors && step1Errors.showroomName ? "error" : ""
-                      }
-                    />
-                  </CleanField>
-                </div>
-                {showErrors && step1Errors.showroomName ? (
-                  <Text type="danger">{step1Errors.showroomName}</Text>
-                ) : null}
-              </Col>
-            ) : null}
-
-            <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Channel / Dealer Number">
+                <CleanField label="Broker Name" required>
                   <AutoComplete
                     size="large"
                     allowClear
-                    value={formData.channelDealerNo}
-                    options={channelMasterOptions}
-                    onSearch={searchChannelMaster}
-                    onSelect={(_, option) => applyChannelFromMaster(option?.channel)}
-                    onChange={(val) => setField("channelDealerNo", val)}
-                    placeholder="Type 3+ chars — ID, name, mobile"
-                    notFoundContent={channelMasterNotFound}
-                    style={{ width: "100%" }}
+                    value={formData.brokerName}
+                    options={brokerOptions}
+                    onSearch={searchBrokers}
+                    onSelect={(val, option) => {
+                      const p = option?.partner;
+                      setField("brokerName", p?.name || val || "");
+                      applyChannelDealerNo(p?.channelId || "");
+                    }}
+                    onChange={(val) => setField("brokerName", val)}
+                    placeholder="Type 3+ chars — broker name"
+                    status={showErrors && step1Errors.brokerName ? "error" : ""}
                   />
                 </CleanField>
+                {showErrors && step1Errors.brokerName ? (
+                  <p className="mt-1 text-[11px] text-red-500">{step1Errors.brokerName}</p>
+                ) : null}
               </div>
-            </Col>
+            ) : null}
 
-            <Col xs={24} md={8}>
+            {/* Showroom Name — shown when policyDoneBy = Showroom */}
+            {policyDoneBy === "Showroom" ? (
+              <div className={fieldWrapClass}>
+                <CleanField label="Showroom Name" required>
+                  <AutoComplete
+                    size="large"
+                    allowClear
+                    value={formData.showroomName}
+                    options={showroomOptions}
+                    onSearch={searchShowrooms}
+                    onSelect={(val, option) => {
+                      const s = option?.showroom;
+                      setField("showroomName", s?.name || val || "");
+                      applyChannelDealerNo(s?.showroomId || "");
+                    }}
+                    onChange={(val) => setField("showroomName", val)}
+                    placeholder="Type 3+ chars — showroom name"
+                    status={showErrors && step1Errors.showroomName ? "error" : ""}
+                  />
+                </CleanField>
+                {showErrors && step1Errors.showroomName ? (
+                  <p className="mt-1 text-[11px] text-red-500">{step1Errors.showroomName}</p>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div className={fieldWrapClass}>
+              <CleanField label="Channel / Dealer Number">
+                <AutoComplete
+                  size="large"
+                  allowClear
+                  value={formData.channelDealerNo}
+                  options={channelMasterOptions}
+                  onSearch={searchChannelMaster}
+                  onSelect={(_, option) => applyChannelFromMaster(option?.channel)}
+                  onChange={(val) => setField("channelDealerNo", val)}
+                  placeholder="Type 3+ chars — ID, name, mobile"
+                  notFoundContent={channelMasterNotFound}
+                  style={{ width: "100%" }}
+                />
+              </CleanField>
+            </div>
+          </div>
+
+          {/* ── Source ── */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/70 p-4">
+            <p className="mb-3 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+              Source Details
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+
               <div className={fieldWrapClass}>
                 <CleanField label="Source" required>
-                  <Select size="large" allowClear
+                  <Select
+                    size="large"
+                    allowClear
                     value={sourceMode || "Direct"}
                     onChange={(value) => {
                       if (onSourceChange) onSourceChange(value);
@@ -550,14 +593,13 @@ const Step1CustomerInfo = ({
                     status={showErrors && step1Errors.source ? "error" : ""}
                   />
                 </CleanField>
+                {showErrors && step1Errors.source ? (
+                  <p className="mt-1 text-[11px] text-red-500">{step1Errors.source}</p>
+                ) : null}
               </div>
-              {showErrors && step1Errors.source ? (
-                <Text type="danger">{step1Errors.source}</Text>
-              ) : null}
-            </Col>
 
-            {sourceMode === "Direct" ? (
-              <Col xs={24} md={8}>
+              {/* Direct source name */}
+              {sourceMode === "Direct" ? (
                 <div className={fieldWrapClass}>
                   <CleanField label="Source Name" required>
                     <Input
@@ -566,87 +608,73 @@ const Step1CustomerInfo = ({
                       value={formData.sourceName}
                       onChange={handleChange("sourceName")}
                       placeholder="Source Name"
-                      status={
-                        showErrors && step1Errors.sourceName ? "error" : ""
-                      }
+                      status={showErrors && step1Errors.sourceName ? "error" : ""}
                     />
                   </CleanField>
+                  {showErrors && step1Errors.sourceName ? (
+                    <p className="mt-1 text-[11px] text-red-500">{step1Errors.sourceName}</p>
+                  ) : null}
                 </div>
-                {showErrors && step1Errors.sourceName ? (
-                  <Text type="danger">{step1Errors.sourceName}</Text>
-                ) : null}
-              </Col>
-            ) : null}
+              ) : null}
 
-            {sourceMode === "Indirect" ? (
-              <>
-                <Col xs={24} md={8}>
+              {/* Indirect source fields */}
+              {sourceMode === "Indirect" ? (
+                <>
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel" required>
-                    <AutoComplete
-                      size="large"
-                      allowClear
-                      value={formData.dealerChannelName}
-                      options={partnerOptions}
-                      onSearch={searchPartners}
-                      onSelect={(val, option) => {
-                        const p = option.partner;
-                        if (p) {
-                          setField("dealerChannelName", p.name || "");
-                          setField("channelDealerNo", p.channelId || "");
-                          if (p.address) setField("dealerChannelAddress", p.address);
-                          
-                          const pMobile = String(p.mobile || p.contactNumber || "");
-                          if (pMobile) {
-                            let digits = pMobile.replace(/\D/g, "");
-                            if (digits.length >= 10) digits = digits.slice(-10);
-                            setField("dealerMobile", digits);
+                      <AutoComplete
+                        size="large"
+                        allowClear
+                        value={formData.dealerChannelName}
+                        options={partnerOptions}
+                        onSearch={searchPartners}
+                        onSelect={(val, option) => {
+                          const p = option.partner;
+                          if (p) {
+                            setField("dealerChannelName", p.name || "");
+                            setField("channelDealerNo", p.channelId || "");
+                            if (p.address) setField("dealerChannelAddress", p.address);
+                            const pMobile = String(p.mobile || p.contactNumber || "");
+                            if (pMobile) {
+                              let digits = pMobile.replace(/\D/g, "");
+                              if (digits.length >= 10) digits = digits.slice(-10);
+                              setField("dealerMobile", digits);
+                            }
+                            setField("payoutApplicable", "Yes");
+                            if (p.commissionRate) setField("payoutPercent", String(p.commissionRate));
                           }
-
-                          setField("payoutApplicable", "Yes");
-                          if (p.commissionRate) setField("payoutPercent", String(p.commissionRate));
-                        }
-                      }}
-                      onChange={(val) => setField("dealerChannelName", val)}
-                      placeholder="Type 3+ chars — dealer name or mobile"
-                      status={
-                        showErrors && step1Errors.dealerChannelName
-                          ? "error"
-                          : ""
-                      }
-                    />
+                        }}
+                        onChange={(val) => setField("dealerChannelName", val)}
+                        placeholder="Type 3+ chars — dealer name or mobile"
+                        status={showErrors && step1Errors.dealerChannelName ? "error" : ""}
+                      />
                     </CleanField>
+                    {showErrors && step1Errors.dealerChannelName ? (
+                      <p className="mt-1 text-[11px] text-red-500">{step1Errors.dealerChannelName}</p>
+                    ) : null}
                   </div>
-                  {showErrors && step1Errors.dealerChannelName ? (
-                    <Text type="danger">{step1Errors.dealerChannelName}</Text>
-                  ) : null}
-                </Col>
-                <Col xs={24} md={8}>
+
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel Address" required>
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         value={formData.dealerChannelAddress}
                         onChange={handleChange("dealerChannelAddress")}
                         placeholder="Dealer / Channel address"
-                       
-                        status={
-                          showErrors && step1Errors.dealerChannelAddress
-                            ? "error"
-                            : ""
-                        }
+                        status={showErrors && step1Errors.dealerChannelAddress ? "error" : ""}
                       />
                     </CleanField>
+                    {showErrors && step1Errors.dealerChannelAddress ? (
+                      <p className="mt-1 text-[11px] text-red-500">{step1Errors.dealerChannelAddress}</p>
+                    ) : null}
                   </div>
-                  {showErrors && step1Errors.dealerChannelAddress ? (
-                    <Text type="danger">
-                      {step1Errors.dealerChannelAddress}
-                    </Text>
-                  ) : null}
-                </Col>
-                <Col xs={24} md={8}>
+
                   <div className={fieldWrapClass}>
                     <CleanField label="Dealer / Channel Mobile" required>
-                      <Input size="large" allowClear
+                      <Input
+                        size="large"
+                        allowClear
                         value={formData.dealerMobile}
                         onChange={(e) => {
                           const digits = String(e?.target?.value || "")
@@ -655,46 +683,36 @@ const Step1CustomerInfo = ({
                           setField("dealerMobile", digits);
                         }}
                         maxLength={10}
-                        placeholder="Dealer Mobile"
-                        status={
-                          showErrors && step1Errors.dealerMobile
-                            ? "error"
-                            : ""
-                        }
+                        placeholder="10-digit mobile"
+                        status={showErrors && step1Errors.dealerMobile ? "error" : ""}
                       />
                     </CleanField>
+                    {showErrors && step1Errors.dealerMobile ? (
+                      <p className="mt-1 text-[11px] text-red-500">{step1Errors.dealerMobile}</p>
+                    ) : null}
                   </div>
-                  {showErrors && step1Errors.dealerMobile ? (
-                    <Text type="danger">{step1Errors.dealerMobile}</Text>
-                  ) : null}
-                </Col>
-                <Col xs={24} md={8}>
+
                   <div className={fieldWrapClass}>
                     <CleanField label="Payout Applicable" required>
-                      <Select size="large" allowClear
+                      <Select
+                        size="large"
+                        allowClear
                         value={formData.payoutApplicable || "No"}
-                        onChange={(value) =>
-                          setField("payoutApplicable", value)
-                        }
+                        onChange={(value) => setField("payoutApplicable", value)}
                         style={controlStyle}
                         options={[
                           { label: "No", value: "No" },
                           { label: "Yes", value: "Yes" },
                         ]}
-                        status={
-                          showErrors && step1Errors.payoutApplicable
-                            ? "error"
-                            : ""
-                        }
+                        status={showErrors && step1Errors.payoutApplicable ? "error" : ""}
                       />
                     </CleanField>
+                    {showErrors && step1Errors.payoutApplicable ? (
+                      <p className="mt-1 text-[11px] text-red-500">{step1Errors.payoutApplicable}</p>
+                    ) : null}
                   </div>
-                  {showErrors && step1Errors.payoutApplicable ? (
-                    <Text type="danger">{step1Errors.payoutApplicable}</Text>
-                  ) : null}
-                </Col>
-                {String(formData.payoutApplicable || "No") === "Yes" ? (
-                  <Col xs={24} md={8}>
+
+                  {String(formData.payoutApplicable || "No") === "Yes" ? (
                     <div className={fieldWrapClass}>
                       <CleanField label="Payout %" required>
                         <InputNumber
@@ -709,58 +727,24 @@ const Step1CustomerInfo = ({
                               : Number(formData.payoutPercent)
                           }
                           onChange={(value) =>
-                            setField(
-                              "payoutPercent",
-                              value === null ? "" : String(value),
-                            )
+                            setField("payoutPercent", value === null ? "" : String(value))
                           }
                           style={controlStyle}
-                          placeholder="Payout %"
-                          status={
-                            showErrors && step1Errors.payoutPercent
-                              ? "error"
-                              : ""
-                          }
+                          placeholder="e.g. 10"
+                          suffix="%"
+                          status={showErrors && step1Errors.payoutPercent ? "error" : ""}
                         />
                       </CleanField>
+                      {showErrors && step1Errors.payoutPercent ? (
+                        <p className="mt-1 text-[11px] text-red-500">{step1Errors.payoutPercent}</p>
+                      ) : null}
                     </div>
-                    {showErrors && step1Errors.payoutPercent ? (
-                      <Text type="danger">{step1Errors.payoutPercent}</Text>
-                    ) : null}
-                  </Col>
-                ) : null}
-              </>
-            ) : null}
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </div>
 
-            {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
-              <Col xs={24} md={16}>
-                <div className={fieldWrapClass}>
-                  <CleanField label="Used Car Flow Type" required>
-                    <Radio.Group
-                      value={String(formData.usedCarFlowType || "Renewal")}
-                      onChange={(e) =>
-                        setField("usedCarFlowType", e?.target?.value || "Renewal")
-                      }
-                      optionType="button"
-                      buttonStyle="solid"
-                      options={[
-                        { label: "Renewal", value: "Renewal" },
-                        {
-                          label: "Policy Already Expired",
-                          value: "Policy Already Expired",
-                        },
-                        { label: "Sale/Purchase", value: "Sale/Purchase" },
-                      ]}
-                      style={{ marginTop: 8, width: "100%" }}
-                    />
-                  </CleanField>
-                </div>
-                {showErrors && step1Errors.usedCarFlowType ? (
-                  <Text type="danger">{step1Errors.usedCarFlowType}</Text>
-                ) : null}
-              </Col>
-            ) : null}
-          </Row>
         </div>
       ),
     },
@@ -880,6 +864,15 @@ const Step1CustomerInfo = ({
                           getCustomerId,
                         );
                         if (selected) {
+                          // Explicitly set the full name so fillEmptyOnly doesn't
+                          // leave the typed partial text (e.g. "Ram") in the field.
+                          const fullName =
+                            selected?.customerName ||
+                            selected?.companyName ||
+                            selected?.name ||
+                            selected?.fullName ||
+                            "";
+                          if (fullName) setField("customerName", fullName);
                           applyCustomerToForm(selected);
                           setCustomerDataLoaded(true);
                         }
@@ -942,6 +935,18 @@ const Step1CustomerInfo = ({
                         getCustomerId,
                       );
                       if (selected) {
+                        // Explicitly set mobile so fillEmptyOnly doesn't leave
+                        // the typed partial digits in the field.
+                        const mobileRaw =
+                          selected?.primaryMobile ??
+                          selected?.mobile ??
+                          selected?.phone ??
+                          selected?.contactNumber ??
+                          "";
+                        const mobile10 = String(mobileRaw)
+                          .replace(/\D/g, "")
+                          .slice(-10);
+                        if (mobile10) setField("mobile", mobile10);
                         applyCustomerToForm(selected);
                         setCustomerDataLoaded(true);
                       }

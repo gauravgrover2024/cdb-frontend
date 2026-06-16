@@ -3,21 +3,15 @@ import {
   AutoComplete,
   Button,
   Col,
-  Divider,
   Empty,
-  Input,
   InputNumber,
   Row,
-  Space,
-  Table,
-  Typography,
   Popconfirm,
   Tag,
 } from "antd";
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
 import { computePayoutBaseAmount } from "./payoutRates";
 
-const { Text, Title } = Typography;
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
@@ -95,6 +89,7 @@ const Step8Payout = ({
   }, []);
 
   const addReceivable = () => {
+    const initAmount = calculatePayoutAmount(payoutPercentage);
     const newList = [
       ...receivables,
       {
@@ -104,19 +99,19 @@ const Step8Payout = ({
         payout_type: "Bank",
         payout_party_name: formData.newInsuranceCompany || "",
         payout_percentage: payoutPercentage,
-        payout_amount: 0,
+        payout_amount: initAmount,
         tds_percentage: 0,
         tds_amount: 0,
-        net_payout_amount: 0,
+        net_payout_amount: initAmount,
         payout_status: "Expected",
         payout_remarks: "",
       },
     ];
     setField("insurance_receivables", newList);
-    // schedulePersist(250);
   };
 
   const addPayable = () => {
+    const initAmount = calculatePayoutAmount(payoutPercentage);
     const newList = [
       ...payables,
       {
@@ -126,16 +121,15 @@ const Step8Payout = ({
         payout_type: "Broker",
         payout_party_name: formData.brokerName || "",
         payout_percentage: payoutPercentage,
-        payout_amount: 0,
+        payout_amount: initAmount,
         tds_percentage: 0,
         tds_amount: 0,
-        net_payout_amount: 0,
+        net_payout_amount: initAmount,
         payout_status: "Expected",
         payout_remarks: "",
       },
     ];
     setField("insurance_payables", newList);
-    // schedulePersist(250);
   };
 
   const updatePayout = (list, setListName, id, field, value) => {
@@ -277,8 +271,8 @@ const Step8Payout = ({
                   min={0}
                   max={100}
                   value={payoutPercentage}
-                  className="w-full !rounded-xl !h-11 !flex !items-center"
-                  addonAfter="%"
+                  className="w-full"
+                  suffix="%"
                   disabled
                 />
                 <div className="text-[10px] text-slate-400 italic">Inherited from quote acceptance</div>
@@ -302,7 +296,7 @@ const Step8Payout = ({
                   min={0}
                   value={subventionAmount}
                   onChange={(v) => setField("subventionAmount", Number(v || 0))}
-                  className="w-full !rounded-xl !h-11 !flex !items-center"
+                  className="w-full"
                   addonBefore="₹"
                   placeholder="0"
                 />
@@ -446,89 +440,124 @@ const Step8Payout = ({
 
 const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) => {
   const isReceivable = type === "Receivable";
-  const cardClasses = isReceivable
-    ? "border-[#9FC0FF] bg-white"
-    : "border-[#FF8EAD]/70 bg-[#FFE6C6]/55";
-  const tagColor = isReceivable ? "cyan" : "gold";
+
+  const accent = isReceivable ? "#3b82f6" : "#f43f5e";
+  const accentBg = isReceivable ? "#eff6ff" : "#fff1f2";
+  const accentBorder = isReceivable ? "#bfdbfe" : "#fecdd3";
+  const netColor = isReceivable ? "#16a34a" : "#dc2626";
+  const netBg = isReceivable ? "#f0fdf4" : "#fff1f2";
+  const netBorder = isReceivable ? "#bbf7d0" : "#fecdd3";
 
   return (
-    <div
-      className={`mb-4 rounded-lg border p-3 shadow-sm dark:border-slate-800 dark:bg-slate-950 ${cardClasses}`}
-    >
-      <div className="mb-3 flex items-center justify-between">
-        <Space>
-          <Tag color={tagColor}>{type}</Tag>
-          <Text strong>{item.payoutId}</Text>
-        </Space>
-        <Popconfirm title="Delete this payout?" onConfirm={onDelete}>
-          <Button type="text" danger icon={<Trash2 size={14} />} size="small" />
+    <div className="mb-3 overflow-hidden rounded-2xl border bg-white shadow-sm" style={{ borderColor: accentBorder }}>
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-4 py-3" style={{ backgroundColor: accentBg, borderBottom: `1px solid ${accentBorder}` }}>
+        <div className="flex items-center gap-2.5">
+          <span
+            className="h-2 w-2 rounded-full"
+            style={{ backgroundColor: accent }}
+          />
+          <span className="text-[11px] font-black uppercase tracking-[0.18em]" style={{ color: accent }}>
+            {type}
+          </span>
+          <span className="text-[11px] font-mono text-slate-400">{item.payoutId}</span>
+        </div>
+        <Popconfirm
+          title="Delete this entry?"
+          okText="Delete"
+          okButtonProps={{ danger: true }}
+          onConfirm={onDelete}
+        >
+          <button
+            type="button"
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-rose-50 hover:text-rose-500"
+          >
+            <Trash2 size={13} />
+          </button>
         </Popconfirm>
       </div>
 
-      <Row gutter={[16, 16]}>
-        <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">
+      {/* ── Editable fields ── */}
+      <div className="grid grid-cols-3 gap-3 px-4 py-4">
+        <div className="col-span-3 flex flex-col gap-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Party Name
-          </Text>
+          </label>
           <AutoComplete
-            size="small"
             value={item.payout_party_name || ""}
             onChange={(v) => onUpdate("payout_party_name", v)}
-            showSearch
-            placeholder="Select bank/party"
+            placeholder="Bank / Broker / Party"
             options={bankOptions.map((name) => ({ label: name, value: name }))}
             style={{ width: "100%" }}
           />
-        </Col>
-        <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Payout %
-          </Text>
+          </label>
           <InputNumber
-            size="small"
             style={{ width: "100%" }}
             value={item.payout_percentage}
             onChange={(v) => onUpdate("payout_percentage", v)}
-            placeholder="0%"
+            placeholder="0"
+            suffix="%"
+            min={0}
+            max={100}
           />
-        </Col>
-        <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             TDS %
-          </Text>
+          </label>
           <InputNumber
-            size="small"
             style={{ width: "100%" }}
             value={item.tds_percentage}
             onChange={(v) => onUpdate("tds_percentage", v)}
-            placeholder="5%"
+            placeholder="0"
+            suffix="%"
+            min={0}
+            max={100}
           />
-        </Col>
-        <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">
-            Amt (Gross)
-          </Text>
-          <div className="text-sm font-semibold">
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            Status
+          </label>
+          <Tag
+            className="!m-0 !rounded-lg !px-2 !py-1 !text-[11px] !font-bold"
+            color={item.payout_status === "Received" ? "green" : "default"}
+          >
+            {item.payout_status || "Expected"}
+          </Tag>
+        </div>
+      </div>
+
+      {/* ── Computed summary strip ── */}
+      <div className="grid grid-cols-3 divide-x border-t" style={{ borderColor: accentBorder, backgroundColor: accentBg }}>
+        <div className="px-4 py-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">Gross</div>
+          <div className="mt-0.5 text-[13px] font-black text-slate-800">
             ₹{Math.round(item.payout_amount || 0).toLocaleString("en-IN")}
           </div>
-        </Col>
-        <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">
-            TDS Amt
-          </Text>
-          <div className="text-sm text-rose-500">
-            -₹{Math.round(item.tds_amount || 0).toLocaleString("en-IN")}
+        </div>
+        <div className="px-4 py-3">
+          <div className="text-[9px] font-bold uppercase tracking-wider text-slate-400">TDS</div>
+          <div className="mt-0.5 text-[13px] font-black text-rose-500">
+            −₹{Math.round(item.tds_amount || 0).toLocaleString("en-IN")}
           </div>
-        </Col>
-        <Col span={8}>
-          <Text type="secondary" className="text-[10px] uppercase font-bold">
-            Net Payout
-          </Text>
-          <div className="text-sm font-bold text-emerald-600">
+        </div>
+        <div className="px-4 py-3 rounded-br-2xl" style={{ backgroundColor: netBg, borderLeft: `1px solid ${netBorder}` }}>
+          <div className="text-[9px] font-bold uppercase tracking-wider" style={{ color: netColor }}>
+            Net {type === "Receivable" ? "Receivable" : "Payable"}
+          </div>
+          <div className="mt-0.5 text-[14px] font-black" style={{ color: netColor }}>
             ₹{Math.round(item.net_payout_amount || 0).toLocaleString("en-IN")}
           </div>
-        </Col>
-      </Row>
+        </div>
+      </div>
     </div>
   );
 };

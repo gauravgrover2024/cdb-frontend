@@ -1082,7 +1082,9 @@ const NewInsuranceCaseForm = ({
       ...customer,
       ...mapCustomerToInsuranceFields(customer),
     };
-    crmSnapshotPendingRef.current = true;
+
+    // First merge from search result — do NOT take snapshot yet to avoid
+    // false-positive "data changed" warnings before getById fills full fields.
     setFormData((prev) =>
       mergeInsuranceCustomerFields(prev, normalized, { fillEmptyOnly: true }),
     );
@@ -1093,8 +1095,10 @@ const NewInsuranceCaseForm = ({
         .getById(customerId)
         .then((res) => {
           const raw = res?.data?.data ?? res?.data ?? res;
-          if (!raw || typeof raw !== "object") return;
-          const full = { ...raw, ...mapCustomerToInsuranceFields(raw) };
+          const full = raw && typeof raw === "object"
+            ? { ...raw, ...mapCustomerToInsuranceFields(raw) }
+            : normalized;
+          // Snapshot is taken here — after all CRM fields are loaded.
           crmSnapshotPendingRef.current = true;
           setFormData((prev) =>
             mergeInsuranceCustomerFields(prev, full, { fillEmptyOnly: true }),
@@ -1102,7 +1106,14 @@ const NewInsuranceCaseForm = ({
         })
         .catch((err) => {
           console.error("[Insurance][CustomerById] fetch failed:", err);
+          // On error, snapshot from first merge so diff-tracking still works.
+          crmSnapshotPendingRef.current = true;
+          setFormData((prev) => ({ ...prev }));
         });
+    } else {
+      // No ID — snapshot from the search-result merge.
+      crmSnapshotPendingRef.current = true;
+      setFormData((prev) => ({ ...prev }));
     }
   }, []);
 
@@ -1125,16 +1136,9 @@ const NewInsuranceCaseForm = ({
       .map(([, label]) => label);
   }, [crmCustomerSnapshot, formData]);
 
-  // Warn immediately when CRM-loaded customer data gets edited
-  const modifiedCrmFieldsLabel = modifiedCrmFields.join(", ");
-  useEffect(() => {
-    if (!modifiedCrmFieldsLabel) return;
-    message.warning({
-      key: "crm-customer-modified",
-      content: `Existing customer data changed: ${modifiedCrmFieldsLabel}`,
-      duration: 4,
-    });
-  }, [modifiedCrmFieldsLabel]);
+  // Note: auto-toast removed — false positives fired during the two-phase CRM
+  // async load (search result merge → getById merge). Confirmation is handled
+  // by confirmCrmCustomerChanges() at step-advance and save time instead.
 
   /**
    * Confirm before continuing when CRM-loaded customer data was edited.
