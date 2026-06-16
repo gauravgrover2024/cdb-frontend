@@ -407,7 +407,13 @@ const AddCustomer = () => {
               }}
             >
               <div id="section-personal" className="mb-10 scroll-mt-[220px]">
-                <PersonalDetails />
+                <PersonalDetails
+                  searchable={true}
+                  onCustomerSelected={(customer) => {
+                    const editId = customer._id || customer.id;
+                    if (editId) navigate(`/customers/edit/${editId}`);
+                  }}
+                />
               </div>
 
               <div id="section-employment" className="mb-10 scroll-mt-[220px]">

@@ -144,8 +144,19 @@ body {
 .ant-input-affix-wrapper,
 .ant-select-selector,
 .ant-picker,
-.ant-input-number {
+.ant-input-number,
+.ant-input-number-affix-wrapper {
   min-height: clamp(36px, 2.6vw, 44px);
+}
+
+/* When InputNumber has prefix/suffix, keep icon + value vertically centred */
+.ant-input-number-affix-wrapper {
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.ant-input-number-affix-wrapper .ant-input-number {
+  min-height: unset;
 }
 
 .ant-form-item {
@@ -207,8 +218,13 @@ body {
   .ant-input-affix-wrapper,
   .ant-select-selector,
   .ant-picker,
-  .ant-input-number {
+  .ant-input-number,
+  .ant-input-number-affix-wrapper {
     min-height: 38px;
+  }
+
+  .ant-input-number-affix-wrapper .ant-input-number {
+    min-height: unset;
   }
 }
 

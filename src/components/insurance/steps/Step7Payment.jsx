@@ -56,43 +56,42 @@ const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
 const UI = {
-  ink: "var(--ins-text)",
-  inkSoft: "var(--ins-text-muted)",
+  ink: "#1e293b",
+  inkSoft: "#64748b",
   muted: "#8da0bd",
-  line: "var(--ins-border)",
+  line: "#e2e8f0",
   bg: "#ffffff",
-  bgSoft: "var(--ins-surface-soft)",
+  bgSoft: "#f8fafc",
 
   sage: {
     color: "#3e7f65",
-    solid: "var(--ins-accent)",
-    bg: "color-mix(in srgb, var(--ins-accent) 11%, #fff)",
-    border: "color-mix(in srgb, var(--ins-accent) 28%, #dbeee4)",
+    solid: "#3e7f65",
+    bg: "#edf7f2",
+    border: "#b5d9ca",
   },
   mint: {
     color: "#2d7d6b",
-    solid: "color-mix(in srgb, var(--ins-primary-2) 78%, #205e7a)",
-    bg: "color-mix(in srgb, var(--ins-primary-2) 12%, #fff)",
-    border: "color-mix(in srgb, var(--ins-primary-2) 28%, #d4ebf2)",
+    solid: "#2d7d6b",
+    bg: "#eaf6f4",
+    border: "#a8d5cd",
   },
   warm: {
     color: "#8b6537",
-    solid: "var(--ins-warn)",
-    bg: "color-mix(in srgb, var(--ins-warn) 12%, #fff)",
-    border: "color-mix(in srgb, var(--ins-warn) 30%, #ecdcbf)",
+    solid: "#c07c32",
+    bg: "#fef6ec",
+    border: "#e8c99a",
   },
   rose: {
     color: "#9a3d58",
-    solid: "var(--ins-danger)",
-    bg: "color-mix(in srgb, var(--ins-danger) 11%, #fff)",
-    border: "color-mix(in srgb, var(--ins-danger) 28%, #f0ced8)",
+    solid: "#be185d",
+    bg: "#fff1f5",
+    border: "#f4b8cc",
   },
   slate: {
     color: "#536781",
-    solid:
-      "color-mix(in srgb, var(--ins-primary) 54%, color-mix(in srgb, var(--ins-primary-2) 32%, var(--ins-accent)))",
-    bg: "color-mix(in srgb, var(--ins-primary) 8%, #fff)",
-    border: "color-mix(in srgb, var(--ins-primary) 24%, #dce5f7)",
+    solid: "#4f6885",
+    bg: "#f1f5f9",
+    border: "#c5d1e0",
   },
 };
 
@@ -1383,8 +1382,45 @@ const Step7Payment = ({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[380px_minmax(0,1fr)] xl:grid-cols-[420px_minmax(0,1fr)]">
-        <div className="flex flex-col rounded-2xl border border-slate-100 bg-white shadow-sm">
+      {/* ── Mobile floating "Add Entry" button ── */}
+      {isMobile && !isLocked && (
+        <button
+          type="button"
+          onClick={() => setMobileComposerOpen(true)}
+          className="fixed bottom-6 right-5 z-[900] flex items-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-bold text-white shadow-xl active:scale-95 transition-transform"
+          style={{ backgroundColor: UI.sage.solid }}
+        >
+          <PlusOutlined />
+          Add Entry
+        </button>
+      )}
+
+      {/* ── Mobile Drawer composer ── */}
+      <Drawer
+        open={mobileComposerOpen}
+        onClose={() => setMobileComposerOpen(false)}
+        placement="bottom"
+        height="90dvh"
+        styles={{ body: { padding: 0 }, header: { borderBottom: "1px solid #f1f5f9" } }}
+        title={
+          <div>
+            <p className="m-0 text-[12px] font-black uppercase tracking-[0.16em] text-slate-600">
+              Add Ledger Entry
+            </p>
+            <p className="m-0 mt-0.5 text-[11px] text-slate-400">
+              Record a transaction across any party
+            </p>
+          </div>
+        }
+        className="xl:hidden"
+        destroyOnClose={false}
+      >
+        <div className="overflow-y-auto h-full">{renderComposer()}</div>
+      </Drawer>
+
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-[420px_minmax(0,1fr)]">
+        {/* ── Desktop composer panel (hidden on mobile) ── */}
+        <div className="hidden xl:flex flex-col rounded-2xl border border-slate-100 bg-white shadow-sm">
           <div className="border-b border-slate-100 px-5 py-4">
             {ledgerComposerHeadingInner}
           </div>
@@ -1412,6 +1448,22 @@ const Step7Payment = ({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              {/* Mobile "Add Entry" inline button (above xl) */}
+              {isMobile && !isLocked && (
+                <button
+                  type="button"
+                  onClick={() => setMobileComposerOpen(true)}
+                  className="flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-[12px] font-bold xl:hidden"
+                  style={{
+                    borderColor: UI.sage.border,
+                    backgroundColor: UI.sage.bg,
+                    color: UI.sage.color,
+                  }}
+                >
+                  <PlusOutlined />
+                  Add Entry
+                </button>
+              )}
               <span
                 className="rounded-full px-3 py-1 text-[11px] font-semibold"
                 style={{

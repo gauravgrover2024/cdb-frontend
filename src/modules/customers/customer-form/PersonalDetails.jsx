@@ -51,6 +51,7 @@ const PersonalDetails = ({
   showApplicantType = true,
   cashMinimalMode = false,
   loanProfileMode = false,
+  onCustomerSelected = null,
 }) => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
@@ -251,9 +252,18 @@ const PersonalDetails = ({
   }, [searchTerm, fetchCustomers]);
 
   const handleCustomerSelect = useCallback(async (customer) => {
+    // If parent wants to handle selection (e.g. navigate to edit page), delegate immediately
+    if (onCustomerSelected) {
+      setSearchTerm("");
+      setFilteredCustomers([]);
+      setIsOpen(false);
+      onCustomerSelected(customer);
+      return;
+    }
+
     try {
       setLoadingFullData(true);
-      
+
       // Fetch full customer details to ensure we have all data
       const customerId = customer?._id || customer?.id;
       const fullCustomerRes = customerId ? await customersApi.getById(customerId) : null;
@@ -435,7 +445,7 @@ const PersonalDetails = ({
     } finally {
       setLoadingFullData(false);
     }
-  }, [form, prefillMode]);
+  }, [form, prefillMode, onCustomerSelected]);
 
   // Close search dropdown on outside click
   useEffect(() => {

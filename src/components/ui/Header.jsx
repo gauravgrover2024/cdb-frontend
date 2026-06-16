@@ -344,6 +344,12 @@ const Header = () => {
           desc: "Set company wise payout rates",
           roles: FEATURE_ACCESS.SUPERADMIN_BANKS,
         },
+        {
+          label: "Activity Log",
+          path: "/superadmin/activity-log",
+          desc: "Session events and audit trail",
+          roles: FEATURE_ACCESS.SUPERADMIN_AUDIT_LOG,
+        },
       ],
     },
   ];
