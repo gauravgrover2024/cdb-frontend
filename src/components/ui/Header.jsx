@@ -64,10 +64,22 @@ const ROLE_META = {
 };
 
 // Initials avatar — used in header button and mobile footer
-const UserAvatar = ({ name, size = 32 }) => {
+const UserAvatar = ({ name, photoUrl, size = 32 }) => {
+  const [imgBroken, setImgBroken] = useState(false);
   const hue = nameToHue(name);
   const initials = getInitials(name);
-  return (
+  const showPhoto = Boolean(photoUrl) && !imgBroken;
+
+  return showPhoto ? (
+    <img
+      src={photoUrl}
+      alt={name || "User"}
+      onError={() => setImgBroken(true)}
+      className="flex-shrink-0 rounded-full object-cover shadow-sm select-none"
+      style={{ width: size, height: size }}
+      referrerPolicy="no-referrer"
+    />
+  ) : (
     <div
       className="flex flex-shrink-0 items-center justify-center rounded-full font-bold text-white shadow-sm select-none"
       style={{
@@ -495,197 +507,203 @@ const Header = () => {
     doLogout();
   };
 
-  const navItemBaseClass =
-    "flex h-9 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold tracking-tight transition-all duration-200 outline-none xl:h-10 xl:px-3.5 xl:text-[13px]";
-
-  const navItemStateClass = (active) =>
-    active
-      ? "border-slate-200 bg-white text-slate-900 shadow-sm dark:border-white/10 dark:bg-white/[0.12] dark:text-white"
-      : "border-transparent text-slate-600 hover:border-slate-200/80 hover:bg-white/80 hover:text-slate-900 dark:text-slate-300 dark:hover:border-white/10 dark:hover:bg-white/[0.08] dark:hover:text-white";
-
-  const navChildBaseClass =
-    "group/item mb-1 w-full rounded-xl border px-4 py-3 text-left transition-all duration-150 last:mb-0";
-
-  const navChildStateClass = (active) =>
-    active
-      ? "border-sky-100 bg-sky-50 text-sky-800 dark:border-slate-700 dark:bg-slate-900 dark:text-sky-300"
-      : "border-transparent text-slate-700 hover:border-slate-200 hover:bg-slate-50 dark:text-slate-200 dark:hover:border-slate-800 dark:hover:bg-slate-900/80";
-
   return (
     <>
-      <header className="sticky top-0 z-[1000] py-0">
+      {/* ── DESKTOP HEADER ───────────────────────────────────────────── */}
+      <header className="sticky top-0 z-[1000] w-full border-b border-slate-200/70 bg-white/95 backdrop-blur-md dark:border-white/[0.06] dark:bg-zinc-950/95">
         <div className="app-max-wrap w-full">
-          <div className="relative flex h-12 items-center gap-2 rounded-2xl bg-white dark:bg-black px-2 md:h-14 md:px-3 xl:h-16 xl:gap-3 xl:px-4 shadow-[0_12px_26px_-20px_rgba(15,23,42,0.45)]">
-            {/* Brand Logo */}
+          <div className="flex h-13 items-center gap-3 px-3 md:h-14 md:px-4 xl:h-[58px] xl:gap-4 xl:px-5">
+
+            {/* ── Logo ── */}
             <button
               type="button"
-              className="relative z-[1] group flex items-center rounded-xl bg-transparent px-1 py-0.5 transition-colors hover:bg-slate-100/80 dark:hover:bg-white/10"
               onClick={() => handleNavigation("/")}
+              className="group mr-1 flex flex-shrink-0 items-center rounded-lg p-1 transition-opacity hover:opacity-80 active:opacity-60"
             >
               <img
-                src={
-                  process.env.PUBLIC_URL +
-                  (isDarkMode
-                    ? "/acillp-logo-dark.svg"
-                    : "/acillp-logo-without-car.svg")
-                }
+                src={isDarkMode ? "/acillp-logo-dark.svg" : "/acillp-logo-without-car.svg"}
                 alt="ACILLP"
-                className="h-7 w-auto object-contain transition-transform duration-300 group-hover:scale-105 md:h-8 xl:h-11"
+                className="h-7 w-auto object-contain md:h-8 xl:h-9"
               />
             </button>
 
-            {/* Center: Desktop Navigation */}
-            <nav className="relative z-[1] hidden lg:flex flex-1 items-center gap-1 rounded-xl bg-white/70 px-1.5 py-1 dark:bg-black/80 xl:px-2 xl:py-1.5">
-              {navigationGroups.map((group) => (
-                <div key={group.label} className="relative group/nav">
-                  {(() => {
-                    const accent = groupAccent(group.label);
-                    return group.children ? (
+            {/* ── Desktop Nav ── */}
+            <nav className="hidden flex-1 items-center gap-0.5 lg:flex">
+              {navigationGroups.map((group) => {
+                const accent = groupAccent(group.label);
+                const groupActive = group.children
+                  ? isGroupActive(group.children)
+                  : isActive(group.path);
+
+                return (
+                  <div key={group.label} className="relative group/nav">
+                    {group.children ? (
                       <>
+                        {/* Nav trigger */}
                         <button
-                          className={`${navItemBaseClass} ${navItemStateClass(isGroupActive(group.children))}`}
+                          className={[
+                            "flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-semibold tracking-tight outline-none transition-all duration-150 xl:px-3.5 xl:text-[13px]",
+                            groupActive
+                              ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
+                              : "text-slate-500 hover:bg-slate-100/70 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/[0.07] dark:hover:text-slate-100",
+                          ].join(" ")}
                         >
-                          <span
-                            className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}
-                          >
+                          <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-[13px] ${accent.icon}`}>
                             {group.icon}
                           </span>
                           {group.label}
                           <ChevronDown
-                            size={14}
-                            className="opacity-60 transition-transform duration-300 group-hover/nav:rotate-180"
+                            size={12}
+                            className={[
+                              "ml-0.5 flex-shrink-0 transition-transform duration-200",
+                              groupActive ? "opacity-70" : "opacity-40",
+                              "group-hover/nav:rotate-180",
+                            ].join(" ")}
                           />
                         </button>
 
                         {/* Dropdown */}
-                        <div className="absolute left-1/2 top-full z-50 w-[320px] -translate-x-1/2 translate-y-2 pt-3 opacity-0 invisible transition-[opacity,transform,visibility] duration-200 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover/nav:translate-y-0 group-hover/nav:opacity-100 group-hover/nav:visible">
-                          <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-2.5 shadow-xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-black">
-                            <div className="mb-2 flex items-center justify-between border-b border-slate-200/80 px-3 pb-2 dark:border-slate-800">
-                              <span className="text-[11px] font-semibold tracking-tight text-slate-500 dark:text-slate-400">
+                        <div className="invisible absolute left-1/2 top-full z-50 w-[300px] -translate-x-1/2 translate-y-1.5 pt-2 opacity-0 transition-[opacity,transform,visibility] duration-200 ease-out group-hover/nav:visible group-hover/nav:translate-y-0 group-hover/nav:opacity-100">
+                          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/[0.08] dark:border-slate-800 dark:bg-zinc-900">
+                            {/* Dropdown header */}
+                            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-2.5 dark:border-slate-800">
+                              <span className={`flex h-5 w-5 items-center justify-center rounded-md text-[12px] ${accent.icon}`}>
+                                {group.icon}
+                              </span>
+                              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-400 dark:text-slate-500">
                                 {group.label}
                               </span>
-                              <span
-                                className={`h-1.5 w-1.5 rounded-full ${accent.dot}`}
-                              />
+                              <span className={`ml-auto h-1.5 w-1.5 rounded-full ${accent.dot}`} />
                             </div>
-                            {group.children.map((child) => (
-                              <button
-                                key={child.path}
-                                onClick={() => handleNavigation(child.path)}
-                                className={`${navChildBaseClass} ${navChildStateClass(isActive(child.path))}`}
-                              >
-                                <div className="flex items-center justify-between">
-                                  <span className="text-[13px] font-bold tracking-tight">
-                                    {child.label}
-                                  </span>
-                                  <span
-                                    className={`h-1.5 w-1.5 rounded-full ${accent.dot} transition-all ${isActive(child.path) ? "opacity-100" : "opacity-0 group-hover/item:opacity-45"}`}
-                                  />
-                                </div>
-                                <span className="mt-1 block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                                  {child.desc}
-                                </span>
-                              </button>
-                            ))}
+                            {/* Dropdown items */}
+                            <div className="p-1.5">
+                              {group.children.map((child) => {
+                                const childActive = isActive(child.path);
+                                return (
+                                  <button
+                                    key={child.path}
+                                    onClick={() => handleNavigation(child.path)}
+                                    className={[
+                                      "group/item flex w-full items-start gap-3 rounded-lg px-3.5 py-2.5 text-left transition-colors duration-100",
+                                      childActive
+                                        ? "bg-slate-50 dark:bg-white/[0.06]"
+                                        : "hover:bg-slate-50 dark:hover:bg-white/[0.04]",
+                                    ].join(" ")}
+                                  >
+                                    <span className={`mt-0.5 flex-shrink-0 h-1.5 w-1.5 rounded-full ${accent.dot} transition-opacity ${childActive ? "opacity-100" : "opacity-0 group-hover/item:opacity-40"}`} />
+                                    <span className="flex-1 min-w-0">
+                                      <span className={`block text-[13px] font-semibold tracking-tight ${childActive ? "text-slate-900 dark:text-white" : "text-slate-700 dark:text-slate-200"}`}>
+                                        {child.label}
+                                      </span>
+                                      <span className="mt-0.5 block truncate text-[11px] text-slate-400 dark:text-slate-500">
+                                        {child.desc}
+                                      </span>
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </>
                     ) : (
                       <button
                         onClick={() => handleNavigation(group.path)}
-                        className={`${navItemBaseClass} ${navItemStateClass(isActive(group.path))}`}
+                        className={[
+                          "flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12.5px] font-semibold tracking-tight outline-none transition-all duration-150 xl:px-3.5 xl:text-[13px]",
+                          groupActive
+                            ? "bg-slate-100 text-slate-900 dark:bg-white/10 dark:text-white"
+                            : "text-slate-500 hover:bg-slate-100/70 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-white/[0.07] dark:hover:text-slate-100",
+                        ].join(" ")}
                       >
-                        <span
-                          className={`inline-flex h-6 w-6 items-center justify-center rounded-md ${accent.icon}`}
-                        >
+                        <span className={`flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-md text-[13px] ${accent.icon}`}>
                           {group.icon}
                         </span>
                         {group.label}
                       </button>
-                    );
-                  })()}
-                </div>
-              ))}
+                    )}
+                  </div>
+                );
+              })}
             </nav>
 
-            {/* Right: Actions */}
-            <div className="relative z-[1] ml-auto flex items-center gap-1.5 sm:gap-3">
-              {/* Profile Dropdown — custom */}
+            {/* ── Right side ── */}
+            <div className="ml-auto flex flex-shrink-0 items-center gap-2">
+
+              {/* Profile button + dropdown */}
               <div className="relative hidden sm:block" data-profile-menu>
-                {/* Trigger button */}
                 <button
                   type="button"
                   onClick={() => setProfileOpen((o) => !o)}
-                  className="group/profile flex h-10 items-center gap-2 rounded-lg bg-gradient-to-r from-slate-100 to-slate-50 px-1.5 pr-2.5 transition-colors hover:from-slate-200 hover:to-slate-100 dark:from-white/[0.08] dark:to-white/[0.04] dark:hover:from-white/[0.12] dark:hover:to-white/[0.08]"
+                  className={[
+                    "group/profile flex h-8 items-center gap-2 rounded-lg border px-2 pr-2.5 transition-all duration-150",
+                    profileOpen
+                      ? "border-slate-300 bg-slate-100 dark:border-white/15 dark:bg-white/10"
+                      : "border-slate-200/80 bg-slate-50 hover:border-slate-300 hover:bg-slate-100 dark:border-white/[0.08] dark:bg-white/[0.04] dark:hover:border-white/[0.12] dark:hover:bg-white/[0.07]",
+                  ].join(" ")}
                 >
                   <div className="relative">
-                    <UserAvatar name={userData?.name} size={30} />
-                    <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 dark:border-black" />
+                    <UserAvatar name={userData?.name} photoUrl={userData?.avatarUrl} size={24} />
+                    <span className="absolute -bottom-0.5 -right-0.5 h-2 w-2 rounded-full border-[1.5px] border-white bg-emerald-400 dark:border-zinc-950" />
                   </div>
+                  <span className="hidden max-w-[100px] truncate text-[12px] font-semibold text-slate-700 dark:text-slate-200 xl:block">
+                    {userData?.name?.split(" ")[0] || "Account"}
+                  </span>
                   <ChevronDown
-                    size={13}
-                    className={`hidden text-muted-foreground transition-transform duration-200 group-hover/profile:text-foreground sm:block ${profileOpen ? "rotate-180" : ""}`}
+                    size={12}
+                    className={`text-slate-400 transition-transform duration-200 dark:text-slate-500 ${profileOpen ? "rotate-180" : ""}`}
                   />
                 </button>
 
-                {/* Dropdown panel */}
+                {/* Dropdown */}
                 {profileOpen && (
-                  <div className="absolute right-0 top-full z-50 mt-2.5 w-72 origin-top-right">
-                    <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-xl ring-1 ring-black/5 dark:border-slate-800 dark:bg-[#0a0a0a]">
-                      {/* User identity block */}
-                      <div className="flex items-start gap-3.5 px-5 py-4 border-b border-slate-100 dark:border-slate-800">
-                        <div className="relative mt-0.5 flex-shrink-0">
-                          <UserAvatar name={userData?.name} size={44} />
-                          <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 dark:border-[#0a0a0a]" />
+                  <div className="absolute right-0 top-full z-50 mt-1.5 w-64 origin-top-right">
+                    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg shadow-slate-900/[0.08] dark:border-slate-800 dark:bg-zinc-900">
+                      {/* Identity */}
+                      <div className="flex items-center gap-3 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
+                        <div className="relative flex-shrink-0">
+                          <UserAvatar name={userData?.name} photoUrl={userData?.avatarUrl} size={38} />
+                          <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 dark:border-zinc-900" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-[14px] font-black text-slate-900 dark:text-white">
+                          <p className="truncate text-[13px] font-bold text-slate-900 dark:text-white">
                             {userData?.name || "Administrator"}
                           </p>
-                          <p className="truncate text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          <p className="truncate text-[11px] text-slate-400 dark:text-slate-500">
                             {userData?.email || "—"}
                           </p>
-                          <span
-                            className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wider ${roleMeta.color}`}
-                          >
-                            {roleMeta.label}
-                          </span>
                         </div>
+                        <span className={`flex-shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${roleMeta.color}`}>
+                          {roleMeta.label}
+                        </span>
                       </div>
 
-                      {/* Menu items */}
-                      <div className="p-1.5">
-                        <button
-                          onClick={() => handleNavigation("/profile")}
-                          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900"
-                        >
-                          <UserCircle2
-                            size={16}
-                            className="text-slate-400 dark:text-slate-500"
-                          />
-                          My Profile
-                        </button>
-                        <button
-                          onClick={() => handleNavigation("/settings")}
-                          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-semibold text-slate-700 transition-colors hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-900"
-                        >
-                          <Settings
-                            size={16}
-                            className="text-slate-400 dark:text-slate-500"
-                          />
-                          Settings
-                        </button>
+                      {/* Actions */}
+                      <div className="p-1">
+                        {[
+                          { label: "My Profile", icon: <UserCircle2 size={14} />, path: "/profile" },
+                          { label: "Settings",   icon: <Settings size={14} />,    path: "/settings" },
+                        ].map((item) => (
+                          <button
+                            key={item.path}
+                            onClick={() => handleNavigation(item.path)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-white/[0.05] dark:hover:text-white"
+                          >
+                            <span className="text-slate-400 dark:text-slate-500">{item.icon}</span>
+                            {item.label}
+                          </button>
+                        ))}
                       </div>
 
                       <div className="mx-3 border-t border-slate-100 dark:border-slate-800" />
 
-                      <div className="p-1.5">
+                      <div className="p-1">
                         <button
                           onClick={handleLogout}
-                          className="flex w-full items-center gap-3 rounded-xl px-3.5 py-2.5 text-[13px] font-bold text-red-600 transition-colors hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
+                          className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-500/10 dark:hover:text-red-300"
                         >
-                          <LogOut size={16} />
-                          Sign Out
+                          <LogOut size={14} />
+                          Sign out
                         </button>
                       </div>
                     </div>
@@ -693,165 +711,135 @@ const Header = () => {
                 )}
               </div>
 
-              {/* Mobile Menu Trigger */}
+              {/* Mobile hamburger */}
               <button
                 onClick={() => setMobileMenuOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-cyan-100 to-blue-100 text-slate-700 transition-all hover:from-cyan-200 hover:to-blue-200 hover:text-sky-600 active:scale-95 dark:from-white/[0.08] dark:to-white/[0.04] dark:text-slate-100 dark:hover:from-white/[0.14] dark:hover:to-white/[0.08] dark:hover:text-sky-300 md:h-10 md:w-10 lg:hidden"
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200/80 bg-slate-50 text-slate-600 transition-all hover:border-slate-300 hover:bg-slate-100 hover:text-slate-900 active:scale-95 dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-slate-300 dark:hover:border-white/[0.12] dark:hover:bg-white/[0.07] dark:hover:text-white md:h-9 md:w-9 lg:hidden"
               >
-                <Menu size={20} />
+                <Menu size={17} />
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile Sidebar Navigation */}
+      {/* ── MOBILE SIDEBAR ───────────────────────────────────────────── */}
       <div
-        className={`fixed inset-0 z-[2000] lg:hidden transition-all duration-500 ease-in-out ${
-          mobileMenuOpen ? "visible" : "invisible"
-        }`}
+        className={`fixed inset-0 z-[2000] lg:hidden ${mobileMenuOpen ? "visible" : "invisible"}`}
       >
         {/* Backdrop */}
         <div
-          className={`absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity duration-500 ${
-            mobileMenuOpen ? "opacity-100" : "opacity-0"
-          }`}
+          className={`absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity duration-300 ${mobileMenuOpen ? "opacity-100" : "opacity-0"}`}
           onClick={() => setMobileMenuOpen(false)}
         />
 
-        {/* Sidebar Content */}
+        {/* Drawer */}
         <div
-          className={`absolute top-0 right-0 bottom-0 w-full max-w-[340px] bg-white dark:bg-black shadow-[0_0_50px_rgba(0,0,0,0.3)] transition-transform duration-500 ease-[cubic-bezier(0.23,1,0.32,1)] ${
-            mobileMenuOpen ? "translate-x-0" : "translate-x-full"
-          }`}
+          className={`absolute bottom-0 right-0 top-0 flex w-full max-w-[300px] flex-col bg-white shadow-2xl transition-transform duration-300 ease-[cubic-bezier(0.32,0.72,0,1)] dark:bg-zinc-950 ${mobileMenuOpen ? "translate-x-0" : "translate-x-full"}`}
         >
-          <div className="flex flex-col h-full bg-gradient-to-b from-white to-muted/20 dark:from-black dark:to-zinc-900/50">
-            {/* Header */}
-            <div className="p-6 flex items-center justify-between border-b border-border/50">
-              <div className="rounded-lg px-2 py-1">
-                <img
-                  src={
-                    process.env.PUBLIC_URL +
-                    (isDarkMode
-                      ? "/acillp-logo-dark.svg"
-                      : "/acillp-logo-without-car.svg")
-                  }
-                  alt="ACILLP"
-                  className="h-12 w-auto object-contain"
-                />
-              </div>
-              <button
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-10 h-10 flex items-center justify-center rounded-full bg-muted text-muted-foreground hover:text-foreground transition-colors"
-              >
-                <X size={22} />
-              </button>
-            </div>
+          {/* Drawer header */}
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3.5 dark:border-white/[0.06]">
+            <img
+              src={isDarkMode ? "/acillp-logo-dark.svg" : "/acillp-logo-without-car.svg"}
+              alt="ACILLP"
+              className="h-8 w-auto object-contain"
+            />
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-500 dark:hover:bg-white/[0.06] dark:hover:text-slate-200"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-            {/* Navigation Content */}
-            <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
-              <div className="space-y-2">
-                {navigationGroups.map((group, idx) => (
-                  <div key={idx} className="space-y-1">
-                    {group.children ? (
-                      <div>
-                        <div className="px-4 py-3 flex items-center gap-3 text-muted-foreground">
-                          <span className="opacity-50">{group.icon}</span>
-                          <span className="text-xs font-black uppercase tracking-[0.2em]">
-                            {group.label}
-                          </span>
-                        </div>
-                        <div className="space-y-1 ml-4 pl-4 border-l-2 border-border/40">
-                          {group.children.map((child) => (
-                            <button
-                              key={child.path}
-                              onClick={() => handleNavigation(child.path)}
-                              className={`w-full text-left flex flex-col py-3 px-4 rounded-xl border transition-all duration-200 ${
-                                isActive(child.path)
-                                  ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                                  : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
-                              }`}
-                            >
-                              <span className="text-sm font-bold tracking-tight">
-                                {child.label}
-                              </span>
-                              {!isActive(child.path) && (
-                                <span className="text-[10px] text-muted-foreground font-medium opacity-60 mt-1 uppercase tracking-wider">
-                                  {child.desc?.split(" ").slice(0, 2).join(" ")}
-                                </span>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() => handleNavigation(group.path)}
-                        className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl border transition-all duration-200 font-bold ${
-                          isActive(group.path)
-                            ? "border-primary/20 bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-                            : "border-transparent text-foreground hover:border-border/60 hover:bg-muted"
-                        }`}
-                      >
-                        <span
-                          className={`opacity-60 ${isActive(group.path) ? "text-white" : ""}`}
-                        >
-                          {group.icon}
-                        </span>
-                        <span className="text-sm tracking-tight">
-                          {group.label}
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Footer / User Info */}
-            <div className="p-5 border-t border-border/50 bg-white dark:bg-black/50">
-              {/* User card */}
-              <div className="flex items-center gap-3.5 mb-4 rounded-xl bg-muted/40 px-4 py-3 dark:bg-white/[0.05]">
-                <div className="relative flex-shrink-0">
-                  <UserAvatar name={userData?.name} size={44} />
-                  <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-400 dark:border-black" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-black text-foreground">
-                    {userData?.name || "Staff User"}
-                  </p>
-                  <p className="truncate text-[11px] text-muted-foreground mt-0.5">
-                    {userData?.email || "—"}
-                  </p>
-                  <span
-                    className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider ${roleMeta.color}`}
+          {/* Nav list */}
+          <div className="flex-1 overflow-y-auto px-2 py-3 custom-scrollbar">
+            {navigationGroups.map((group, idx) => (
+              <div key={idx} className="mb-4">
+                {group.children ? (
+                  <>
+                    {/* Section label */}
+                    <div className="mb-1 flex items-center gap-2 px-3 py-1">
+                      <span className="text-slate-300 dark:text-slate-600">{group.icon}</span>
+                      <span className="text-[10px] font-bold uppercase tracking-[0.15em] text-slate-400 dark:text-slate-600">
+                        {group.label}
+                      </span>
+                    </div>
+                    {/* Children */}
+                    <div className="space-y-0.5">
+                      {group.children.map((child) => {
+                        const childActive = isActive(child.path);
+                        const accent = groupAccent(group.label);
+                        return (
+                          <button
+                            key={child.path}
+                            onClick={() => handleNavigation(child.path)}
+                            className={[
+                              "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors duration-100",
+                              childActive
+                                ? "bg-slate-100 text-slate-900 dark:bg-white/[0.08] dark:text-white"
+                                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.04] dark:hover:text-slate-100",
+                            ].join(" ")}
+                          >
+                            <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${accent.dot} ${childActive ? "opacity-100" : "opacity-30"}`} />
+                            <span className="text-[13px] font-medium">{child.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => handleNavigation(group.path)}
+                    className={[
+                      "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors duration-100",
+                      isActive(group.path)
+                        ? "bg-slate-100 text-slate-900 dark:bg-white/[0.08] dark:text-white"
+                        : "text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/[0.04] dark:hover:text-slate-100",
+                    ].join(" ")}
                   >
-                    {roleMeta.label}
-                  </span>
-                </div>
+                    <span className="text-slate-400 dark:text-slate-500">{group.icon}</span>
+                    <span className="text-[13px] font-semibold">{group.label}</span>
+                  </button>
+                )}
               </div>
+            ))}
+          </div>
 
-              {/* Action buttons */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  onClick={() => handleNavigation("/profile")}
-                  className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-muted text-foreground hover:bg-muted/80 transition-colors"
-                >
-                  <UserCircle2 size={16} className="opacity-60" />
-                  <span className="text-[10px] font-bold opacity-70">
-                    Profile
-                  </span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="flex flex-col items-center justify-center gap-1 h-12 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive hover:text-white transition-all"
-                >
-                  <LogOut size={16} />
-                  <span className="text-[10px] font-black uppercase tracking-wide">
-                    Quit
-                  </span>
-                </button>
+          {/* Drawer footer — user card */}
+          <div className="border-t border-slate-100 p-3 dark:border-white/[0.06]">
+            <div className="mb-2 flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2.5 dark:bg-white/[0.04]">
+              <div className="relative flex-shrink-0">
+                <UserAvatar name={userData?.name} photoUrl={userData?.avatarUrl} size={36} />
+                <span className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-400 dark:border-zinc-950" />
               </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] font-bold text-slate-900 dark:text-white">
+                  {userData?.name || "Staff User"}
+                </p>
+                <p className="truncate text-[10px] text-slate-400 dark:text-slate-500">
+                  {userData?.email || "—"}
+                </p>
+              </div>
+              <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${roleMeta.color}`}>
+                {roleMeta.label}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                onClick={() => handleNavigation("/profile")}
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 py-2 text-[12px] font-medium text-slate-600 transition-colors hover:bg-slate-50 dark:border-white/[0.08] dark:text-slate-300 dark:hover:bg-white/[0.04]"
+              >
+                <UserCircle2 size={14} />
+                Profile
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-1.5 rounded-lg border border-red-200 py-2 text-[12px] font-semibold text-red-500 transition-colors hover:bg-red-50 dark:border-red-500/20 dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                <LogOut size={14} />
+                Sign out
+              </button>
             </div>
           </div>
         </div>

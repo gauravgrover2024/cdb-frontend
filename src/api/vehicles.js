@@ -541,6 +541,10 @@ export const vehiclesApi = {
     return await apiClient.delete(`/api/vehicles/${id}`);
   },
 
+  deleteRecord: async (id) => {
+    return await apiClient.delete(`/api/vehicles/records/${id}`);
+  },
+
   getMasterRecords: async (params = {}) => {
     const query = new URLSearchParams({ all: true, ...params }).toString();
     const payload = await apiClient.get(
