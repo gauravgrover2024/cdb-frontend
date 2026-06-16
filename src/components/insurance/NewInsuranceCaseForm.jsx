@@ -3347,7 +3347,7 @@ const NewInsuranceCaseForm = ({
     });
   }, []);
 
-  const handleStepValidation = () => {
+  const handleStepValidation = useCallback(() => {
     if (step === 1) return Object.keys(step1Errors).length === 0;
     if (step === 2) return Object.keys(step2Errors).length === 0;
     if (step === 3 && !shouldSkipStep(3))
@@ -3364,7 +3364,20 @@ const NewInsuranceCaseForm = ({
       );
     }
     return true;
-  };
+  }, [
+    step,
+    step1Errors,
+    step2Errors,
+    step3Errors,
+    shouldSkipStep,
+    quotes,
+    acceptedQuoteId,
+    formData.newInsuranceCompany,
+    formData.newPolicyType,
+    formData.newPolicyNumber,
+    formData.newIssueDate,
+    formData.newPolicyStartDate,
+  ]);
 
   const handleDelete = async () => {
     if (!insuranceDbId) {
@@ -3560,9 +3573,13 @@ const NewInsuranceCaseForm = ({
     [isFormDirty, onCancel],
   );
 
-  // Keep the old names as aliases so the footer + any other call-sites continue
-  // to work without change.
-  const handleDiscard = () => handleRequestExit();
+  // Discard: exit immediately without saving (resets dirty tracking first).
+  const handleDiscard = React.useCallback(() => {
+    savedSnapshotRef.current = currentSnapshotRef.current;
+    onCancel?.();
+  }, [onCancel]);
+
+  // Exit: show the save/discard modal if there are unsaved changes.
   const handleSaveAndExit = () => handleRequestExit();
 
   keyboardActionsRef.current = {

@@ -262,6 +262,11 @@ const Step1CustomerInfo = ({
   const [pendingChange, setPendingChange] = React.useState(null);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
 
+  // Auto-collapse Basic Setup when data is already filled
+  const [basicSetupCollapsed, setBasicSetupCollapsed] = React.useState(
+    () => Boolean(formData.employeeName),
+  );
+
   const guardedSetField = React.useCallback(
     (key, value) => {
       if (customerDataLoaded) {
@@ -1535,17 +1540,73 @@ const Step1CustomerInfo = ({
 
         <Col xs={24} xl={16}>
           <div className="flex flex-col gap-4">
-            {collapseItems.map((item) => (
-              <div
-                key={item.key}
-                className="rounded-xl border border-slate-200/75 bg-white p-4 shadow-sm sm:p-5"
-              >
-                <div className="pb-3 border-b border-slate-100">
-                  {item.label}
+            {collapseItems.map((item) => {
+              const isBasicSetup = item.key === "1";
+              const isCollapsed = isBasicSetup && basicSetupCollapsed;
+
+              return (
+                <div
+                  key={item.key}
+                  className="rounded-xl border border-slate-200/75 bg-white p-4 shadow-sm sm:p-5"
+                >
+                  <div
+                    className={`flex items-center justify-between ${isCollapsed ? "" : "pb-3 border-b border-slate-100"}`}
+                    style={isBasicSetup ? { cursor: "pointer" } : undefined}
+                    onClick={isBasicSetup ? () => setBasicSetupCollapsed((v) => !v) : undefined}
+                  >
+                    <div className="flex-1">{item.label}</div>
+                    {isBasicSetup && (
+                      <div className="ml-3 flex items-center gap-2 shrink-0">
+                        {basicSetupCollapsed && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {formData.employeeName && (
+                              <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
+                                {formData.employeeName}
+                              </span>
+                            )}
+                            {formData.vehicleType && (
+                              <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+                                {formData.vehicleType}
+                              </span>
+                            )}
+                            {formData.buyerType && (
+                              <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
+                                {formData.buyerType}
+                              </span>
+                            )}
+                            {(formData.source || formData.sourceOrigin) && (
+                              <span className="rounded-full bg-violet-50 border border-violet-200 px-2.5 py-0.5 text-[11px] font-semibold text-violet-700">
+                                {formData.source || formData.sourceOrigin}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="16"
+                          height="16"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          className="text-slate-400 transition-transform duration-200"
+                          style={{ transform: basicSetupCollapsed ? "rotate(-90deg)" : "rotate(0deg)" }}
+                        >
+                          <polyline points="6 9 12 15 18 9" />
+                        </svg>
+                      </div>
+                    )}
+                  </div>
+                  {!isCollapsed && (
+                    <div className={isBasicSetup ? "pt-3" : ""}>
+                      {item.children}
+                    </div>
+                  )}
                 </div>
-                {item.children}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Col>
       </Row>
