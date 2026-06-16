@@ -7,8 +7,8 @@ import {
   EyeOff,
   AlertCircle,
   Loader,
-  ArrowRight,
   Check,
+  ChevronRight,
 } from "lucide-react";
 import { loginWithEmail, loginWithGoogle } from "../../api/firebaseAuth";
 import LoadingSpinner from "../../components/ui/LoadingSpinner";
@@ -26,7 +26,6 @@ const LoginPage = () => {
   const [focusedField, setFocusedField] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Load saved email on mount
   useEffect(() => {
     const savedEmail = localStorage.getItem("savedEmail");
     if (savedEmail) {
@@ -55,14 +54,12 @@ const LoginPage = () => {
       const result = await loginWithEmail(email, password);
 
       if (result.success) {
-        // Save email if remember me is checked
         if (rememberMe) {
           localStorage.setItem("savedEmail", email);
         } else {
           localStorage.removeItem("savedEmail");
         }
 
-        // Refresh user with timeout to prevent hanging
         try {
           const refreshPromise = refreshUser();
           const timeoutPromise = new Promise((_, reject) =>
@@ -74,7 +71,6 @@ const LoginPage = () => {
             "User refresh failed/timeout, proceeding anyway:",
             refreshErr.message,
           );
-          // Don't fail login if refresh times out or fails - token is already valid
         }
 
         setSuccessMessage("Login successful! Redirecting...");
@@ -83,15 +79,14 @@ const LoginPage = () => {
         setTimeout(() => navigate("/"), 800);
       }
     } catch (err) {
-      // Check for pending account first
       if (err.isPending || err.status === 403) {
         setError(
-          "⏳ Your account is pending approval. The administrator will review your account soon. Please check back later.",
+          "Your account is pending approval. The administrator will review your account soon.",
         );
       } else {
         const errorMessage =
           err.code === "auth/user-not-found"
-            ? "No account found with this email. Please sign up."
+            ? "No account found with this email."
             : err.code === "auth/wrong-password"
               ? "Incorrect password. Please try again."
               : err.code === "auth/invalid-email"
@@ -101,7 +96,6 @@ const LoginPage = () => {
                   : err.code === "auth/too-many-requests"
                     ? "Too many login attempts. Please try later."
                     : err.message || "Login failed. Please try again.";
-
         setError(errorMessage);
       }
     } finally {
@@ -120,7 +114,6 @@ const LoginPage = () => {
       if (result.success) {
         localStorage.removeItem("savedEmail");
 
-        // Refresh user with timeout to prevent hanging
         try {
           const refreshPromise = refreshUser();
           const timeoutPromise = new Promise((_, reject) =>
@@ -132,17 +125,15 @@ const LoginPage = () => {
             "User refresh failed/timeout, proceeding anyway:",
             refreshErr.message,
           );
-          // Don't fail login if refresh times out or fails - token is already valid
         }
 
         setSuccessMessage("Google login successful! Redirecting...");
         setTimeout(() => navigate("/"), 800);
       }
     } catch (err) {
-      // Check for pending account first
       if (err.isPending || err.status === 403) {
         setError(
-          "⏳ Your account is pending approval. The administrator will review your account soon. Please check back later.",
+          "Your account is pending approval. The administrator will review your account soon.",
         );
       } else {
         const errorMessage =
@@ -159,241 +150,338 @@ const LoginPage = () => {
   };
 
   return (
-    <div className="min-h-screen lg:h-screen lg:overflow-hidden flex flex-col lg:flex-row font-sans selection:bg-indigo-100 selection:text-indigo-900">
+    <div className="min-h-screen flex font-sans antialiased">
       <style>{`
-        @keyframes slideInLeft {
-          from {
-            opacity: 0;
-            transform: translateX(-30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
+        @keyframes fadeUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
-        
-        @keyframes slideInRight {
-          from {
-            opacity: 0;
-            transform: translateX(30px);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-
         @keyframes fadeIn {
-          from {
-            opacity: 0;
-            transform: translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
+          from { opacity: 0; }
+          to   { opacity: 1; }
         }
-
-        @keyframes pulse-soft {
-          0%, 100% {
-            opacity: 1;
-          }
-          50% {
-            opacity: 0.5;
-          }
+        @keyframes shimmer {
+          0%   { background-position: -200% center; }
+          100% { background-position: 200% center; }
         }
-
-        .animate-slide-in-left {
-          animation: slideInLeft 0.6s ease-out 0.2s backwards;
+        @keyframes rotateSlow {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
         }
-
-        .animate-slide-in-right {
-          animation: slideInRight 0.6s ease-out 0.2s backwards;
+        .anim-fade-up   { animation: fadeUp  0.55s cubic-bezier(.22,.68,0,1.2) both; }
+        .anim-fade-in   { animation: fadeIn  0.4s ease both; }
+        .delay-100 { animation-delay: 0.1s; }
+        .delay-150 { animation-delay: 0.15s; }
+        .delay-200 { animation-delay: 0.2s; }
+        .delay-250 { animation-delay: 0.25s; }
+        .delay-300 { animation-delay: 0.3s; }
+        .delay-350 { animation-delay: 0.35s; }
+        .shimmer-text {
+          background: linear-gradient(
+            90deg,
+            #f59e0b 0%,
+            #fbbf24 30%,
+            #fffbeb 50%,
+            #fbbf24 70%,
+            #f59e0b 100%
+          );
+          background-size: 200% auto;
+          -webkit-background-clip: text;
+          -webkit-text-fill-color: transparent;
+          background-clip: text;
+          animation: shimmer 4s linear infinite;
         }
-
-        .animate-fade-in {
-          animation: fadeIn 0.5s ease-out;
+        .ring-spin {
+          animation: rotateSlow 18s linear infinite;
         }
-
-        .input-focus {
-          @apply focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/10;
+        .input-field {
+          width: 100%;
+          height: 48px;
+          padding: 0 16px 0 44px;
+          background: #1e293b;
+          border: 1.5px solid #334155;
+          border-radius: 10px;
+          color: #f1f5f9;
+          font-size: 14px;
+          font-weight: 500;
+          outline: none;
+          transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
-
-        .transition-smooth {
-          @apply transition-all duration-300 ease-out;
+        .input-field::placeholder { color: #475569; }
+        .input-field:hover  { border-color: #475569; background: #243042; }
+        .input-field:focus  { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); background: #243042; }
+        .input-field:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary {
+          width: 100%;
+          height: 48px;
+          border-radius: 10px;
+          background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+          color: #0f172a;
+          font-weight: 700;
+          font-size: 14px;
+          letter-spacing: 0.02em;
+          border: none;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 4px 20px rgba(245,158,11,0.35);
+          transition: all 0.2s;
+        }
+        .btn-primary:hover:not(:disabled) {
+          transform: translateY(-1px);
+          box-shadow: 0 8px 28px rgba(245,158,11,0.5);
+          background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+        .btn-primary:active:not(:disabled) { transform: translateY(0); }
+        .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; }
+        .btn-google {
+          width: 100%;
+          height: 44px;
+          border-radius: 10px;
+          background: transparent;
+          border: 1.5px solid #334155;
+          color: #cbd5e1;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          transition: all 0.2s;
+        }
+        .btn-google:hover:not(:disabled) {
+          border-color: #475569;
+          background: #1e293b;
+          color: #f1f5f9;
+        }
+        .btn-google:disabled { opacity: 0.4; cursor: not-allowed; }
+        .stat-badge {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 12px 20px;
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 12px;
         }
       `}</style>
 
       {loading && <LoadingSpinner fullPage text="Signing you in..." />}
 
-      {/* Left Side - Branding (Hidden on mobile) */}
+      {/* ── LEFT PANEL ── */}
       <section
-        aria-label="Brand and product overview"
-        className="w-full lg:w-[45%] min-h-[40vh] lg:min-h-screen flex flex-col bg-slate-950 relative overflow-hidden animate-slide-in-left"
+        aria-label="Brand panel"
+        className="hidden lg:flex lg:w-[48%] xl:w-[52%] flex-col relative overflow-hidden"
+        style={{ background: "#080e1a" }}
       >
-        {/* Animated Background Effects */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_0%,rgba(99,102,241,0.25),transparent_70%)]"></div>
-        <div className="absolute top-[-10%] right-[-10%] w-[500px] h-[500px] bg-indigo-500/20 rounded-full blur-[120px] animate-pulse mix-blend-screen"></div>
+        {/* Background grid */}
         <div
-          className="absolute bottom-[-10%] left-[-10%] w-[400px] h-[400px] bg-purple-500/20 rounded-full blur-[100px] animate-pulse mix-blend-screen"
-          style={{ animationDelay: "1s" }}
-        ></div>
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0IiBoZWlnaHQ9IjQiPjxyZWN0IHdpZHRoPSI0IiBoZWlnaHQ9IjQiIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-30 mix-blend-overlay"></div>
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(245,158,11,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.04) 1px, transparent 1px)",
+            backgroundSize: "48px 48px",
+          }}
+        />
 
-        <div className="relative z-10 flex flex-col flex-1 p-6 sm:p-8 lg:p-10 lg:py-8 overflow-y-auto">
+        {/* Ambient glow */}
+        <div
+          className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(245,158,11,0.10) 0%, transparent 65%)",
+          }}
+        />
+        <div
+          className="absolute bottom-[-15%] right-[-15%] w-[500px] h-[500px] rounded-full pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 65%)",
+          }}
+        />
+
+        {/* Content */}
+        <div className="relative z-10 flex flex-col h-full p-10 xl:p-14">
           {/* Logo */}
-          <div className="flex-shrink-0">
-            <div className="h-9 w-auto font-black text-2xl text-white hover:text-indigo-300 transition-smooth cursor-pointer">
-              AutoCredits
-            </div>
+          <div className="anim-fade-up">
+            <img
+              src="/acillp-logo-dark.svg"
+              alt="AutoCredits India LLP"
+              className="h-10 w-auto object-contain"
+            />
           </div>
 
-          {/* Content */}
-          <div className="flex-1 flex flex-col justify-center mt-12 lg:mt-0">
-            <div className="space-y-4 max-w-md">
-              <span className="inline-block px-4 py-1.5 rounded-full bg-gradient-to-r from-indigo-500/30 to-purple-500/20 border border-indigo-400/30 text-indigo-200 text-[10px] font-bold uppercase tracking-[0.2em] hover:border-indigo-400/50 transition-smooth">
-                ✨ Financial Gateway
+          {/* Hero text */}
+          <div className="flex-1 flex flex-col justify-center max-w-md">
+            <div className="anim-fade-up delay-100">
+              <span
+                className="inline-flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] mb-6 px-3 py-1.5 rounded-full"
+                style={{
+                  background: "rgba(245,158,11,0.08)",
+                  border: "1px solid rgba(245,158,11,0.2)",
+                  color: "#f59e0b",
+                }}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full bg-amber-400"
+                  style={{ boxShadow: "0 0 6px #f59e0b" }}
+                />
+                Automotive Finance Platform
               </span>
-
-              <h1 className="text-3xl sm:text-4xl font-black text-white leading-[1.1] tracking-tight">
-                Automotive{" "}
-                <span className="bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                  Finance.
-                </span>
-              </h1>
-
-              <p className="text-slate-300 text-base sm:text-lg leading-relaxed">
-                Seamless loan management, vehicle financing, and customer
-                relations — all in one platform.
-              </p>
             </div>
 
-            {/* Features */}
-            <ul className="mt-8 space-y-3">
+            <h1
+              className="anim-fade-up delay-150 text-4xl xl:text-5xl font-black leading-[1.05] tracking-tight text-white mb-5"
+            >
+              Drive deals,
+              <br />
+              <span className="shimmer-text">faster.</span>
+            </h1>
+
+            <p className="anim-fade-up delay-200 text-slate-400 text-base xl:text-lg leading-relaxed mb-10">
+              End-to-end loan management, insurance, and vehicle financing
+              for modern automotive dealerships.
+            </p>
+
+            {/* Feature list */}
+            <ul className="anim-fade-up delay-250 space-y-3">
               {[
-                {
-                  icon: "⚡",
-                  title: "Real-time processing",
-                  desc: "Instant approvals & updates",
-                },
-                {
-                  icon: "👥",
-                  title: "Multi-role support",
-                  desc: "Admin, Staff & Superadmin access",
-                },
-                {
-                  icon: "🔒",
-                  title: "Enterprise security",
-                  desc: "Advanced data encryption",
-                },
-              ].map((feature, i) => (
+                { label: "Loan origination & tracking", icon: "📋" },
+                { label: "Insurance case management", icon: "🛡️" },
+                { label: "Real-time disbursement reports", icon: "📊" },
+                { label: "Multi-role access control", icon: "🔐" },
+              ].map((item, i) => (
                 <li
                   key={i}
-                  className="flex items-center p-3 gap-4 group cursor-pointer rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 hover:border-indigo-400/30 hover:shadow-[0_8px_32px_rgba(99,102,241,0.15)] transition-all duration-500 ease-out transform hover:-translate-y-1"
+                  className="flex items-center gap-3 text-sm text-slate-300"
                 >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-white/10 to-transparent border border-white/10 group-hover:from-indigo-500/20 group-hover:to-purple-500/20 group-hover:border-indigo-400/50 text-lg shadow-lg transition-all duration-500">
-                    {feature.icon}
+                  <span
+                    className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs"
+                    style={{
+                      background: "rgba(245,158,11,0.1)",
+                      border: "1px solid rgba(245,158,11,0.2)",
+                    }}
+                  >
+                    {item.icon}
                   </span>
-                  <div>
-                    <span className="text-white font-semibold text-sm group-hover:text-indigo-300 transition-smooth">
-                      {feature.title}
-                    </span>
-                    <span className="text-slate-400 text-xs ml-1.5">
-                      — {feature.desc}
-                    </span>
-                  </div>
+                  {item.label}
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Footer */}
-          <div className="flex-shrink-0 pt-8 border-t border-white/5 flex items-center justify-between text-slate-500 text-[10px] font-medium uppercase tracking-widest">
-            <span>🔐 Secure Access</span>
-            <span>v1.0 Beta</span>
+          {/* Stats row */}
+          <div className="anim-fade-up delay-300 grid grid-cols-3 gap-3">
+            {[
+              { value: "10K+", label: "Loans processed" },
+              { value: "99.9%", label: "Uptime" },
+              { value: "< 2s", label: "Avg. approval" },
+            ].map((s, i) => (
+              <div key={i} className="stat-badge">
+                <span className="text-amber-400 font-black text-lg leading-none mb-0.5">
+                  {s.value}
+                </span>
+                <span className="text-slate-500 text-[10px] font-medium text-center leading-tight">
+                  {s.label}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* Vertical separator */}
+        <div
+          className="absolute right-0 top-[10%] bottom-[10%] w-px"
+          style={{
+            background:
+              "linear-gradient(to bottom, transparent, rgba(245,158,11,0.15) 30%, rgba(245,158,11,0.15) 70%, transparent)",
+          }}
+        />
       </section>
 
-      {/* Divider */}
-      <div
-        aria-hidden="true"
-        className="hidden lg:block w-px min-h-screen bg-gradient-to-b from-transparent via-slate-300 via-50% to-transparent shrink-0"
-      ></div>
-
-      {/* Right Side - Login Form */}
+      {/* ── RIGHT PANEL ── */}
       <section
         aria-label="Sign in"
-        className="w-full lg:w-[55%] min-h-[60vh] lg:min-h-screen flex flex-col items-center justify-center bg-[#F8FAFC] p-6 sm:p-8 lg:p-12 relative overflow-hidden animate-slide-in-right"
+        className="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
+        style={{ background: "#0d1525" }}
       >
-        {/* Soft Ambient Elements */}
-        <div className="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-indigo-100/50 rounded-full blur-[120px] pointer-events-none"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[500px] h-[500px] bg-sky-100/50 rounded-full blur-[100px] pointer-events-none"></div>
+        {/* Subtle ambient top glow */}
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-[480px] h-[280px] pointer-events-none"
+          style={{
+            background:
+              "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 70%)",
+          }}
+        />
 
-        {/* Mobile Logo */}
-        <div className="lg:hidden absolute top-6 left-6 z-20">
-          <div className="h-7 font-black text-lg bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-            AC
-          </div>
+        {/* Mobile logo */}
+        <div className="lg:hidden absolute top-6 left-6">
+          <img
+            src="/acillp-logo-dark.svg"
+            alt="AutoCredits India LLP"
+            className="h-8 w-auto object-contain"
+          />
         </div>
 
-        {/* Glassmorphic Form Container */}
-        <div className="w-full max-w-[420px] z-10 bg-white/70 backdrop-blur-2xl p-6 sm:p-8 rounded-[2rem] border border-white shadow-[0_20px_60px_-15px_rgba(0,0,0,0.05)] relative my-auto">
+        {/* Form card */}
+        <div className="w-full max-w-[400px] px-6 py-4 z-10">
+
           {/* Header */}
-          <div className="mb-6 animate-fade-in">
-            <h2 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight">
-              Sign in
+          <div className="mb-8 anim-fade-up">
+            <h2 className="text-3xl font-black text-white tracking-tight mb-1.5">
+              Welcome back
             </h2>
-            <p className="text-slate-500 font-medium mt-2 text-sm">
-              Welcome back! Enter your credentials to access your dashboard.
+            <p className="text-slate-500 text-sm font-medium">
+              Sign in to your AutoCredits workspace
             </p>
           </div>
 
-          {/* Success Message */}
+          {/* Success */}
           {successMessage && (
-            <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200 flex gap-3 animate-fade-in">
-              <Check
-                size={18}
-                className="text-emerald-600 flex-shrink-0 mt-0.5"
-              />
-              <p className="text-sm text-emerald-700 font-medium">
-                {successMessage}
-              </p>
+            <div
+              className="mb-5 p-3.5 rounded-xl flex gap-3 items-start anim-fade-in"
+              style={{
+                background: "rgba(16,185,129,0.08)",
+                border: "1px solid rgba(16,185,129,0.2)",
+              }}
+            >
+              <Check size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-emerald-300 font-medium">{successMessage}</p>
             </div>
           )}
 
-          {/* Error Message */}
+          {/* Error */}
           {error && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex gap-3 animate-fade-in">
-              <AlertCircle
-                size={18}
-                className="text-red-600 flex-shrink-0 mt-0.5"
-              />
-              <p className="text-sm text-red-700 font-medium">{error}</p>
+            <div
+              className="mb-5 p-3.5 rounded-xl flex gap-3 items-start anim-fade-in"
+              style={{
+                background: "rgba(239,68,68,0.08)",
+                border: "1px solid rgba(239,68,68,0.2)",
+              }}
+            >
+              <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-300 font-medium">{error}</p>
             </div>
           )}
 
-          {/* Login Form */}
           <form onSubmit={handleEmailLogin} className="space-y-4">
-            {/* Email Input */}
-            <div className="group">
+            {/* Email */}
+            <div className="anim-fade-up delay-100">
               <label
                 htmlFor="email"
-                className={`text-[11px] font-bold uppercase tracking-widest transition-smooth ${
-                  focusedField === "email" || email
-                    ? "text-indigo-600"
-                    : "text-slate-400"
-                } ml-1`}
+                className="block text-[11px] font-bold uppercase tracking-widest mb-2"
+                style={{ color: focusedField === "email" || email ? "#f59e0b" : "#475569" }}
               >
                 Email Address
               </label>
-              <div className="relative mt-2">
+              <div className="relative">
                 <Mail
-                  className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 transition-smooth ${
-                    focusedField === "email"
-                      ? "text-indigo-500 scale-110"
-                      : "text-slate-300"
-                  }`}
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: focusedField === "email" ? "#f59e0b" : "#475569" }}
                 />
                 <input
                   id="email"
@@ -406,38 +494,36 @@ const LoginPage = () => {
                   onFocus={() => setFocusedField("email")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-12 pl-12 pr-4 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl input-focus outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
+                  className="input-field"
                 />
               </div>
             </div>
 
-            {/* Password Input */}
-            <div className="group">
-              <div className="flex justify-between items-center ml-1">
+            {/* Password */}
+            <div className="anim-fade-up delay-150">
+              <div className="flex items-center justify-between mb-2">
                 <label
                   htmlFor="password"
-                  className={`text-[11px] font-bold uppercase tracking-widest transition-smooth ${
-                    focusedField === "password" || password
-                      ? "text-indigo-600"
-                      : "text-slate-400"
-                  }`}
+                  className="block text-[11px] font-bold uppercase tracking-widest"
+                  style={{ color: focusedField === "password" || password ? "#f59e0b" : "#475569" }}
                 >
                   Password
                 </label>
                 <a
                   href="#"
-                  className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 hover:text-indigo-600 transition-smooth hover:underline"
+                  className="text-[10px] font-semibold uppercase tracking-wider transition-colors"
+                  style={{ color: "#f59e0b" }}
+                  onMouseEnter={(e) => (e.target.style.color = "#fbbf24")}
+                  onMouseLeave={(e) => (e.target.style.color = "#f59e0b")}
                 >
                   Forgot?
                 </a>
               </div>
-              <div className="relative mt-2">
+              <div className="relative">
                 <Lock
-                  className={`absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 transition-smooth ${
-                    focusedField === "password"
-                      ? "text-indigo-500 scale-110"
-                      : "text-slate-300"
-                  }`}
+                  size={16}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+                  style={{ color: focusedField === "password" ? "#f59e0b" : "#475569" }}
                 />
                 <input
                   id="password"
@@ -450,57 +536,86 @@ const LoginPage = () => {
                   onFocus={() => setFocusedField("password")}
                   onBlur={() => setFocusedField(null)}
                   disabled={loading}
-                  className="w-full h-12 pl-12 pr-12 bg-slate-50/50 hover:bg-slate-50 border-2 border-slate-200/60 rounded-xl input-focus outline-none transition-smooth font-medium text-slate-900 placeholder:text-slate-400 disabled:opacity-50 hover:border-slate-300 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
+                  className="input-field"
+                  style={{ paddingRight: "44px" }}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-smooth disabled:opacity-50 hover:scale-110"
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-40"
+                  style={{ color: "#475569" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.color = "#94a3b8")}
+                  onMouseLeave={(e) => (e.currentTarget.style.color = "#475569")}
                   aria-label="Toggle password visibility"
                 >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
             </div>
 
-            {/* Remember Me Checkbox */}
-            <div className="flex items-center gap-3 pt-2">
-              <input
-                id="remember"
-                type="checkbox"
-                checked={rememberMe}
-                onChange={(e) => setRememberMe(e.target.checked)}
-                disabled={loading}
-                className="w-4 h-4 rounded cursor-pointer accent-indigo-500"
-              />
+            {/* Remember me */}
+            <div className="anim-fade-up delay-200 flex items-center gap-2.5 pt-1">
+              <div className="relative flex-shrink-0">
+                <input
+                  id="remember"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={loading}
+                  className="sr-only"
+                />
+                <button
+                  type="button"
+                  role="checkbox"
+                  aria-checked={rememberMe}
+                  onClick={() => !loading && setRememberMe(!rememberMe)}
+                  disabled={loading}
+                  className="w-4 h-4 rounded flex items-center justify-center transition-all disabled:opacity-50"
+                  style={{
+                    background: rememberMe ? "#f59e0b" : "transparent",
+                    border: `1.5px solid ${rememberMe ? "#f59e0b" : "#334155"}`,
+                  }}
+                >
+                  {rememberMe && (
+                    <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                      <path
+                        d="M1 4L3.5 6.5L9 1"
+                        stroke="#0f172a"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </div>
               <label
                 htmlFor="remember"
-                className="text-sm text-slate-600 cursor-pointer font-medium hover:text-slate-800 transition-smooth"
+                onClick={() => !loading && setRememberMe(!rememberMe)}
+                className="text-sm font-medium cursor-pointer select-none"
+                style={{ color: "#64748b" }}
               >
                 Remember me
               </label>
             </div>
 
-            {/* Submit Button */}
-            <div className="pt-4">
+            {/* Submit */}
+            <div className="anim-fade-up delay-250 pt-2">
               <button
                 type="submit"
                 disabled={loading || !email || !password}
-                className="group inline-flex items-center justify-center gap-2 whitespace-nowrap w-full h-12 bg-gradient-to-r from-indigo-600 via-indigo-500 to-purple-600 bg-[length:200%_auto] hover:bg-right text-white rounded-xl font-bold text-sm tracking-wide shadow-[0_8px_20px_-6px_rgba(99,102,241,0.6)] hover:shadow-[0_12px_24px_-8px_rgba(99,102,241,0.8)] transition-all duration-500 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="btn-primary"
               >
                 {loading ? (
                   <>
-                    <Loader size={16} className="animate-spin" />
+                    <Loader size={15} className="animate-spin" />
                     <span>Signing in...</span>
                   </>
                 ) : (
                   <>
                     <span>Sign in</span>
-                    <ArrowRight
-                      size={16}
-                      className="group-hover:translate-x-1 transition-smooth"
-                    />
+                    <ChevronRight size={16} />
                   </>
                 )}
               </button>
@@ -508,73 +623,68 @@ const LoginPage = () => {
           </form>
 
           {/* Divider */}
-          <div className="relative flex items-center gap-3 my-5">
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
-            <span className="text-xs text-slate-400 font-semibold px-3">
-              OR
+          <div className="anim-fade-up delay-300 flex items-center gap-3 my-5">
+            <div className="flex-1 h-px" style={{ background: "#1e293b" }} />
+            <span
+              className="text-[11px] font-bold uppercase tracking-widest"
+              style={{ color: "#334155" }}
+            >
+              or
             </span>
-            <div className="flex-1 h-px bg-gradient-to-r from-transparent via-slate-300 to-transparent" />
+            <div className="flex-1 h-px" style={{ background: "#1e293b" }} />
           </div>
 
-          {/* Google Login */}
-          <button
-            onClick={handleGoogleLogin}
-            disabled={loading}
-            className="group w-full h-12 bg-white/80 hover:bg-white border-2 border-slate-200/80 hover:border-slate-300 text-slate-800 rounded-xl font-bold text-sm transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.03)] hover:shadow-[0_8px_16px_rgba(0,0,0,0.06)] backdrop-blur-sm"
-          >
-            <svg
-              className="w-5 h-5 group-hover:scale-110 transition-smooth"
-              viewBox="0 0 24 24"
+          {/* Google */}
+          <div className="anim-fade-up delay-350">
+            <button
+              onClick={handleGoogleLogin}
+              disabled={loading}
+              className="btn-google"
             >
-              <path
-                fill="currentColor"
-                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-              />
-              <path
-                fill="#34A853"
-                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-              />
-              <path
-                fill="#FBBC05"
-                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-              />
-              <path
-                fill="#EA4335"
-                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-              />
-            </svg>
-            <span>Continue with Google</span>
-          </button>
-
-          {/* Divider */}
-          <div className="relative my-4">
-            <div className="h-px bg-slate-200"></div>
+              <svg className="w-[18px] h-[18px]" viewBox="0 0 24 24">
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
+              </svg>
+              <span>Continue with Google</span>
+            </button>
           </div>
 
-          {/* Footer */}
-          <p className="mt-6 text-center text-[10px] text-slate-400 font-medium leading-relaxed">
+          {/* Footer note */}
+          <p className="mt-8 text-center text-[10px] font-medium leading-relaxed" style={{ color: "#334155" }}>
             By signing in you agree to our{" "}
-            <a
-              href="#"
-              className="text-indigo-500 hover:underline transition-smooth"
-            >
+            <a href="#" style={{ color: "#f59e0b" }} className="hover:underline">
               Privacy Policy
             </a>{" "}
-            and{" "}
-            <a
-              href="#"
-              className="text-indigo-500 hover:underline transition-smooth"
-            >
+            &amp;{" "}
+            <a href="#" style={{ color: "#f59e0b" }} className="hover:underline">
               Terms of Service
             </a>
-            .
           </p>
         </div>
 
-        {/* Mobile Footer */}
-        <p className="mt-auto pt-8 text-[10px] font-bold text-slate-400 uppercase tracking-widest lg:hidden">
-          AutoCredits © 2026
-        </p>
+        {/* Bottom label */}
+        <div className="absolute bottom-6 flex items-center gap-2 opacity-20">
+          <img
+            src="/acillp-logo-dark.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-5 w-auto object-contain"
+          />
+        </div>
       </section>
     </div>
   );

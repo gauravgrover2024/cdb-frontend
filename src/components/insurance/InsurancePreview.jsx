@@ -27,10 +27,7 @@ import {
   UserRound,
   X,
 } from "lucide-react";
-import {
-  escapeHtmlText,
-  scheduleWindowPrint,
-} from "../../utils/scheduleWindowPrint";
+import { escapeHtmlText } from "../../utils/scheduleWindowPrint";
 import { formatPolicyDuration } from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
 import API_BASE_URL from "../../config/apiBaseUrl";
@@ -67,15 +64,9 @@ const toINR = (num) =>
   }).format(Number(num) || 0);
 
 const openPreviewPrintWindow = ({ title, lines = [] }) => {
-  const popup = window.open(
-    "",
-    "_blank",
-    "noopener,noreferrer,width=960,height=720",
-  );
-  if (!popup) return false;
   const safeTitle = escapeHtmlText(title);
   const safeBody = escapeHtmlText(lines.filter(Boolean).join("\n"));
-  popup.document.write(`<!doctype html>
+  const html = `<!doctype html>
 <html>
   <head>
     <title>${safeTitle}</title>
@@ -90,9 +81,30 @@ const openPreviewPrintWindow = ({ title, lines = [] }) => {
     <h1>${safeTitle}</h1>
     <pre>${safeBody}</pre>
   </body>
-</html>`);
-  popup.document.close();
-  scheduleWindowPrint(popup);
+</html>`;
+
+  const iframe = document.createElement("iframe");
+  iframe.style.cssText =
+    "position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:0;";
+  document.body.appendChild(iframe);
+  const doc = iframe.contentDocument || iframe.contentWindow?.document;
+  if (!doc) {
+    document.body.removeChild(iframe);
+    return false;
+  }
+  doc.open();
+  doc.write(html);
+  doc.close();
+  setTimeout(() => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } finally {
+      setTimeout(() => {
+        if (document.body.contains(iframe)) document.body.removeChild(iframe);
+      }, 2000);
+    }
+  }, 250);
   return true;
 };
 
@@ -1312,7 +1324,7 @@ const InsurancePreview = ({
   const initials = getInitials(customerName);
   const handleDownloadPreview = () => {
     const exp = pickSoonestExpiry(data || {});
-    const opened = openPreviewPrintWindow({
+    openPreviewPrintWindow({
       title: `${customerName} Insurance Summary`,
       lines: [
         caseId ? `Case ID: ${caseId}` : "",
@@ -1334,9 +1346,6 @@ const InsurancePreview = ({
         data?.showroomName ? `Showroom: ${data.showroomName}` : "",
       ],
     });
-    if (!opened) {
-      window.alert("Popup blocked. Allow popups to save the preview as PDF.");
-    }
   };
 
   const galleryItems = useMemo(() => {
