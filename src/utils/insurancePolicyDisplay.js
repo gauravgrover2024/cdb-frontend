@@ -223,6 +223,27 @@ export const premiumNum = (record) => {
   return Number.isFinite(fallback) ? fallback : 0;
 };
 
+export const parseDurationYears = (durationStr) => {
+  if (!durationStr) return { odYears: 1, tpYears: 1 };
+  const odMatch = String(durationStr).match(/(\d+)\s*yr\s+OD/i);
+  const tpMatch = String(durationStr).match(/(\d+)\s*yr\s+TP/i);
+  const numberMatch = String(durationStr).match(/^(\d+)/);
+  const years = Number(numberMatch?.[1] || 1);
+  return {
+    odYears: odMatch ? Number(odMatch[1]) : years,
+    tpYears: tpMatch ? Number(tpMatch[1]) : years,
+  };
+};
+
+export const computeExpiryFallback = (startDate, durationStr, type = "od") => {
+  if (!startDate) return "";
+  const d = dayjs(startDate);
+  if (!d.isValid()) return "";
+  const yearsInfo = parseDurationYears(durationStr);
+  const addYears = type === "od" ? yearsInfo.odYears : yearsInfo.tpYears;
+  return d.add(addYears, "year").subtract(1, "day").format("YYYY-MM-DD");
+};
+
 export const getPolicyPulseExpiryDate = (record) => {
   const safe = coerceInsuranceRecord(record);
   const policyType = pickPolicyValue(
@@ -230,20 +251,38 @@ export const getPolicyPulseExpiryDate = (record) => {
     safe.previousPolicyType,
   );
 
-  if (isThirdPartyOnlyPolicy(policyType)) {
-    return (
-      pickPolicyValue(safe.newTpExpiryDate, safe.previousTpExpiryDate) ||
-      safe.policyExpiry ||
-      ""
-    );
+  const policyCategory = String(safe.policyCategory || safe.policyTypeSelector || "").trim().toLowerCase();
+  const isEw = ["extended warranty", "ew policy"].includes(policyCategory);
+  if (isEw) {
+    if (hasDisplayValue(safe.ewExpiryDate)) return safe.ewExpiryDate;
+    if (hasDisplayValue(safe.ewCommencementDate)) {
+      return computeExpiryFallback(safe.ewCommencementDate, safe.newInsuranceDuration || "1yr OD");
+    }
   }
 
-  return (
-    pickPolicyValue(safe.newOdExpiryDate, safe.previousOdExpiryDate) ||
-    pickPolicyValue(safe.newTpExpiryDate, safe.previousTpExpiryDate) ||
-    safe.policyExpiry ||
-    ""
-  );
+  const rawOd = pickPolicyValue(safe.newOdExpiryDate, safe.previousOdExpiryDate);
+  const rawTp = pickPolicyValue(safe.newTpExpiryDate, safe.previousTpExpiryDate);
+
+  if (isThirdPartyOnlyPolicy(policyType)) {
+    if (hasDisplayValue(rawTp)) return rawTp;
+    const startDate = pickPolicyValue(safe.newPolicyStartDate, safe.previousPolicyStartDate);
+    const duration = pickPolicyValue(safe.newInsuranceDuration, safe.previousPolicyDuration, safe.previousInsuranceDuration);
+    if (hasDisplayValue(startDate)) {
+      return computeExpiryFallback(startDate, duration, "tp");
+    }
+    return safe.policyExpiry || "";
+  }
+
+  if (hasDisplayValue(rawOd)) return rawOd;
+  if (hasDisplayValue(rawTp)) return rawTp;
+
+  const startDate = pickPolicyValue(safe.newPolicyStartDate, safe.previousPolicyStartDate);
+  const duration = pickPolicyValue(safe.newInsuranceDuration, safe.previousPolicyDuration, safe.previousInsuranceDuration);
+  if (hasDisplayValue(startDate)) {
+    return computeExpiryFallback(startDate, duration, "od");
+  }
+
+  return safe.policyExpiry || "";
 };
 
 export const getCycleAdjustedExpiryDate = (expiryDateStr, baseDate = dayjs()) => {
@@ -270,6 +309,14 @@ export const daysUntilExpiry = (record) => {
   const parsed = parseInsuranceDate(expiryDate);
   if (!parsed || !parsed.isValid()) return null;
   return parsed.startOf("day").diff(dayjs().startOf("day"), "day");
+};
+
+export const cycleAdjustedDaysUntilExpiry = (record) => {
+  const expiryDate = getPolicyPulseExpiryDate(record);
+  if (!expiryDate) return null;
+  const adjusted = getCycleAdjustedExpiryDate(expiryDate);
+  if (!adjusted) return null;
+  return adjusted.startOf("day").diff(dayjs().startOf("day"), "day");
 };
 
 export const getPolicyPulseMeta = (days, alreadyRenewed = false) => {

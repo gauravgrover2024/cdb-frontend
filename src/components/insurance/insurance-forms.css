@@ -42,27 +42,39 @@
   max-width: 100%;
 }
 
-/* ── 2. Uniform font & weight for large-size fields ──────────────────────── */
+/* ── 2. Uniform font & size for ALL fields inside the form skin ───────────── */
+/* Covers inputs both with and without size="large" across all steps */
+.insurance-case-skin .ant-input,
+.insurance-case-skin .ant-input-affix-wrapper,
+.insurance-case-skin .ant-input-affix-wrapper input,
 .insurance-case-skin .ant-input-lg,
 .insurance-case-skin .ant-input-affix-wrapper-lg,
+.insurance-case-skin .ant-input-affix-wrapper-lg input,
+.insurance-case-skin .ant-input-number,
+.insurance-case-skin .ant-input-number .ant-input-number-input,
 .insurance-case-skin .ant-input-number-lg,
 .insurance-case-skin .ant-input-number-lg .ant-input-number-input,
+.insurance-case-skin .ant-select .ant-select-selector,
+.insurance-case-skin .ant-select .ant-select-selection-item,
 .insurance-case-skin .ant-select-lg .ant-select-selector,
 .insurance-case-skin .ant-select-lg .ant-select-selection-item,
-.insurance-case-skin .ant-select-lg .ant-select-selection-placeholder,
 .insurance-case-skin .ant-select-lg .ant-select-selection-search-input,
-.insurance-case-skin .ant-picker-large,
+.insurance-case-skin .ant-picker .ant-picker-input > input,
 .insurance-case-skin .ant-picker-large .ant-picker-input > input {
   font-size: 14px !important;
   font-weight: 500 !important;
 }
 
-/* ── 6. Placeholder — consistent color & weight ──────────────────────────── */
+/* ── 6. Placeholder — consistent color, size & weight across ALL steps ────── */
 .insurance-case-skin .ant-input::placeholder,
 .insurance-case-skin .ant-input-lg::placeholder,
+.insurance-case-skin .ant-input-affix-wrapper input::placeholder,
+.insurance-case-skin .ant-input-affix-wrapper-lg input::placeholder,
 .insurance-case-skin .ant-input-number-input::placeholder,
+.insurance-case-skin .ant-input-number-lg .ant-input-number-input::placeholder,
 .insurance-case-skin .ant-picker-input > input::placeholder,
-.insurance-case-skin .ant-select-selection-placeholder {
+.insurance-case-skin .ant-select-selection-placeholder,
+.insurance-case-skin .ant-select-lg .ant-select-selection-placeholder {
   color: #94a3b8 !important;
   font-weight: 400 !important;
   font-size: 14px !important;

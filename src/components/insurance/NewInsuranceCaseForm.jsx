@@ -1075,7 +1075,7 @@ const NewInsuranceCaseForm = ({
 
   const crmSnapshotPendingRef = React.useRef(false);
 
-  const applyCustomerToForm = useCallback((customer) => {
+  const applyCustomerToForm = useCallback((customer, { overwrite = false } = {}) => {
     if (!customer) return;
 
     const normalized = {
@@ -1086,7 +1086,7 @@ const NewInsuranceCaseForm = ({
     // First merge from search result — do NOT take snapshot yet to avoid
     // false-positive "data changed" warnings before getById fills full fields.
     setFormData((prev) =>
-      mergeInsuranceCustomerFields(prev, normalized, { fillEmptyOnly: true }),
+      mergeInsuranceCustomerFields(prev, normalized, { fillEmptyOnly: !overwrite }),
     );
 
     const customerId = getCustomerId(normalized);
@@ -1101,7 +1101,7 @@ const NewInsuranceCaseForm = ({
           // Snapshot is taken here — after all CRM fields are loaded.
           crmSnapshotPendingRef.current = true;
           setFormData((prev) =>
-            mergeInsuranceCustomerFields(prev, full, { fillEmptyOnly: true }),
+            mergeInsuranceCustomerFields(prev, full, { fillEmptyOnly: !overwrite }),
           );
         })
         .catch((err) => {

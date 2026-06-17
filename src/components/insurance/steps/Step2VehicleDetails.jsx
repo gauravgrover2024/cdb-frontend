@@ -235,10 +235,6 @@ const Step2VehicleDetails = ({
             <div className="text-sm font-bold text-slate-800">
               Registration & vehicle mapping
             </div>
-            <div className="text-xs text-slate-500">
-              Search by registration or auto-assign temp registration for new
-              cars
-            </div>
           </div>
         </div>
       ),
@@ -438,9 +434,6 @@ const Step2VehicleDetails = ({
           <div>
             <div className="text-sm font-bold text-slate-800">
               Vehicle profile
-            </div>
-            <div className="text-xs text-slate-500">
-              Make, model, variant mapping with fuel and cubic capacity autofill
             </div>
           </div>
         </div>
@@ -683,9 +676,6 @@ const Step2VehicleDetails = ({
           <div>
             <div className="text-sm font-bold text-slate-800">
               Identity & registration
-            </div>
-            <div className="text-xs text-slate-500">
-              Engine, chassis and hypothecation details
             </div>
           </div>
         </div>

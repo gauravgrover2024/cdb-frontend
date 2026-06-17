@@ -566,9 +566,6 @@ const Step3PreviousPolicy = ({
             <div className="text-sm font-bold text-slate-800">
               Previous policy details
             </div>
-            <div className="text-xs text-slate-500">
-              Company, type, duration, dates, NCB and financing details
-            </div>
           </div>
         </div>
       ),

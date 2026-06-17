@@ -36,6 +36,13 @@ export const loanInsuranceAntdTheme = {
     colorSplit: BORDER_DEFAULT,
     // Placeholder
     colorTextPlaceholder: COLOR_PLACEHOLDER,
+    // ── Font size ─────────────────────────────────────────────────────────
+    // Override fontSizeLG so that size="large" fields (Input, Select,
+    // DatePicker, InputNumber) all render at the same 14 px — Ant Design
+    // defaults fontSizeLG to 16 px which makes large Inputs look bigger
+    // than large Selects even when `fontSize` token is set to 14.
+    fontSize: FONT_SIZE_FIELD,
+    fontSizeLG: FONT_SIZE_FIELD,
   },
   components: {
     /* ── Input / AutoComplete ───────────────────────────────────────────── */
