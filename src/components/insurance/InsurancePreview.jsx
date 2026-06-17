@@ -29,6 +29,7 @@ import {
 } from "lucide-react";
 import { escapeHtmlText } from "../../utils/scheduleWindowPrint";
 import { formatPolicyDuration } from "../../utils/insurancePolicyDisplay";
+import { mapCustomerToInsuranceFields } from "../../utils/customerFormMapping";
 import { insuranceApi } from "../../api/insurance";
 import API_BASE_URL from "../../config/apiBaseUrl";
 import PremiumBreakupCard from "./PremiumBreakupCard";
@@ -38,7 +39,10 @@ const EMPTY_LIST = Object.freeze([]);
 
 const hasValue = (value) => {
   if (value === undefined || value === null) return false;
-  if (typeof value === "string") return value.trim() !== "";
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed !== "" && trimmed.toUpperCase() !== "NULL";
+  }
   if (Array.isArray(value)) return value.some((item) => hasValue(item));
   if (typeof value === "object")
     return Object.values(value).some((item) => hasValue(item));
@@ -411,6 +415,11 @@ const normalizeCaseForPreview = (raw = {}) => {
       : {};
   const coalesce = (...vals) => vals.find((v) => hasValue(v));
 
+  const custFromId =
+    raw.customerId && typeof raw.customerId === "object"
+      ? mapCustomerToInsuranceFields(raw.customerId)
+      : {};
+
   const docs = normalizePreviewDocuments(raw);
 
   const ledger = Array.isArray(raw.paymentHistory)
@@ -419,25 +428,35 @@ const normalizeCaseForPreview = (raw = {}) => {
       ? raw.payment_history
       : [];
 
+  const isCompany = String(raw.buyerType || "").trim().toLowerCase() === "company";
+
   return {
     ...raw,
-    customerName: coalesce(raw.customerName, snap.customerName, raw.companyName),
-    companyName: coalesce(raw.companyName, snap.companyName),
-    contactPersonName: coalesce(raw.contactPersonName, snap.contactPersonName),
-    mobile: coalesce(raw.mobile, snap.primaryMobile, raw.primaryMobile),
+    customerName: coalesce(raw.customerName, custFromId.customerName, snap.customerName, raw.companyName),
+    companyName: isCompany ? coalesce(raw.companyName, custFromId.companyName, snap.companyName) : "",
+    contactPersonName: isCompany ? coalesce(raw.contactPersonName, custFromId.contactPersonName, snap.contactPersonName) : "",
+    mobile: coalesce(raw.mobile, custFromId.mobile, snap.primaryMobile, raw.primaryMobile),
     alternatePhone: coalesce(
       raw.alternatePhone,
+      custFromId.alternatePhone,
       raw.alternate_phone,
       raw.altMobile,
       raw.alternateMobile,
       Array.isArray(raw.extraMobiles) ? raw.extraMobiles[0] : "",
     ),
-    email: coalesce(raw.email, snap.email, raw.emailAddress),
-    panNumber: coalesce(raw.panNumber, snap.panNumber),
-    aadhaarNumber: coalesce(raw.aadhaarNumber, raw.aadharNumber, raw.aadhaar),
-    residenceAddress: coalesce(raw.residenceAddress, snap.residenceAddress),
-    pincode: coalesce(raw.pincode, snap.pincode),
-    city: coalesce(raw.city, snap.city),
+    email: coalesce(raw.email, custFromId.email, snap.email, raw.emailAddress),
+    panNumber: coalesce(raw.panNumber, custFromId.panNumber, snap.panNumber),
+    aadhaarNumber: coalesce(raw.aadhaarNumber, custFromId.aadhaarNumber, raw.aadharNumber, raw.aadhaar),
+    residenceAddress: coalesce(raw.residenceAddress, custFromId.residenceAddress, snap.residenceAddress),
+    pincode: coalesce(raw.pincode, custFromId.pincode, snap.pincode),
+    city: coalesce(raw.city, custFromId.city, snap.city),
+    nomineeName: coalesce(raw.nomineeName, custFromId.nomineeName),
+    nomineeRelationship: coalesce(
+      raw.nomineeRelationship,
+      raw.nominee_relation,
+      custFromId.nomineeRelationship
+    ),
+    nomineeDob: coalesce(raw.nomineeDob, custFromId.nomineeDob),
     documents: docs,
     quotes: Array.isArray(raw.quotes) ? raw.quotes : [],
     paymentHistory: ledger,
@@ -459,10 +478,6 @@ const normalizeCaseForPreview = (raw = {}) => {
     ),
     acceptedQuoteId: coalesce(raw.acceptedQuoteId, raw.accepted_quote_id),
     nomineeAge: coalesce(raw.nomineeAge, raw.nominee_age),
-    nomineeRelationship: coalesce(
-      raw.nomineeRelationship,
-      raw.nominee_relation,
-    ),
     registrationAllotted: coalesce(
       raw.registrationAllotted,
       raw.registration_allotted,
@@ -649,14 +664,14 @@ const QuotePreviewCard = ({
   return (
     <div
       className={cx(
-        "relative flex flex-col rounded-2xl bg-white dark:bg-[#151515] transition-all duration-200",
+        "relative flex flex-col rounded-2xl bg-white dark:bg-[#151515] transition-all duration-300 ease-in-out",
         isAccepted
-          ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#9FC0FF]"
-          : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)] dark:ring-slate-800",
+          ? "shadow-[0_8px_30px_rgba(15,96,255,0.08)] ring-2 ring-[#9FC0FF] bg-gradient-to-b from-[#DAF3FF]/15 to-white dark:from-[#9FC0FF]/5 dark:to-[#151515]"
+          : "shadow-[0_2px_16px_rgba(15,23,42,0.06)] ring-1 ring-slate-200 dark:ring-slate-800 hover:shadow-[0_6px_24px_rgba(15,23,42,0.1)] hover:ring-slate-300 dark:hover:ring-slate-700",
       )}
     >
       {isAccepted && (
-        <div className="absolute -top-2.5 left-4 flex items-center gap-1">
+        <div className="absolute -top-2.5 left-4 flex items-center gap-1 z-10">
           <span className="flex items-center gap-1 rounded-full bg-[#9FC0FF] px-2.5 py-0.5 text-[10px] font-black text-slate-800 shadow-sm">
             <CheckCircleFilled className="text-[9px]" /> Accepted
           </span>
@@ -664,7 +679,7 @@ const QuotePreviewCard = ({
       )}
 
       {!isAccepted && isCheapest && (
-        <div className="absolute -top-2.5 left-4 flex items-center gap-1">
+        <div className="absolute -top-2.5 left-4 flex items-center gap-1 z-10">
           <span className="rounded-full bg-[#FFE6C6] px-2.5 py-0.5 text-[10px] font-black text-slate-700 shadow-sm ring-1 ring-[#FFE6C6]">
             Lowest Premium
           </span>
@@ -690,15 +705,15 @@ const QuotePreviewCard = ({
               </p>
               <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                 {row?.coverageType && (
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                     {row.coverageType}
                   </span>
                 )}
                 {row?.coverageType && row?.policyDuration && (
-                  <span className="text-[10px] text-slate-300">·</span>
+                  <span className="text-[10px] text-slate-300 dark:text-slate-700">·</span>
                 )}
                 {row?.policyDuration && (
-                  <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                  <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                     {formatPolicyDuration(row.policyDuration)}
                   </span>
                 )}
@@ -707,7 +722,7 @@ const QuotePreviewCard = ({
           </div>
 
           <div className="text-right shrink-0">
-            <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+            <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
               IDV
             </p>
             <p className="m-0 text-sm font-black tabular-nums text-slate-800 dark:text-slate-100">
@@ -737,6 +752,7 @@ const QuotePreviewCard = ({
         totalAmount={formatStoredOrComputedPremium(row)}
         isAccepted={isAccepted}
         coverageType={row.coverageType || breakup?.coverageType}
+        borderless={true}
       />
 
       <div className="px-5 pb-5">
@@ -744,19 +760,19 @@ const QuotePreviewCard = ({
           <button
             type="button"
             className={cx(
-              "flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide border-0 shadow-sm",
+              "flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide border-0 shadow-sm transition-all duration-200 cursor-default",
               isAccepted
                 ? "bg-[#9FC0FF] text-slate-800"
-                : "bg-[#FF8EAD] text-slate-800",
+                : "bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300",
             )}
           >
-            {isAccepted ? "✓ Accepted" : "Accept"}
+            {isAccepted ? "✓ Accepted" : "Select Quote"}
           </button>
 
           <button
             type="button"
             disabled
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-400 ring-1 ring-slate-200 cursor-not-allowed"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-slate-50 dark:bg-slate-900/30 text-slate-400 dark:text-slate-600 ring-1 ring-slate-200 dark:ring-slate-800 cursor-not-allowed"
             title="Edit"
           >
             <EditOutlined className="text-xs" />
@@ -765,7 +781,7 @@ const QuotePreviewCard = ({
           <button
             type="button"
             disabled
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#FF8EAD]/30 text-slate-500 ring-1 ring-[#FF8EAD] cursor-not-allowed"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-[#FF8EAD]/10 text-[#FF8EAD] dark:bg-red-950/20 dark:text-red-400 ring-1 ring-[#FF8EAD]/20 dark:ring-red-950/30 cursor-not-allowed"
             title="Delete"
           >
             <DeleteOutlined className="text-xs" />
@@ -1652,7 +1668,7 @@ const InsurancePreview = ({
                 active={activeStage === "customer"}
               >
                 <SectionCard
-                  title="Customer + Basic Setup"
+                  title="Customer Details"
                   tone="mint"
                   query={searchQuery}
                   fields={[
@@ -1689,6 +1705,14 @@ const InsurancePreview = ({
                       label: "Nominee Age",
                       value: firstFilled(data.nomineeAge, data.nominee_age),
                     },
+                  ]}
+                />
+
+                <SectionCard
+                  title="Case Setup"
+                  tone="sage"
+                  query={searchQuery}
+                  fields={[
                     { label: "Buyer Type", value: data.buyerType },
                     { label: "Vehicle Type", value: data.vehicleType },
                     {
@@ -1709,9 +1733,14 @@ const InsurancePreview = ({
                     { label: "Showroom Name", value: data.showroomName },
                     {
                       label: "Source",
-                      value: data.sourceOrigin || data.source
-                        ? `${data.sourceOrigin || data.source}${data.sourceName ? ` - ${data.sourceName}` : ""}`
-                        : data.sourceName,
+                      value: (() => {
+                        const origin = hasValue(data.sourceOrigin) ? data.sourceOrigin : (hasValue(data.source) ? data.source : null);
+                        const name = hasValue(data.sourceName) ? data.sourceName : null;
+                        if (origin && name) return `${origin} - ${name}`;
+                        if (origin) return origin;
+                        if (name) return name;
+                        return null;
+                      })(),
                     },
                     {
                       label: "Dealer / Channel",
@@ -1928,8 +1957,8 @@ const InsurancePreview = ({
                         </span>
                       ) : null}
                     </div>
-                    <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-                      {(acceptedQuote ? [acceptedQuote] : quotes)
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      {quotes
                         .filter((row) => {
                           if (!searchQuery.trim()) return true;
                           const breakup = computeQuoteBreakupFromRow(row);

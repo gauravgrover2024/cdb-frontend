@@ -23,6 +23,7 @@ import {
   DollarSign,
   Eye,
   ListChecks,
+  NotebookPen,
   RefreshCw,
   Save,
   Search,
@@ -35,7 +36,7 @@ import {
 } from "lucide-react";
 import {
   buildInsurancePaymentTimeline,
-  daysUntilExpiry,
+  cycleAdjustedDaysUntilExpiry,
   getPolicyPulseExpiryDate,
   getPolicyPulseMeta,
   parsePolicyIncludedAddons,
@@ -124,8 +125,56 @@ const RenewalStatusActionPanel = ({ row, draft, onAction, onClose }) => {
   const status =
     draft?.renewalLeadStatus ?? row?.renewalLeadStatus ?? "New";
   const tone = renewalLeadStatusTone(status);
-  const customer =
-    row?.customerName || row?.companyName || row?.contactPersonName || "—";
+  
+  const snap = row?.customerSnapshot || {};
+  const buyerType = String(
+    row?.buyerType || snap.buyerType || "Individual",
+  )
+    .trim()
+    .toLowerCase();
+  const isCompany = buyerType === "company";
+  const companyName = isCompany
+    ? (row?.companyName || snap.companyName || "")
+    : "";
+  const contactPerson = isCompany
+    ? (row?.contactPersonName || snap.contactPersonName || "")
+    : "";
+  const customerName =
+    resolveInsuranceCustomerDisplay({
+      customerName: row?.customerName || snap.customerName || "",
+      companyName,
+      contactPersonName: contactPerson,
+      sourceName: row?.sourceName,
+      dealerChannelName: row?.dealerChannelName,
+    }) ||
+    row?.customerName ||
+    snap.customerName ||
+    "—";
+  const sourceIdentity = String(
+    row?.sourceName ||
+    row?.dealerChannelName ||
+    row?.referenceName ||
+    "",
+  )
+    .trim()
+    .toLowerCase();
+  const customerIdentity = String(customerName || "")
+    .trim()
+    .toLowerCase();
+  const customerLooksLikeSource =
+    Boolean(sourceIdentity) && sourceIdentity === customerIdentity;
+  const customerLooksLikeChannelAlias =
+    /(broker|broking|dealer|agency|channel|dsa|pos|crm)/i.test(
+      String(customerName || ""),
+    );
+  const displayName =
+    buyerType === "company"
+      ? companyName || contactPerson || customerName || "—"
+      : customerLooksLikeSource || customerLooksLikeChannelAlias
+        ? contactPerson || customerName || companyName || "—"
+        : customerName || contactPerson || companyName || "—";
+
+  const customer = displayName;
   const reg = row?.registrationNumber || "—";
   const activePolicy = resolveActivePolicySnapshot(row);
   const expiryLabel = activePolicy.expiryLabel || "—";
@@ -398,6 +447,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "renewal",
       label: "Pending Renewals",
       count: Number(summary?.pendingRenewals || 0),
+      icon: Clock3,
+      color: "text-rose-600",
+      bg: "bg-rose-50",
+      borderColor: "border-rose-100",
       activeBg: "bg-rose-600 text-white border-rose-600 shadow-[0_4px_12px_rgba(225,29,72,0.25)]",
       inactiveBg: "bg-rose-50 border-rose-100 text-rose-900 hover:bg-rose-100/50",
       labelActive: "text-rose-200",
@@ -407,6 +460,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "renewed",
       label: "Renewed",
       count: Number(summary?.renewed || 0),
+      icon: CheckCircle,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      borderColor: "border-emerald-100",
       activeBg: "bg-emerald-600 text-white border-emerald-600 shadow-[0_4px_12px_rgba(5,150,105,0.25)]",
       inactiveBg: "bg-emerald-50 border-emerald-100 text-emerald-900 hover:bg-emerald-100/50",
       labelActive: "text-emerald-200",
@@ -416,6 +473,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "external",
       label: "External",
       count: Number(summary?.external || 0),
+      icon: Share2,
+      color: "text-indigo-600",
+      bg: "bg-indigo-50",
+      borderColor: "border-indigo-100",
       activeBg: "bg-indigo-600 text-white border-indigo-600 shadow-[0_4px_12px_rgba(79,70,229,0.25)]",
       inactiveBg: "bg-indigo-50 border-indigo-100 text-indigo-900 hover:bg-indigo-100/50",
       labelActive: "text-indigo-200",
@@ -425,6 +486,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "active",
       label: "Active Cases",
       count: Number(summary?.activeCases || 0),
+      icon: Shield,
+      color: "text-blue-600",
+      bg: "bg-blue-50",
+      borderColor: "border-blue-100",
       activeBg: "bg-blue-600 text-white border-blue-600 shadow-[0_4px_12px_rgba(37,99,235,0.25)]",
       inactiveBg: "bg-blue-50 border-blue-100 text-blue-900 hover:bg-blue-100/50",
       labelActive: "text-blue-200",
@@ -434,6 +499,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "policiesPending",
       label: "Policies Pending",
       count: Number(summary?.policiesPending || 0),
+      icon: ListChecks,
+      color: "text-purple-600",
+      bg: "bg-purple-50",
+      borderColor: "border-purple-100",
       activeBg: "bg-purple-600 text-white border-purple-600 shadow-[0_4px_12px_rgba(124,58,237,0.25)]",
       inactiveBg: "bg-purple-50 border-purple-100 text-purple-900 hover:bg-purple-100/50",
       labelActive: "text-purple-200",
@@ -443,6 +512,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "paymentPending",
       label: "Payment Pending",
       count: Number(summary?.paymentPending || 0),
+      icon: DollarSign,
+      color: "text-amber-600",
+      bg: "bg-amber-50",
+      borderColor: "border-amber-100",
       activeBg: "bg-amber-600 text-white border-amber-600 shadow-[0_4px_12px_rgba(217,119,6,0.25)]",
       inactiveBg: "bg-amber-50 border-amber-100 text-amber-900 hover:bg-amber-100/50",
       labelActive: "text-amber-200",
@@ -452,6 +525,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "highValue",
       label: "High Value (>50K)",
       count: Number(summary?.highValue || 0),
+      icon: Activity,
+      color: "text-teal-600",
+      bg: "bg-teal-50",
+      borderColor: "border-teal-100",
       activeBg: "bg-teal-600 text-white border-teal-600 shadow-[0_4px_12px_rgba(13,148,136,0.25)]",
       inactiveBg: "bg-teal-50 border-teal-100 text-teal-900 hover:bg-teal-100/50",
       labelActive: "text-teal-200",
@@ -461,6 +538,10 @@ const InsuranceRenewalCasesPage = () => {
       key: "nonAssigned",
       label: "Non-Assigned",
       count: Number(summary?.nonAssigned || 0),
+      icon: XCircle,
+      color: "text-cyan-600",
+      bg: "bg-cyan-50",
+      borderColor: "border-cyan-100",
       activeBg: "bg-cyan-600 text-white border-cyan-600 shadow-[0_4px_12px_rgba(8,145,178,0.25)]",
       inactiveBg: "bg-cyan-50 border-cyan-100 text-cyan-900 hover:bg-cyan-100/50",
       labelActive: "text-cyan-200",
@@ -592,8 +673,8 @@ const InsuranceRenewalCasesPage = () => {
       if (aFollow && !bFollow) return -1;
       if (!aFollow && bFollow) return 1;
 
-      const aDays = daysUntilExpiry(a);
-      const bDays = daysUntilExpiry(b);
+      const aDays = cycleAdjustedDaysUntilExpiry(a);
+      const bDays = cycleAdjustedDaysUntilExpiry(b);
       const aNum = Number.isFinite(aDays) ? aDays : Number.POSITIVE_INFINITY;
       const bNum = Number.isFinite(bDays) ? bDays : Number.POSITIVE_INFINITY;
       if (aNum !== bNum) return aNum - bNum;
@@ -1034,19 +1115,29 @@ const InsuranceRenewalCasesPage = () => {
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
             {statCards.map((card) => {
               const active = isCardActive(card.key);
+              const CardIcon = card.icon;
               return (
                 <div
                   key={card.key}
                   onClick={() => handleStatCardClick(card.key)}
-                  className={`cursor-pointer rounded-xl border px-3 py-2.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] ${
-                    active ? card.activeBg : card.inactiveBg
+                  className={`cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-3 ${
+                    active ? card.activeBg : `${card.inactiveBg} ${card.borderColor}`
                   }`}
                 >
-                  <div className={`text-[11px] font-bold uppercase tracking-wider ${active ? card.labelActive : card.labelInactive}`}>
-                    {card.label}
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shrink-0 ${
+                    active
+                      ? "bg-white/20 border-white/10 text-white"
+                      : `${card.bg} ${card.borderColor} ${card.color}`
+                  }`}>
+                    <CardIcon size={16} />
                   </div>
-                  <div className="mt-0.5 text-xl font-black">
-                    {card.count}
+                  <div className="min-w-0">
+                    <div className={`text-[10px] font-bold uppercase tracking-wider truncate ${active ? card.labelActive : card.labelInactive}`}>
+                      {card.label}
+                    </div>
+                    <div className="mt-0.5 text-lg font-black leading-none">
+                      {card.count}
+                    </div>
                   </div>
                 </div>
               );
@@ -1205,7 +1296,7 @@ const InsuranceRenewalCasesPage = () => {
                 draft.renewalLeadStatus ?? row.renewalLeadStatus ?? "New";
               const assignedTo = row.renewalAssignedToName || "Not Assigned";
               const activePolicy = resolveActivePolicySnapshot(row);
-              const days = activePolicy.expiryDays;
+              const days = cycleAdjustedDaysUntilExpiry(row);
               const policyPulseTone = getPolicyPulseMeta(
                 days,
                 viewTab === "renewed",
@@ -1228,25 +1319,30 @@ const InsuranceRenewalCasesPage = () => {
               const { referenceName, referencePhone } =
                 resolveInsuranceReference(row);
               const snap = row.customerSnapshot || {};
-              const companyName = snap.companyName || row.companyName || "";
-              const contactPerson =
-                snap.contactPersonName || row.contactPersonName || "";
+              const buyerType = String(
+                row.buyerType || snap.buyerType || "Individual",
+              )
+                .trim()
+                .toLowerCase();
+              const isCompany = buyerType === "company";
+
+              const companyName = isCompany
+                ? (row.companyName || snap.companyName || "")
+                : "";
+              const contactPerson = isCompany
+                ? (row.contactPersonName || snap.contactPersonName || "")
+                : "";
               const customerName =
                 resolveInsuranceCustomerDisplay({
-                  customerName: snap.customerName || row.customerName || "",
+                  customerName: row.customerName || snap.customerName || "",
                   companyName,
                   contactPersonName: contactPerson,
                   sourceName: row.sourceName,
                   dealerChannelName: row.dealerChannelName,
                 }) ||
-                snap.customerName ||
                 row.customerName ||
+                snap.customerName ||
                 "—";
-              const buyerType = String(
-                snap.buyerType || row.buyerType || "Individual",
-              )
-                .trim()
-                .toLowerCase();
               const sourceIdentity = String(
                 row.sourceName ||
                 row.dealerChannelName ||
@@ -1538,7 +1634,7 @@ const InsuranceRenewalCasesPage = () => {
                                 color: "#1d4ed8",
                               }}
                             >
-                              N
+                              <NotebookPen size={14} />
                             </motion.button>
                           </Tooltip>
                         </Popover>

@@ -12,14 +12,18 @@ const BreakupRow = ({ label, value, bold, muted, indent, isLast }) => (
     className={cx(
       "flex items-center justify-between py-2 group",
       indent ? "pl-4" : "",
-      !isLast && !bold ? "border-b border-slate-50/50" : "" // Subtle separator for non-bold rows
+      !isLast && !bold ? "border-b border-slate-100/10 dark:border-slate-800/40" : "" // Subtle separator for non-bold rows
     )}
   >
     <span
       className={cx(
         "text-[13px] leading-relaxed",
-        bold ? "font-semibold text-slate-800" : muted ? "text-slate-500" : "text-slate-600",
-        indent ? "text-slate-500" : ""
+        bold
+          ? "font-semibold text-slate-800 dark:text-slate-200"
+          : muted
+            ? "text-slate-500 dark:text-slate-400"
+            : "text-slate-600 dark:text-slate-350",
+        indent ? "text-slate-500 dark:text-slate-400" : ""
       )}
     >
       {label}
@@ -28,10 +32,10 @@ const BreakupRow = ({ label, value, bold, muted, indent, isLast }) => (
       className={cx(
         "tabular-nums text-[13px] leading-relaxed whitespace-nowrap",
         bold
-          ? "font-bold text-slate-900"
+          ? "font-bold text-slate-900 dark:text-white"
           : muted
-            ? "text-slate-400"
-            : "font-medium text-slate-700"
+            ? "text-slate-400 dark:text-slate-500"
+            : "font-medium text-slate-700 dark:text-slate-200"
       )}
     >
       {value}
@@ -84,6 +88,7 @@ const PremiumBreakupCard = ({
   coverageType = "",
   policyDuration = "",
   idv = "",
+  borderless = false,
 }) => {
   const [localShowAllAddons, setLocalShowAllAddons] = React.useState(false);
 
@@ -113,18 +118,22 @@ const PremiumBreakupCard = ({
   return (
     <div
       className={cx(
-        "relative flex flex-col rounded-xl bg-white transition-all duration-300 ease-in-out",
-        "border border-slate-200",
-        isAccepted
-          ? "shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-blue-200 border-blue-100"
-          : "shadow-sm hover:shadow-md hover:border-slate-300",
+        "relative flex flex-col transition-all duration-300 ease-in-out",
+        borderless
+          ? "bg-transparent border-0 shadow-none"
+          : cx(
+              "rounded-xl bg-white dark:bg-[#151515] border border-slate-200 dark:border-slate-800",
+              isAccepted
+                ? "shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-blue-200 dark:ring-blue-900 border-blue-100 dark:border-blue-900/30"
+                : "shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+            ),
         className
       )}
     >
       {/* Accepted Badge - Floating */}
-      {isAccepted && (
+      {isAccepted && !borderless && (
         <div className="absolute -top-3 left-4 z-10">
-          <span className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-[10px] font-bold text-white shadow-sm shadow-blue-200">
+          <span className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-[10px] font-bold text-white shadow-sm shadow-blue-250">
             <CheckCircleFilled className="text-[10px]" />
             ACCEPTED
           </span>
@@ -141,8 +150,8 @@ const PremiumBreakupCard = ({
                 className={cx(
                   "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold ring-1 transition-colors",
                   isAccepted
-                    ? "bg-blue-50 text-blue-700 ring-blue-100"
-                    : `${palette.bg} ${palette.text} ${palette.ring}`
+                    ? "bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 ring-blue-100 dark:ring-blue-900/50"
+                    : `${palette.bg} dark:bg-opacity-20 ${palette.text} ${palette.ring}`
                 )}
               >
                 {logoUrl && !fallbackLogoFailed ? (
@@ -153,7 +162,7 @@ const PremiumBreakupCard = ({
                     onError={() => setFallbackLogoFailed(true)}
                   />
                 ) : (
-                  <span className={cx("text-lg", isAccepted ? "text-blue-600" : palette.accent)}>
+                  <span className={cx("text-lg", isAccepted ? "text-blue-600 dark:text-blue-400" : palette.accent)}>
                     {initial}
                   </span>
                 )}
@@ -161,24 +170,24 @@ const PremiumBreakupCard = ({
 
               {/* Insurer Details */}
               <div className="min-w-0 pt-0.5">
-                <p className="truncate text-base font-bold text-slate-900 leading-tight">
+                <p className="truncate text-base font-bold text-slate-900 dark:text-white leading-tight">
                   {insurerName || "Unknown Insurer"}
                 </p>
 
                 {/* Meta Tags */}
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
                   {coverageType && (
-                    <span className="inline-flex items-center rounded-md bg-slate-50 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-inset ring-slate-500/10">
+                    <span className="inline-flex items-center rounded-md bg-slate-50 dark:bg-slate-805 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-500/10 dark:ring-slate-700">
                       {coverageType}
                     </span>
                   )}
                   {policyDuration && (
-                    <span className="text-[11px] text-slate-500 font-medium">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
                       {formatPolicyDuration(policyDuration)}
                     </span>
                   )}
                   {!coverageType && !policyDuration && title && (
-                    <span className="text-[11px] text-slate-500">{title}</span>
+                    <span className="text-[11px] text-slate-500 dark:text-slate-450">{title}</span>
                   )}
                 </div>
               </div>
@@ -186,11 +195,11 @@ const PremiumBreakupCard = ({
 
             {/* IDV Block */}
             {idv && coverageType !== "Third Party" && (
-              <div className="text-right shrink-0 pl-2 border-l border-slate-100 ml-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-0.5">
+              <div className="text-right shrink-0 pl-2 border-l border-slate-100 dark:border-slate-800 ml-2">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">
                   IDV
                 </p>
-                <p className="text-sm font-bold tabular-nums text-slate-800">
+                <p className="text-sm font-bold tabular-nums text-slate-800 dark:text-slate-200">
                   {formattedIdv}
                 </p>
               </div>
@@ -200,12 +209,12 @@ const PremiumBreakupCard = ({
       )}
 
       {/* Divider after header */}
-      {(logoUrl || insurerName) && <div className="mx-5 border-t border-slate-100" />}
+      {(logoUrl || insurerName) && <div className="mx-5 border-t border-slate-100 dark:border-slate-800" />}
 
       {/* Breakdown Content */}
       <div className="px-5 pt-4 pb-2">
         {!logoUrl && !insurerName && (
-          <p className="mb-4 text-sm font-bold text-slate-800 uppercase tracking-wide">
+          <p className="mb-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
             {title}
           </p>
         )}
@@ -229,7 +238,6 @@ const PremiumBreakupCard = ({
               value={`- ${formatCurrency(Number((breakup.ownDamageBeforeNcb || 0) * (breakup.ncbPercent || 0) / 100))}`}
               indent
               muted
-            // Optional: Show negative value in red/green if desired, currently keeping neutral gray
             />
           </div>
         )}
@@ -277,7 +285,7 @@ const PremiumBreakupCard = ({
               <button
                 type="button"
                 onClick={toggleHandler}
-                className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-slate-200 bg-slate-50 py-1.5 text-[11px] font-semibold text-slate-600 transition-all hover:bg-slate-100 hover:text-slate-800 hover:border-slate-300"
+                className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20 py-1.5 text-[11px] font-semibold text-slate-650 dark:text-slate-400 transition-all hover:bg-slate-100 dark:hover:bg-slate-900/40 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
               >
                 {isExpanded ? (
                   <>
@@ -297,20 +305,20 @@ const PremiumBreakupCard = ({
       {/* Total Section */}
       <div className="mt-auto">
         {/* Dashed Separator */}
-        <div className="mx-5 border-t border-dashed border-slate-200 my-2" />
+        <div className="mx-5 border-t border-dashed border-slate-250 dark:border-slate-800 my-2" />
 
-        <div className="bg-slate-50/50 rounded-b-xl p-5">
+        <div className={cx(borderless ? "px-5 py-4 bg-slate-50/30 dark:bg-slate-900/20" : "bg-slate-50/50 dark:bg-slate-900/30 rounded-b-xl p-5")}>
           <div className="flex items-end justify-between">
             <div className="flex flex-col">
-              <span className="text-sm font-semibold text-slate-500">
+              <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
                 Net Premium
               </span>
-              <span className="text-[10px] text-slate-400 mt-0.5">
+              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
                 Incl. GST & Taxes
               </span>
             </div>
             <div className="text-right">
-              <span className="block text-2xl font-black tabular-nums text-slate-900 tracking-tight">
+              <span className="block text-2xl font-black tabular-nums text-slate-900 dark:text-white tracking-tight">
                 {formatCurrency(totalAmount || breakup.totalAmount || 0)}
               </span>
             </div>

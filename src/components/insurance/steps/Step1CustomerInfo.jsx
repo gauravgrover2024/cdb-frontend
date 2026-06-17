@@ -327,9 +327,6 @@ const Step1CustomerInfo = ({
           </div>
           <div>
             <div className="text-sm font-bold text-slate-800">Basic setup</div>
-            <div className="text-xs text-slate-500">
-              Buyer type, vehicle type, staff assignment and source details
-            </div>
           </div>
         </div>
       ),
@@ -555,7 +552,8 @@ const Step1CustomerInfo = ({
               </div>
             ) : null}
 
-            <div className={fieldWrapClass}>
+            {/* Channel / Dealer Number — hidden from UI (kept for data compatibility) */}
+            {/* <div className={fieldWrapClass}>
               <CleanField label="Channel / Dealer Number">
                 <AutoComplete
                   size="large"
@@ -570,7 +568,7 @@ const Step1CustomerInfo = ({
                   style={{ width: "100%" }}
                 />
               </CleanField>
-            </div>
+            </div> */}
           </div>
 
           {/* ── Source ── */}
@@ -764,9 +762,6 @@ const Step1CustomerInfo = ({
             <div className="text-sm font-bold text-slate-800">
               Customer details
             </div>
-            <div className="text-xs text-slate-500">
-              CRM search, contact details and KYC information
-            </div>
           </div>
         </div>
       ),
@@ -797,7 +792,7 @@ const Step1CustomerInfo = ({
                             getCustomerId,
                           );
                           if (selected) {
-                            applyCustomerToForm(selected);
+                            applyCustomerToForm(selected, { overwrite: true });
                             setCustomerDataLoaded(true);
                           }
                         }}
@@ -878,7 +873,7 @@ const Step1CustomerInfo = ({
                             selected?.fullName ||
                             "";
                           if (fullName) setField("customerName", fullName);
-                          applyCustomerToForm(selected);
+                          applyCustomerToForm(selected, { overwrite: true });
                           setCustomerDataLoaded(true);
                         }
                       }}
@@ -952,7 +947,7 @@ const Step1CustomerInfo = ({
                           .replace(/\D/g, "")
                           .slice(-10);
                         if (mobile10) setField("mobile", mobile10);
-                        applyCustomerToForm(selected);
+                        applyCustomerToForm(selected, { overwrite: true });
                         setCustomerDataLoaded(true);
                       }
                     }}
@@ -1168,9 +1163,6 @@ const Step1CustomerInfo = ({
           <div>
             <div className="text-sm font-bold text-slate-800">
               Nominee & reference
-            </div>
-            <div className="text-xs text-slate-500">
-              Optional insurance beneficiary and contact reference
             </div>
           </div>
         </div>

@@ -708,9 +708,6 @@ const Step5NewPolicyDetails = ({
             <div className="text-sm font-bold text-slate-800">
               Policy details
             </div>
-            <div className="text-xs text-slate-500">
-              Company, type, number, dates, duration, NCB, IDV and premium
-            </div>
           </div>
         </div>
       ),

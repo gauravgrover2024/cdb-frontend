@@ -3,18 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   AlertCircle,
-  BarChart3,
   CheckCircle,
   Clock3,
   DollarSign,
   FileText,
   Plus,
-  PencilLine,
+  Edit,
   Trash2,
   Eye,
   RefreshCw,
-  GalleryVertical,
-  TrendingUp,
+  FolderOpen,
   Search,
   X,
   Calendar,
@@ -487,56 +485,7 @@ const normalizeVehicleRegKey = (value) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "");
 
-const buildTrendSeries = (history = [], width = 220, height = 56, pad = 6) => {
-  const rows = Array.isArray(history) ? history : [];
-  if (!rows.length) return null;
-  const chartW = Math.max(1, width - pad * 2);
-  const chartH = Math.max(1, height - pad * 2);
-  const minX = pad;
-  const minY = pad;
-  const maxY = pad + chartH;
-  const premiumValues = rows.map((r) => Number(r?.premium || 0));
-  const pMin = Math.min(...premiumValues);
-  const pMax = Math.max(...premiumValues);
-  const pMid = pMin + (pMax - pMin) / 2;
-  const scaleY = (value, min, max) => {
-    if (!Number.isFinite(value)) return maxY;
-    if (max === min) return (minY + maxY) / 2;
-    return minY + ((max - value) / (max - min)) * chartH;
-  };
-  const points = rows.map((row, idx) => {
-    const x =
-      rows.length === 1
-        ? minX + chartW / 2
-        : minX + (idx / (rows.length - 1)) * chartW;
-    return {
-      ...row,
-      x,
-      premiumY: scaleY(Number(row?.premium || 0), pMin, pMax),
-      showXLabel:
-        idx === 0 ||
-        idx === rows.length - 1 ||
-        String(row?.policyStartYear || "") !==
-        String(rows[idx - 1]?.policyStartYear || ""),
-    };
-  });
-  const premiumPath = points
-    .map(
-      (p, idx) =>
-        `${idx === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.premiumY.toFixed(2)}`,
-    )
-    .join(" ");
-  return {
-    points,
-    premiumPath,
-    axisY: maxY,
-    yAxisTicks: [
-      { label: formatInr(pMax), y: scaleY(pMax, pMin, pMax) },
-      { label: formatInr(pMid), y: scaleY(pMid, pMin, pMax) },
-      { label: formatInr(pMin), y: scaleY(pMin, pMin, pMax) },
-    ],
-  };
-};
+
 
 const INSURANCE_ENTRY_TYPES = {
   INSURER_PAYMENT: "INSURER_PAYMENT",
@@ -801,6 +750,7 @@ const MetricCard = ({
   const valueColor = isActive ? "#ffffff" : color;
   const iconColor = isActive ? "#ffffff" : color;
   const iconBg = isActive ? "rgba(255,255,255,0.16)" : `${color}12`;
+  const iconBorder = isActive ? "rgba(255,255,255,0.25)" : `${color}30`;
 
   return (
     <motion.div
@@ -823,7 +773,13 @@ const MetricCard = ({
     >
       <div className="p-3">
         <div className="flex items-center gap-3">
-          <div className="rounded-lg p-2" style={{ background: iconBg }}>
+          <div
+            className="w-11 h-11 rounded-2xl flex items-center justify-center border shrink-0"
+            style={{
+              background: iconBg,
+              borderColor: iconBorder,
+            }}
+          >
             <Icon size={18} style={{ color: iconColor }} />
           </div>
 
@@ -921,7 +877,6 @@ const PolicyCard = ({
   onEdit,
   onDelete,
   onRenew,
-  onTrend,
   onExtend,
   onDocs,
   onPolicyBreakup,
@@ -931,10 +886,7 @@ const PolicyCard = ({
   const isCompleted = policy.isCompleted ?? isCompletedPolicy(policy);
   const isDraft = !isCompleted;
   const openDues = policy.openDues || 0;
-  const pulseDays = Number.isFinite(Number(policy.expiryDays))
-    ? Number(policy.expiryDays)
-    : null;
-  const policyPulseTone = getPolicyPulseMeta(pulseDays, policy.alreadyRenewed);
+
 
   const statusConfig = {
     draft: { color: "#f43f5e", bg: "#fff1f2", label: "Draft" },
@@ -1073,7 +1025,7 @@ const PolicyCard = ({
                 className="h-8 w-8 rounded-full inline-flex items-center justify-center"
                 style={{ background: "#eef2ff", color: "#4f46e5" }}
               >
-                <PencilLine size={14} />
+                <Edit size={14} />
               </motion.button>
             </Tooltip>
 
@@ -1085,31 +1037,7 @@ const PolicyCard = ({
                 className="h-8 w-8 rounded-full inline-flex items-center justify-center"
                 style={{ background: "#eff6ff", color: "#2563eb" }}
               >
-                <GalleryVertical size={14} />
-              </motion.button>
-            </Tooltip>
-
-            <Tooltip title="Trend">
-              <motion.button
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={onTrend}
-                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
-                style={{ background: "#f0f9ff", color: "#0284c7" }}
-              >
-                <TrendingUp size={14} />
-              </motion.button>
-            </Tooltip>
-
-            <Tooltip title={policy.canRenewNow ? "Renew now" : "Renew"}>
-              <motion.button
-                whileHover={{ scale: 1.06 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={onRenew}
-                className="h-8 w-8 rounded-full inline-flex items-center justify-center"
-                style={{ background: "#ecfdf5", color: "#059669" }}
-              >
-                <RefreshCw size={14} />
+                <FolderOpen size={14} />
               </motion.button>
             </Tooltip>
 
@@ -1215,14 +1143,14 @@ const PolicyCard = ({
                     policy.channelPartnerName ? (
                     <div
                       className={`flex items-center gap-1.5 px-2 py-1 rounded-lg w-fit max-w-full border ${policy.policyDoneByLabel?.toLowerCase() === "broker"
-                          ? "bg-amber-50 border-amber-100"
-                          : "bg-blue-50 border-blue-100"
+                        ? "bg-amber-50 border-amber-100"
+                        : "bg-blue-50 border-blue-100"
                         }`}
                     >
                       <span
                         className={`text-[10px] font-bold truncate ${policy.policyDoneByLabel?.toLowerCase() === "broker"
-                            ? "text-amber-700"
-                            : "text-blue-700"
+                          ? "text-amber-700"
+                          : "text-blue-700"
                           }`}
                         title={`${policy.policyDoneByLabel}: ${policy.channelPartnerName}${policy.channelDealerNo ? ` (#${policy.channelDealerNo})` : ""}`}
                       >
@@ -1392,11 +1320,7 @@ const PolicyCard = ({
                         Issued by: —
                       </p>
                     )}
-                    {policy.renewalFollowUpStatus && policy.renewalFollowUpStatus !== "not_applicable" ? (
-                      <p className="text-[11px] text-slate-500 truncate">
-                        Follow-up: {policy.renewalFollowUpStatus}
-                      </p>
-                    ) : null}
+
                   </div>
                 </>
               )}
@@ -1575,18 +1499,7 @@ const PolicyCard = ({
                     Workflow
                   </p>
                 </div>
-                {!isDraft && !["extended warranty", "ew policy"].includes(String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()) && (
-                  <span
-                    className="px-3 py-1.5 rounded-full text-[11px] font-black uppercase shadow-sm"
-                    style={{
-                      background: policyPulseTone.bg,
-                      color: policyPulseTone.color,
-                      border: `1px solid ${policyPulseTone.color}44`,
-                    }}
-                  >
-                    {policyPulseTone.label}
-                  </span>
-                )}
+
               </div>
             </div>
 
@@ -1605,25 +1518,7 @@ const PolicyCard = ({
                     <span className="text-slate-600 shrink-0">Expiry</span>
                     <span className="font-semibold text-slate-900 text-right truncate">
                       {policy.expiryLabel}
-                      {policy.alreadyRenewed ? (
-                        <span className="ml-1 font-normal text-blue-500">
-                          (Renewed)
-                        </span>
-                      ) : pulseDays !== null ? (
-                        <span className={`ml-1 font-normal ${pulseDays < 30 ? "text-red-500" : "text-slate-500"}`}>
-                          ({pulseDays < 0 ? `${Math.abs(pulseDays)}d overdue` : `${pulseDays}d left`})
-                        </span>
-                      ) : null}
                     </span>
-                    {pulseDays !== null && pulseDays < 30 && !policy.alreadyRenewed && (
-                      <button
-                        type="button"
-                        onClick={onRenew}
-                        className="shrink-0 px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors"
-                      >
-                        Renew
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
@@ -1651,10 +1546,7 @@ const InsuranceDashboardPage = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [previewStageKey, setPreviewStageKey] = useState(null);
-  const [trendModal, setTrendModal] = useState({
-    open: false,
-    vehicleLabel: "",
-  });
+
   const [policyModal, setPolicyModal] = useState({
     open: false,
     policy: null,
@@ -1736,29 +1628,6 @@ const InsuranceDashboardPage = () => {
     }
   }, []);
 
-  const handleRenewCase = useCallback(
-    (record) => {
-      const id = getCaseId(record);
-      if (!id) {
-        message.error("Invalid case ID");
-        return;
-      }
-      navigate(`/insurance/new?renewFrom=${id}`);
-    },
-    [navigate],
-  );
-
-  const handleExtendCase = useCallback(
-    (record) => {
-      const id = getCaseId(record);
-      if (!id) {
-        message.error("Invalid case ID");
-        return;
-      }
-      navigate(`/insurance/new?renewFrom=${id}&extend=true`);
-    },
-    [navigate],
-  );
 
   // ============================================
   // COMPUTATIONS (PRESERVED)
@@ -1778,28 +1647,15 @@ const InsuranceDashboardPage = () => {
       (sum, row) => sum + row.due.amount,
       0,
     );
-    const renewal30 = cases.filter((c) =>
-      isExpiringSoonCase(c, renewedCaseIds),
-    ).length;
     return {
       total,
       draft,
       completed,
       paymentDue,
       paymentDueAmount,
-      expiringSoon: renewal30,
     };
-  }, [cases, renewedCaseIds]);
+  }, [cases]);
 
-  const criticalAlerts = useMemo(
-    () =>
-      cases.filter((c) => {
-        if (renewedCaseIds.has(String(getCaseId(c) || ""))) return false;
-        const days = daysUntilExpiry(c);
-        return days !== null && days >= 0 && days <= 7;
-      }),
-    [cases, renewedCaseIds],
-  );
 
   const filterCounts = useMemo(() => {
     const rows = Array.isArray(cases) ? cases : [];
@@ -1887,57 +1743,7 @@ const InsuranceDashboardPage = () => {
   const totalCount = filteredCases.length;
   const hasActiveFilters = policyFilter !== "all" || search.trim().length > 0;
 
-  const historyByRegistration = useMemo(() => {
-    const map = new Map();
-    (cases || []).forEach((row) => {
-      const regKey = normalizeVehicleRegKey(
-        row?.registrationNumber || row?.vehicleNumber,
-      );
-      if (!regKey) return;
-      const policyStartDate =
-        row?.newPolicyStartDate ||
-        row?.newOdStartDate ||
-        row?.newOdPolicyStartDate ||
-        row?.policyStartDate ||
-        row?.currentPolicyStartDate ||
-        row?.createdAt ||
-        row?.updatedAt ||
-        null;
-      const parsedDate = dayjs(policyStartDate);
-      const point = {
-        id: getCaseId(row),
-        caseId: row?.caseId || "",
-        premium: premiumNum(row),
-        idv: Number(row?.newIdvAmount || 0),
-        insurer: row?.newInsuranceCompany || "",
-        policyNo: row?.newPolicyNumber || "",
-        policyStartDate,
-        sortTs: parsedDate.isValid() ? parsedDate.valueOf() : 0,
-        dateLabel: parsedDate.isValid() ? parsedDate.format("DD MMM YY") : "—",
-        policyStartYear: parsedDate.isValid() ? parsedDate.format("YYYY") : "—",
-      };
-      if (!map.has(regKey)) map.set(regKey, []);
-      map.get(regKey).push(point);
-    });
-    map.forEach((rows, key) => {
-      const sorted = [...rows].sort((a, b) => {
-        if (a.sortTs !== b.sortTs) return a.sortTs - b.sortTs;
-        return String(a.caseId || a.id).localeCompare(String(b.caseId || b.id));
-      });
-      map.set(key, sorted);
-    });
-    return map;
-  }, [cases]);
 
-  const trendModalHistory = useMemo(() => {
-    if (!trendModal.regKey) return [];
-    return historyByRegistration.get(trendModal.regKey) || [];
-  }, [trendModal.regKey, historyByRegistration]);
-
-  const trendModalSeries = useMemo(
-    () => buildTrendSeries(trendModalHistory, 700, 240, 16),
-    [trendModalHistory],
-  );
 
   // ============================================
   // TRANSFORM DATA FOR UI
@@ -1950,25 +1756,30 @@ const InsuranceDashboardPage = () => {
       const caseRef = record.caseId || id;
 
       // Customer
-      const companyName = snap.companyName || record.companyName || "";
-      const contactPerson =
-        snap.contactPersonName || record.contactPersonName || "";
+      const buyerType = String(
+        record.buyerType || snap.buyerType || "Individual",
+      )
+        .trim()
+        .toLowerCase();
+      const isCompany = buyerType === "company";
+
+      const companyName = isCompany
+        ? (record.companyName || snap.companyName || "")
+        : "";
+      const contactPerson = isCompany
+        ? (record.contactPersonName || snap.contactPersonName || "")
+        : "";
       const customerName =
         resolveInsuranceCustomerDisplay({
-          customerName: snap.customerName || record.customerName || "",
+          customerName: record.customerName || snap.customerName || "",
           companyName,
           contactPersonName: contactPerson,
           sourceName: record.sourceName,
           dealerChannelName: record.dealerChannelName,
         }) ||
-        snap.customerName ||
         record.customerName ||
+        snap.customerName ||
         "—";
-      const buyerType = String(
-        snap.buyerType || record.buyerType || "Individual",
-      )
-        .trim()
-        .toLowerCase();
       const sourceIdentity = String(
         record.sourceName ||
         record.dealerChannelName ||
@@ -2384,11 +2195,7 @@ const InsuranceDashboardPage = () => {
         }}
       >
         <div className="max-w-[1920px] mx-auto space-y-4">
-          {criticalAlerts.length > 0 && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm font-semibold">
-              {criticalAlerts.length} policies expiring in the next 7 days
-            </div>
-          )}
+
 
           {/* Header */}
           <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
@@ -2406,9 +2213,9 @@ const InsuranceDashboardPage = () => {
           </div>
 
           {/* Metric Cards - Sample Style */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <MetricCard
-              icon={BarChart3}
+              icon={FileText}
               title="Total"
               value={stats.total}
               color="#3b82f6"
@@ -2416,7 +2223,7 @@ const InsuranceDashboardPage = () => {
               onClick={() => setPolicyFilter("all")}
             />
             <MetricCard
-              icon={FileText}
+              icon={Clock3}
               title="Draft"
               value={stats.draft}
               color="#f43f5e"
@@ -2439,14 +2246,6 @@ const InsuranceDashboardPage = () => {
               color="#f59e0b"
               isActive={policyFilter === "paymentDue"}
               onClick={() => setPolicyFilter("paymentDue")}
-            />
-            <MetricCard
-              icon={AlertCircle}
-              title="Expiring Soon"
-              value={stats.expiringSoon}
-              color="#ef4444"
-              isActive={policyFilter === "renewal30"}
-              onClick={() => setPolicyFilter("renewal30")}
             />
           </div>
 
@@ -2514,19 +2313,7 @@ const InsuranceDashboardPage = () => {
                 onClick={() => setPolicyFilter("paymentDue")}
                 icon={DollarSign}
               />
-              <FilterChip
-                label="Expiring Soon"
-                count={filterCounts.expiring}
-                isActive={policyFilter === "renewal30"}
-                onClick={() => setPolicyFilter("renewal30")}
-                icon={Calendar}
-              />
-              <FilterChip
-                label="Expired"
-                count={filterCounts.expired}
-                isActive={policyFilter === "expired"}
-                onClick={() => setPolicyFilter("expired")}
-              />
+
               <FilterChip
                 label="2W"
                 count={filterCounts["2w"]}
@@ -2618,17 +2405,7 @@ const InsuranceDashboardPage = () => {
                     setPreviewVisible(true);
                   }}
                   onEdit={() => navigate(`/insurance/edit/${policy.id}`)}
-                  onRenew={() => handleRenewCase(policy.record)}
-                  onExtend={() => handleExtendCase(policy.record)}
                   onDelete={() => handleDeleteCase(policy.id, policy.caseId)}
-                  onTrend={() =>
-                    setTrendModal({
-                      open: true,
-                      regKey: policy.regKey,
-                      regLabel: policy.registration,
-                      vehicleLabel: policy.vehicle,
-                    })
-                  }
                   onDocs={() => {
                     setDocsModal({
                       open: true,
@@ -2701,139 +2478,6 @@ const InsuranceDashboardPage = () => {
           ) : null}
         </Modal>
 
-        <Modal
-          open={trendModal.open}
-          centered
-          width={860}
-          footer={null}
-          onCancel={() =>
-            setTrendModal({
-              open: false,
-              regKey: "",
-              regLabel: "",
-              vehicleLabel: "",
-            })
-          }
-          title={
-            <div className="pr-6">
-              <p className="text-xs uppercase tracking-[0.1em] text-slate-500">
-                Vehicle Premium & IDV Trend
-              </p>
-              <p className="text-sm font-semibold text-slate-800">
-                {trendModal.vehicleLabel || "Vehicle"} ·{" "}
-                {trendModal.regLabel || "Reg not set"}
-              </p>
-            </div>
-          }
-        >
-          {trendModalSeries ? (
-            <div className="space-y-3">
-              <div
-                className="rounded-xl border p-3"
-                style={{ borderColor: "#e2e8f0", background: "#fbfdff" }}
-              >
-                <svg
-                  viewBox="0 0 700 240"
-                  className="h-56 w-full overflow-visible"
-                  role="img"
-                >
-                  <line
-                    x1="16"
-                    y1="16"
-                    x2="16"
-                    y2={trendModalSeries.axisY}
-                    stroke="currentColor"
-                    className="text-[#cfdaeb]"
-                    strokeWidth="1"
-                  />
-                  <line
-                    x1="16"
-                    y1={trendModalSeries.axisY}
-                    x2="684"
-                    y2={trendModalSeries.axisY}
-                    stroke="currentColor"
-                    className="text-[#cfdaeb]"
-                    strokeWidth="1"
-                  />
-                  <path
-                    d={trendModalSeries.premiumPath}
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="2.8"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                  {trendModalSeries.yAxisTicks.map((tick) => (
-                    <g key={`y-tick-${tick.y}`}>
-                      <line
-                        x1="16"
-                        y1={tick.y}
-                        x2="684"
-                        y2={tick.y}
-                        stroke="currentColor"
-                        className="text-[#e2eef8]"
-                        strokeWidth="1"
-                      />
-                      <text
-                        x="10"
-                        y={tick.y + 3}
-                        textAnchor="end"
-                        className="fill-slate-500 text-[10px]"
-                      >
-                        {tick.label}
-                      </text>
-                    </g>
-                  ))}
-                  {trendModalSeries.points.map((p) => (
-                    <g key={`trend-modal-${p.id || p.caseId}-${p.x}`}>
-                      <circle cx={p.x} cy={p.premiumY} r="4.8" fill="#10b981">
-                        <title>{`Year ${p.policyStartYear || "—"} | Premium ${formatInr(p.premium)} | IDV ${formatInr(p.idv)}`}</title>
-                      </circle>
-                      {p.showXLabel && (
-                        <text
-                          x={p.x}
-                          y={trendModalSeries.axisY + 14}
-                          textAnchor="middle"
-                          className="fill-slate-500 text-[10px]"
-                        >
-                          {p.policyStartYear || "—"}
-                        </text>
-                      )}
-                    </g>
-                  ))}
-                </svg>
-                <div className="mt-2 flex items-center gap-4 text-xs text-slate-600">
-                  <span className="inline-flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                    Premium
-                  </span>
-                  <span>Year on X-axis</span>
-                </div>
-              </div>
-              <div
-                className="rounded-xl border px-3 py-2 text-xs"
-                style={{
-                  borderColor: "#e2e8f0",
-                  background: "#f1f5f9",
-                  color: "#64748b",
-                }}
-              >
-                {trendModalHistory.length} policies found for this registration.
-              </div>
-            </div>
-          ) : (
-            <div
-              className="rounded-xl border border-dashed px-4 py-10 text-center"
-              style={{
-                borderColor: "#e2e8f0",
-                background: "#f1f5f9",
-                color: "#64748b",
-              }}
-            >
-              No trend data available for this registration number.
-            </div>
-          )}
-        </Modal>
 
         {/* Preview Modal */}
         <InsurancePreview

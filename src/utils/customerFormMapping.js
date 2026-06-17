@@ -48,9 +48,12 @@ export const mapCustomerToInsuranceFields = (raw) => {
     raw.customerName || raw.name || raw.fullName || "",
   ).trim();
 
-  const companyName = String(
-    raw.companyName || raw.company || raw.businessName || "",
-  ).trim();
+  // Only map companyName when the record is clearly a business entity
+  // (no individual customerName). On individual records, companyName is the
+  // employer and must NOT be used as the insurance buyer company name.
+  const companyName = !customerName
+    ? String(raw.companyName || raw.company || raw.businessName || "").trim()
+    : "";
 
   const contactPersonName = String(
     raw.contactPersonName || raw.contactName || "",
@@ -74,7 +77,7 @@ export const mapCustomerToInsuranceFields = (raw) => {
     email: String(raw.email || raw.emailAddress || raw.primaryEmail || "").trim(),
     panNumber: String(raw.panNumber || raw.pan || "").trim(),
     aadhaarNumber: String(
-      raw.aadhaarNumber || raw.aadharNumber || raw.aadhaar || "",
+      raw.aadharNumber || raw.aadhaarNumber || raw.aadhaar || "",
     ).trim(),
     gstNumber: String(raw.gstNumber || raw.gstin || raw.gst || "").trim(),
     gender: String(raw.gender || "").trim(),
@@ -114,7 +117,12 @@ export const mergeInsuranceCustomerFields = (
   const next = { ...prev };
 
   const setField = (key, value) => {
-    if (!hasValue(value)) return;
+    if (!hasValue(value)) {
+      if (!fillEmptyOnly) {
+        next[key] = "";
+      }
+      return;
+    }
     if (fillEmptyOnly) {
       if (!hasValue(next[key])) next[key] = value;
     } else {
@@ -133,15 +141,19 @@ export const mergeInsuranceCustomerFields = (
         );
         if (age > 0 && age < 150) {
           setField("nomineeAge", String(age));
+        } else if (!fillEmptyOnly) {
+          next.nomineeAge = "";
         }
+      } else if (!fillEmptyOnly) {
+        next.nomineeAge = "";
       }
     } catch {
-      /* ignore */
+      if (!fillEmptyOnly) {
+        next.nomineeAge = "";
+      }
     }
-  }
-
-  if (mapped.companyName && !hasValue(prev.customerName)) {
-    setField("buyerType", "Company");
+  } else if (!fillEmptyOnly) {
+    next.nomineeAge = "";
   }
 
   return next;

@@ -198,18 +198,30 @@ const LoginPage = () => {
           width: 100%;
           height: 48px;
           padding: 0 16px 0 44px;
-          background: #1e293b;
-          border: 1.5px solid #334155;
+          background: #f8fafc;
+          border: 1.5px solid #cbd5e1;
           border-radius: 10px;
-          color: #f1f5f9;
+          color: #0f172a;
           font-size: 14px;
           font-weight: 500;
           outline: none;
           transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
         }
-        .input-field::placeholder { color: #475569; }
-        .input-field:hover  { border-color: #475569; background: #243042; }
-        .input-field:focus  { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); background: #243042; }
+        @media (prefers-color-scheme: dark) {
+          .input-field {
+            background: #1e293b;
+            border-color: #334155;
+            color: #f1f5f9;
+          }
+        }
+        .input-field::placeholder { color: #64748b; }
+        .input-field:hover  { border-color: #94a3b8; background: #f1f5f9; }
+        .input-field:focus  { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,0.12); background: #f1f5f9; }
+        @media (prefers-color-scheme: dark) {
+          .input-field::placeholder { color: #475569; }
+          .input-field:hover  { border-color: #475569; background: #243042; }
+          .input-field:focus  { background: #243042; }
+        }
         .input-field:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-primary {
           width: 100%;
@@ -241,8 +253,8 @@ const LoginPage = () => {
           height: 44px;
           border-radius: 10px;
           background: transparent;
-          border: 1.5px solid #334155;
-          color: #cbd5e1;
+          border: 1.5px solid #cbd5e1;
+          color: #475569;
           font-weight: 600;
           font-size: 13px;
           cursor: pointer;
@@ -253,9 +265,20 @@ const LoginPage = () => {
           transition: all 0.2s;
         }
         .btn-google:hover:not(:disabled) {
-          border-color: #475569;
-          background: #1e293b;
-          color: #f1f5f9;
+          border-color: #94a3b8;
+          background: #f8fafc;
+          color: #334155;
+        }
+        @media (prefers-color-scheme: dark) {
+          .btn-google {
+            border-color: #334155;
+            color: #cbd5e1;
+          }
+          .btn-google:hover:not(:disabled) {
+            border-color: #475569;
+            background: #1e293b;
+            color: #f1f5f9;
+          }
         }
         .btn-google:disabled { opacity: 0.4; cursor: not-allowed; }
         .stat-badge {
@@ -263,9 +286,15 @@ const LoginPage = () => {
           flex-direction: column;
           align-items: center;
           padding: 12px 20px;
-          background: rgba(255,255,255,0.04);
-          border: 1px solid rgba(255,255,255,0.08);
+          background: rgba(15,23,42,0.04);
+          border: 1px solid rgba(15,23,42,0.08);
           border-radius: 12px;
+        }
+        @media (prefers-color-scheme: dark) {
+          .stat-badge {
+            background: rgba(255,255,255,0.04);
+            border-color: rgba(255,255,255,0.08);
+          }
         }
       `}</style>
 
@@ -274,15 +303,14 @@ const LoginPage = () => {
       {/* ── LEFT PANEL ── */}
       <section
         aria-label="Brand panel"
-        className="hidden lg:flex lg:w-[48%] xl:w-[52%] flex-col relative overflow-hidden"
-        style={{ background: "#080e1a" }}
+        className="hidden lg:flex lg:w-[48%] xl:w-[52%] flex-col relative overflow-hidden bg-slate-50 dark:bg-[#080e1a]"
       >
         {/* Background grid */}
         <div
           className="absolute inset-0 pointer-events-none"
           style={{
             backgroundImage:
-              "linear-gradient(rgba(245,158,11,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.04) 1px, transparent 1px)",
+              "linear-gradient(rgba(245,158,11,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(245,158,11,0.06) 1px, transparent 1px)",
             backgroundSize: "48px 48px",
           }}
         />
@@ -292,14 +320,14 @@ const LoginPage = () => {
           className="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle, rgba(245,158,11,0.10) 0%, transparent 65%)",
+              "radial-gradient(circle, rgba(245,158,11,0.15) 0%, transparent 65%)",
           }}
         />
         <div
           className="absolute bottom-[-15%] right-[-15%] w-[500px] h-[500px] rounded-full pointer-events-none"
           style={{
             background:
-              "radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 65%)",
+              "radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 65%)",
           }}
         />
 
@@ -310,7 +338,12 @@ const LoginPage = () => {
             <img
               src="/acillp-logo-dark.svg"
               alt="AutoCredits India LLP"
-              className="h-10 w-auto object-contain"
+              className="h-10 w-auto object-contain dark:hidden"
+            />
+            <img
+              src="/acillp-logo-light.svg"
+              alt="AutoCredits India LLP"
+              className="h-10 w-auto object-contain hidden dark:block"
             />
           </div>
 
@@ -334,14 +367,14 @@ const LoginPage = () => {
             </div>
 
             <h1
-              className="anim-fade-up delay-150 text-4xl xl:text-5xl font-black leading-[1.05] tracking-tight text-white mb-5"
+              className="anim-fade-up delay-150 text-4xl xl:text-5xl font-black leading-[1.05] tracking-tight text-slate-900 dark:text-white mb-5"
             >
               Drive deals,
               <br />
               <span className="shimmer-text">faster.</span>
             </h1>
 
-            <p className="anim-fade-up delay-200 text-slate-400 text-base xl:text-lg leading-relaxed mb-10">
+            <p className="anim-fade-up delay-200 text-slate-600 dark:text-slate-400 text-base xl:text-lg leading-relaxed mb-10">
               End-to-end loan management, insurance, and vehicle financing
               for modern automotive dealerships.
             </p>
@@ -356,13 +389,13 @@ const LoginPage = () => {
               ].map((item, i) => (
                 <li
                   key={i}
-                  className="flex items-center gap-3 text-sm text-slate-300"
+                  className="flex items-center gap-3 text-sm text-slate-700 dark:text-slate-300"
                 >
                   <span
                     className="flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center text-xs"
                     style={{
-                      background: "rgba(245,158,11,0.1)",
-                      border: "1px solid rgba(245,158,11,0.2)",
+                      background: "rgba(245,158,11,0.15)",
+                      border: "1px solid rgba(245,158,11,0.3)",
                     }}
                   >
                     {item.icon}
@@ -381,10 +414,10 @@ const LoginPage = () => {
               { value: "< 2s", label: "Avg. approval" },
             ].map((s, i) => (
               <div key={i} className="stat-badge">
-                <span className="text-amber-400 font-black text-lg leading-none mb-0.5">
+                <span className="text-amber-600 dark:text-amber-400 font-black text-lg leading-none mb-0.5">
                   {s.value}
                 </span>
-                <span className="text-slate-500 text-[10px] font-medium text-center leading-tight">
+                <span className="text-slate-600 dark:text-slate-500 text-[10px] font-medium text-center leading-tight">
                   {s.label}
                 </span>
               </div>
@@ -405,15 +438,14 @@ const LoginPage = () => {
       {/* ── RIGHT PANEL ── */}
       <section
         aria-label="Sign in"
-        className="flex-1 flex flex-col items-center justify-center relative overflow-hidden"
-        style={{ background: "#0d1525" }}
+        className="flex-1 flex flex-col items-center justify-center relative overflow-hidden bg-white dark:bg-[#0d1525]"
       >
         {/* Subtle ambient top glow */}
         <div
           className="absolute top-0 left-1/2 -translate-x-1/2 w-[480px] h-[280px] pointer-events-none"
           style={{
             background:
-              "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.07) 0%, transparent 70%)",
+              "radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.10) 0%, transparent 70%)",
           }}
         />
 
@@ -422,7 +454,12 @@ const LoginPage = () => {
           <img
             src="/acillp-logo-dark.svg"
             alt="AutoCredits India LLP"
-            className="h-8 w-auto object-contain"
+            className="h-8 w-auto object-contain dark:hidden"
+          />
+          <img
+            src="/acillp-logo-light.svg"
+            alt="AutoCredits India LLP"
+            className="h-8 w-auto object-contain hidden dark:block"
           />
         </div>
 
@@ -431,10 +468,10 @@ const LoginPage = () => {
 
           {/* Header */}
           <div className="mb-8 anim-fade-up">
-            <h2 className="text-3xl font-black text-white tracking-tight mb-1.5">
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-1.5">
               Welcome back
             </h2>
-            <p className="text-slate-500 text-sm font-medium">
+            <p className="text-slate-500 dark:text-slate-500 text-sm font-medium">
               Sign in to your AutoCredits workspace
             </p>
           </div>
@@ -442,28 +479,20 @@ const LoginPage = () => {
           {/* Success */}
           {successMessage && (
             <div
-              className="mb-5 p-3.5 rounded-xl flex gap-3 items-start anim-fade-in"
-              style={{
-                background: "rgba(16,185,129,0.08)",
-                border: "1px solid rgba(16,185,129,0.2)",
-              }}
+              className="mb-5 p-3.5 rounded-xl flex gap-3 items-start anim-fade-in bg-emerald-50 dark:bg-[rgba(16,185,129,0.08)] border border-emerald-200 dark:border-[rgba(16,185,129,0.2)]"
             >
-              <Check size={16} className="text-emerald-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-emerald-300 font-medium">{successMessage}</p>
+              <Check size={16} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">{successMessage}</p>
             </div>
           )}
 
           {/* Error */}
           {error && (
             <div
-              className="mb-5 p-3.5 rounded-xl flex gap-3 items-start anim-fade-in"
-              style={{
-                background: "rgba(239,68,68,0.08)",
-                border: "1px solid rgba(239,68,68,0.2)",
-              }}
+              className="mb-5 p-3.5 rounded-xl flex gap-3 items-start anim-fade-in bg-red-50 dark:bg-[rgba(239,68,68,0.08)] border border-red-200 dark:border-[rgba(239,68,68,0.2)]"
             >
-              <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-sm text-red-300 font-medium">{error}</p>
+              <AlertCircle size={16} className="text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-red-700 dark:text-red-300 font-medium">{error}</p>
             </div>
           )}
 
@@ -472,16 +501,16 @@ const LoginPage = () => {
             <div className="anim-fade-up delay-100">
               <label
                 htmlFor="email"
-                className="block text-[11px] font-bold uppercase tracking-widest mb-2"
-                style={{ color: focusedField === "email" || email ? "#f59e0b" : "#475569" }}
+                className="block text-[11px] font-bold uppercase tracking-widest mb-2 text-slate-500 dark:text-[#475569]"
+                style={{ color: focusedField === "email" || email ? "#f59e0b" : undefined }}
               >
                 Email Address
               </label>
               <div className="relative">
                 <Mail
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: focusedField === "email" ? "#f59e0b" : "#475569" }}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-[#475569]"
+                  style={{ color: focusedField === "email" ? "#f59e0b" : undefined }}
                 />
                 <input
                   id="email"
@@ -504,17 +533,14 @@ const LoginPage = () => {
               <div className="flex items-center justify-between mb-2">
                 <label
                   htmlFor="password"
-                  className="block text-[11px] font-bold uppercase tracking-widest"
-                  style={{ color: focusedField === "password" || password ? "#f59e0b" : "#475569" }}
+                  className="block text-[11px] font-bold uppercase tracking-widest text-slate-500 dark:text-[#475569]"
+                  style={{ color: focusedField === "password" || password ? "#f59e0b" : undefined }}
                 >
                   Password
                 </label>
                 <a
                   href="#"
-                  className="text-[10px] font-semibold uppercase tracking-wider transition-colors"
-                  style={{ color: "#f59e0b" }}
-                  onMouseEnter={(e) => (e.target.style.color = "#fbbf24")}
-                  onMouseLeave={(e) => (e.target.style.color = "#f59e0b")}
+                  className="text-[10px] font-semibold uppercase tracking-wider transition-colors text-amber-600 dark:text-[#f59e0b] hover:text-amber-500 dark:hover:text-[#fbbf24]"
                 >
                   Forgot?
                 </a>
@@ -522,8 +548,8 @@ const LoginPage = () => {
               <div className="relative">
                 <Lock
                   size={16}
-                  className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: focusedField === "password" ? "#f59e0b" : "#475569" }}
+                  className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400 dark:text-[#475569]"
+                  style={{ color: focusedField === "password" ? "#f59e0b" : undefined }}
                 />
                 <input
                   id="password"
@@ -543,10 +569,7 @@ const LoginPage = () => {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   disabled={loading}
-                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-40"
-                  style={{ color: "#475569" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.color = "#94a3b8")}
-                  onMouseLeave={(e) => (e.currentTarget.style.color = "#475569")}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 transition-colors disabled:opacity-40 text-slate-400 hover:text-slate-600 dark:text-[#475569] dark:hover:text-[#94a3b8]"
                   aria-label="Toggle password visibility"
                 >
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -571,10 +594,10 @@ const LoginPage = () => {
                   aria-checked={rememberMe}
                   onClick={() => !loading && setRememberMe(!rememberMe)}
                   disabled={loading}
-                  className="w-4 h-4 rounded flex items-center justify-center transition-all disabled:opacity-50"
+                  className="w-4 h-4 rounded flex items-center justify-center transition-all disabled:opacity-50 bg-white dark:bg-transparent border-slate-300 dark:border-[#334155]"
                   style={{
-                    background: rememberMe ? "#f59e0b" : "transparent",
-                    border: `1.5px solid ${rememberMe ? "#f59e0b" : "#334155"}`,
+                    background: rememberMe ? "#f59e0b" : undefined,
+                    borderColor: rememberMe ? "#f59e0b" : undefined,
                   }}
                 >
                   {rememberMe && (
@@ -593,8 +616,7 @@ const LoginPage = () => {
               <label
                 htmlFor="remember"
                 onClick={() => !loading && setRememberMe(!rememberMe)}
-                className="text-sm font-medium cursor-pointer select-none"
-                style={{ color: "#64748b" }}
+                className="text-sm font-medium cursor-pointer select-none text-slate-600 dark:text-[#64748b]"
               >
                 Remember me
               </label>
@@ -624,14 +646,13 @@ const LoginPage = () => {
 
           {/* Divider */}
           <div className="anim-fade-up delay-300 flex items-center gap-3 my-5">
-            <div className="flex-1 h-px" style={{ background: "#1e293b" }} />
+            <div className="flex-1 h-px bg-slate-200 dark:bg-[#1e293b]" />
             <span
-              className="text-[11px] font-bold uppercase tracking-widest"
-              style={{ color: "#334155" }}
+              className="text-[11px] font-bold uppercase tracking-widest text-slate-400 dark:text-[#334155]"
             >
               or
             </span>
-            <div className="flex-1 h-px" style={{ background: "#1e293b" }} />
+            <div className="flex-1 h-px bg-slate-200 dark:bg-[#1e293b]" />
           </div>
 
           {/* Google */}
@@ -664,25 +685,31 @@ const LoginPage = () => {
           </div>
 
           {/* Footer note */}
-          <p className="mt-8 text-center text-[10px] font-medium leading-relaxed" style={{ color: "#334155" }}>
+          <p className="mt-8 text-center text-[10px] font-medium leading-relaxed text-slate-400 dark:text-[#334155]">
             By signing in you agree to our{" "}
-            <a href="#" style={{ color: "#f59e0b" }} className="hover:underline">
+            <a href="#" className="text-amber-600 dark:text-[#f59e0b] hover:underline">
               Privacy Policy
             </a>{" "}
             &amp;{" "}
-            <a href="#" style={{ color: "#f59e0b" }} className="hover:underline">
+            <a href="#" className="text-amber-600 dark:text-[#f59e0b] hover:underline">
               Terms of Service
             </a>
           </p>
         </div>
 
         {/* Bottom label */}
-        <div className="absolute bottom-6 flex items-center gap-2 opacity-20">
+        <div className="absolute bottom-6 flex items-center gap-2 opacity-30 dark:opacity-20">
           <img
             src="/acillp-logo-dark.svg"
             alt=""
             aria-hidden="true"
-            className="h-5 w-auto object-contain"
+            className="h-5 w-auto object-contain dark:hidden"
+          />
+          <img
+            src="/acillp-logo-light.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-5 w-auto object-contain hidden dark:block"
           />
         </div>
       </section>
