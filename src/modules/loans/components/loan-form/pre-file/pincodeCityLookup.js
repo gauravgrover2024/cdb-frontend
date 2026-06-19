@@ -6,6 +6,15 @@ const FALLBACK_PREFIX_CITY = [
   ["2010", "Ghaziabad"],
 ];
 
+const EXACT_PINCODE_ADDRESS_OVERRIDES = {
+  110092: {
+    city: "East Delhi",
+    state: "Delhi",
+    area: "",
+    district: "East Delhi",
+  },
+};
+
 const cityCache = new Map();
 const addressCache = new Map();
 
@@ -23,13 +32,27 @@ export const inferCityFromPincodePrefix = (value) => {
   return hit ? hit[1] : "";
 };
 
+export const resolveCityFromPincodeSync = (value) => {
+  const pin = normalizePincode(value);
+  if (!pin) return "";
+  const exactOverride = EXACT_PINCODE_ADDRESS_OVERRIDES[pin];
+  if (exactOverride?.city) return exactOverride.city;
+  return inferCityFromPincodePrefix(pin);
+};
+
 /**
  * Fetch full address details (City/District, State, Area) by Pincode.
- * Utilizes a multi-API pipeline with automatic timeout fallback.
+ * Uses an exact override first, then the public postal API, then local fallback rules.
  */
 export const lookupAddressByPincode = async (value) => {
   const pin = normalizePincode(value);
   if (!pin) return null;
+  const exactOverride = EXACT_PINCODE_ADDRESS_OVERRIDES[pin];
+  if (exactOverride) {
+    addressCache.set(pin, exactOverride);
+    cityCache.set(pin, exactOverride.city);
+    return exactOverride;
+  }
   if (addressCache.has(pin)) return addressCache.get(pin);
 
   // Helper to fetch with timeout
@@ -53,40 +76,7 @@ export const lookupAddressByPincode = async (value) => {
       .join(" ");
   };
 
-  // Attempt 1: Data.gov.in Pincode API (Primary)
-  try {
-    const API_KEY = "579b464db66ec23bdd0000010b809db88dbf45836d7e06fb9a0fd000";
-    const res = await fetchWithTimeout(
-      `https://api.data.gov.in/resource/5c2f62fe-5afa-4119-a499-fec9d604d5bd?api-key=${API_KEY}&format=json&limit=10&filters[pincode]=${pin}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.status === "ok" && data.records && data.records.length > 0) {
-        // Try to find a Delivery post office first, otherwise take the first one
-        const primary = data.records.find((r) => r.delivery === "Delivery") || data.records[0];
-        
-        const districtName = capitalize(String(primary.district || "").trim());
-        const stateName = capitalize(String(primary.statename || "").trim());
-        
-        const addressData = {
-          city: districtName, // User requested district in place of city
-          state: stateName,
-          area: capitalize(String(primary.officename || "").trim().replace(/\s*(SO|BO|HO)$/i, "")),
-          district: districtName,
-        };
-
-        if (addressData.city) {
-          addressCache.set(pin, addressData);
-          cityCache.set(pin, addressData.city);
-          return addressData;
-        }
-      }
-    }
-  } catch (err) {
-    console.warn(`Data.gov.in Pincode API failed for ${pin}:`, err.message);
-  }
-
-  // Attempt 2: Postal Pin Code API (Fallback)
+  // Public postal pin code API fallback.
   try {
     const res = await fetchWithTimeout(`https://api.postalpincode.in/pincode/${pin}`);
     if (res.ok) {
@@ -137,6 +127,8 @@ export const lookupAddressByPincode = async (value) => {
 export const lookupCityByPincode = async (value) => {
   const pin = normalizePincode(value);
   if (!pin) return "";
+  const exactOverride = EXACT_PINCODE_ADDRESS_OVERRIDES[pin];
+  if (exactOverride?.city) return exactOverride.city;
   if (cityCache.has(pin)) return cityCache.get(pin);
 
   const address = await lookupAddressByPincode(pin);

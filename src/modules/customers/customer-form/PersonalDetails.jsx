@@ -73,6 +73,7 @@ const PersonalDetails = ({
   const officialEmail = Form.useWatch("officialEmail", form);
   const contactPersonMobile = Form.useWatch("contactPersonMobile", form);
   const registrationPincode = Form.useWatch("registrationPincode", form);
+  const signatoryPincode = Form.useWatch("signatory_pincode", form);
   const identityProofType = Form.useWatch("identityProofType", form);
   const isCompany = applicantType === "Company";
 
@@ -142,6 +143,20 @@ const PersonalDetails = ({
       return () => clearTimeout(timer);
     }
   }, [registrationPincode, form]);
+
+  useEffect(() => {
+    if (signatoryPincode && signatoryPincode.length === 6) {
+      const fetchCity = async () => {
+        const city = await lookupCityByPincode(signatoryPincode);
+        if (city) {
+          form.setFieldsValue({ signatory_city: city });
+        }
+      };
+
+      const timer = setTimeout(fetchCity, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [signatoryPincode, form]);
 
   useEffect(() => {
     if (!isCompany) return;
