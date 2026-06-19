@@ -24,6 +24,7 @@ import softwareSchema from "../schema/loan-module.schema.json";
 import vehicleCleanupIndex from "../data/vehicle_make_model_cleanup.safe_index.json";
 import { submitMappedLoan } from "../../../api/fieldMapping";
 import API_BASE_URL from "../../../config/apiBaseUrl";
+import { resolveCityFromPincodeSync } from "../components/loan-form/pre-file/pincodeCityLookup";
 
 const { Text, Title } = Typography;
 const MAX_MATRIX_TARGET_SLOTS = 25;
@@ -1389,17 +1390,6 @@ const guessCityFromAddressLite = (value) => {
   ];
   const hit = cityHints.find((c) => text.includes(c));
   return hit || "";
-};
-
-const guessCityFromPincodeLite = (value) => {
-  const pin = String(value || "").replace(/\D/g, "").slice(0, 6);
-  if (!pin) return "";
-  if (pin.startsWith("110")) return "Delhi";
-  if (pin.startsWith("122")) return "Gurgaon";
-  if (pin.startsWith("121")) return "Faridabad";
-  if (pin.startsWith("2013")) return "Noida";
-  if (pin.startsWith("2010")) return "Ghaziabad";
-  return "";
 };
 
 const inferBankFromIfscLite = (value) => {
@@ -3086,7 +3076,7 @@ const FieldMappingPage = () => {
         const gurCity = firstMeaningful(
           getValueFromCaseMerged(merged, "gurantor.RESI_CITY"),
           getValueFromCaseMerged(merged, "guarantor.RESI_CITY"),
-          guessCityFromPincodeLite(gurPincode),
+          resolveCityFromPincodeSync(gurPincode),
           guessCityFromAddressLite(gurAddress),
         );
         const gurDob = firstMeaningful(
@@ -3918,7 +3908,7 @@ const FieldMappingPage = () => {
       ["reference2_city", "reference2_pincode"],
     ].forEach(([cityKey, pinKey]) => {
       if (!isMeaningfulValue(doc[cityKey]) && isMeaningfulValue(doc[pinKey])) {
-        const inferred = guessCityFromPincodeLite(doc[pinKey]);
+        const inferred = resolveCityFromPincodeSync(doc[pinKey]);
         if (isMeaningfulValue(inferred)) {
           doc[cityKey] = inferred;
         }
@@ -3987,7 +3977,7 @@ const FieldMappingPage = () => {
         }
       }
       if (!isMeaningfulValue(doc[cityKey]) && isMeaningfulValue(doc[pinKey])) {
-        const inferred = guessCityFromPincodeLite(doc[pinKey]);
+        const inferred = resolveCityFromPincodeSync(doc[pinKey]);
         if (isMeaningfulValue(inferred)) {
           doc[cityKey] = inferred;
           if (doc[prefix] && typeof doc[prefix] === "object") {

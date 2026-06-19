@@ -883,13 +883,8 @@ const NewInsuranceCaseForm = ({
   const currentDraftRef = React.useRef({});
   const isDirtyRef = React.useRef(false);
 
-  // Snapshot baseline — set once on mount (after initial values load), then
-  // reset to current state after every successful save so the form becomes
-  // "clean" again immediately after saving.
+
   const savedSnapshotRef = React.useRef(null);
-  // Mirror of the current snapshot kept fresh in a ref so persistNow (which
-  // closes over stale state) can still read the latest value without being
-  // added to its dependency array.
   const currentSnapshotRef = React.useRef(null);
 
   useEffect(() => {
@@ -1017,7 +1012,18 @@ const NewInsuranceCaseForm = ({
   const [customerVehicleRows, setCustomerVehicleRows] = useState([]);
   const [customerVehicleLoading, setCustomerVehicleLoading] = useState(false);
 
-  const getCustomerId = (c) => c?._id || c?.id || c?.customerId || null;
+  const getCustomerId = useCallback((c) => {
+    if (!c) return null;
+    if (typeof c === "string") return c.trim();
+    if (c._id || c.id) return String(c._id || c.id).trim();
+    if (c.customerId) {
+      if (typeof c.customerId === "object" && c.customerId) {
+        return String(c.customerId._id || c.customerId.id || c.customerId.customerId || "").trim();
+      }
+      return String(c.customerId).trim();
+    }
+    return null;
+  }, []);
 
   // Helper: Calculate age from DOB
   const getAgeFromDob = (dob) => {
@@ -1196,7 +1202,7 @@ const NewInsuranceCaseForm = ({
   }, []);
 
   useEffect(() => {
-    const customerId = String(formData.customerId || "").trim();
+    const customerId = getCustomerId(formData.customerId);
     if (!customerId) return undefined;
 
     let cancelled = false;
@@ -1617,7 +1623,7 @@ const NewInsuranceCaseForm = ({
       formData.customerName || formData.companyName || "",
     ).trim();
     const mobile = String(formData.mobile || "").trim();
-    const selectedCustomerId = String(formData.customerId || "").trim();
+    const selectedCustomerId = getCustomerId(formData.customerId);
 
     if (step !== 2 || isNewCar || (!customerName && mobile.length < 4)) {
       setCustomerVehicleRows([]);
@@ -3024,9 +3030,11 @@ const NewInsuranceCaseForm = ({
       const mobileNorm = normalizeIndianMobile(safeFormData.mobile);
       const altNorm = normalizeIndianMobile(safeFormData.alternatePhone);
       const refNorm = normalizeIndianMobile(safeFormData.referencePhone);
+      const customerIdValue = getCustomerId(safeFormData.customerId);
 
       return {
         ...safeFormData,
+        customerId: customerIdValue,
         mobile: mobileNorm.length === 10 ? mobileNorm : safeFormData.mobile,
         alternatePhone:
           altNorm.length === 10
