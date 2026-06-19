@@ -268,6 +268,7 @@ const Step8Payout = ({
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Payout Percentage</label>
                 <InputNumber
+                  size="large"
                   min={0}
                   max={100}
                   value={payoutPercentage}
@@ -293,6 +294,7 @@ const Step8Payout = ({
               <div className="flex flex-col gap-1.5">
                 <label className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Subvention (₹)</label>
                 <InputNumber
+                  size="large"
                   min={0}
                   value={subventionAmount}
                   onChange={(v) => setField("subventionAmount", Number(v || 0))}

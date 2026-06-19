@@ -881,6 +881,7 @@ const NewInsuranceCaseForm = ({
   const autoSaveDraftTimerRef = React.useRef(null);
   const lastSavedDraftSnapshotRef = React.useRef(null);
   const currentDraftRef = React.useRef({});
+  const isDirtyRef = React.useRef(false);
 
   // Snapshot baseline — set once on mount (after initial values load), then
   // reset to current state after every successful save so the form becomes
@@ -920,6 +921,7 @@ const NewInsuranceCaseForm = ({
 
   useEffect(() => {
     window.__isInsuranceFormDirty = isFormDirty;
+    isDirtyRef.current = isFormDirty;
     return () => {
       window.__isInsuranceFormDirty = false;
     };
@@ -3267,6 +3269,7 @@ const NewInsuranceCaseForm = ({
 
   React.useEffect(() => {
     if (!isCreateMode || initialValues) return;
+    if (!isFormDirty) return;
     if (draftSnapshot === lastSavedDraftSnapshotRef.current) return;
     if (autoSaveDraftTimerRef.current) {
       window.clearTimeout(autoSaveDraftTimerRef.current);
@@ -3286,7 +3289,7 @@ const NewInsuranceCaseForm = ({
         window.clearTimeout(autoSaveDraftTimerRef.current);
       }
     };
-  }, [isCreateMode, initialValues, draftSnapshot]);
+  }, [isCreateMode, initialValues, isFormDirty, draftSnapshot]);
 
   React.useEffect(() => {
     return () => {
@@ -3294,6 +3297,7 @@ const NewInsuranceCaseForm = ({
       if (autoSaveDraftTimerRef.current) {
         window.clearTimeout(autoSaveDraftTimerRef.current);
       }
+      if (!isDirtyRef.current) return;
       const draft = {
         ...currentDraftRef.current,
         timestamp: new Date().toISOString(),

@@ -478,6 +478,7 @@ const Step5NewPolicyDetails = ({
                 <div className={fieldWrapClass}>
                   <CleanField label="Ex-Showroom Price" required>
                     <InputNumber
+                      size="large"
                       min={0}
                       value={Number(formData.exShowroomPrice || 0)}
                       onChange={(v) =>
@@ -523,6 +524,7 @@ const Step5NewPolicyDetails = ({
                     <div className={fieldWrapClass}>
                       <CleanField label="Current Odometer Reading" required>
                         <InputNumber
+                          size="large"
                           min={0}
                           value={Number(formData.odometerReading || 0)}
                           onChange={(v) =>
@@ -616,6 +618,7 @@ const Step5NewPolicyDetails = ({
                 <div className={fieldWrapClass}>
                   <CleanField label="Premium" required>
                     <InputNumber
+                      size="large"
                       min={0}
                       value={Number(formData.newTotalPremium || 0)}
                       onChange={(v) =>
@@ -785,6 +788,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Issue Date" required>
                   <DatePicker
+                    size="large"
                     allowClear
                     value={
                       formData.newIssueDate
@@ -805,6 +809,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date" required>
                   <DatePicker
+                    size="large"
                     allowClear
                     value={
                       formData.newPolicyStartDate
@@ -921,6 +926,7 @@ const Step5NewPolicyDetails = ({
                   <div className={fieldWrapClass}>
                     <CleanField label="Vehicle IDV (₹)" required>
                       <InputNumber
+                        size="large"
                         min={0}
                         value={Number(formData.newVehicleIdv || 0)}
                         onChange={(v) => {
@@ -943,6 +949,7 @@ const Step5NewPolicyDetails = ({
                   <div className={fieldWrapClass}>
                     <CleanField label="CNG IDV (₹)">
                       <InputNumber
+                        size="large"
                         min={0}
                         value={Number(formData.newCngIdv || 0)}
                         onChange={(v) => {
@@ -965,6 +972,7 @@ const Step5NewPolicyDetails = ({
                   <div className={fieldWrapClass}>
                     <CleanField label="Accessories IDV (₹)">
                       <InputNumber
+                        size="large"
                         min={0}
                         value={Number(formData.newAccessoriesIdv || 0)}
                         onChange={(v) => {
@@ -989,6 +997,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Total Premium (₹)" required>
                   <InputNumber
+                    size="large"
                     min={0}
                     value={Number(formData.newTotalPremium || 0)}
                     onChange={(v) =>

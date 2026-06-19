@@ -1,6 +1,6 @@
 // src/modules/loans/components/LoanFormWithSteps.jsx
-import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Form, message, Modal } from "antd";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Form, message, Modal, Popover, Tooltip } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
 import {
@@ -884,6 +884,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const loadedLoanRef = React.useRef(null);
   const stepDefaultsInitializedRef = React.useRef(new Set());
   const stepDefaultsReadyRef = React.useRef(!isEditMode);
+  const contentScrollRef = useRef(null);
 
   useEffect(() => {
     stepDefaultsInitializedRef.current = new Set();
@@ -936,6 +937,13 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
     stepDefaultsInitializedRef.current.add(activeStep);
   }, [activeStep, form]);
+
+  // Scroll the form body back to top whenever the active step changes.
+  useEffect(() => {
+    if (contentScrollRef.current) {
+      contentScrollRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [activeStep]);
 
   // Safety bootstrap for brand-new loans:
   // if lead date/time are empty (e.g. after reset/restore), auto-fill unless user already touched them.
@@ -3535,7 +3543,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           />
 
           {/* Form Body - Scrollable Content */}
-          <div className="flex-1 overflow-y-auto no-scrollbar">
+          <div ref={contentScrollRef} className="flex-1 overflow-y-auto no-scrollbar">
             <div
               className={`px-3 sm:px-4 md:px-8 ${
                 activeStep === "prefile"
@@ -3588,41 +3596,60 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       )}
 
       {/* Quick Actions Floating Toolbar - All Steps */}
-      <div className="fixed bottom-20 md:bottom-24 left-1/2 transform -translate-x-1/2 z-[940] flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 bg-white dark:bg-slate-950 border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-auto max-w-[960px] overflow-x-auto no-scrollbar">
-        {visibleSteps.map((step, index) => {
-          const stepIcons = {
-            profile: "User",
-            prefile: "ClipboardList",
-            approval: "BadgeCheck",
-            postfile: "Files",
-            delivery: "Truck",
-            payout: "Wallet",
-          };
+      {/* Outer wrapper has no overflow so portaled Popover/Tooltip can render above it */}
+      <div className="fixed bottom-20 md:bottom-24 left-1/2 -translate-x-1/2 z-[940] bg-white dark:bg-slate-950 border border-border rounded-2xl shadow-elevation-4 w-[calc(100%-1rem)] sm:w-[calc(100%-2rem)] md:w-auto max-w-[960px]">
+        {/* Inner scroll wrapper handles horizontal overflow on small screens */}
+        <div className="flex items-center gap-1.5 md:gap-2 p-2.5 md:p-3 overflow-x-auto no-scrollbar">
+          {visibleSteps.map((step, index) => {
+            const stepIcons = {
+              profile: "User",
+              prefile: "ClipboardList",
+              approval: "BadgeCheck",
+              postfile: "Files",
+              delivery: "Truck",
+              payout: "Wallet",
+            };
 
-          const sections = (stepperSections[step] || []).filter(
-            (section) => section.visible !== false,
-          );
-          return (
-            <React.Fragment key={step}>
-              {index > 0 && <div className="w-px h-6 bg-border/30" />}
-              <div className="relative group/stepnav">
-                <button
-                  type="button"
-                  onClick={() => handleStageClick(step)}
-                  className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-colors duration-150 whitespace-nowrap ${
-                    activeStep === step
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                  }`}
+            const sections = (stepperSections[step] || []).filter(
+              (section) => section.visible !== false,
+            );
+            const isLocked = !canNavigateToStep(step);
+
+            const tabButton = (
+              <button
+                type="button"
+                onClick={() => handleStageClick(step)}
+                className={`inline-flex items-center gap-1.5 text-[11px] md:text-xs font-medium px-2 py-1 rounded-lg transition-colors duration-150 whitespace-nowrap ${
+                  activeStep === step
+                    ? "bg-primary text-primary-foreground"
+                    : isLocked
+                    ? "text-muted-foreground/40 cursor-not-allowed opacity-60"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                }`}
+              >
+                <Icon name={stepIcons[step] || "Circle"} size={12} />
+                {STEP_DISPLAY_NAMES[step] ||
+                  step.charAt(0).toUpperCase() + step.slice(1)}
+              </button>
+            );
+
+            let tabNode;
+            if (isLocked) {
+              tabNode = (
+                <Tooltip
+                  title="Requires loan disbursement"
+                  placement="top"
+                  mouseEnterDelay={0.4}
+                  overlayStyle={{ zIndex: 960 }}
                 >
-                  <Icon name={stepIcons[step] || "Circle"} size={12} />
-                  {STEP_DISPLAY_NAMES[step] ||
-                    step.charAt(0).toUpperCase() + step.slice(1)}
-                </button>
-                {/* Dropdown menu on hover - now stays open on dropdown hover */}
-                {sections.length > 0 && (
-                  <div className="step-dropdown absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 z-50 opacity-0 invisible group-hover/stepnav:opacity-100 group-hover/stepnav:visible group-focus-within/stepnav:opacity-100 group-focus-within/stepnav:visible transition-[opacity,transform,visibility] duration-150">
-                    <div className="bg-card border border-border rounded-xl shadow-elevation-3 p-2 min-w-[180px] max-h-[400px] overflow-y-auto">
+                  <span>{tabButton}</span>
+                </Tooltip>
+              );
+            } else if (sections.length > 0) {
+              tabNode = (
+                <Popover
+                  content={
+                    <div className="py-1" style={{ minWidth: 160 }}>
                       {sections.map((section) => (
                         <button
                           key={section.id}
@@ -3646,18 +3673,37 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                               }
                             }, 100);
                           }}
-                          className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 text-foreground hover:text-primary transition-colors"
+                          className="w-full text-left text-xs px-3 py-2 rounded-lg hover:bg-muted/50 text-foreground hover:text-primary transition-colors block"
                         >
                           {section.label}
                         </button>
                       ))}
                     </div>
-                  </div>
+                  }
+                  trigger="hover"
+                  placement="top"
+                  mouseEnterDelay={0.3}
+                  mouseLeaveDelay={0.15}
+                  overlayStyle={{ zIndex: 960 }}
+                  overlayInnerStyle={{ padding: 6 }}
+                >
+                  {tabButton}
+                </Popover>
+              );
+            } else {
+              tabNode = tabButton;
+            }
+
+            return (
+              <React.Fragment key={step}>
+                {index > 0 && (
+                  <div className="w-px h-6 bg-border/30 shrink-0" />
                 )}
-              </div>
-            </React.Fragment>
-          );
-        })}
+                <div className="shrink-0">{tabNode}</div>
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
     </Form>
   );
