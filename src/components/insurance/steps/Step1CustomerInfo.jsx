@@ -796,7 +796,7 @@ const Step1CustomerInfo = ({
                             setCustomerDataLoaded(true);
                           }
                         }}
-                        style={{ width: "100%", marginTop: 8 }}
+                        style={{ width: "100%" }}
                         popupClassName="customer-autocomplete-dropdown"
                         dropdownStyle={{
                           padding: 8,
@@ -877,7 +877,7 @@ const Step1CustomerInfo = ({
                           setCustomerDataLoaded(true);
                         }
                       }}
-                      style={{ width: "100%", marginTop: 8 }}
+                      style={{ width: "100%" }}
                       popupClassName="customer-autocomplete-dropdown"
                       dropdownStyle={{
                         padding: 8,
@@ -952,7 +952,7 @@ const Step1CustomerInfo = ({
                       }
                     }}
                     options={customerOptions.slice(0, 10)}
-                    style={{ width: "100%", marginTop: 8 }}
+                    style={{ width: "100%" }}
                     popupClassName="customer-autocomplete-dropdown"
                     dropdownStyle={{
                       padding: 8,

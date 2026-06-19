@@ -18,6 +18,11 @@
   min-width: 0;
 }
 
+.insurance-field-block {
+  width: 100%;
+  min-width: 0;
+}
+
 .insurance-case-skin .insurance-field-wrap .ant-input,
 .insurance-case-skin .insurance-field-wrap .ant-input-affix-wrapper,
 .insurance-case-skin .insurance-field-wrap .ant-select,
@@ -33,6 +38,12 @@
 .insurance-case-skin .insurance-field-block .ant-input-number-group-wrapper {
   width: 100%;
   max-width: 100%;
+}
+
+/* quote-control — used in Step 4 on Select/InputNumber/AutoComplete */
+.insurance-case-skin .quote-control {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 
 /* Dashboard pages */

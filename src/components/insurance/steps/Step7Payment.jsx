@@ -1096,6 +1096,7 @@ const Step7Payment = ({
       >
         <FormField label="Amount" required>
           <InputNumber
+            size="large"
             min={0}
             value={paymentForm.amount}
             disabled={isLocked}

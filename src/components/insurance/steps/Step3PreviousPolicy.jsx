@@ -648,6 +648,7 @@ const Step3PreviousPolicy = ({
               <div className={fieldWrapClass}>
                 <CleanField label="Policy Start Date">
                   <DatePicker
+                    size="large"
                     allowClear
                     value={
                       formData.previousPolicyStartDate
@@ -1007,6 +1008,7 @@ const Step3PreviousPolicy = ({
                       <div className={fieldWrapClass}>
                         <CleanField label="IDV Amount">
                           <InputNumber
+                            size="large"
                             min={0}
                             value={Number(quoteDraft.idv || 0)}
                             onChange={(v) =>
@@ -1027,6 +1029,7 @@ const Step3PreviousPolicy = ({
                         <div className={fieldWrapClass}>
                           <CleanField label="Own Damage Amount">
                             <InputNumber
+                              size="large"
                               min={0}
                               value={Number(quoteDraft.ownDamage || 0)}
                               onChange={(v) =>
@@ -1047,6 +1050,7 @@ const Step3PreviousPolicy = ({
                         <div className={fieldWrapClass}>
                           <CleanField label="Third Party Amount">
                             <InputNumber
+                              size="large"
                               min={0}
                               value={Number(quoteDraft.thirdParty || 0)}
                               onChange={(v) =>
@@ -1067,6 +1071,7 @@ const Step3PreviousPolicy = ({
                         <div className={fieldWrapClass}>
                           <CleanField label="Add-ons Total">
                             <InputNumber
+                              size="large"
                               min={0}
                               value={Number(quoteDraft.addOnsTotal || 0)}
                               onChange={(v) =>
@@ -1095,6 +1100,7 @@ const Step3PreviousPolicy = ({
                         }
                       >
                         <InputNumber
+                          size="large"
                           min={0}
                           value={Number(computedEditModeTotalPremium || 0)}
                           placeholder="₹ 0"

@@ -396,12 +396,10 @@ const IncomeBankingDetailsPreFile = () => {
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Customer ID">
+          <Form.Item label="Bank Customer ID" name="bankCustomerId">
             <Input
-              value=""
-              placeholder="Customer ID"
+              placeholder="Enter Bank Customer ID"
               className="rounded-xl border-border"
-              disabled
             />
           </Form.Item>
         </Col>
