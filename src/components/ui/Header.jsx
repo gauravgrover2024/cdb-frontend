@@ -307,6 +307,12 @@ const Header = () => {
           desc: "Run field inspections and generate detailed reports",
           roles: FEATURE_ACCESS.USED_CARS,
         },
+        {
+          label: "Used Car DB",
+          path: "/used-cars/db",
+          desc: "Browse and manage Carwale master variant database",
+          roles: FEATURE_ACCESS.USED_CARS,
+        },
       ],
     },
     {
