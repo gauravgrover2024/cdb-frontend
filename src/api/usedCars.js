@@ -397,3 +397,21 @@ export const stageDataApi = {
     });
   },
 };
+
+export const usedCarsDbApi = {
+  async getUsedCars(params = {}) {
+    return apiClient.get("/api/used-cars-db", { params });
+  },
+  async getUsedCarById(id) {
+    return apiClient.get(`/api/used-cars-db/${id}`);
+  },
+  async createUsedCar(payload) {
+    return apiClient.post("/api/used-cars-db", payload);
+  },
+  async updateUsedCar(id, payload) {
+    return apiClient.put(`/api/used-cars-db/${id}`, payload);
+  },
+  async deleteUsedCar(id) {
+    return apiClient.delete(`/api/used-cars-db/${id}`);
+  },
+};

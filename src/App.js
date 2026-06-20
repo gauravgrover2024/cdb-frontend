@@ -48,6 +48,7 @@ import UsedCarsBackgroundCheckPage from "./modules/used-cars/pages/UsedCarsBackg
 import UsedCarsNegotiationPage from "./modules/used-cars/pages/UsedCarsNegotiationPage";
 import UsedCarsDocumentationPage from "./modules/used-cars/pages/UsedCarsDocumentationPage";
 import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
+import UsedCarsDbPage from "./modules/used-cars/pages/UsedCarsDbPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 import ACIAssistPage from "./pages/ACIAssistPage";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
@@ -226,6 +227,10 @@ function App() {
             <Route
               path="used-cars/stock"
               element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsStockPage />)}
+            />
+            <Route
+              path="used-cars/db"
+              element={R(FEATURE_ACCESS.USED_CARS, <UsedCarsDbPage />)}
             />
             {/* Tools */}
             <Route
