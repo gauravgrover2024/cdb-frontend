@@ -21,6 +21,7 @@ import {
   SearchOutlined,
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
+import { usedCarsDbApi } from "../../../api/usedCars";
 
 const { Text } = Typography;
 
@@ -123,6 +124,103 @@ const Step2VehicleDetails = ({
   onRefreshVehicleDerivedFields,
   onHydrateVehicleSelectionOptions,
 }) => {
+  const [usedCarDbSearchValue, setUsedCarDbSearchValue] = React.useState("");
+  const [usedCarDbLoading, setUsedCarDbLoading] = React.useState(false);
+  const [usedCarDbOptions, setUsedCarDbOptions] = React.useState([]);
+
+  React.useEffect(() => {
+    if (formData.vehicleMake && formData.vehicleModel) {
+      setUsedCarDbSearchValue(
+        [formData.vehicleMake, formData.vehicleModel, formData.vehicleVariant]
+          .filter(Boolean)
+          .join(" ")
+      );
+    } else {
+      setUsedCarDbSearchValue("");
+    }
+  }, [formData.vehicleMake, formData.vehicleModel, formData.vehicleVariant]);
+
+  const usedCarDbSearchDebounceRef = React.useRef(null);
+
+  const onUsedCarDbSearch = React.useCallback((q) => {
+    setUsedCarDbSearchValue(q);
+    const query = String(q || "").trim();
+
+    if (usedCarDbSearchDebounceRef.current) {
+      clearTimeout(usedCarDbSearchDebounceRef.current);
+    }
+
+    if (!query || query.length < 2) {
+      setUsedCarDbOptions([]);
+      return;
+    }
+
+    usedCarDbSearchDebounceRef.current = setTimeout(async () => {
+      setUsedCarDbLoading(true);
+      try {
+        const res = await usedCarsDbApi.getUsedCars({ q: query, limit: 20 });
+        if (res?.success && Array.isArray(res.data)) {
+          const options = res.data.map((car) => ({
+            value: `${car.make} ${car.model} ${car.variant} (${car.year})`,
+            label: (
+              <div>
+                <div style={{ fontWeight: 600 }}>
+                  {car.make} {car.model} {car.variant}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  Year: {car.year} | Fuel: {car.fuel_type || "N/A"} | CC: {car.cc || "N/A"}
+                </div>
+              </div>
+            ),
+            carData: car,
+          }));
+          setUsedCarDbOptions(options);
+        } else {
+          setUsedCarDbOptions([]);
+        }
+      } catch (err) {
+        console.error("Error searching used cars db:", err);
+        setUsedCarDbOptions([]);
+      } finally {
+        setUsedCarDbLoading(false);
+      }
+    }, 280);
+  }, []);
+
+  const handleSelectUsedCar = React.useCallback(
+    (car) => {
+      if (!car) return;
+      
+      setField("vehicleMake", car.make || "");
+      setField("vehicleModel", car.model || "");
+      setField("vehicleVariant", car.variant || "");
+      setField("fuelType", car.fuel_type || "Petrol");
+      setField("cubicCapacity", car.cc ? String(car.cc) : "");
+      setField("manufactureYear", car.year ? String(car.year) : "");
+      setField("manufactureMonth", "01"); // Default to Jan
+      
+      if (car.year) {
+        setField("dateOfReg", `${car.year}-01-01`);
+      }
+      
+      setField("typesOfVehicle", "Four Wheeler");
+
+      if (car.ex_showroom_price) {
+        setField("exShowroomPrice", car.ex_showroom_price);
+      }
+
+      setUsedCarDbSearchValue(`${car.make} ${car.model} ${car.variant} (${car.year})`);
+
+      onRefreshVehicleDerivedFields?.({
+        make: car.make,
+        model: car.model,
+        variant: car.variant,
+        preserveExistingOnMiss: true,
+      });
+    },
+    [setField, onRefreshVehicleDerivedFields]
+  );
+
   const registrationPreview = formData.registrationNumber || "Pending";
 
   const vehicleTitle =
@@ -266,6 +364,43 @@ const Step2VehicleDetails = ({
             </button>
           </div>
           <Row gutter={[16, 16]}>
+            {!isNewCar ? (
+              <Col xs={24}>
+                <div className={fieldWrapClass}>
+                  <CleanField
+                    label="Select Used Car (Master DB)"
+                    extra={
+                      <span className="text-[11px] text-slate-400">
+                        Search by Make, Model, or Variant to load details from the Used Car catalog database.
+                      </span>
+                    }
+                  >
+                    <AutoComplete
+                      value={usedCarDbSearchValue}
+                      options={usedCarDbOptions}
+                      onSearch={onUsedCarDbSearch}
+                      allowClear
+                      size="large"
+                      placeholder="Search Used Car (e.g. Maruti Swift)"
+                      onSelect={(value, option) => {
+                        handleSelectUsedCar(option.carData);
+                      }}
+                      onChange={(value) => {
+                        setUsedCarDbSearchValue(value);
+                        if (!value) {
+                          setUsedCarDbOptions([]);
+                        }
+                      }}
+                      style={{ width: "100%" }}
+                      notFoundContent={
+                        usedCarDbLoading ? "Searching..." : "No matching used cars"
+                      }
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            ) : null}
+
             {isNewCar ? (
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>

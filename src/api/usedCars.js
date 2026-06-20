@@ -414,4 +414,17 @@ export const usedCarsDbApi = {
   async deleteUsedCar(id) {
     return apiClient.delete(`/api/used-cars-db/${id}`);
   },
+  async getUniqueMakes(params = {}) {
+    return apiClient.get("/api/used-cars-db/makes", { params });
+  },
+  async getUniqueModels(params = {}) {
+    return apiClient.get("/api/used-cars-db/models", { params });
+  },
+  async getUniqueVariants(params = {}) {
+    return apiClient.get("/api/used-cars-db/variants", { params });
+  },
+  async getByDetails(params = {}) {
+    return apiClient.get("/api/used-cars-db/by-details", { params });
+  },
 };
+

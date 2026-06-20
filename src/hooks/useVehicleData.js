@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { message } from "antd";
+import { message, Form } from "antd";
 import { vehiclesApi } from "../api/vehicles";
+import { usedCarsDbApi } from "../api/usedCars";
+
+
 
 const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const stripLeadingPhrase = (text, phrase) => {
@@ -244,7 +247,11 @@ export const useVehicleData = (form, options = {}) => {
     initialShowDiscontinued = false,
   } = options;
 
+  const typeOfLoan = Form.useWatch("typeOfLoan", form) || form?.getFieldValue("typeOfLoan") || "New Car";
+  const useUsedCarsDb = typeOfLoan !== "New Car";
+
   const normalize = (v) => String(v || "").trim().toLowerCase();
+
   const MODELS_CACHE_KEY = "vehicle_models_by_make_cache_v2";
   const VARIANTS_CACHE_KEY = "vehicle_variants_by_make_model_cache_v3";
   const MAKES_CACHE_KEY = "vehicle_makes_cache_v2";
@@ -339,6 +346,24 @@ export const useVehicleData = (form, options = {}) => {
      FETCH UNIQUE MAKES
   ========================= */
   const fetchMakes = useCallback(async () => {
+    if (useUsedCarsDb) {
+      try {
+        setLoading(true);
+        const res = await usedCarsDbApi.getUniqueMakes({
+          includeDiscontinued: showDiscontinuedCars,
+        });
+        const makesList = toLabelList(res?.data || [], ["make", "name", "label"]);
+        setMakes(makesList);
+      } catch (error) {
+        console.error("Failed to load used car makes:", error);
+        message.error("Failed to load vehicle makes");
+        setMakes([]);
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     const modeCacheKey = discontinuedModeKey;
     if (
       Array.isArray(cacheRef.current.makesByMode[modeCacheKey]) &&
@@ -392,7 +417,7 @@ export const useVehicleData = (form, options = {}) => {
       inFlightRef.current.makesByMode[modeCacheKey] = null;
       setLoading(false);
     }
-  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars]);
+  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars, useUsedCarsDb]);
 
 
   /* =========================
@@ -401,6 +426,25 @@ export const useVehicleData = (form, options = {}) => {
   const fetchModels = useCallback(async (selectedMake) => {
     if (!selectedMake) {
       setModels([]);
+      return;
+    }
+
+    if (useUsedCarsDb) {
+      try {
+        setLoading(true);
+        const res = await usedCarsDbApi.getUniqueModels({
+          make: selectedMake,
+          includeDiscontinued: showDiscontinuedCars,
+        });
+        const modelsList = toLabelList(res?.data || [], ["model", "name", "label"]);
+        setModels(modelsList);
+      } catch (error) {
+        console.error("Failed to load used car models:", error);
+        message.error("Failed to load vehicle models");
+        setModels([]);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -458,7 +502,7 @@ export const useVehicleData = (form, options = {}) => {
       inFlightRef.current.modelsByMake[cacheKey] = null;
       setLoading(false);
     }
-  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars]);
+  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars, useUsedCarsDb]);
 
 
   /* =========================
@@ -467,6 +511,26 @@ export const useVehicleData = (form, options = {}) => {
   const fetchVariants = useCallback(async (selectedMake, selectedModel) => {
     if (!selectedMake || !selectedModel) {
       setVariants([]);
+      return;
+    }
+
+    if (useUsedCarsDb) {
+      try {
+        setLoading(true);
+        const res = await usedCarsDbApi.getUniqueVariants({
+          make: selectedMake,
+          model: selectedModel,
+          includeDiscontinued: showDiscontinuedCars,
+        });
+        const variantsList = toLabelList(res?.data || [], ["variant", "name", "label"]);
+        setVariants(variantsList);
+      } catch (error) {
+        console.error("Failed to load used car variants:", error);
+        message.error("Failed to load vehicle variants");
+        setVariants([]);
+      } finally {
+        setLoading(false);
+      }
       return;
     }
 
@@ -543,7 +607,8 @@ export const useVehicleData = (form, options = {}) => {
       inFlightRef.current.variantsByMakeModel[cacheKey] = null;
       setLoading(false);
     }
-  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars]);
+  }, [loadMasterRows, discontinuedModeKey, showDiscontinuedCars, useUsedCarsDb]);
+
 
 
 
@@ -555,6 +620,50 @@ export const useVehicleData = (form, options = {}) => {
     async (selectedMake, selectedModel, selectedVariant, selectedCity = null) => {
       if (!selectedMake || !selectedModel || !selectedVariant) {
         setSelectedVehicle(null);
+        return;
+      }
+
+      if (useUsedCarsDb) {
+        try {
+          setLoading(true);
+          const res = await usedCarsDbApi.getByDetails({
+            make: selectedMake,
+            model: selectedModel,
+            variant: selectedVariant,
+          });
+          if (res?.success && res.data) {
+            const vehicleData = res.data;
+            setSelectedVehicle(vehicleData);
+
+            if (autofillPricing && form) {
+              const pricingFields = {
+                valuation: vehicleData.ex_showroom_price || undefined,
+                boughtInYear: vehicleData.year ? String(vehicleData.year) : undefined,
+                vehicleFuelType: vehicleData.fuel_type || undefined,
+              };
+              const currentValues = form.getFieldsValue();
+              const fieldsToUpdate = {};
+              Object.entries(pricingFields).forEach(([key, value]) => {
+                if (value && !currentValues[key]) {
+                  fieldsToUpdate[key] = value;
+                }
+              });
+              if (Object.keys(fieldsToUpdate).length > 0) {
+                form.setFieldsValue(fieldsToUpdate);
+              }
+            }
+            if (onVehicleSelect) {
+              onVehicleSelect(vehicleData);
+            }
+          } else {
+            setSelectedVehicle(null);
+          }
+        } catch (error) {
+          console.error("Failed to fetch used car details:", error);
+          setSelectedVehicle(null);
+        } finally {
+          setLoading(false);
+        }
         return;
       }
 
@@ -715,14 +824,7 @@ export const useVehicleData = (form, options = {}) => {
         setSelectedVehicle(null);
       }
     },
-    [
-      autofillPricing,
-      onVehicleSelect,
-      cityResolver,
-      form,
-      discontinuedModeKey,
-      loadMasterRows,
-    ],
+    [loadMasterRows, cityResolver, form, autofillPricing, onVehicleSelect, discontinuedModeKey, useUsedCarsDb],
   );
 
   const canLookupVehicleDetails = useCallback(
@@ -854,13 +956,19 @@ export const useVehicleData = (form, options = {}) => {
      INITIALIZE DATA
   ========================= */
   useEffect(() => {
+    setMakes([]);
+    setModels([]);
+    setVariants([]);
+    setSelectedVehicle(null);
     fetchMakes();
-  }, [fetchMakes]);
+  }, [useUsedCarsDb, fetchMakes]);
 
   useEffect(() => {
     // Warm master rows in background so price/fuel lookup is instant on first variant select.
-    loadMasterRows();
-  }, [loadMasterRows]);
+    if (!useUsedCarsDb) {
+      loadMasterRows();
+    }
+  }, [loadMasterRows, useUsedCarsDb]);
 
   /* =========================
      WATCH MAKE CHANGES
