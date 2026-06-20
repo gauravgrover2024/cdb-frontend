@@ -234,7 +234,9 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
     return Math.trunc(n);
   };
 
+  const isNewCar = loanType === "New Car";
   const exShowroom = asInt(v.exShowroomPrice);
+  const baseAssetPrice = isNewCar ? exShowroom : asInt(v.valuation);
   const insurance = asInt(v.insuranceCost);
   const roadTax = asInt(v.roadTax);
   const accessories = asInt(v.accessoriesAmount);
@@ -246,7 +248,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   const otherDiscounts = asInt(v.otherDiscounts);
 
   const onRoad =
-    exShowroom +
+    baseAssetPrice +
     insurance +
     roadTax +
     accessories -
@@ -255,8 +257,6 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
 
   const grossLoan = onRoad - marginMoney - advanceEmi - tradeInValue;
   const netLoan = grossLoan - otherDiscounts;
-
-  const isNewCar = loanType === "New Car";
   const isUsedCar = loanType === "Used Car";
   const isCashIn = loanType === "Car Cash-in";
   const isRefinance = loanType === "Refinance";
@@ -729,7 +729,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
               {/* Type of Loan */}
               <Col xs={24} md={8}>
                 <Form.Item label="Type of Loan" name="typeOfLoan">
-                  <Select placeholder="Select Type of Loan">
+                  <Select placeholder="Select Type of Loan" disabled>
                     <Option value="New Car">New Car</Option>
                     <Option value="Used Car">Used Car</Option>
                     <Option value="Car Cash-in">Car Cash-in</Option>

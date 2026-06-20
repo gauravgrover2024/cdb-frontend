@@ -26,18 +26,7 @@ const FinanceDetailsForm = () => {
            Funding Parameters
         </div>
         <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Form.Item label="Type of Loan" name="typeOfLoan" className="mb-0">
-              <Select placeholder="Select loan type" className="h-10 rounded-xl">
-                <Select.Option value="New Car">New Car</Select.Option>
-                <Select.Option value="Used Car">Used Car</Select.Option>
-                <Select.Option value="Car Cash-in">Car Cash-in</Select.Option>
-                <Select.Option value="Refinance">Refinance</Select.Option>
-              </Select>
-            </Form.Item>
-          </Col>
-
-          <Col xs={24} md={8}>
+          <Col xs={24} md={12}>
             <Form.Item label="Expected Funding" name="financeExpectation" className="mb-0">
               <InputNumber
                 placeholder="Requested amount"
@@ -53,7 +42,7 @@ const FinanceDetailsForm = () => {
             </Form.Item>
           </Col>
 
-          <Col xs={24} md={8}>
+          <Col xs={24} md={12}>
             <Form.Item label="Requested Tenure (Months)" name="loanTenureMonths" className="mb-0">
               <InputNumber
                 placeholder="Months"

@@ -1,11 +1,85 @@
 import React from "react";
-import { Form, Select, Row, Col, Segmented, Spin, Checkbox } from "antd";
+import { Form, Select, Row, Col, Segmented, Spin, Checkbox, AutoComplete } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
+import { usedCarsDbApi } from "../../../../../api/usedCars";
 
 const VehicleDetailsForm = () => {
   const form = Form.useFormInstance();
-  // add this helper inside VehicleDetailsForm
+  const typeOfLoan = Form.useWatch("typeOfLoan", form) || form?.getFieldValue("typeOfLoan") || "New Car";
+
+  const [usedCarDbSearchValue, setUsedCarDbSearchValue] = React.useState("");
+  const [usedCarDbOptions, setUsedCarDbOptions] = React.useState([]);
+  const [usedCarDbLoading, setUsedCarDbLoading] = React.useState(false);
+  const usedCarDbSearchDebounceRef = React.useRef(null);
+
+  const onUsedCarDbSearch = React.useCallback((q) => {
+    setUsedCarDbSearchValue(q);
+    const query = String(q || "").trim();
+
+    if (usedCarDbSearchDebounceRef.current) {
+      clearTimeout(usedCarDbSearchDebounceRef.current);
+    }
+
+    if (!query || query.length < 2) {
+      setUsedCarDbOptions([]);
+      return;
+    }
+
+    usedCarDbSearchDebounceRef.current = setTimeout(async () => {
+      setUsedCarDbLoading(true);
+      try {
+        const res = await usedCarsDbApi.getUsedCars({ q: query, limit: 20 });
+        if (res?.success && Array.isArray(res.data)) {
+          const options = res.data.map((car) => ({
+            value: `${car.make} ${car.model} ${car.variant} (${car.year})`,
+            label: (
+              <div>
+                <div style={{ fontWeight: 600 }}>
+                  {car.make} {car.model} {car.variant}
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  Year: {car.year} | Fuel: {car.fuel_type || "N/A"} | CC: {car.cc || "N/A"}
+                </div>
+              </div>
+            ),
+            carData: car,
+          }));
+          setUsedCarDbOptions(options);
+        } else {
+          setUsedCarDbOptions([]);
+        }
+      } catch (err) {
+        console.error("Error searching used cars db:", err);
+        setUsedCarDbOptions([]);
+      } finally {
+        setUsedCarDbLoading(false);
+      }
+    }, 280);
+  }, []);
+
+  const handleSelectUsedCar = React.useCallback((car) => {
+    if (!car) return;
+    form.setFieldsValue({
+      vehicleMake: car.make || "",
+      vehicleModel: car.model || "",
+      vehicleVariant: car.variant || "",
+      vehicleFuelType: car.fuel_type || "Petrol",
+      boughtInYear: car.year ? String(car.year) : "",
+      valuation: car.ex_showroom_price || undefined,
+    });
+    setUsedCarDbSearchValue(`${car.make} ${car.model} ${car.variant} (${car.year})`);
+  }, [form]);
+
+  React.useEffect(() => {
+    const make = form?.getFieldValue("vehicleMake");
+    const model = form?.getFieldValue("vehicleModel");
+    const variant = form?.getFieldValue("vehicleVariant");
+    const year = form?.getFieldValue("boughtInYear") || form?.getFieldValue("manufacturingYear");
+    if (make && model && variant) {
+      setUsedCarDbSearchValue(`${make} ${model} ${variant}${year ? ` (${year})` : ""}`);
+    }
+  }, [form]);
 
   // Use centralized vehicle data hook
   const {
@@ -80,6 +154,31 @@ const VehicleDetailsForm = () => {
         </div>
       </div>
 
+      {/* TYPE OF LOAN SELECTION */}
+      <div className="p-6 rounded-2xl bg-card border border-border shadow-sm mb-6">
+        <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+          <Icon name="Banknote" size={12} className="text-primary" />
+          Loan Type Configuration
+        </div>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={12}>
+            <Form.Item
+              label="Type of Loan"
+              name="typeOfLoan"
+              rules={[{ required: true, message: "Select type of loan" }]}
+              className="mb-0"
+            >
+              <Select placeholder="Select type of loan" className="h-10 rounded-xl">
+                <Select.Option value="New Car">New Car</Select.Option>
+                <Select.Option value="Used Car">Used Car</Select.Option>
+                <Select.Option value="Car Cash-in">Car Cash-in</Select.Option>
+                <Select.Option value="Refinance">Refinance</Select.Option>
+              </Select>
+            </Form.Item>
+          </Col>
+        </Row>
+      </div>
+
       {/* VEHICLE SELECTION */}
       <div className="p-6 rounded-2xl bg-card border border-border shadow-sm mb-6">
         <div className="text-[10px] font-medium uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
@@ -87,6 +186,36 @@ const VehicleDetailsForm = () => {
           Asset Configuration
         </div>
         <Row gutter={[16, 16]}>
+          {typeOfLoan !== "New Car" && (
+            <Col xs={24}>
+              <Form.Item label="Select Used Car (Master DB)" className="mb-2">
+                <AutoComplete
+                  value={usedCarDbSearchValue}
+                  options={usedCarDbOptions}
+                  onSearch={onUsedCarDbSearch}
+                  allowClear
+                  className="h-10 rounded-xl"
+                  placeholder="Search Used Car (e.g. Maruti Swift)"
+                  onSelect={(value, option) => {
+                    handleSelectUsedCar(option.carData);
+                  }}
+                  onChange={(value) => {
+                    setUsedCarDbSearchValue(value);
+                    if (!value) {
+                      setUsedCarDbOptions([]);
+                    }
+                  }}
+                  notFoundContent={
+                    usedCarDbLoading ? (
+                      <div className="p-4 text-center"><Spin size="small" /></div>
+                    ) : (
+                      "No matching used cars"
+                    )
+                  }
+                />
+              </Form.Item>
+            </Col>
+          )}
           <Col xs={24} md={8}>
             <Form.Item label="Make" name="vehicleMake" className="mb-0">
               <Select
