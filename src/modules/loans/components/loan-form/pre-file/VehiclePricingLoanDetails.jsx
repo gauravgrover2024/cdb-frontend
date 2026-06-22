@@ -235,6 +235,9 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   };
 
   const isNewCar = loanType === "New Car";
+  const isUsedCar = loanType === "Used Car";
+  const isCashIn = loanType === "Car Cash-in" || loanType === "Loan Against Vehicle";
+  const isRefinance = loanType === "Refinance" || loanType === "Top-Up";
   const exShowroom = asInt(v.exShowroomPrice);
   const baseAssetPrice = isNewCar ? exShowroom : asInt(v.valuation);
   const insurance = asInt(v.insuranceCost);
@@ -257,9 +260,6 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
 
   const grossLoan = onRoad - marginMoney - advanceEmi - tradeInValue;
   const netLoan = grossLoan - otherDiscounts;
-  const isUsedCar = loanType === "Used Car";
-  const isCashIn = loanType === "Car Cash-in";
-  const isRefinance = loanType === "Refinance";
   const isCompany = applicantType === "Company";
   const loadingMakes = vehicleLoading && makes.length === 0;
   const loadingModels = vehicleLoading && Boolean(vehicleMake) && models.length === 0;
@@ -695,7 +695,14 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                     ))}
                   </Select>
                 </Form.Item>
-              </Col>  
+              </Col>
+              {(isUsedCar || isCashIn || isRefinance) && (
+                <Col xs={24} md={6}>
+                  <Form.Item label="Bought In (Year)" name="boughtInYear">
+                    <Input placeholder="e.g. 2020" />
+                  </Form.Item>
+                </Col>
+              )}
               <Col xs={24} md={6}>
                 <Form.Item label="Fuel Type" name="vehicleFuelType">
                   <Select placeholder="Select Fuel Type" allowClear>
@@ -788,11 +795,6 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
               {/* USED / CASH-IN / REFINANCE — minimal fields */}
               {(isUsedCar || isCashIn || isRefinance) && (
                 <>
-                  <Col xs={24} md={8}>
-                    <Form.Item label="Bought In (Year)" name="boughtInYear">
-                      <Input placeholder="Enter Year (e.g., 2020)" />
-                    </Form.Item>
-                  </Col>
                   <Col xs={24} md={8}>
                     <Form.Item label="Hypothecation" name="hypothecation">
                       <Radio.Group>

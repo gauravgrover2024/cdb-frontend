@@ -123,10 +123,21 @@ const Step2VehicleDetails = ({
   customerVehicleLoading,
   onRefreshVehicleDerivedFields,
   onHydrateVehicleSelectionOptions,
+  onSwitchToUsedCar,
 }) => {
   const [usedCarDbSearchValue, setUsedCarDbSearchValue] = React.useState("");
   const [usedCarDbLoading, setUsedCarDbLoading] = React.useState(false);
   const [usedCarDbOptions, setUsedCarDbOptions] = React.useState([]);
+  const [usedCarYears, setUsedCarYears] = React.useState([]);
+
+  React.useEffect(() => {
+    if (isNewCar) return;
+    usedCarsDbApi.getUniqueYears().then((res) => {
+      if (res?.success && Array.isArray(res.data)) {
+        setUsedCarYears(res.data.map((y) => ({ label: String(y), value: String(y) })));
+      }
+    }).catch(() => {});
+  }, [isNewCar]);
 
   React.useEffect(() => {
     if (formData.vehicleMake && formData.vehicleModel) {
@@ -163,12 +174,17 @@ const Step2VehicleDetails = ({
           const options = res.data.map((car) => ({
             value: `${car.make} ${car.model} ${car.variant} (${car.year})`,
             label: (
-              <div>
-                <div style={{ fontWeight: 600 }}>
-                  {car.make} {car.model} {car.variant}
+              <div style={{ lineHeight: 1.4 }}>
+                <div style={{ fontWeight: 700, color: "#1e293b" }}>
+                  {car.make} {car.model}{" "}
+                  <span style={{ fontWeight: 400, color: "#475569" }}>{car.variant}</span>
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
-                  Year: {car.year} | Fuel: {car.fuel_type || "N/A"} | CC: {car.cc || "N/A"}
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 1 }}>
+                  <span style={{ fontWeight: 600, color: "#2563eb" }}>{car.year}</span>
+                  {car.fuel_type ? <span> · {car.fuel_type}</span> : null}
+                  {car.cc ? <span> · {car.cc} cc</span> : null}
+                  {car.seating_capacity ? <span> · {car.seating_capacity} seats</span> : null}
+                  {car.transmission ? <span> · {car.transmission}</span> : null}
                 </div>
               </div>
             ),
@@ -196,13 +212,16 @@ const Step2VehicleDetails = ({
       setField("vehicleVariant", car.variant || "");
       setField("fuelType", car.fuel_type || "Petrol");
       setField("cubicCapacity", car.cc ? String(car.cc) : "");
+      setField("seatingCapacity", car.seating_capacity ? String(car.seating_capacity) : "");
       setField("manufactureYear", car.year ? String(car.year) : "");
-      setField("manufactureMonth", "01"); // Default to Jan
-      
-      if (car.year) {
+      if (!formData.manufactureMonth) {
+        setField("manufactureMonth", "01");
+      }
+
+      if (car.year && !formData.dateOfReg) {
         setField("dateOfReg", `${car.year}-01-01`);
       }
-      
+
       setField("typesOfVehicle", "Four Wheeler");
 
       if (car.ex_showroom_price) {
@@ -364,43 +383,6 @@ const Step2VehicleDetails = ({
             </button>
           </div>
           <Row gutter={[16, 16]}>
-            {!isNewCar ? (
-              <Col xs={24}>
-                <div className={fieldWrapClass}>
-                  <CleanField
-                    label="Select Used Car (Master DB)"
-                    extra={
-                      <span className="text-[11px] text-slate-400">
-                        Search by Make, Model, or Variant to load details from the Used Car catalog database.
-                      </span>
-                    }
-                  >
-                    <AutoComplete
-                      value={usedCarDbSearchValue}
-                      options={usedCarDbOptions}
-                      onSearch={onUsedCarDbSearch}
-                      allowClear
-                      size="large"
-                      placeholder="Search Used Car (e.g. Maruti Swift)"
-                      onSelect={(value, option) => {
-                        handleSelectUsedCar(option.carData);
-                      }}
-                      onChange={(value) => {
-                        setUsedCarDbSearchValue(value);
-                        if (!value) {
-                          setUsedCarDbOptions([]);
-                        }
-                      }}
-                      style={{ width: "100%" }}
-                      notFoundContent={
-                        usedCarDbLoading ? "Searching..." : "No matching used cars"
-                      }
-                    />
-                  </CleanField>
-                </div>
-              </Col>
-            ) : null}
-
             {isNewCar ? (
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
@@ -576,17 +558,30 @@ const Step2VehicleDetails = ({
       children: (
         <div className="pt-3">
           <Row gutter={[16, 16]}>
-            <Col xs={24}>
-              <Checkbox
-                checked={Boolean(includeDiscontinuedVehicles)}
-                onChange={(e) =>
-                  setIncludeDiscontinuedVehicles(Boolean(e?.target?.checked))
-                }
-                style={{ marginBottom: 4 }}
-              >
-                Include discontinued
-              </Checkbox>
-            </Col>
+            {isNewCar ? (
+              <Col xs={24}>
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <Checkbox
+                    checked={Boolean(includeDiscontinuedVehicles)}
+                    onChange={(e) =>
+                      setIncludeDiscontinuedVehicles(Boolean(e?.target?.checked))
+                    }
+                  >
+                    Include discontinued
+                  </Checkbox>
+                  {onSwitchToUsedCar ? (
+                    <button
+                      type="button"
+                      onClick={onSwitchToUsedCar}
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-[11px] font-bold text-amber-700 transition-all hover:border-amber-400 hover:bg-amber-100"
+                    >
+                      <CarOutlined className="text-[12px]" />
+                      Move to Used Car
+                    </button>
+                  ) : null}
+                </div>
+              </Col>
+            ) : null}
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
@@ -611,16 +606,31 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Manufacture Year" required>
-                  <Input
-                    size="large"
-                    allowClear
-                    value={formData.manufactureYear}
-                    onChange={handleChange("manufactureYear")}
-                    status={
-                      showErrors && step2Errors.manufactureYear ? "error" : ""
-                    }
-                    placeholder="e.g. 2026"
-                  />
+                  {!isNewCar && usedCarYears.length > 0 ? (
+                    <Select
+                      size="large"
+                      allowClear
+                      showSearch
+                      value={formData.manufactureYear || undefined}
+                      onChange={(v) => setField("manufactureYear", v || "")}
+                      status={showErrors && step2Errors.manufactureYear ? "error" : ""}
+                      placeholder="Select year"
+                      options={usedCarYears}
+                      style={{ width: "100%" }}
+                      filterOption={(input, option) =>
+                        String(option?.value || "").includes(input)
+                      }
+                    />
+                  ) : (
+                    <Input
+                      size="large"
+                      allowClear
+                      value={formData.manufactureYear}
+                      onChange={handleChange("manufactureYear")}
+                      status={showErrors && step2Errors.manufactureYear ? "error" : ""}
+                      placeholder="e.g. 2026"
+                    />
+                  )}
                 </CleanField>
               </div>
               {showErrors && step2Errors.manufactureYear ? (
@@ -641,6 +651,52 @@ const Step2VehicleDetails = ({
                 </CleanField>
               </div>
             </Col>
+
+            {!isNewCar ? (
+              <Col xs={24}>
+                <div className={fieldWrapClass}>
+                  <CleanField
+                    label="Select Used Car (Master DB)"
+                    extra={
+                      <span className="text-[11px] text-slate-400">
+                        Search by Make, Model, Variant, Fuel Type, or Year (e.g. "Ertiga 2023", "Petrol Swift", "ZXI 2022"). Selecting a record auto-fills all vehicle fields.
+                      </span>
+                    }
+                  >
+                    <AutoComplete
+                      value={usedCarDbSearchValue}
+                      options={usedCarDbOptions}
+                      onSearch={onUsedCarDbSearch}
+                      allowClear
+                      size="large"
+                      placeholder="e.g. Ertiga 2023, Petrol Swift ZXI"
+                      onSelect={(value, option) => {
+                        handleSelectUsedCar(option.carData);
+                      }}
+                      onChange={(value) => {
+                        setUsedCarDbSearchValue(value);
+                        if (!value) {
+                          setUsedCarDbOptions([]);
+                        }
+                      }}
+                      style={{ width: "100%" }}
+                      notFoundContent={
+                        usedCarDbLoading ? (
+                          <span className="text-xs text-slate-500">Searching...</span>
+                        ) : usedCarDbSearchValue && usedCarDbSearchValue.length >= 2 ? (
+                          <div className="py-2 text-center">
+                            <div className="text-xs font-semibold text-slate-500">No matching records found</div>
+                            <div className="mt-1 text-[11px] text-slate-400">Try a different keyword, make, model, or year</div>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-400">Type at least 2 characters to search</span>
+                        )
+                      }
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+            ) : null}
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>

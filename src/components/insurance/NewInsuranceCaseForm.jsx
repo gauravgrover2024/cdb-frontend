@@ -1858,7 +1858,7 @@ const NewInsuranceCaseForm = ({
       try {
         const res = await vehiclesApi.getUniqueMakes(
           null,
-          includeDiscontinuedVehicles,
+          !isNewCar ? true : includeDiscontinuedVehicles,
         );
         if (ignore) return;
         setMakeOptions(Array.isArray(res?.data) ? res.data : []);
@@ -1870,7 +1870,7 @@ const NewInsuranceCaseForm = ({
     return () => {
       ignore = true;
     };
-  }, [includeDiscontinuedVehicles]);
+  }, [isNewCar, includeDiscontinuedVehicles]);
 
   useEffect(() => {
     let ignore = false;
@@ -1883,7 +1883,7 @@ const NewInsuranceCaseForm = ({
         const res = await vehiclesApi.getUniqueModels(
           formData.vehicleMake,
           null,
-          includeDiscontinuedVehicles,
+          !isNewCar ? true : includeDiscontinuedVehicles,
         );
         if (ignore) return;
         setModelOptions(Array.isArray(res?.data) ? res.data : []);
@@ -1895,7 +1895,7 @@ const NewInsuranceCaseForm = ({
     return () => {
       ignore = true;
     };
-  }, [formData.vehicleMake, includeDiscontinuedVehicles]);
+  }, [formData.vehicleMake, isNewCar, includeDiscontinuedVehicles]);
 
   useEffect(() => {
     let ignore = false;
@@ -1909,7 +1909,7 @@ const NewInsuranceCaseForm = ({
           formData.vehicleMake,
           formData.vehicleModel,
           null,
-          includeDiscontinuedVehicles,
+          !isNewCar ? true : includeDiscontinuedVehicles,
         );
         if (ignore) return;
         setVariantOptions(Array.isArray(res?.data) ? res.data : []);
@@ -1924,6 +1924,7 @@ const NewInsuranceCaseForm = ({
   }, [
     formData.vehicleMake,
     formData.vehicleModel,
+    isNewCar,
     includeDiscontinuedVehicles,
   ]);
 
@@ -3233,6 +3234,15 @@ const NewInsuranceCaseForm = ({
     schedulePersist();
   }, [schedulePersist]);
 
+  const handleSwitchToUsedCar = useCallback(() => {
+    setFormData((prev) => ({
+      ...prev,
+      vehicleType: "Used Car",
+      usedCarFlowType: prev.usedCarFlowType || "Sale/Purchase",
+    }));
+    schedulePersist();
+  }, [schedulePersist]);
+
   const draftSnapshot = React.useMemo(
     () =>
       JSON.stringify({
@@ -4216,6 +4226,7 @@ const NewInsuranceCaseForm = ({
             customerVehicleLoading={customerVehicleLoading}
             onRefreshVehicleDerivedFields={refreshVehicleDerivedFields}
             onHydrateVehicleSelectionOptions={hydrateVehicleSelectionOptions}
+            onSwitchToUsedCar={isNewCar ? handleSwitchToUsedCar : undefined}
           />
         );
       case 3:
