@@ -3127,7 +3127,7 @@ const EMICalculator = ({
                 <article className="aci-color-inline-card" style={{ margin: "24px 0" }}>
                 <style>{`
         .aci-color-inline-card {
-          width: min(100%, 760px);
+          width: 100%;
           color: #071142;
           font-family:
             Inter,
@@ -3141,15 +3141,11 @@ const EMICalculator = ({
 
         .aci-color-inline-main {
           position: relative;
-          overflow: clip;
-          border: 1px solid rgba(213, 223, 239, 0.86);
+          overflow: visible;
+          border: none;
           border-radius: 28px;
-          background:
-            linear-gradient(180deg, rgba(255,255,255,0.99), rgba(247,250,255,0.97));
-          box-shadow:
-            0 30px 88px -60px rgba(8, 26, 66, 0.58),
-            0 14px 36px -34px rgba(7, 88, 248, 0.38),
-            inset 0 1px 0 rgba(255,255,255,0.98);
+          background: transparent;
+          box-shadow: none;
           padding: 17px;
         }
 
@@ -3193,15 +3189,17 @@ const EMICalculator = ({
 
         .aci-color-inline-car {
           position: relative;
-          height: clamp(228px, 31vw, 292px);
-          display: grid;
-          place-items: center;
+          height: clamp(300px, 50vh, 520px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
           overflow: hidden;
           border-radius: 26px;
+          padding: 20px;
           background:
-            radial-gradient(circle at 58% 44%, rgba(255,255,255,.62), transparent 28%),
-            radial-gradient(circle at 50% 78%, rgba(220,232,249,.34), transparent 30%),
-            linear-gradient(180deg, rgba(247,250,255,.52), rgba(247,250,255,.12));
+            radial-gradient(circle at 50% 50%, rgba(255,255,255,.85), transparent 70%),
+            radial-gradient(circle at 50% 78%, rgba(220,232,249,.34), transparent 50%),
+            linear-gradient(180deg, rgba(247,250,255,.70), rgba(240,246,255,.50));
           isolation: isolate;
         }
 
@@ -3229,26 +3227,13 @@ const EMICalculator = ({
         .aci-color-inline-car-window {
           position: relative;
           z-index: 1;
-          width: min(112%, 560px);
-          max-width: 112%;
+          width: 100%;
+          max-width: 100%;
           height: 100%;
-          max-height: 278px;
-          aspect-ratio: var(--aci-color-inline-aspect, 1400 / 787);
-          display: grid;
-          place-items: center;
-          overflow: hidden;
-          -webkit-mask-image: radial-gradient(
-            ellipse at center,
-            rgba(0,0,0,1) 68%,
-            rgba(0,0,0,.96) 82%,
-            rgba(0,0,0,0) 100%
-          );
-          mask-image: radial-gradient(
-            ellipse at center,
-            rgba(0,0,0,1) 68%,
-            rgba(0,0,0,.96) 82%,
-            rgba(0,0,0,0) 100%
-          );
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          overflow: visible;
         }
 
         .aci-color-inline-car img {
@@ -3259,54 +3244,66 @@ const EMICalculator = ({
           max-height: 100%;
           object-fit: contain;
           object-position: center center;
-          transform-origin: var(--aci-color-inline-origin, center center);
-          transform:
-            translate(var(--aci-color-inline-x, 0%), var(--aci-color-inline-y, 0%))
-            scale(var(--aci-color-inline-scale, 1.12));
-          filter: drop-shadow(0 20px 18px rgba(15, 23, 42, 0.13));
+          filter: drop-shadow(0 24px 22px rgba(15, 23, 42, 0.16));
           user-select: none;
           will-change: opacity, filter;
+        }
+
+        .aci-color-inline-swatches-wrap {
+          border-radius: 26px;
+          padding: 14px 16px;
+          background:
+            radial-gradient(circle at 50% 50%, rgba(255,255,255,.85), transparent 70%),
+            radial-gradient(circle at 50% 78%, rgba(220,232,249,.34), transparent 50%),
+            linear-gradient(180deg, rgba(247,250,255,.70), rgba(240,246,255,.50));
         }
 
         .aci-color-inline-swatches {
           position: relative;
           z-index: 2;
-          display: grid;
-          grid-template-columns: minmax(0, 1fr);
-          gap: 13px;
-          margin: 2px 0 0;
+          display: flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          gap: 8px;
+          margin: 0;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+
+        .aci-color-inline-swatches::-webkit-scrollbar {
+          display: none;
         }
 
         .aci-color-inline-row {
-          min-width: 0;
-          min-height: 0;
-          display: grid;
-          grid-template-columns: 44px minmax(0, 1fr);
+          flex: 0 0 auto;
+          width: 90px;
+          display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 12px;
-          padding: 0;
-          border: 0;
-          border-radius: 0;
-          background: transparent;
+          gap: 8px;
+          padding: 10px 8px;
+          border: 1px solid rgba(213, 223, 239, 0.7);
+          border-radius: 16px;
+          background: rgba(248, 251, 255, 0.8);
           box-shadow: none;
           cursor: pointer;
-          text-align: left;
-          transition: transform 180ms ease, opacity 180ms ease;
+          text-align: center;
+          transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
         }
 
         .aci-color-inline-row:hover,
         .aci-color-inline-row:focus-visible {
-          transform: translateY(-1px);
-          opacity: 1;
+          transform: translateY(-2px);
+          border-color: rgba(7, 88, 248, 0.3);
           outline: none;
-          border: 0;
-          box-shadow: none;
+          box-shadow: 0 6px 18px -8px rgba(7, 88, 248, 0.2);
         }
 
         .aci-color-inline-row.is-active {
-          border: 0;
-          background: transparent;
-          box-shadow: none;
+          border-color: rgba(7, 88, 248, 0.5);
+          background: rgba(7, 88, 248, 0.06);
+          box-shadow: 0 0 0 1px rgba(7, 88, 248, 0.2);
         }
 
         .aci-color-inline-row-label {
@@ -3314,20 +3311,21 @@ const EMICalculator = ({
         }
 
         .aci-color-inline-row strong {
-          display: block;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
           min-width: 0;
           color: #071142;
-          font-size: 14px;
-          line-height: 1.16;
-          font-weight: 730;
-          letter-spacing: -0.012em;
+          font-size: 11.5px;
+          line-height: 1.3;
+          font-weight: 700;
+          letter-spacing: -0.01em;
           overflow: hidden;
-          white-space: nowrap;
-          text-overflow: ellipsis;
         }
 
         .aci-color-inline-row.is-active strong {
           font-weight: 800;
+          color: #0758f8;
         }
 
         .aci-inline-color-orb {
@@ -3408,14 +3406,14 @@ const EMICalculator = ({
         @media (min-width: 900px) {
           .aci-color-inline-main {
             display: grid;
-            grid-template-columns: minmax(270px, 0.9fr) minmax(300px, 1.1fr);
+            grid-template-columns: 1fr;
             grid-template-areas:
-              "answer answer"
-              "swatches hero";
-            column-gap: 18px;
-            row-gap: 8px;
+              "answer"
+              "hero"
+              "swatches";
+            row-gap: 12px;
             align-items: center;
-            padding: 18px 22px;
+            padding: 20px 22px;
           }
 
           .aci-color-inline-answer {
@@ -3433,11 +3431,16 @@ const EMICalculator = ({
           }
 
           .aci-color-inline-car {
-            height: 232px;
+            height: clamp(340px, 50vh, 520px);
+            padding: 20px;
           }
 
           .aci-color-inline-swatches-wrap {
             grid-area: swatches;
+          }
+
+          .aci-color-inline-swatches {
+            gap: 10px;
           }
         }
 
@@ -3470,35 +3473,20 @@ const EMICalculator = ({
           }
 
           .aci-color-inline-car {
-            height: 196px;
-            align-items: end;
+            height: clamp(240px, 44vw, 320px);
+            align-items: center;
             border-radius: 24px;
-          }
-
-          .aci-color-inline-car-window {
-            width: min(118%, 410px);
-            max-width: 118%;
-            max-height: 196px;
-          }
-
-          .aci-color-inline-car img {
-            transform:
-              translate(var(--aci-color-inline-x, 0%), var(--aci-color-inline-y, 0%))
-              scale(var(--aci-color-inline-scale, 1.18));
+            padding: 14px;
           }
 
           .aci-color-inline-swatches {
-            gap: 10px 8px;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
             margin-top: 6px;
           }
 
           .aci-color-inline-row {
-            grid-template-columns: minmax(0, 1fr);
-            justify-items: center;
-            text-align: center;
-            gap: 8px;
-            padding: 0;
+            padding: 9px 6px;
+            border-radius: 14px;
           }
 
           .aci-inline-color-orb {
@@ -3528,15 +3516,16 @@ const EMICalculator = ({
 
         @media (max-width: 390px) {
           .aci-color-inline-car {
-            height: 184px;
+            height: 220px;
+            padding: 10px;
           }
 
-          .aci-color-inline-car-window {
-            max-height: 184px;
+          .aci-color-inline-swatches {
+            gap: 6px;
           }
 
           .aci-color-inline-row {
-            padding: 0;
+            padding: 8px 4px;
           }
 
           .aci-color-inline-row strong {
@@ -3592,7 +3581,7 @@ const EMICalculator = ({
                     </div>
                   </div>
 
-                  <div className="aci-color-inline-swatches-wrap">
+                  <div className="aci-color-inline-swatches-wrap dark:!bg-[#111]">
                     {colorGalleryLoading ? (
                       <div className="flex gap-2 overflow-x-auto pb-1">
                         {Array.from({ length: 4 }).map((_, i) => (
@@ -3608,7 +3597,7 @@ const EMICalculator = ({
                     ) : colorGallery.length > 0 ? (
                       <>
                         <div className="aci-color-inline-swatches">
-                          {colorGallery.slice(0, 3).map((entry, index) => {
+                          {colorGallery.map((entry, index) => {
                             const colorName = entry.color || `Color ${index + 1}`;
                             const active = normalizeText(color) === normalizeText(entry.color);
 
@@ -3645,17 +3634,7 @@ const EMICalculator = ({
                             );
                           })}
                         </div>
-                        {colorGallery.length > 3 ? (
-                          <button
-                            type="button"
-                            className="aci-color-inline-view-all dark:!bg-[#1a1a1a] dark:!border-[#333] dark:!text-violet-400"
-                            onClick={() => setColorLightboxOpen(true)}
-                            disabled={disableAll}
-                          >
-                            View all {colorGallery.length} colors
-                            <span aria-hidden="true">›</span>
-                          </button>
-                        ) : null}
+                        {null}
                       </>
                     ) : (
                       <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
