@@ -1,11 +1,61 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { Table, Tag, Space, Input, Select, Modal, Form, InputNumber, Popconfirm, message } from "antd";
+import { motion, AnimatePresence } from "framer-motion";
+import { Search, X, RefreshCw, Plus } from "lucide-react";
+import { Table, Tag, Space, Select, Modal, Form, Input, InputNumber, Popconfirm, message } from "antd";
 import { usedCarsDbApi } from "../../../api/usedCars";
 import Icon from "../../../components/AppIcon";
 import Button from "../../../components/ui/Button";
 import { formatINR } from "../../../utils/currency";
 
 const { Option } = Select;
+
+// Filter chip colour map — matches insurance dashboard palette
+const CHIP_COLORS = {
+  All:        { active: "#6366f1" },
+  Petrol:     { active: "#f97316" },
+  Diesel:     { active: "#2563eb" },
+  CNG:        { active: "#10b981" },
+  Electric:   { active: "#8b5cf6" },
+  Manual:     { active: "#475569" },
+  Automatic:  { active: "#f59e0b" },
+};
+
+const FilterChip = ({ label, isActive, onClick, count }) => {
+  const c = CHIP_COLORS[label] || { active: "#475569" };
+  return (
+    <motion.button
+      whileHover={{ scale: 1.04 }}
+      whileTap={{ scale: 0.97 }}
+      onClick={onClick}
+      className="rounded-lg border-2 transition-all"
+      style={{
+        background: isActive ? "#0f172a" : "#ffffff",
+        borderColor: isActive ? "#0f172a" : "#e2e8f0",
+        boxShadow: isActive ? "0 2px 8px rgba(15,23,42,0.2)" : "none",
+      }}
+    >
+      <div className="flex items-center gap-1.5 px-3 py-1.5">
+        <span
+          className="text-[13px] font-semibold"
+          style={{ color: isActive ? "#fff" : "#374151" }}
+        >
+          {label}
+        </span>
+        {count !== undefined && (
+          <span
+            className="rounded px-1.5 py-0.5 text-[11px] font-bold"
+            style={{
+              background: isActive ? "rgba(255,255,255,0.22)" : `${c.active}18`,
+              color: isActive ? "#fff" : c.active,
+            }}
+          >
+            {count}
+          </span>
+        )}
+      </div>
+    </motion.button>
+  );
+};
 
 const StatCard = ({ title, value, iconName, iconColor = "text-primary" }) => (
   <div className="bg-card border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
@@ -33,16 +83,14 @@ export default function UsedCarsDbPage() {
   // Query and pagination state
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [filters, setFilters] = useState({
-    make: "",
-    year: "",
-    transmission: "",
-    fuel_type: "",
-  });
+  const [fuelFilter, setFuelFilter] = useState("all");
+  const [transFilter, setTransFilter] = useState("all");
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 15,
   });
+
+  const hasActiveFilters = searchQuery || fuelFilter !== "all" || transFilter !== "all";
 
   // Form & Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -86,12 +134,13 @@ export default function UsedCarsDbPage() {
       const params = {
         limit: pagination.pageSize,
         skip: (pagination.current - 1) * pagination.pageSize,
-        q: debouncedSearch,
-        make: filters.make || undefined,
-        year: filters.year || undefined,
-        transmission: filters.transmission || undefined,
-        fuel_type: filters.fuel_type || undefined,
+        fuel_type: fuelFilter !== "all" ? fuelFilter : undefined,
+        transmission: transFilter !== "all" ? transFilter : undefined,
       };
+
+      if (debouncedSearch) {
+        params.q = debouncedSearch;
+      }
 
       const res = await usedCarsDbApi.getUsedCars(params);
       if (res?.success) {
@@ -106,7 +155,7 @@ export default function UsedCarsDbPage() {
     } finally {
       setLoading(false);
     }
-  }, [debouncedSearch, filters, pagination.current, pagination.pageSize]);
+  }, [debouncedSearch, fuelFilter, transFilter, pagination.current, pagination.pageSize]);
 
   useEffect(() => {
     fetchCars();
@@ -116,8 +165,8 @@ export default function UsedCarsDbPage() {
     fetchStats();
   }, [fetchStats]);
 
-  const handleFilterChange = (key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const handleFilterChipChange = (setter, current, value) => {
+    setter(current === value ? "all" : value);
     setPagination((prev) => ({ ...prev, current: 1 }));
   };
 
@@ -286,109 +335,124 @@ export default function UsedCarsDbPage() {
   return (
     <div className="min-h-full p-4 md:p-6 bg-background">
       <div className="app-max-wrap flex flex-col gap-6">
-        {/* Header section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-foreground tracking-tight">Used Cars Master DB</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Browse, filter, and manage the master database of variants by manufacturing year.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            iconName="RefreshCcw"
-            onClick={() => {
-              fetchCars();
-              fetchStats();
-            }}
-            loading={loading}
-          >
-            Refresh
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            iconName="Plus"
-            onClick={handleOpenAddModal}
-          >
-            Add New Row
-          </Button>
-        </div>
-      </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <StatCard title="Total Records" value={total} iconName="Layers" />
-        <StatCard title="Total Models in Database" value={stats.totalCount} iconName="Car" iconColor="text-blue-500" />
-        <StatCard title="Active Configurations" value="Yes" iconName="CheckCircle2" iconColor="text-success" />
-      </div>
-
-      {/* Filter and Search controls */}
-      <div className="bg-card border border-border rounded-xl p-4 flex flex-col gap-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <Input
-              placeholder="Search by make, model, variant..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              prefix={<Icon name="Search" size={16} className="text-muted-foreground mr-1" />}
-              suffix={
-                searchQuery && (
-                  <Icon
-                    name="X"
-                    size={16}
-                    className="text-muted-foreground cursor-pointer hover:text-foreground"
-                    onClick={() => setSearchQuery("")}
-                  />
-                )
-              }
-              className="h-10 rounded-lg"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Select
-              allowClear
-              placeholder="Fuel Type"
-              className="h-10 w-full"
-              onChange={(val) => handleFilterChange("fuel_type", val)}
-            >
-              <Option value="Petrol">Petrol</Option>
-              <Option value="Diesel">Diesel</Option>
-              <Option value="CNG">CNG</Option>
-              <Option value="Electric">Electric</Option>
-            </Select>
-
-            <Select
-              allowClear
-              placeholder="Transmission"
-              className="h-10 w-full"
-              onChange={(val) => handleFilterChange("transmission", val)}
-            >
-              <Option value="Manual">Manual</Option>
-              <Option value="Automatic">Automatic</Option>
-            </Select>
-
-            <Input
-              placeholder="Mfg Year"
-              type="number"
-              className="h-10 w-full"
-              onChange={(e) => handleFilterChange("year", e.target.value)}
-            />
-
-            <Input
-              placeholder="Brand/Make"
-              className="h-10 w-full"
-              onChange={(e) => handleFilterChange("make", e.target.value)}
-            />
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl font-bold text-foreground tracking-tight">Used Cars Master DB</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              Browse, filter, and manage the master database of variants by manufacturing year.
+            </p>
           </div>
         </div>
-      </div>
 
-      {/* Grid database Table */}
-      <div className="bg-card border border-border rounded-xl flex-1 overflow-hidden shadow-sm">
+        {/* Stats row */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatCard title="Total Records" value={total} iconName="Layers" />
+          <StatCard title="Total Models in DB" value={stats.totalCount} iconName="Car" iconColor="text-blue-500" />
+          <StatCard title="Active Configurations" value="Yes" iconName="CheckCircle2" iconColor="text-success" />
+        </div>
+
+        {/* Search + Filters — insurance/loans style */}
+        <div className="bg-white rounded-xl border-2 border-slate-200 p-4 shadow-sm">
+          {/* Top row: search input + action buttons */}
+          <div className="flex flex-col lg:flex-row gap-3 mb-3">
+            <div className="flex-1 relative">
+              <Search
+                size={18}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              />
+              <input
+                type="text"
+                placeholder="Search by make, model, variant, year…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-10 pr-10 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={16} />
+                </button>
+              )}
+            </div>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={handleOpenAddModal}
+              className="px-5 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
+            >
+              <Plus size={16} />
+              Add Record
+            </motion.button>
+
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => { fetchCars(); fetchStats(); }}
+              className="px-4 py-2.5 rounded-lg font-semibold text-slate-700 flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 transition-colors"
+            >
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
+            </motion.button>
+          </div>
+
+          {/* Filter chips — Fuel Type */}
+          <div className="flex flex-wrap gap-2">
+            <FilterChip
+              label="All"
+              isActive={fuelFilter === "all" && transFilter === "all"}
+              onClick={() => { setFuelFilter("all"); setTransFilter("all"); setPagination(p => ({ ...p, current: 1 })); }}
+            />
+
+            {/* Fuel chips */}
+            {["Petrol", "Diesel", "CNG", "Electric"].map((fuel) => (
+              <FilterChip
+                key={fuel}
+                label={fuel}
+                isActive={fuelFilter === fuel}
+                onClick={() => handleFilterChipChange(setFuelFilter, fuelFilter, fuel)}
+              />
+            ))}
+
+            {/* Transmission chips */}
+            {["Manual", "Automatic"].map((tr) => (
+              <FilterChip
+                key={tr}
+                label={tr}
+                isActive={transFilter === tr}
+                onClick={() => handleFilterChipChange(setTransFilter, transFilter, tr)}
+              />
+            ))}
+
+            {/* Clear all active filters */}
+            <AnimatePresence>
+              {hasActiveFilters && (
+                <motion.button
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => {
+                    setSearchQuery("");
+                    setFuelFilter("all");
+                    setTransFilter("all");
+                    setPagination((p) => ({ ...p, current: 1 }));
+                  }}
+                  className="rounded-lg border-2 border-red-200 bg-red-50 flex items-center gap-1.5 px-3 py-1.5"
+                >
+                  <X size={13} className="text-red-500" />
+                  <span className="text-[13px] font-semibold text-red-600">Clear Filters</span>
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
+        {/* Grid database Table */}
+        <div className="bg-card border border-border rounded-xl flex-1 overflow-hidden shadow-sm">
         <Table
           columns={columns}
           dataSource={data}
