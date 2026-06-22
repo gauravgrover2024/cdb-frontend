@@ -3123,209 +3123,565 @@ const EMICalculator = ({
               </div>
             </div>
             {!isFloating && galleryVehicleContext && (
-              <div className="bg-white dark:bg-[#141414] rounded-3xl border border-slate-100 dark:border-[#242424] overflow-hidden shadow-sm">
-                {/* Header */}
-                <div className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-slate-100 dark:border-[#242424] bg-gradient-to-r from-violet-50/60 to-transparent dark:from-violet-950/20 dark:to-transparent">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
-                      <svg
-                        viewBox="0 0 16 16"
-                        className="w-3.5 h-3.5 fill-violet-600 dark:fill-violet-400"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <circle cx="4" cy="8" r="3" />
-                        <circle cx="8" cy="5" r="2.2" opacity="0.6" />
-                        <circle cx="12" cy="8" r="3" opacity="0.4" />
-                      </svg>
-                    </div>
-                    <div>
-                      <div className="text-[12px] font-bold text-slate-800 dark:text-slate-100 leading-tight">
-                        Exterior Colors
-                      </div>
-                      <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                        Tap a color to auto-fill the Color field
+              <div className="w-full">
+                <article className="aci-color-inline-card" style={{ margin: "24px 0" }}>
+                <style>{`
+        .aci-color-inline-card {
+          width: min(100%, 760px);
+          color: #071142;
+          font-family:
+            Inter,
+            ui-sans-serif,
+            system-ui,
+            -apple-system,
+            BlinkMacSystemFont,
+            "Segoe UI",
+            sans-serif;
+        }
+
+        .aci-color-inline-main {
+          position: relative;
+          overflow: clip;
+          border: 1px solid rgba(213, 223, 239, 0.86);
+          border-radius: 28px;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.99), rgba(247,250,255,0.97));
+          box-shadow:
+            0 30px 88px -60px rgba(8, 26, 66, 0.58),
+            0 14px 36px -34px rgba(7, 88, 248, 0.38),
+            inset 0 1px 0 rgba(255,255,255,0.98);
+          padding: 17px;
+        }
+
+        .aci-color-inline-answer {
+          position: relative;
+          z-index: 2;
+          margin: 0 0 12px;
+        }
+
+        .aci-color-inline-kicker {
+          display: inline-flex;
+          margin-bottom: 7px;
+          color: #0758f8;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 780;
+          letter-spacing: 0.16em;
+          text-transform: uppercase;
+        }
+
+        .aci-color-inline-answer strong {
+          display: block;
+          color: #071142;
+          font-size: clamp(19px, 2.1vw, 25px);
+          line-height: 1.08;
+          font-weight: 780;
+          letter-spacing: -0.035em;
+        }
+
+        .aci-color-inline-answer p {
+          margin: 8px 0 0;
+          color: #53627f;
+          font-size: 13.2px;
+          line-height: 1.45;
+          font-weight: 590;
+        }
+
+        .aci-color-inline-hero {
+          margin: 2px 0 10px;
+        }
+
+        .aci-color-inline-car {
+          position: relative;
+          height: clamp(228px, 31vw, 292px);
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          border-radius: 26px;
+          background:
+            radial-gradient(circle at 58% 44%, rgba(255,255,255,.62), transparent 28%),
+            radial-gradient(circle at 50% 78%, rgba(220,232,249,.34), transparent 30%),
+            linear-gradient(180deg, rgba(247,250,255,.52), rgba(247,250,255,.12));
+          isolation: isolate;
+        }
+
+        .aci-color-inline-car::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+          pointer-events: none;
+          background:
+            radial-gradient(circle at 50% 100%, rgba(173,189,214,.13), transparent 24%);
+        }
+
+        .aci-color-inline-car::after {
+          content: "";
+          position: absolute;
+          left: 18%;
+          right: 18%;
+          bottom: 4%;
+          height: 14px;
+          border-radius: 999px;
+          background: radial-gradient(ellipse, rgba(15, 23, 42, 0.14), transparent 72%);
+          filter: blur(7px);
+        }
+
+        .aci-color-inline-car-window {
+          position: relative;
+          z-index: 1;
+          width: min(112%, 560px);
+          max-width: 112%;
+          height: 100%;
+          max-height: 278px;
+          aspect-ratio: var(--aci-color-inline-aspect, 1400 / 787);
+          display: grid;
+          place-items: center;
+          overflow: hidden;
+          -webkit-mask-image: radial-gradient(
+            ellipse at center,
+            rgba(0,0,0,1) 68%,
+            rgba(0,0,0,.96) 82%,
+            rgba(0,0,0,0) 100%
+          );
+          mask-image: radial-gradient(
+            ellipse at center,
+            rgba(0,0,0,1) 68%,
+            rgba(0,0,0,.96) 82%,
+            rgba(0,0,0,0) 100%
+          );
+        }
+
+        .aci-color-inline-car img {
+          display: block;
+          width: 100%;
+          max-width: 100%;
+          height: 100%;
+          max-height: 100%;
+          object-fit: contain;
+          object-position: center center;
+          transform-origin: var(--aci-color-inline-origin, center center);
+          transform:
+            translate(var(--aci-color-inline-x, 0%), var(--aci-color-inline-y, 0%))
+            scale(var(--aci-color-inline-scale, 1.12));
+          filter: drop-shadow(0 20px 18px rgba(15, 23, 42, 0.13));
+          user-select: none;
+          will-change: opacity, filter;
+        }
+
+        .aci-color-inline-swatches {
+          position: relative;
+          z-index: 2;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 13px;
+          margin: 2px 0 0;
+        }
+
+        .aci-color-inline-row {
+          min-width: 0;
+          min-height: 0;
+          display: grid;
+          grid-template-columns: 44px minmax(0, 1fr);
+          align-items: center;
+          gap: 12px;
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+          cursor: pointer;
+          text-align: left;
+          transition: transform 180ms ease, opacity 180ms ease;
+        }
+
+        .aci-color-inline-row:hover,
+        .aci-color-inline-row:focus-visible {
+          transform: translateY(-1px);
+          opacity: 1;
+          outline: none;
+          border: 0;
+          box-shadow: none;
+        }
+
+        .aci-color-inline-row.is-active {
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .aci-color-inline-row-label {
+          display: none;
+        }
+
+        .aci-color-inline-row strong {
+          display: block;
+          min-width: 0;
+          color: #071142;
+          font-size: 14px;
+          line-height: 1.16;
+          font-weight: 730;
+          letter-spacing: -0.012em;
+          overflow: hidden;
+          white-space: nowrap;
+          text-overflow: ellipsis;
+        }
+
+        .aci-color-inline-row.is-active strong {
+          font-weight: 800;
+        }
+
+        .aci-inline-color-orb {
+          position: relative;
+          width: 35px;
+          height: 35px;
+          border-radius: 999px;
+          border: 1px solid rgba(255,255,255,.86);
+          box-shadow:
+            inset 0 8px 13px rgba(255,255,255,.30),
+            inset 0 -12px 20px rgba(15,23,42,.30),
+            0 18px 34px -25px rgba(15,23,42,.72);
+        }
+
+        .aci-inline-color-orb i {
+          position: absolute;
+          left: 18%;
+          top: 13%;
+          width: 28%;
+          height: 28%;
+          border-radius: 999px;
+          background: rgba(255,255,255,.78);
+          filter: blur(1.8px);
+        }
+
+        .aci-inline-color-orb.is-selected {
+          box-shadow:
+            0 0 0 3px #fff,
+            0 0 0 5px #0758f8,
+            inset 0 8px 16px rgba(255,255,255,.35),
+            inset 0 -13px 22px rgba(15,23,42,.24),
+            0 20px 44px -28px rgba(37,99,235,.8);
+        }
+
+        .aci-inline-color-orb b {
+          position: absolute;
+          right: -6px;
+          bottom: -5px;
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #3b82f6, #1455ef);
+          color: #fff;
+          display: grid;
+          place-items: center;
+          border: 2px solid #fff;
+          font-size: 10px;
+          line-height: 1;
+          font-weight: 900;
+          box-shadow: 0 10px 18px -10px rgba(37,99,235,.7);
+        }
+
+        .aci-color-inline-row-copy {
+          min-width: 0;
+        }
+
+        .aci-color-inline-view-all {
+          margin: 10px 0 0;
+          width: 100%;
+          min-height: 34px;
+          border: 1px solid rgba(214, 224, 240, 0.82);
+          border-radius: 999px;
+          background:
+            linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,251,255,0.96));
+          color: #0758f8;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 12px;
+          line-height: 1;
+          font-weight: 780;
+          letter-spacing: -0.01em;
+          cursor: pointer;
+          box-shadow: 0 12px 28px -28px rgba(7, 88, 248, 0.38);
+        }
+
+        @media (min-width: 900px) {
+          .aci-color-inline-main {
+            display: grid;
+            grid-template-columns: minmax(270px, 0.9fr) minmax(300px, 1.1fr);
+            grid-template-areas:
+              "answer answer"
+              "swatches hero";
+            column-gap: 18px;
+            row-gap: 8px;
+            align-items: center;
+            padding: 18px 22px;
+          }
+
+          .aci-color-inline-answer {
+            grid-area: answer;
+            margin-bottom: 0;
+          }
+
+          .aci-color-inline-answer strong {
+            font-size: 20px;
+          }
+
+          .aci-color-inline-hero {
+            grid-area: hero;
+            margin: 0;
+          }
+
+          .aci-color-inline-car {
+            height: 232px;
+          }
+
+          .aci-color-inline-swatches-wrap {
+            grid-area: swatches;
+          }
+        }
+
+        @media (max-width: 720px) {
+          .aci-color-inline-card {
+            width: 100%;
+          }
+
+          .aci-color-inline-main {
+            border-radius: 26px;
+            padding: 14px;
+          }
+
+          .aci-color-inline-answer {
+            margin-bottom: 4px;
+          }
+
+          .aci-color-inline-answer strong {
+            font-size: 23px;
+            line-height: 1.08;
+            letter-spacing: -0.04em;
+          }
+
+          .aci-color-inline-answer p {
+            font-size: 13px;
+          }
+
+          .aci-color-inline-hero {
+            margin: 0 0 6px;
+          }
+
+          .aci-color-inline-car {
+            height: 196px;
+            align-items: end;
+            border-radius: 24px;
+          }
+
+          .aci-color-inline-car-window {
+            width: min(118%, 410px);
+            max-width: 118%;
+            max-height: 196px;
+          }
+
+          .aci-color-inline-car img {
+            transform:
+              translate(var(--aci-color-inline-x, 0%), var(--aci-color-inline-y, 0%))
+              scale(var(--aci-color-inline-scale, 1.18));
+          }
+
+          .aci-color-inline-swatches {
+            gap: 10px 8px;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            margin-top: 6px;
+          }
+
+          .aci-color-inline-row {
+            grid-template-columns: minmax(0, 1fr);
+            justify-items: center;
+            text-align: center;
+            gap: 8px;
+            padding: 0;
+          }
+
+          .aci-inline-color-orb {
+            width: 34px;
+            height: 34px;
+          }
+
+          .aci-color-inline-row-label {
+            display: none;
+          }
+
+          .aci-color-inline-row strong {
+            font-size: 11.3px;
+            line-height: 1.14;
+            white-space: normal;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+          }
+
+          .aci-color-inline-view-all {
+            min-height: 33px;
+            margin-top: 9px;
+            font-size: 11.5px;
+          }
+        }
+
+        @media (max-width: 390px) {
+          .aci-color-inline-car {
+            height: 184px;
+          }
+
+          .aci-color-inline-car-window {
+            max-height: 184px;
+          }
+
+          .aci-color-inline-row {
+            padding: 0;
+          }
+
+          .aci-color-inline-row strong {
+            font-size: 10.8px;
+          }
+        }
+                `}</style>
+                <section className="aci-color-inline-main dark:!bg-[#141414] dark:!border-[#242424] dark:!shadow-none">
+                  <div className="aci-color-inline-answer">
+                    <span className="aci-color-inline-kicker">Exterior colors</span>
+
+                    <strong className="dark:!text-white">
+                      {variantLabelFromSelection || galleryVehicleContext?.model || "Vehicle"} colors
+                    </strong>
+
+                    <p className="dark:!text-slate-400">
+                      {selectedColorMedia?.color || "Default"} selected · {colorGallery.length} live colors
+                    </p>
+                  </div>
+
+                  <div className="aci-color-inline-hero">
+                    <div className="aci-color-inline-car dark:!bg-[#111]">
+                      <div className="aci-color-inline-car-window">
+                        {selectedColorMedia?.image ? (
+                          <motion.img
+                            key={selectedColorMedia?.image || "fallback"}
+                            initial={{ opacity: 0.78, filter: "blur(2px)" }}
+                            animate={{ opacity: 1, filter: "blur(0px)" }}
+                            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                            src={selectedColorMedia.image}
+                            alt={selectedColorMedia.color || "Vehicle color"}
+                            loading="lazy"
+                            draggable="false"
+                            onError={(event) => {
+                              const fallback = selectedColorMedia.originalImage;
+                              if (fallback && event.currentTarget.src !== fallback) {
+                                event.currentTarget.src = fallback;
+                              }
+                            }}
+                          />
+                        ) : (
+                          <motion.div 
+                            key="fallback-no-image"
+                            initial={{ opacity: 0.78, filter: "blur(2px)" }}
+                            animate={{ opacity: 1, filter: "blur(0px)" }}
+                            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                            className="flex items-center justify-center h-full w-full bg-slate-100 dark:bg-slate-800 rounded-2xl"
+                          >
+                            <span className="text-slate-400 text-sm">No Image</span>
+                          </motion.div>
+                        )}
                       </div>
                     </div>
                   </div>
-                  {colorGallery.length > 0 && (
-                    <span className="text-[10px] font-semibold text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-900/20 border border-violet-200/60 dark:border-violet-800/40 px-2.5 py-0.5 rounded-full">
-                      {colorGallery.length} color
-                      {colorGallery.length !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
 
-                <div className="p-4 space-y-3">
-                  {/* Main preview image */}
-                  {selectedColorMedia?.image && (
-                    <div
-                      className="relative overflow-hidden rounded-2xl border border-slate-200/80 dark:border-[#2a2a2a] bg-gradient-to-b from-slate-100 to-slate-50 dark:from-[#151515] dark:to-[#101010]"
-                      style={{
-                        height: `clamp(${selectedColorPreviewTuning.minHeight}px, 56vh, ${selectedColorPreviewTuning.maxHeight}px)`,
-                      }}
-                    >
-                      <div
-                        className="absolute inset-0 opacity-50 blur-2xl"
-                        style={{
-                          backgroundImage: `url(${selectedColorMedia.image})`,
-                          backgroundSize: "cover",
-                          backgroundPosition: `50% ${selectedColorPreviewTuning.focusY}%`,
-                          transform: `scale(${Math.max(
-                            1.05,
-                            selectedColorPreviewTuning.scale - 0.08,
-                          )})`,
-                        }}
-                      />
-                      {color && (
-                        <div className="absolute top-2.5 right-2.5 z-10 flex items-center gap-1.5 bg-black/35 backdrop-blur-sm rounded-full px-2.5 py-1">
-                          <span
-                            className="w-2.5 h-2.5 rounded-full border border-white/30 flex-shrink-0"
-                            style={{
-                              backgroundColor:
-                                selectedColorMedia.hex || "#d1d5db",
-                            }}
-                          />
-                          <span className="text-[10px] font-semibold text-white leading-none">
-                            {selectedColorMedia.color || color}
-                          </span>
-                        </div>
-                      )}
-                      <img
-                        src={selectedColorMedia.image}
-                        alt={selectedColorMedia.color || "Vehicle color"}
-                        className="relative z-[1] block h-full w-full object-cover"
-                        style={{
-                          objectPosition: `50% ${selectedColorPreviewTuning.focusY}%`,
-                          transform: `scale(${selectedColorPreviewTuning.scale})`,
-                          transformOrigin: `50% ${selectedColorPreviewTuning.focusY}%`,
-                        }}
-                        loading="lazy"
-                        onLoad={(event) => {
-                          const nextWidth =
-                            Number(event.currentTarget.naturalWidth) || 0;
-                          const nextHeight =
-                            Number(event.currentTarget.naturalHeight) || 0;
-                          if (!nextWidth || !nextHeight) return;
-                          setMainColorImageMeta((prev) => {
-                            if (
-                              prev?.width === nextWidth &&
-                              prev?.height === nextHeight
-                            ) {
-                              return prev;
-                            }
-                            return { width: nextWidth, height: nextHeight };
-                          });
-                        }}
-                        onError={(event) => {
-                          const fallback = selectedColorMedia.originalImage;
-                          if (
-                            fallback &&
-                            event.currentTarget.src !== fallback
-                          ) {
-                            event.currentTarget.src = fallback;
-                          }
-                        }}
-                      />
-                    </div>
-                  )}
-
-                  {/* Thumbnails */}
-                  {colorGalleryLoading ? (
-                    <div className="flex gap-2 overflow-x-auto pb-1">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div
-                          key={i}
-                          className="flex-shrink-0 w-[88px] rounded-xl border border-slate-100 dark:border-[#262626] p-1.5 animate-pulse"
-                        >
-                          <div className="h-14 rounded-lg bg-slate-200 dark:bg-[#2a2a2a] mb-1.5" />
-                          <div className="h-2.5 w-12 rounded-full bg-slate-200 dark:bg-[#2a2a2a] mx-auto" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : colorGallery.length ? (
-                    <div className="flex gap-2 overflow-x-auto pb-0.5">
-                      {colorGallery.map((entry, index) => {
-                        const active =
-                          normalizeText(color) === normalizeText(entry.color);
-                        return (
-                          <button
-                            key={`${entry.color || "color"}-${entry.image || "img"}-${index}`}
-                            type="button"
-                            onClick={() => {
-                              setPricingState((prev) => ({
-                                ...(prev || {}),
-                                color: entry.color || "",
-                              }));
-                            }}
-                            disabled={disableAll}
-                            className={`flex-shrink-0 w-[88px] rounded-xl border-2 p-1.5 text-left transition-all duration-150 ${
-                              active
-                                ? "border-violet-500 dark:border-violet-400 bg-violet-50/50 dark:bg-violet-900/20 shadow-md"
-                                : "border-transparent bg-slate-50 dark:bg-[#1e1e1e] hover:border-slate-200 dark:hover:border-[#383838] hover:shadow-sm"
-                            } ${disableAll ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  <div className="aci-color-inline-swatches-wrap">
+                    {colorGalleryLoading ? (
+                      <div className="flex gap-2 overflow-x-auto pb-1">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div
+                            key={i}
+                            className="flex-shrink-0 w-[88px] rounded-xl border border-slate-100 dark:border-[#262626] p-1.5 animate-pulse"
                           >
-                            <div className="h-14 w-full overflow-hidden rounded-lg bg-white dark:bg-[#111] flex items-center justify-center mb-1.5">
-                              {entry.image ? (
-                                <img
-                                  src={entry.thumb || entry.image}
-                                  alt={entry.color || "Vehicle color"}
-                                  className="h-full w-full object-contain p-0.5"
-                                  loading="lazy"
-                                  onError={(event) => {
-                                    const fallback =
-                                      entry.originalImage || entry.image;
-                                    if (
-                                      fallback &&
-                                      event.currentTarget.src !== fallback
-                                    ) {
-                                      event.currentTarget.src = fallback;
-                                    }
-                                  }}
-                                />
-                              ) : (
-                                <span className="text-[9px] text-slate-400">
-                                  No img
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1.5 px-0.5">
-                              <span
-                                className="h-2.5 w-2.5 rounded-full border border-black/10 flex-shrink-0"
-                                style={{
-                                  backgroundColor: entry.hex || "#d1d5db",
-                                }}
-                              />
-                              <span className="truncate text-[10px] font-semibold text-slate-700 dark:text-slate-300 leading-tight">
-                                {entry.color || "Default"}
-                              </span>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
-                      <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#252525] flex items-center justify-center">
-                        <svg
-                          viewBox="0 0 20 20"
-                          className="w-5 h-5 fill-slate-400"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            d="M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 10 5Z"
-                            opacity="0.4"
-                          />
-                          <circle cx="10" cy="10" r="2" />
-                        </svg>
+                            <div className="h-14 rounded-lg bg-slate-200 dark:bg-[#2a2a2a] mb-1.5" />
+                            <div className="h-2.5 w-12 rounded-full bg-slate-200 dark:bg-[#2a2a2a] mx-auto" />
+                          </div>
+                        ))}
                       </div>
-                      <p className="text-[11px] text-slate-400 dark:text-slate-500">
-                        No color images yet for this variant
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    ) : colorGallery.length > 0 ? (
+                      <>
+                        <div className="aci-color-inline-swatches">
+                          {colorGallery.slice(0, 3).map((entry, index) => {
+                            const colorName = entry.color || `Color ${index + 1}`;
+                            const active = normalizeText(color) === normalizeText(entry.color);
 
-                {/* ── COLOR LIGHTBOX ── */}
+                            const primary = entry.hex || "#E5E7EB";
+                            const secondary = entry.secondaryHex || entry.secondary_hex || primary;
+                            const orbBackground = (primary.toLowerCase() !== secondary.toLowerCase())
+                              ? `radial-gradient(circle at 30% 22%, rgba(255,255,255,.96), transparent 18%), linear-gradient(90deg, ${primary} 0 50%, ${secondary} 50% 100%)`
+                              : `radial-gradient(circle at 28% 20%, rgba(255,255,255,.92), transparent 18%), radial-gradient(circle at 42% 34%, ${primary}, ${secondary} 82%)`;
+
+                            return (
+                              <motion.button
+                                type="button"
+                                key={`${entry.color || "color"}-${entry.image || "img"}-${index}`}
+                                className={`aci-color-inline-row ${active ? "is-active" : ""}`}
+                                onClick={() => {
+                                  setPricingState((prev) => ({
+                                    ...(prev || {}),
+                                    color: entry.color || "",
+                                  }));
+                                }}
+                                whileHover={{ y: -1 }}
+                                whileTap={{ scale: 0.985 }}
+                                disabled={disableAll}
+                              >
+                                <span className={`aci-inline-color-orb ${active ? "is-selected" : ""}`} style={{ background: orbBackground }}>
+                                  <i />
+                                  {active ? <b>✓</b> : null}
+                                </span>
+
+                                <span className="aci-color-inline-row-copy">
+                                  <strong className="dark:!text-white">{colorName}</strong>
+                                </span>
+                              </motion.button>
+                            );
+                          })}
+                        </div>
+                        {colorGallery.length > 3 ? (
+                          <button
+                            type="button"
+                            className="aci-color-inline-view-all dark:!bg-[#1a1a1a] dark:!border-[#333] dark:!text-violet-400"
+                            onClick={() => setColorLightboxOpen(true)}
+                            disabled={disableAll}
+                          >
+                            View all {colorGallery.length} colors
+                            <span aria-hidden="true">›</span>
+                          </button>
+                        ) : null}
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center gap-2 py-6 text-center">
+                        <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-[#252525] flex items-center justify-center">
+                          <svg
+                            viewBox="0 0 20 20"
+                            className="w-5 h-5 fill-slate-400"
+                            xmlns="http://www.w3.org/2000/svg"
+                          >
+                            <path
+                              d="M10 3a7 7 0 1 0 0 14A7 7 0 0 0 10 3Zm0 2a5 5 0 1 1 0 10A5 5 0 0 1 10 5Z"
+                              opacity="0.4"
+                            />
+                            <circle cx="10" cy="10" r="2" />
+                          </svg>
+                        </div>
+                        <p className="text-[11px] text-slate-400 dark:text-slate-500">
+                          No color images yet for this variant
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </article>
+
+              {/* ── COLOR LIGHTBOX ── */}
                 {colorLightboxOpen && colorGallery.length > 0 && (
                   <div
                     className="fixed inset-0 z-[999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
