@@ -30,9 +30,9 @@ import { IRDAI_INSURANCE_COMPANIES } from "../../../../constants/irdaiInsuranceC
 
 const { Option } = Select;
 const POLICY_DURATION_OPTIONS = [
-  { value: "1", label: "1 Year Own Damage (OD) + 3 Years Third Party (TP)" },
-  { value: "2", label: "2 Years Own Damage (OD) + 3 Years Third Party (TP)" },
-  { value: "3", label: "3 Years Own Damage (OD) + 3 Years Third Party (TP)" },
+  { value: "1", label: "1 Yr OD + 3 Yrs TP" },
+  { value: "2", label: "2 Yrs OD + 3 Yrs TP" },
+  { value: "3", label: "3 Yrs OD + 3 Yrs TP" },
 ];
 
 const asInt = (val) => {
