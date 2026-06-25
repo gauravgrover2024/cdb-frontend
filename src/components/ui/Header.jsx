@@ -210,6 +210,25 @@ const Header = () => {
       ],
     },
     {
+      label: "Home Loans",
+      icon: <Icon name="Home" size={18} />,
+      roles: FEATURE_ACCESS.HOME_LOANS,
+      children: [
+        {
+          label: "Dashboard",
+          path: "/home-loans",
+          desc: "All home loan applications",
+          roles: FEATURE_ACCESS.HOME_LOANS,
+        },
+        {
+          label: "New Application",
+          path: "/home-loans/new",
+          desc: "Start a new home loan file",
+          roles: FEATURE_ACCESS.HOME_LOANS,
+        },
+      ],
+    },
+    {
       label: "Finance",
       icon: <Icon name="Coins" size={18} />,
       roles: [
@@ -396,6 +415,10 @@ const Header = () => {
       Loans: {
         icon: "bg-gradient-to-br from-violet-100 to-fuchsia-100 text-violet-700 dark:from-violet-500/20 dark:to-fuchsia-500/20 dark:text-violet-300",
         dot: "bg-violet-500 dark:bg-violet-400",
+      },
+      "Home Loans": {
+        icon: "bg-gradient-to-br from-indigo-100 to-blue-100 text-indigo-700 dark:from-indigo-500/20 dark:to-blue-500/20 dark:text-indigo-300",
+        dot: "bg-indigo-500 dark:bg-indigo-400",
       },
       "Used Cars": {
         icon: "bg-gradient-to-br from-emerald-100 to-cyan-100 text-emerald-700 dark:from-emerald-500/20 dark:to-cyan-500/20 dark:text-emerald-300",
