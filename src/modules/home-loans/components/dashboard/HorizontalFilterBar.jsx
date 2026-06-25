@@ -1,0 +1,379 @@
+import React, { useMemo, useState, useEffect } from "react";
+import Icon from "../../../../components/AppIcon";
+import Button from "../../../../components/ui/Button";
+
+const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefresh, onNewCase }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+
+  // Sync local search state with filters prop
+  useEffect(() => {
+    setSearchValue(filters?.searchQuery || "");
+  }, [filters?.searchQuery]);
+
+  const loanTypes = [
+    { value: "New Car", label: "New Car" },
+    { value: "Used Car", label: "Used Car" },
+    { value: "Refinance", label: "Refinance" },
+    { value: "Car Cash-in", label: "Car Cash-in" },
+  ];
+
+  const pendingFlags = [
+    {
+      key: "cpvIncomplete",
+      label: "CPV Incomplete",
+      color: "rose",
+      dotClass: "bg-rose-500 dark:bg-rose-400",
+    },
+    {
+      key: "regNoPending",
+      label: "Regd Number Pending",
+      color: "amber",
+      dotClass: "bg-amber-500 dark:bg-amber-400",
+    },
+    {
+      key: "loanNoPending",
+      label: "Loan Number Pending",
+      color: "indigo",
+      dotClass: "bg-indigo-500 dark:bg-indigo-400",
+    },
+    {
+      key: "rcPending",
+      label: "RC Pending",
+      color: "blue",
+      dotClass: "bg-blue-500 dark:bg-blue-400",
+    },
+    {
+      key: "invoicePending",
+      label: "Invoice Pending",
+      color: "emerald",
+      dotClass: "bg-emerald-500 dark:bg-emerald-400",
+    },
+  ];
+
+  const amountRanges = [
+    { value: "0-5", label: "₹0-5L" },
+    { value: "5-10", label: "₹5-10L" },
+    { value: "10-15", label: "₹10-15L" },
+    { value: "15-20", label: "₹15-20L" },
+    { value: "20-50", label: "₹20-50L" },
+    { value: "50-100", label: "₹50-100L" },
+    { value: "100+", label: "₹100L+" },
+  ];
+
+  const activeFilterCount = useMemo(() => {
+    let count =
+      (filters?.loanTypes?.length || 0) +
+      (filters?.amountRanges?.length || 0);
+    if (filters?.searchQuery?.trim()) count += 1;
+    if (filters?.pendingApprovalOnly) count += 1;
+    if (filters?.pendingDisbursal) count += 1;
+    if (filters?.disbursedOnly) count += 1;
+    if (filters?.cashCarsOnly) count += 1;
+    if (filters?.cpvIncomplete) count += 1;
+    if (filters?.regNoPending) count += 1;
+    if (filters?.loanNoPending) count += 1;
+    if (filters?.rcPending) count += 1;
+    if (filters?.invoicePending) count += 1;
+    return count;
+  }, [filters]);
+
+  const removeFilter = (category, value) => {
+    const newValues = (filters?.[category] || []).filter((v) => v !== value);
+    onFilterChange(category, newValues);
+  };
+
+  const handleSearch = (value) => {
+    setSearchValue(value);
+    onFilterChange("searchQuery", value);
+  };
+
+  const Chip = ({ label, onRemove }) => (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary/90 text-xs border border-primary/20 dark:border-primary/30">
+      {label}
+      <button onClick={onRemove} className="hover:text-destructive dark:hover:text-red-400 transition-colors">
+        <Icon name="X" size={12} />
+      </button>
+    </span>
+  );
+
+  const TogglePill = ({ selected, children, onClick, withDot, dotClass, color = "primary" }) => {
+    const colorStyles = {
+      primary: selected ? "bg-primary text-primary-foreground border-primary" : "hover:border-primary hover:bg-primary/5",
+      indigo: selected ? "bg-indigo-600 text-white border-indigo-600 shadow-indigo-100" : "hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/10",
+      amber: selected ? "bg-amber-500 text-white border-amber-500 shadow-amber-100" : "hover:border-amber-500 hover:bg-amber-50 dark:hover:bg-amber-900/10",
+      emerald: selected ? "bg-emerald-600 text-white border-emerald-600 shadow-emerald-100" : "hover:border-emerald-500 hover:bg-emerald-50 dark:hover:bg-emerald-900/10",
+      blue: selected ? "bg-blue-600 text-white border-blue-600 shadow-blue-100" : "hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/10",
+      rose: selected ? "bg-rose-600 text-white border-rose-600 shadow-rose-100" : "hover:border-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/10",
+    };
+
+    return (
+      <button
+        onClick={onClick}
+        className={`px-3 py-1.5 rounded-xl text-xs border transition-all duration-200 inline-flex items-center gap-2 font-semibold shadow-sm
+          ${selected ? colorStyles[color] : `bg-card text-muted-foreground border-border ${colorStyles[color]}`}
+        `}
+      >
+        {withDot && <span className={`w-2 h-2 rounded-full ${dotClass} ${selected ? 'ring-2 ring-white/50' : ''}`} />}
+        {children}
+      </button>
+    );
+  };
+
+  return (
+    <div className="bg-card border border-border rounded-2xl overflow-hidden">
+      {/* Header with Search */}
+      <div className="px-4 py-3 border-b border-border space-y-3">
+        {/* Global Search Bar */}
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Icon name="Search" size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchValue}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Search by Customer Name, Mobile Number, Vehicle Number, or Loan Number..."
+              className="w-full h-10 pl-10 pr-3 py-2 border border-border bg-background rounded-lg text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary placeholder-muted-foreground"
+            />
+          </div>
+          
+          {/* Refresh Button */}
+          {onRefresh && (
+            <Button
+              variant="outline"
+              size="sm"
+              iconName="RefreshCw"
+              onClick={onRefresh}
+              className="h-10 px-3"
+            >
+              Refresh
+            </Button>
+          )}
+          
+          {/* New Case Button */}
+          {onNewCase && (
+            <Button
+              variant="default"
+              size="sm"
+              iconName="Plus"
+              onClick={onNewCase}
+              className="h-10 px-4"
+            >
+              New Case
+            </Button>
+          )}
+        </div>
+
+        {/* Filter Toggle and Clear */}
+        <div className="flex items-center justify-between">
+          <button
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="flex items-center gap-2 text-sm font-semibold text-foreground hover:text-primary transition-colors"
+          >
+            <Icon name="Filter" size={16} />
+            Filters
+            {activeFilterCount > 0 && (
+              <span className="px-2 py-0.5 bg-primary text-white rounded-full text-xs">
+                {activeFilterCount}
+              </span>
+            )}
+            <Icon
+              name={isExpanded ? "ChevronUp" : "ChevronDown"}
+              size={16}
+              className="text-muted-foreground"
+            />
+          </button>
+
+          {activeFilterCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              iconName="X"
+              onClick={onResetFilters}
+            >
+              Clear
+            </Button>
+          )}
+        </div>
+      </div>
+
+      {/* Chips */}
+      {activeFilterCount > 0 && !isExpanded && (
+        <div className="px-4 py-3 flex flex-wrap gap-2">
+          {filters?.searchQuery?.trim() && (
+            <Chip
+              key="search"
+              label={`Search: "${filters.searchQuery.trim().slice(0, 20)}${filters.searchQuery.trim().length > 20 ? "…" : ""}"`}
+              onRemove={() => handleSearch("")}
+            />
+          )}
+          {filters?.pendingApprovalOnly && (
+            <Chip
+              key="pendingApprovalOnly"
+              label="Pending approval"
+              onRemove={() => onFilterChange("pendingApprovalOnly", false)}
+            />
+          )}
+          {filters?.pendingDisbursal && (
+            <Chip
+              key="pendingDisbursal"
+              label="Pending disbursal"
+              onRemove={() => onFilterChange("pendingDisbursal", false)}
+            />
+          )}
+          {filters?.disbursedOnly && (
+            <Chip
+              key="disbursedOnly"
+              label="Disbursed only"
+              onRemove={() => onFilterChange("disbursedOnly", false)}
+            />
+          )}
+          {filters?.cashCarsOnly && (
+            <Chip
+              key="cashCarsOnly"
+              label="Cash cars only"
+              onRemove={() => onFilterChange("cashCarsOnly", false)}
+            />
+          )}
+          {filters?.cpvIncomplete && (
+            <Chip
+              key="cpvIncomplete"
+              label="CPV incomplete"
+              onRemove={() => onFilterChange("cpvIncomplete", false)}
+            />
+          )}
+          {filters?.regNoPending && (
+            <Chip
+              key="regNoPending"
+              label="Regd number pending"
+              onRemove={() => onFilterChange("regNoPending", false)}
+            />
+          )}
+          {filters?.loanNoPending && (
+            <Chip
+              key="loanNoPending"
+              label="Loan number pending"
+              onRemove={() => onFilterChange("loanNoPending", false)}
+            />
+          )}
+          {filters?.rcPending && (
+            <Chip
+              key="rcPending"
+              label="RC pending"
+              onRemove={() => onFilterChange("rcPending", false)}
+            />
+          )}
+          {filters?.invoicePending && (
+            <Chip
+              key="invoicePending"
+              label="Invoice pending"
+              onRemove={() => onFilterChange("invoicePending", false)}
+            />
+          )}
+          {filters?.loanTypes?.map((v) => (
+            <Chip
+              key={`loanType-${v}`}
+              label={loanTypes.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("loanTypes", v)}
+            />
+          ))}
+
+          {filters?.amountRanges?.map((v) => (
+            <Chip
+              key={`amount-${v}`}
+              label={amountRanges.find((x) => x.value === v)?.label || v}
+              onRemove={() => removeFilter("amountRanges", v)}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Expanded */}
+      {isExpanded && (
+        <div className="p-4 space-y-4">
+          {/* Loan type */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Loan Type
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {loanTypes.map((t) => {
+                const selected = filters?.loanTypes?.includes(t.value);
+                return (
+                  <TogglePill
+                    key={t.value}
+                    selected={selected}
+                    color="indigo"
+                    onClick={() => {
+                      const next = selected
+                        ? filters.loanTypes.filter((x) => x !== t.value)
+                        : [...(filters.loanTypes || []), t.value];
+                      onFilterChange("loanTypes", next);
+                    }}
+                  >
+                    {t.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Pending/Missing */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Pending / Missing
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pendingFlags.map((item) => {
+                const selected = Boolean(filters?.[item.key]);
+                return (
+                  <TogglePill
+                    key={item.key}
+                    selected={selected}
+                    color={item.color || "amber"}
+                    withDot
+                    dotClass={item.dotClass}
+                    onClick={() => {
+                      onFilterChange(item.key, !selected);
+                    }}
+                  >
+                    {item.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Amount */}
+          <div>
+            <div className="text-xs font-semibold text-muted-foreground mb-2">
+              Amount
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {amountRanges.map((r) => {
+                const selected = filters?.amountRanges?.includes(r.value);
+                return (
+                  <TogglePill
+                    key={r.value}
+                    selected={selected}
+                    color="rose"
+                    onClick={() => {
+                      const next = selected
+                        ? filters.amountRanges.filter((x) => x !== r.value)
+                        : [...(filters.amountRanges || []), r.value];
+                      onFilterChange("amountRanges", next);
+                    }}
+                  >
+                    {r.label}
+                  </TogglePill>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default HorizontalFilterBar;

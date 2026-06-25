@@ -51,6 +51,8 @@ import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
 import UsedCarsDbPage from "./modules/used-cars/pages/UsedCarsDbPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 import ACIAssistPage from "./pages/ACIAssistPage";
+import HomeLoanDashboard from "./modules/home-loans/components/LoanDashboard";
+import HomeLoanFormWithSteps from "./modules/home-loans/components/LoanFormWithSteps";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
 
 import CDrivePremiumPortal from "./pages/CDrivePremiumPortal";
@@ -175,6 +177,19 @@ function App() {
             <Route
               path="customers/profile/:id"
               element={R(FEATURE_ACCESS.CUSTOMERS, <CustomerProfilePage />)}
+            />
+            {/* Home Loans */}
+            <Route
+              path="home-loans"
+              element={R(FEATURE_ACCESS.HOME_LOANS, <HomeLoanDashboard />)}
+            />
+            <Route
+              path="home-loans/new"
+              element={R(FEATURE_ACCESS.HOME_LOANS, <HomeLoanFormWithSteps />)}
+            />
+            <Route
+              path="home-loans/edit/:loanId"
+              element={R(FEATURE_ACCESS.HOME_LOANS, <HomeLoanFormWithSteps />)}
             />
             {/* Loans */}
             <Route

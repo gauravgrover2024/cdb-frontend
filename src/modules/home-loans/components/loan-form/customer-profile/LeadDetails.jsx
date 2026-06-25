@@ -1,0 +1,307 @@
+import React, { useEffect } from "react";
+import dayjs from "dayjs";
+import {
+  Form,
+  Input,
+  Select,
+  Row,
+  Col,
+  DatePicker,
+  TimePicker,
+  Radio,
+  AutoComplete,
+} from "antd";
+
+
+import Icon from "../../../../../components/AppIcon";
+import useChannelPartnerAutoSuggest from "../../../../../hooks/useChannelPartnerAutoSuggest";
+
+const LeadDetails = () => {
+  const form = Form.useFormInstance();
+
+  const applicantType = Form.useWatch("applicantType", form);
+  const customerType = Form.useWatch("customerType", form);
+  const companyType = Form.useWatch("companyType", form);
+  const gstNumber = Form.useWatch("gstNumber", form);
+  const source = Form.useWatch("source", form);
+
+  const dealerName = Form.useWatch("dealerName", form);
+  const dealerAddress = Form.useWatch("dealerAddress", form);
+  const dealerMobile = Form.useWatch("dealerMobile", form);
+
+  const sourceDetails = Form.useWatch("sourceDetails", form);
+  const { options: channelOptions, search: searchChannelPartners, getByName } =
+    useChannelPartnerAutoSuggest({ limit: 25 });
+
+  // Normalize applicant category for legacy/company-like values
+  useEffect(() => {
+    const currentApplicantType = String(form.getFieldValue("applicantType") || "").trim();
+    const currentCustomerType = String(form.getFieldValue("customerType") || "").trim();
+    const inferCompany =
+      /company|corporate|firm|llp|partnership|proprietor/i.test(
+        `${currentApplicantType} ${currentCustomerType} ${companyType || ""}`,
+      ) || Boolean(gstNumber);
+
+    const normalizedApplicantType = inferCompany ? "Company" : "Individual";
+    if (currentApplicantType !== "Company" && currentApplicantType !== "Individual") {
+      form.setFieldsValue({ applicantType: normalizedApplicantType });
+    }
+    if (currentCustomerType !== "Company" && currentCustomerType !== "Individual") {
+      form.setFieldsValue({ customerType: normalizedApplicantType });
+    }
+  }, [form, companyType, gstNumber]);
+
+  // Keep customerType aligned with applicantType for downstream sections
+  useEffect(() => {
+    if (!applicantType) return;
+    const normalized = applicantType === "Company" ? "Company" : "Individual";
+    if (customerType !== normalized) {
+      form.setFieldsValue({ customerType: normalized });
+    }
+  }, [applicantType, customerType, form]);
+
+  // ✅ 2) Wire LeadDetails -> Section7 Record Details (safe sync)
+  useEffect(() => {
+    if (!source) return;
+
+    const currentRecordSource = form.getFieldValue("recordSource");
+
+    // If user already selected recordSource manually and it conflicts, allow LeadDetails to update it
+    // (LeadDetails acts as the source of truth)
+    if (source === "Indirect") {
+      form.setFieldsValue({
+        recordSource: "Indirect",
+
+        // Dealer / Channel name must be in sourceName (Section7)
+        sourceName: dealerName || "",
+
+        dealerAddress: dealerAddress || "",
+        dealerMobile: dealerMobile || "",
+
+        // Clear direct-only field
+        sourceDetails: "",
+      });
+
+      // OPTIONAL: if switching from Direct -> Indirect, clear old direct mapping
+      if (currentRecordSource === "Direct") {
+        form.setFieldsValue({
+          sourceName: dealerName || "",
+        });
+      }
+    }
+
+    if (source === "Direct") {
+      form.setFieldsValue({
+        recordSource: "Direct",
+
+        // Direct source name should go into sourceName for Section7
+        sourceName: sourceDetails || "",
+
+        // Clear indirect-only fields
+        dealerName: "",
+        dealerAddress: "",
+        dealerMobile: "",
+      });
+
+      // OPTIONAL: if switching from Indirect -> Direct, clear old indirect mapping
+      if (currentRecordSource === "Indirect") {
+        form.setFieldsValue({
+          sourceName: sourceDetails || "",
+        });
+      }
+    }
+  }, [form, source, dealerName, dealerAddress, dealerMobile, sourceDetails]);
+
+  useEffect(() => {
+    if (source !== "Indirect") return;
+    if (!dealerName) return;
+    const partner = getByName(dealerName);
+    if (!partner) return;
+
+    const next = {};
+    if (partner.mobile && !dealerMobile) next.dealerMobile = partner.mobile;
+    if (partner.address && !dealerAddress) next.dealerAddress = partner.address;
+    if (Object.keys(next).length) form.setFieldsValue(next);
+  }, [source, dealerName, dealerMobile, dealerAddress, getByName, form]);
+
+  return (
+    <div id="section-lead-details" className="form-section">
+      {/* SECTION HEADER */}
+      <div className="section-header mb-6">
+        <div className="section-title flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+            <Icon name="UserRoundSearch" size={20} />
+          </div>
+          <span className="text-lg font-medium text-foreground">Lead Details</span>
+        </div>
+      </div>
+
+      <Row gutter={[24, 24]}>
+        {/* TOP CARD: PRIMARY LEAD INFO */}
+        <Col xs={24}>
+           <div className="p-6 rounded-2xl bg-card border border-border shadow-sm">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+                <Icon name="Calendar" size={12} className="text-primary" />
+                Primary Lead Information
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <Form.Item label="Lead Date" name="leadDate" className="mb-0" initialValue={dayjs()}>
+                  <DatePicker style={{ width: "100%" }} format="DD-MM-YYYY" className="rounded-xl h-10" />
+                </Form.Item>
+
+                <Form.Item label="Lead Time" name="leadTime" className="mb-0" initialValue={dayjs()}>
+                  <TimePicker style={{ width: "100%" }} format="HH:mm" className="rounded-xl h-10" />
+                </Form.Item>
+
+                <Form.Item label="Lead Source Type" name="source" className="mb-0">
+                  <Select placeholder="Select source" className="h-10 rounded-xl">
+                    <Select.Option value="Direct">Direct</Select.Option>
+                    <Select.Option value="Indirect">Indirect</Select.Option>
+                  </Select>
+                </Form.Item>
+              </div>
+           </div>
+        </Col>
+
+        {source && (
+          <Col xs={24}>
+            <div className="p-5 rounded-2xl bg-muted/30 border border-border/50 shadow-sm">
+               <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-primary" />
+                  {source} Source Information
+               </div>
+              <Row gutter={[16, 16]}>
+                {source === "Indirect" && (
+                  <>
+                    <Col xs={24} md={8}>
+                      <Form.Item label="Dealer Name" name="dealerName" className="mb-0">
+                        <AutoComplete
+                          options={channelOptions}
+                          onSearch={searchChannelPartners}
+                          onSelect={(_, option) => {
+                            const partner = option?.partner;
+                            if (!partner) return;
+                            form.setFieldsValue({
+                              dealerName: partner.name || "",
+                              dealerMobile: partner.mobile || "",
+                              dealerAddress: partner.address || "",
+                            });
+                          }}
+                          onChange={(value) =>
+                            form.setFieldValue("dealerName", value || "")
+                          }
+                          filterOption={(inputValue, option) =>
+                            String(option?.label || "")
+                              .toUpperCase()
+                              .includes(String(inputValue || "").toUpperCase())
+                          }
+                        >
+                          <Input
+                            placeholder="Enter dealer name"
+                            className="rounded-xl h-10"
+                            prefix={<Icon name="Building2" size={14} className="text-muted-foreground" />}
+                          />
+                        </AutoComplete>
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={8}>
+                      <Form.Item label="Dealer Address" name="dealerAddress" className="mb-0">
+                        <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="Enter dealer address" className="rounded-xl" />
+                      </Form.Item>
+                    </Col>
+                    <Col xs={24} md={8}>
+                      <Form.Item 
+                        label="Dealer Mobile" 
+                        name="dealerMobile" 
+                        className="mb-0"
+                        rules={[{ pattern: /^[0-9]{10}$/, message: '10 digits required' }]}
+                      >
+                        <Input placeholder="Enter dealer contact" className="rounded-xl h-10" prefix={<Icon name="Phone" size={14} className="text-muted-foreground" />} maxLength={10} />
+                      </Form.Item>
+                    </Col>
+                  </>
+                )}
+
+                {source === "Direct" && (
+                  <Col xs={24} md={8}>
+                    <Form.Item label="Direct Reference / Source Name" name="sourceDetails" className="mb-0">
+                      <Input placeholder="e.g. Friend, Social Media, etc." className="rounded-xl h-10" prefix={<Icon name="User" size={14} className="text-muted-foreground" />} />
+                    </Form.Item>
+                  </Col>
+                )}
+
+                <Col xs={24} md={8}>
+                  <Form.Item label="Reference Name" name="referenceName" className="mb-0">
+                    <Input
+                      placeholder="Enter reference name"
+                      className="rounded-xl h-10"
+                      prefix={<Icon name="UserRound" size={14} className="text-muted-foreground" />}
+                    />
+                  </Form.Item>
+                </Col>
+
+                <Col xs={24} md={8}>
+                  <Form.Item label="Reference Number" name="referenceNumber" className="mb-0">
+                    <Input
+                      placeholder="Enter mobile number"
+                      className="rounded-xl h-10"
+                      prefix={<Icon name="Phone" size={14} className="text-muted-foreground" />}
+                    />
+                  </Form.Item>
+                </Col>
+              </Row>
+            </div>
+          </Col>
+        )}
+
+        <Col xs={24}>
+          <div className="p-6 rounded-2xl bg-card border border-border shadow-sm">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4 flex items-center gap-2">
+              <Icon name="ShieldCheck" size={12} className="text-primary" />
+              Ownership & Workflow
+            </div>
+            <Row gutter={[24, 24]}>
+              <Col xs={24} md={8}>
+                <Form.Item label="Assigned Employee" name="dealtBy" className="mb-0">
+                  <Input placeholder="Enter handling agent name" className="rounded-xl h-10" prefix={<Icon name="UserCheck" size={14} className="text-muted-foreground" />} />
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <Form.Item label="Applicant Category" name="applicantType" className="mb-0">
+                  <Radio.Group buttonStyle="solid" className="w-full flex">
+                    <Radio.Button value="Individual" className="flex-1 text-center h-10 flex items-center justify-center">
+                      <div className="flex items-center gap-2 justify-center w-full">
+                        <Icon name="User" size={14} />
+                        <span>Individual</span>
+                      </div>
+                    </Radio.Button>
+                    <Radio.Button value="Company" className="flex-1 text-center h-10 flex items-center justify-center">
+                      <div className="flex items-center gap-2 justify-center w-full">
+                        <Icon name="Building" size={14} />
+                        <span>Company</span>
+                      </div>
+                    </Radio.Button>
+                  </Radio.Group>
+                </Form.Item>
+              </Col>
+
+              <Col xs={24} md={8}>
+                {applicantType === "Company" && (
+                  <Form.Item label="Is MSME Registered?" name="isMSME" className="mb-0">
+                    <Select placeholder="Select status" className="h-10 rounded-xl">
+                      <Select.Option value="Yes">Yes, Registered</Select.Option>
+                      <Select.Option value="No">No</Select.Option>
+                    </Select>
+                  </Form.Item>
+                )}
+              </Col>
+            </Row>
+          </div>
+        </Col>
+      </Row>
+    </div>
+  );
+};
+
+export default LeadDetails;
