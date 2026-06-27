@@ -20,7 +20,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
     }
 
     if (!numberOfCars || numberOfCars < 2) {
-      message.error("Please enter a valid number of cars (minimum 2)");
+      message.error("Please enter a valid number of loans (minimum 2)");
       return;
     }
     
@@ -73,13 +73,13 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
       </div>
 
       <div className="space-y-6">
-        {/* Question 1: Multiple Cars */}
+        {/* Question 1: Multiple Loans */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800/30 p-5">
           <div className="flex items-start gap-3 mb-4">
             <Icon name="HelpCircle" size={20} className="text-blue-600 dark:text-blue-400 mt-0.5" />
             <div className="flex-1">
               <h4 className="text-sm text-blue-900 dark:text-blue-300 mb-1">
-                Is the customer buying multiple cars?
+                Is the customer applying for multiple home loans?
               </h4>
               <p className="text-xs text-blue-700 dark:text-blue-400">
                 Select if you need to create multiple loan files for this customer
@@ -93,31 +93,31 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
             >
               <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-950/30 transition-all cursor-pointer">
                 <Radio value={false} className="w-full">
-                  <span className="font-medium text-foreground">No - Single Car</span>
+                  <span className="font-medium text-foreground">No - Single Loan</span>
                 </Radio>
               </div>
               <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-950/30 transition-all cursor-pointer">
                 <Radio value={true} className="w-full">
-                  <span className="font-medium text-foreground">Yes - Multiple Cars</span>
+                  <span className="font-medium text-foreground">Yes - Multiple Loans</span>
                 </Radio>
               </div>
             </Radio.Group>
           </Form.Item>
         </div>
 
-        {/* Show additional questions only if multiple cars */}
+        {/* Show additional questions only if multiple loans */}
         {isMultipleCars && (
           <>
-            {/* Question 2: Same Vehicle */}
+            {/* Question 2: Same Property */}
             <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/30 p-5">
               <div className="flex items-start gap-3 mb-4">
-                <Icon name="Car" size={20} className="text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                <Icon name="Building2" size={20} className="text-emerald-600 dark:text-emerald-400 mt-0.5" />
                 <div className="flex-1">
                   <h4 className="text-sm text-emerald-900 dark:text-emerald-300 mb-1">
-                    Is the vehicle same for all loans?
+                    Is the property same for all loans?
                   </h4>
                   <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                    If yes, vehicle details will be cloned. If no, you'll need to enter vehicle details separately
+                    If yes, property details will be cloned. If no, you'll need to enter property details separately
                   </p>
                 </div>
               </div>
@@ -128,19 +128,19 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                 >
                   <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
                     <Radio value={true} className="w-full">
-                      <span className="font-medium text-foreground">Yes - Same Vehicle</span>
+                      <span className="font-medium text-foreground">Yes - Same Property</span>
                     </Radio>
                   </div>
                   <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
                     <Radio value={false} className="w-full">
-                      <span className="font-medium text-foreground">No - Different Vehicles</span>
+                      <span className="font-medium text-foreground">No - Different Properties</span>
                     </Radio>
                   </div>
                 </Radio.Group>
               </Form.Item>
             </div>
 
-            {/* Number of Cars Input */}
+            {/* Number of Loans Input */}
             <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/30 p-5">
               <div className="flex items-start gap-3 mb-4">
                 <Icon name="Hash" size={20} className="text-amber-600 dark:text-amber-400 mt-0.5" />
@@ -149,7 +149,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                     How many loan files to create?
                   </h4>
                   <p className="text-xs text-amber-700 dark:text-amber-400">
-                    Enter the total number of vehicles (maximum 50)
+                    Enter the total number of loans (maximum 50)
                   </p>
                 </div>
               </div>
@@ -158,7 +158,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                 name="numberOfCars"
                 className="mb-0"
                 rules={[
-                  { required: true, message: "Please enter number of cars" },
+                  { required: true, message: "Please enter number of loans" },
                   { type: "number", min: 2, max: 50, message: "Enter between 2 and 50" }
                 ]}
               >
@@ -176,7 +176,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                   <Icon name="Info" size={16} />
                   <span className="text-xs font-medium">
                     {numberOfCars} loan files will be created with cloned customer data
-                    {!isSameVehicle && " (vehicle details will need to be entered separately)"}
+                    {!isSameVehicle && " (property details will need to be entered separately)"}
                   </span>
                 </div>
               )}
@@ -189,7 +189,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                 <ul className="mt-2 space-y-1 text-sm">
                   <li className="flex items-start gap-2">
                     <Icon name="Check" size={16} className="text-success mt-0.5" />
-                    <span>Customer Profile (Personal, Employment, Income, Bank Details)</span>
+                    <span>Customer Profile (Personal, Employment, Bank Details)</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <Icon name="Check" size={16} className="text-success mt-0.5" />
@@ -202,12 +202,12 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                   {isSameVehicle ? (
                     <li className="flex items-start gap-2">
                       <Icon name="Check" size={16} className="text-success mt-0.5" />
-                      <span>Vehicle Details & Pricing</span>
+                      <span>Property Details & Pricing</span>
                     </li>
                   ) : (
                     <li className="flex items-start gap-2">
                       <Icon name="X" size={16} className="text-destructive mt-0.5" />
-                      <span className="text-muted-foreground">Vehicle Details (will NOT be cloned - enter separately for each loan)</span>
+                      <span className="text-muted-foreground">Property Details (will NOT be cloned - enter separately for each loan)</span>
                     </li>
                   )}
                 </ul>

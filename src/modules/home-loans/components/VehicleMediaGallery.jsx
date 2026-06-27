@@ -161,7 +161,7 @@ const VehicleMediaGallery = ({ make, model, variant }) => {
     <div className="bg-white dark:bg-[#1f1f1f] rounded-3xl shadow-sm border border-slate-100 dark:border-[#262626] overflow-hidden">
       <div className="px-5 py-4 border-b border-slate-100 dark:border-[#262626]">
         <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-          Car Gallery
+          Property Gallery
         </div>
         <h3 className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
           {make} {model}

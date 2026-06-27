@@ -9,12 +9,11 @@ import {
 } from "../../../utils/formDataProtection";
 
 import LeadDetails from "./loan-form/customer-profile/LeadDetails";
-import VehicleDetailsForm from "./loan-form/customer-profile/VehicleDetailsForm";
+import PropertyDetailsForm from "./loan-form/customer-profile/PropertyDetailsForm";
 import FinanceDetailsForm from "./loan-form/customer-profile/FinanceDetailsForm";
 import PersonalDetailsWithSearch from "./loan-form/PersonalDetailsWithSearch";
 
 import EmploymentDetails from "../../customers/customer-form/EmploymentDetails";
-import IncomeDetails from "../../customers/customer-form/IncomeDetails";
 import BankDetails from "../../customers/customer-form/BankDetails";
 import ReferenceDetails from "../../customers/customer-form/ReferenceDetails";
 import KycDetails from "../../customers/customer-form/KycDetails";
@@ -22,7 +21,6 @@ import KycDetails from "../../customers/customer-form/KycDetails";
 import PersonalDetailsPreFile from "./loan-form/pre-file/PersonalDetailsPreFile";
 import OccupationalDetailsPreFile from "./loan-form/pre-file/OccupationalDetailsPreFile";
 import IncomeBankingDetailsPreFile from "./loan-form/pre-file/IncomeBankingDetailsPreFile";
-import VehiclePricingLoanDetails from "./loan-form/pre-file/VehiclePricingLoanDetails";
 import Section7RecordDetails from "./loan-form/pre-file/Section7RecordDetails";
 import CoApplicantSection from "./loan-form/pre-file/CoApplicantSection";
 import GuarantorSection from "./loan-form/pre-file/GuarantorSection";
@@ -31,7 +29,6 @@ import BulkLoanCreationSection from "./loan-form/pre-file/BulkLoanCreationSectio
 
 import LoanApprovalStep from "./loan-form/loan-approval/LoanApprovalStep";
 import PostFileStep from "./loan-form/post-file/PostFileStep";
-import VehicleDeliveryStep from "./loan-form/vehicle-delivery/VehicleDeliveryStep";
 import PayoutSection from "./loan-form/payout/PayoutSection";
 
 import LoanStickyHeader from "./LoanStickyHeader";
@@ -136,7 +133,6 @@ const DATE_FIELD_NAMES = new Set([
   "approval_approvalDate",
   "approval_disbursedDate",
   "postfile_firstEmiDate",
-  "delivery_date",
   "invoice_date",
   "invoice_received_date",
   "rc_redg_date",
@@ -183,7 +179,6 @@ const STEP_DISPLAY_NAMES = {
   prefile: "Pre-File",
   approval: "Approval",
   postfile: "Post-File",
-  delivery: "Delivery",
   payout: "Payout",
 };
 
@@ -450,9 +445,9 @@ const PREFILE_SECTIONS = [
   },
   {
     id: "vehicle_loan",
-    title: "Vehicle & Loan Structure",
-    description: "Vehicle pricing, showroom mapping and registration logic.",
-    icon: "CarFront",
+    title: "Loan Structure",
+    description: "Loan pricing, mapping and registration logic.",
+    icon: "FileText",
     accent:
       "from-amber-500/20 via-orange-500/10 to-transparent dark:from-amber-400/20 dark:via-orange-400/10 dark:to-transparent",
     chip: "bg-amber-500/12 text-amber-700 ring-amber-500/20 dark:bg-amber-400/12 dark:text-amber-200 dark:ring-amber-400/20",
@@ -552,10 +547,10 @@ const PROFILE_SECTIONS = [
     glow: "shadow-[0_18px_45px_-24px_rgba(14,165,233,0.35)] dark:shadow-[0_22px_55px_-28px_rgba(56,189,248,0.24)]",
   },
   {
-    id: "vehicle",
-    title: "Vehicle Details",
-    description: "Vehicle type, variant and base case characteristics.",
-    icon: "CarFront",
+    id: "property",
+    title: "Property Details",
+    description: "Property type and loan structure for this home loan case.",
+    icon: "Building2",
     accent:
       "from-emerald-500/18 via-teal-500/10 to-transparent dark:from-emerald-400/14 dark:via-teal-400/8 dark:to-transparent",
     chip: "bg-emerald-500/12 text-emerald-700 ring-emerald-500/20 dark:bg-emerald-400/12 dark:text-emerald-200 dark:ring-emerald-400/20",
@@ -815,7 +810,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         "prefile",
         "approval",
         "postfile",
-        "delivery",
         "payout",
       ].includes(requestedRouteStep),
     [requestedRouteStep],
@@ -891,13 +885,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     stepDefaultsReadyRef.current = !isEditMode;
   }, [isEditMode, loanIdFromRoute, freshLoanToken]);
 
-  // In cash cases, block only unavailable stages (keep profile/prefile/delivery usable).
   React.useEffect(() => {
-    if (
-      watchedIsFinanced === "No" &&
-      ["approval", "postfile", "payout"].includes(activeStep)
-    ) {
-      setActiveStep("delivery");
+    if (watchedIsFinanced === "No" && ["approval", "postfile", "payout"].includes(activeStep)) {
+      setActiveStep("prefile");
     }
   }, [watchedIsFinanced, activeStep]);
 
@@ -1056,8 +1046,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                     "bg-emerald-500/10 text-emerald-600 border-emerald-500/20",
                 },
                 {
-                  title: "Vehicle Documents",
-                  icon: "Car",
+                  title: "Property Documents",
+                  icon: "Building2",
                   count: 4,
                   color: "bg-amber-500/10 text-amber-600 border-amber-500/20",
                 },
@@ -1349,8 +1339,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const showPrefileGuarantor = Boolean(watchedHasGuarantor);
   const showPrefileAuthorisedSignatory = watchedApplicantType === "Company";
   const visibleSteps = useMemo(() => {
-    if (isCashCase) return ["profile", "prefile", "delivery"];
-    return ["profile", "prefile", "approval", "postfile", "delivery", "payout"];
+    if (isCashCase) return ["profile", "prefile"];
+    return ["profile", "prefile", "approval", "postfile", "payout"];
   }, [isCashCase]);
   const getStageFlags = useCallback(() => {
     const approvalStatus = toLower(form.getFieldValue("approval_status"));
@@ -1371,16 +1361,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       hasMeaningfulValue(approvalDisbursedDate) ||
       hasMeaningfulValue(disbursementDate);
 
-    const deliveryStatus = toLower(form.getFieldValue("deliveryStatus"));
-    const deliveryDate = form.getFieldValue("delivery_date");
-    const isDeliveryActivated =
-      deliveryStatus === "delivered" ||
-      deliveryStatus === "completed" ||
-      hasMeaningfulValue(deliveryDate);
-
     return {
       isDisbursed,
-      isDeliveryActivated,
     };
   }, [banksData, form]);
 
@@ -1395,7 +1377,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         return true;
       }
 
-      const { isDisbursed, isDeliveryActivated } = getStageFlags();
+      const { isDisbursed } = getStageFlags();
 
       if (!isCashCase && targetStep === "postfile" && !isDisbursed) {
         if (notify) {
@@ -1406,30 +1388,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         return false;
       }
 
-      if (targetStep === "delivery") {
-        if (isCashCase) return true;
-        if (!isDisbursed) {
-          if (notify) {
-            message.warning(
-              "Move to Delivery is enabled only after loan disbursement.",
-            );
-          }
-          return false;
-        }
-      }
-
       if (!isCashCase && targetStep === "payout") {
         if (!isDisbursed) {
           if (notify) {
             message.warning(
               "Move to Payout is enabled only after loan disbursement.",
             );
-          }
-          return false;
-        }
-        if (!isDeliveryActivated) {
-          if (notify) {
-            message.warning("Complete Delivery stage first to open Payout.");
           }
           return false;
         }
@@ -1487,12 +1451,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     () => ({
       profile: [
         { id: "lead", label: "Lead Details", visible: true },
-        { id: "vehicle", label: "Vehicle Details", visible: true },
-        // Cash-car profile uses personal details flow; avoid showing finance in hover.
+        { id: "property", label: "Property Details", visible: true },
         { id: "finance", label: "Finance Details", visible: !isCashCase },
         { id: "personal", label: "Personal Details", visible: true },
         { id: "employment", label: "Employment Details", visible: !isCashCase },
-        { id: "income", label: "Income Details", visible: !isCashCase },
         { id: "bank", label: "Bank Details", visible: !isCashCase },
         { id: "references", label: "References", visible: !isCashCase },
         { id: "kyc", label: "KYC Details", visible: !isCashCase },
@@ -1509,7 +1471,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           label: "Income & Banking",
           visible: !isCashCase,
         },
-        { id: "vehicle_loan", label: "Vehicle & Loan", visible: true },
         { id: "references", label: "References", visible: !isCashCase },
         { id: "kyc", label: "KYC Details", visible: !isCashCase },
         { id: "section7", label: "Record Details", visible: !isCashCase },
@@ -1537,18 +1498,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       ],
       postfile: [
         { id: "postfile_approval", label: "Approval Reconciliation" },
-        { id: "postfile_vehicle", label: "Vehicle Verification" },
+        { id: "postfile_vehicle", label: "Property Verification" },
         { id: "postfile_instruments", label: "Instrument Controls" },
         { id: "postfile_repayment", label: "Repayment Intelligence" },
         { id: "postfile_docs", label: "Document Management" },
-        { id: "postfile_dispatch", label: "Dispatch & Records" },
         { id: "postfile_docs_list", label: "Documents Ledger" },
-      ],
-      delivery: [
-        { id: "delivery-details", label: "Delivery Details" },
-        { id: "delivery-insurance", label: "Insurance Details" },
-        { id: "delivery-invoice", label: "Invoice Details" },
-        { id: "delivery-rc", label: "RC Details" },
       ],
       payout: [{ id: "payout-top", label: "Payout Details" }],
     }),
@@ -1840,18 +1794,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             hasMeaningfulValue(loan?.approval_disbursedDate) ||
             hasMeaningfulValue(loan?.disbursement_date);
 
-          const isDeliveryActivatedFromLoan =
-            toLower(loan?.deliveryStatus) === "delivered" ||
-            toLower(loan?.deliveryStatus) === "completed" ||
-            hasMeaningfulValue(loan?.delivery_date);
-
           let safeStep = requestedStep;
-          if (
-            isCashFromLoan &&
-            ["approval", "postfile", "payout"].includes(safeStep)
-          ) {
-            safeStep = "delivery";
-          }
           if (
             !isCashFromLoan &&
             safeStep === "postfile" &&
@@ -1859,26 +1802,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           ) {
             safeStep = "approval";
           }
-          if (
-            !isCashFromLoan &&
-            safeStep === "delivery" &&
-            !isDisbursedFromLoan
-          ) {
+          if (safeStep === "delivery") {
+            safeStep = isDisbursedFromLoan ? "postfile" : "approval";
+          }
+          if (!isCashFromLoan && safeStep === "payout" && !isDisbursedFromLoan) {
             safeStep = "approval";
           }
-          if (!isCashFromLoan && safeStep === "payout") {
-            if (!isDisbursedFromLoan) safeStep = "approval";
-            else if (!isDeliveryActivatedFromLoan) safeStep = "delivery";
-          }
           if (
-            ![
-              "profile",
-              "prefile",
-              "approval",
-              "postfile",
-              "delivery",
-              "payout",
-            ].includes(safeStep)
+            !["profile", "prefile", "approval", "postfile", "payout"].includes(safeStep)
           ) {
             safeStep = "profile";
           }
@@ -2833,8 +2764,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     const success = await handleSaveLoan(false);
     if (!success) return;
 
-    if (isCashCase) navigateToStep("delivery", { notify: false });
-    else navigateToStep("approval", { notify: false });
+    navigateToStep("approval", { notify: false });
   };
 
   const handleDisburseLoan = async (bankId, disbursementDate, remarks = "") => {
@@ -2986,12 +2916,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     }
   };
 
-  const handleMoveToDelivery = async () => {
-    const success = await handleSaveLoan(false);
-    if (success)
-      navigateToStep("delivery", { notify: true, fallbackToNearest: false });
-  };
-
   const handleMoveToPostFile = async () => {
     const success = await handleSaveLoan(false);
     if (success)
@@ -3038,10 +2962,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
             <PrefileSectionShell {...PROFILE_SECTIONS[1]} index={2}>
               <div
-                id="vehicle"
+                id="property"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
               >
-                <VehicleDetailsForm />
+                <PropertyDetailsForm />
               </div>
             </PrefileSectionShell>
 
@@ -3077,16 +3001,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                   </div>
                 </PrefileSectionShell>
 
-                <PrefileSectionShell {...PROFILE_SECTIONS[5]} index={6}>
-                  <div
-                    id="income"
-                    className="[&_.section-header]:hidden [&_.section-header]:mb-0"
-                  >
-                    <IncomeDetails />
-                  </div>
-                </PrefileSectionShell>
-
-                <PrefileSectionShell {...PROFILE_SECTIONS[6]} index={7}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[6]} index={6}>
                   <div
                     id="bank"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3095,7 +3010,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                   </div>
                 </PrefileSectionShell>
 
-                <PrefileSectionShell {...PROFILE_SECTIONS[7]} index={8}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[7]} index={7}>
                   <div
                     id="references"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3104,7 +3019,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                   </div>
                 </PrefileSectionShell>
 
-                <PrefileSectionShell {...PROFILE_SECTIONS[8]} index={9}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[8]} index={8}>
                   <div
                     id="kyc"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3118,21 +3033,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         );
 
       case "prefile":
-        if (isCashCase) {
-          return (
-            <div className="prefile-workbench prefile-elegance relative space-y-3 md:space-y-4">
-              <div className="pointer-events-none absolute inset-x-0 -top-6 h-24 bg-gradient-to-b from-sky-500/6 via-cyan-500/4 to-transparent dark:from-zinc-900 dark:via-sky-900/20 dark:to-transparent" />
-              <PrefileSectionShell {...PREFILE_SECTIONS[3]} index={1}>
-                <div
-                  id="vehicle_loan"
-                  className="[&_.section-header]:hidden [&_.section-header]:mb-0"
-                >
-                  <VehiclePricingLoanDetails cashPrefileMode />
-                </div>
-              </PrefileSectionShell>
-            </div>
-          );
-        }
         return (
           <div className="prefile-workbench prefile-elegance relative space-y-3 md:space-y-4">
             <div className="pointer-events-none absolute inset-x-0 -top-6 h-24 bg-gradient-to-b from-sky-500/6 via-cyan-500/4 to-transparent dark:from-zinc-900 dark:via-sky-900/20 dark:to-transparent" />
@@ -3164,16 +3064,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PREFILE_SECTIONS[3]} index={4}>
-              <div
-                id="vehicle_loan"
-                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
-              >
-                <VehiclePricingLoanDetails cashPrefileMode={false} />
-              </div>
-            </PrefileSectionShell>
-
-            <PrefileSectionShell {...PREFILE_SECTIONS[4]} index={5}>
+            <PrefileSectionShell {...PREFILE_SECTIONS[4]} index={4}>
               <div
                 id="references"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3182,7 +3073,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PREFILE_SECTIONS[5]} index={6}>
+            <PrefileSectionShell {...PREFILE_SECTIONS[5]} index={5}>
               <div
                 id="kyc"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3191,7 +3082,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PREFILE_SECTIONS[6]} index={7}>
+            <PrefileSectionShell {...PREFILE_SECTIONS[6]} index={6}>
               <div
                 id="section7"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3201,7 +3092,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             </PrefileSectionShell>
 
             {showPrefileCoApplicant && (
-              <PrefileSectionShell {...PREFILE_SECTIONS[7]} index={8}>
+              <PrefileSectionShell {...PREFILE_SECTIONS[7]} index={7}>
                 <div
                   id="co_applicant"
                   className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3212,7 +3103,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             )}
 
             {showPrefileGuarantor && (
-              <PrefileSectionShell {...PREFILE_SECTIONS[8]} index={9}>
+              <PrefileSectionShell {...PREFILE_SECTIONS[8]} index={8}>
                 <div
                   id="guarantor"
                   className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3223,7 +3114,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             )}
 
             {showPrefileAuthorisedSignatory && (
-              <PrefileSectionShell {...PREFILE_SECTIONS[9]} index={10}>
+              <PrefileSectionShell {...PREFILE_SECTIONS[9]} index={9}>
                 <div
                   id="auth_signatory"
                   className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3270,18 +3161,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               isEditMode={isEditMode}
             />
           </div>
-        );
-
-      case "delivery":
-        return (
-          <StageWorkbench
-            eyebrow="Delivery Desk"
-            title="Track invoice, RC, insurance and vehicle handover"
-            icon="Truck"
-            tone="emerald"
-          >
-            <VehicleDeliveryStep form={form} />
-          </StageWorkbench>
         );
 
       case "payout":
@@ -3375,15 +3254,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   const headerTitle = useMemo(() => {
     const name = form.getFieldValue("customerName") || "Loan";
-    const vehicle = [
-      form.getFieldValue("vehicleMake"),
-      form.getFieldValue("vehicleModel"),
-    ]
-      .filter(Boolean)
-      .join(" ");
+    const property = form.getFieldValue("propertyType");
     const type = form.getFieldValue("typeOfLoan");
 
-    return [name, vehicle, type].filter(Boolean).join(" • ");
+    return [name, property, type].filter(Boolean).join(" • ");
   }, [form]);
 
   // ----------------------------
@@ -3399,7 +3273,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const tenure = Form.useWatch("tenure", form);
   const approvalStatus = Form.useWatch("approval_status", form);
   const postFileStatus = Form.useWatch("postFileStatus", form);
-  const deliveryStatus = Form.useWatch("deliveryStatus", form);
   const payoutStatus = Form.useWatch("payoutStatus", form);
 
   // Calculate completed steps based on form values
@@ -3426,11 +3299,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       completed.push("postfile");
     }
 
-    // Delivery stage - check if delivery is completed
-    if (deliveryStatus === "Completed") {
-      completed.push("delivery");
-    }
-
     // Payout stage - check if payout is done
     if (!isCashCase && payoutStatus === "Completed") {
       completed.push("payout");
@@ -3447,7 +3315,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     tenure,
     approvalStatus,
     postFileStatus,
-    deliveryStatus,
     payoutStatus,
     isCashCase,
   ]);
@@ -3570,7 +3437,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             onMoveToApproval={handleMoveToApproval}
             onDisburseLoan={handleDisburseLoan}
             onMoveToPostFile={handleMoveToPostFile}
-            onMoveToDelivery={handleMoveToDelivery}
             onMoveToPayout={handleMoveToPayout}
             onCloseLead={handleCloseLead}
             approvedBanks={banksData.filter((b) => {
@@ -3606,7 +3472,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               prefile: "ClipboardList",
               approval: "BadgeCheck",
               postfile: "Files",
-              delivery: "Truck",
               payout: "Wallet",
             };
 

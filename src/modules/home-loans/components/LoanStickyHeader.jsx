@@ -447,7 +447,7 @@ const LoanStickyHeader = ({
     ? ""
     : data.loanRef;
   const loanCorePrimaryLabel = isCashCaseByType
-    ? "Cash Car"
+    ? "Cash Home"
     : data.isFinancedCase && hasValue(data.bank)
       ? data.bank
       : actualLoanRef || "-";
@@ -493,12 +493,11 @@ const LoanStickyHeader = ({
       hasValue(data.emi));
 
   const vehicleLine = [
-    data.vehicleMake,
-    data.vehicleModel,
-    isNewCar ? data.vehicleVariant : null,
+    data.propertyType,
+    data.typeOfLoan,
   ]
     .filter((v) => hasValue(v))
-    .join(" ");
+    .join(" • ");
 
   const loanForDocumentsModal = useMemo(() => {
     const formValues = form?.getFieldsValue?.(true) || {};
@@ -596,8 +595,8 @@ const LoanStickyHeader = ({
 
             <div className="min-w-[280px] sm:min-w-[300px] px-3 py-2 bg-violet-50/65 dark:bg-violet-950/15">
               <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-violet-700 dark:text-violet-300">
-                <Icon name="CarFront" size={11} />
-                Vehicle
+                <Icon name="Building2" size={11} />
+                Property
               </p>
               <p className="truncate text-[13px] font-semibold text-slate-900 dark:text-slate-100">
                 {vehicleLine || "-"}

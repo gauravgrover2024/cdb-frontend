@@ -60,7 +60,7 @@ const DisbursementStep = ({ form, banksData, onNext, loanId }) => {
 
   const workflowStages = [
     "Prefill & KYC",
-    "Vehicle & Loan Details",
+    "Property & Loan Details",
     "Multi-Bank Approval",
     "Disbursement",
     "Documentation",

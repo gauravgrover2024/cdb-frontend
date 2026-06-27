@@ -237,7 +237,6 @@ const StageFooter = ({
   onProcessLoan,
   onMoveToApproval,
   onDisburseLoan,
-  onMoveToDelivery,
   onMoveToPayout,
   onCloseLead,
   onPrint,
@@ -381,7 +380,7 @@ const StageFooter = ({
               onClick={onMoveToApproval}
               className="bg-blue-600 dark:bg-blue-600 hover:bg-blue-700 dark:hover:bg-blue-700 text-white border-none shadow-lg shadow-blue-600/30"
             >
-              {isCashCar ? "Delivery" : "Loan Approval"}
+              Loan Approval
               <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
             </Button>
           </>
@@ -428,42 +427,13 @@ const StageFooter = ({
             <Button
               variant="default"
               size="sm"
-              onClick={onMoveToDelivery}
-              className="bg-indigo-600 dark:bg-indigo-600 hover:bg-indigo-700 dark:hover:bg-indigo-700 text-white border-none shadow-lg shadow-indigo-600/30"
+              onClick={onMoveToPayout}
+              className="bg-amber-600 dark:bg-amber-600 hover:bg-amber-700 dark:hover:bg-amber-700 text-white border-none shadow-lg shadow-amber-600/30"
             >
-              Delivery
+              <Icon name="Wallet" size={16} style={{ marginRight: 6 }} />
+              Payout
               <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
             </Button>
-          </>
-        );
-
-      case "delivery":
-        return (
-          <>
-            {SaveBtn}
-            {ExitBtn}
-            {isCashCar ? (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={onCloseLead}
-                className="bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 text-white shadow-lg shadow-emerald-600/30"
-              >
-                <Icon name="CheckCircle" size={16} style={{ marginRight: 6 }} />
-                Close Lead
-              </Button>
-            ) : (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={onMoveToPayout}
-                className="bg-amber-600 dark:bg-amber-600 hover:bg-amber-700 dark:hover:bg-amber-700 text-white border-none shadow-lg shadow-amber-600/30"
-              >
-                <Icon name="Wallet" size={16} style={{ marginRight: 6 }} />
-                Payout
-                <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
-              </Button>
-            )}
           </>
         );
 
@@ -501,7 +471,6 @@ const StageFooter = ({
     onMoveToApproval,
     canDisburse,
     onSave,
-    onMoveToDelivery,
     onMoveToPayout,
     onMoveToPostFile,
     onCloseLead,

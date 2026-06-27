@@ -840,6 +840,77 @@ const PayoutCard = ({
           )}
         </div>
 
+        {type === "receivable" && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                GST Applicable
+              </label>
+              <select
+                className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                value={payout.gst_applicable || ""}
+                onChange={(e) => onUpdate("gst_applicable", e.target.value)}
+                disabled={readOnly}
+              >
+                <option value="">Select</option>
+                <option value="Yes">Yes</option>
+                <option value="No">No</option>
+              </select>
+            </div>
+
+            {payout.gst_applicable === "Yes" && (
+              <>
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                    GST on Personal Loan
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={payout.gst_on_personal_loan || ""}
+                    onChange={(e) => onUpdate("gst_on_personal_loan", e.target.value)}
+                    placeholder="GST on Personal Loan"
+                    disabled={readOnly}
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground mb-2 block">
+                    GST Amount
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={payout.gst_amount || ""}
+                    onChange={(e) => onUpdate("gst_amount", e.target.value)}
+                    placeholder="GST Amount"
+                    disabled={readOnly}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {type === "payable" && (
+          <div>
+            <label className="text-xs font-medium text-muted-foreground mb-2 block">
+              GST
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              className="w-full h-10 border border-input rounded-md px-3 py-2 text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+              value={payout.gst || ""}
+              onChange={(e) => onUpdate("gst", e.target.value)}
+              placeholder="GST Amount"
+              disabled={readOnly}
+            />
+          </div>
+        )}
+
         <div>
           <label className="text-xs font-medium text-muted-foreground mb-2 block">
             Remarks

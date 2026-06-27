@@ -310,6 +310,59 @@ const IncomeBankingDetailsPreFile = () => {
         </Col>
 
         <Col xs={24} md={8}>
+          <Form.Item label="Total Income" name="totalIncome">
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Enter Total Income"
+              className="rounded-xl border-border"
+              formatter={(value) => {
+                if (!value) return "";
+                const numValue = Number(value);
+                return `₹ ${numValue.toLocaleString("en-IN")}`;
+              }}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={8}>
+          <Form.Item label="Total Turnover (as per GST)" name="totalTurnoverGST">
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Enter Total Turnover (as per GST)"
+              className="rounded-xl border-border"
+              formatter={(value) => {
+                if (!value) return "";
+                const numValue = Number(value);
+                return `₹ ${numValue.toLocaleString("en-IN")}`;
+              }}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]}>
+        <Col xs={24} md={8}>
+          <Form.Item label="Monthly Obligation" name="monthlyObligation">
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Enter Monthly Obligation"
+              className="rounded-xl border-border"
+              formatter={(value) => {
+                if (!value) return "";
+                const numValue = Number(value);
+                return `₹ ${numValue.toLocaleString("en-IN")}`;
+              }}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </Col>
+
+        <Col xs={24} md={8}>
           <Form.Item label="PAN Number" name="panNumber">
             <Input
               placeholder="Enter PAN Number"

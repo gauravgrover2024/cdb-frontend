@@ -353,10 +353,10 @@ const PostFileVehicleVerification = ({ form }) => {
       <div className="section-header flex items-center justify-between mb-5">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-            <Icon name="Car" size={20} className="text-primary" />
+            <Icon name="Building2" size={20} className="text-primary" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-foreground">Vehicle Verification</h2>
+            <h2 className="text-lg font-bold text-foreground">Property Verification</h2>
             <p className="text-sm text-muted-foreground">
               Post-file validation against pre-file pricing and registration details
             </p>
@@ -372,7 +372,7 @@ const PostFileVehicleVerification = ({ form }) => {
 
           <div className="overflow-hidden rounded-2xl border border-border/70 bg-background/70 px-4 py-4">
             <div className="text-[11px] font-black uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-              Net Vehicle Quote
+              Net Property Quote
             </div>
             <div className="mt-1 text-2xl font-semibold text-foreground">
               {formatINR(netVehicleQuote)}
@@ -403,7 +403,7 @@ const PostFileVehicleVerification = ({ form }) => {
             {!isVehicleEdit ? (
               <div className="text-sm font-semibold text-foreground">
                 {[vehicleMake, vehicleModel, vehicleVariant].filter(Boolean).join(" ") ||
-                  "Vehicle not tagged"}
+                  "Property not tagged"}
                 {vehicleFuelType ? ` • ${vehicleFuelType}` : ""}
               </div>
             ) : (
@@ -415,7 +415,7 @@ const PostFileVehicleVerification = ({ form }) => {
                       setShowDiscontinuedCars(event?.target?.checked)
                     }
                   >
-                    Show discontinued cars
+                    Show all options
                   </Checkbox>
                 </Form.Item>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-4">

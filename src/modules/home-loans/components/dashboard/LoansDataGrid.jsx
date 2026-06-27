@@ -19,7 +19,7 @@ const STAGES = [
   { key: "documentsAdded", label: "Documents added" },
   { key: "insurance", label: "Insurance" },
   { key: "invoice", label: "Invoice" },
-  { key: "vehicleDelivery", label: "Vehicle Delivery" },
+  { key: "vehicleDelivery", label: "Home Delivery" },
   { key: "rc", label: "RC" },
 ];
 
@@ -1120,8 +1120,8 @@ const LoansDataGrid = ({
               const statusText = loan?.status || "New";
 
               const fullCarName =
-                `${loan?.vehicleMake || ""} ${loan?.vehicleModel || ""}`.trim();
-              const carTitle = fullCarName || "Vehicle not selected";
+                [loan?.propertyType, loan?.typeOfLoan].filter(Boolean).join(" • ");
+              const carTitle = fullCarName || "Property not selected";
               const variant = loan?.vehicleVariant || "Variant not set";
               const regNo =
                 loan?.rc_redg_no ||

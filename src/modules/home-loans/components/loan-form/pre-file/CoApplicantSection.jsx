@@ -11,6 +11,7 @@ import {
   Form,
   Input,
   InputNumber,
+  Radio,
   Row,
   Select,
 } from "antd";
@@ -185,6 +186,54 @@ const CoApplicantSection = () => {
         </div>
         <span className="text-base text-foreground">Co-Applicant Details</span>
       </div>
+
+      {/* ================= APPLICANT CATEGORY ================= */}
+      <Row gutter={[16, 16]} className="mb-4">
+        <Col xs={24} md={12}>
+          <Form.Item label="Applicant Category" name="co_applicantCategory">
+            <Radio.Group buttonStyle="solid" className="w-full">
+              <Radio.Button value="Individual" className="w-1/2 text-center">Individual</Radio.Button>
+              <Radio.Button value="Non-Individual" className="w-1/2 text-center">Non-Individual</Radio.Button>
+            </Radio.Group>
+          </Form.Item>
+        </Col>
+      </Row>
+
+      {/* ================= FINANCIAL DETAILS ================= */}
+      <Row gutter={[16, 16]} className="mb-4">
+        <Col xs={24} md={8}>
+          <Form.Item label="Total Income" name="co_totalIncome">
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Enter Total Income"
+              className={fieldClass}
+              formatter={(value) => {
+                if (!value) return "";
+                const numValue = Number(value);
+                return `₹ ${numValue.toLocaleString("en-IN")}`;
+              }}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={8}>
+          <Form.Item label="Total Turnover (as per GST)" name="co_totalTurnoverGST">
+            <InputNumber
+              style={{ width: "100%" }}
+              min={0}
+              placeholder="Enter Total Turnover (as per GST)"
+              className={fieldClass}
+              formatter={(value) => {
+                if (!value) return "";
+                const numValue = Number(value);
+                return `₹ ${numValue.toLocaleString("en-IN")}`;
+              }}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </Col>
+      </Row>
 
       {/* ================= PERSONAL DETAILS ================= */}
       <div className="mb-4 mt-6 flex items-center gap-2">
