@@ -1518,11 +1518,11 @@ const getStageSubTabs = (stage, data, context = {}) => {
       },
       {
         key: "pf_vehicle",
-        label: "Vehicle & Loan",
-        icon: "Car",
+        label: "Property & Loan",
+        icon: "Building2",
         fields: [...vehicleCoreFields, ...vehiclePricingFields],
         sections: [
-          { title: "Vehicle Details", tone: "sky", fields: vehicleCoreFields },
+          { title: "Property Details", tone: "sky", fields: vehicleCoreFields },
           {
             title: "Pricing & Dealer",
             tone: "amber",
@@ -2104,12 +2104,12 @@ const getStageSubTabs = (stage, data, context = {}) => {
       },
       {
         key: "po_vehicle_verification",
-        label: "Vehicle Verification",
-        icon: "CarFront",
+        label: "Property Verification",
+        icon: "Building2",
         fields: vehicleVerificationFields,
         sections: [
           {
-            title: "Vehicle Verification",
+            title: "Property Verification",
             tone: "sky",
             fields: vehicleVerificationFields,
           },
@@ -2324,7 +2324,7 @@ const getStageSubTabs = (stage, data, context = {}) => {
         icon: "Truck",
         fields: deliveryFields,
         sections: [
-          { title: "Vehicle Delivery", tone: "violet", fields: deliveryFields },
+          { title: "Home Delivery", tone: "violet", fields: deliveryFields },
         ],
       },
       {

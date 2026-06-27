@@ -14,8 +14,8 @@ const CasePreviewPanel = ({ selectedCase, onClose, onNavigate }) => {
       currentStage: selectedCase.currentStage || 'profile',
       status: selectedCase.status || 'Pending',
       updatedAt: selectedCase.updatedAt ? new Date(selectedCase.updatedAt).toLocaleDateString() : 'Just now',
-      vehicleName: `${selectedCase.vehicleMake || ''} ${selectedCase.vehicleModel || ''}`.trim() || 'Vehicle not selected',
-      vehicleVariant: selectedCase.vehicleVariant || 'Variant not specified',
+      vehicleName: [selectedCase.propertyType, selectedCase.typeOfLoan].filter(Boolean).join(' • ') || 'Property not selected',
+      vehicleVariant: selectedCase.typeOfLoan || '',
     };
   }, [selectedCase]);
 

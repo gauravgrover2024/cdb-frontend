@@ -4,7 +4,6 @@ import PostFileApprovalDetails from "./PostFileApprovalDetails";
 import PostFileVehicleVerification from "./PostFileVehicleVerification";
 import PostFileInstrumentDetails from "./PostFileInstrumentDetails";
 import PostFileDocumentManagement from "./PostFileDocumentManagement";
-import PostFileDispatchAndRecords from "./PostFileDispatchAndRecords";
 import RepaymentIntelligencePanel from "./RepaymentIntelligencePanel";
 import DocumentsList from "./DocumentsList";
 
@@ -21,7 +20,6 @@ const SafePostFileApprovalDetails = withFallback(PostFileApprovalDetails, "PostF
 const SafePostFileVehicleVerification = withFallback(PostFileVehicleVerification, "PostFileVehicleVerification");
 const SafePostFileInstrumentDetails = withFallback(PostFileInstrumentDetails, "PostFileInstrumentDetails");
 const SafePostFileDocumentManagement = withFallback(PostFileDocumentManagement, "PostFileDocumentManagement");
-const SafePostFileDispatchAndRecords = withFallback(PostFileDispatchAndRecords, "PostFileDispatchAndRecords");
 const SafeRepaymentIntelligencePanel = withFallback(RepaymentIntelligencePanel, "RepaymentIntelligencePanel");
 const SafeDocumentsList = withFallback(DocumentsList, "DocumentsList");
 
@@ -43,9 +41,9 @@ const POSTFILE_SECTIONS = [
   },
   {
     id: "postfile_vehicle",
-    title: "Vehicle Verification",
-    description: "Validate delivered vehicle details against approved structure.",
-    icon: "CarFront",
+    title: "Property Verification",
+    description: "Validate property details against the approved home loan structure.",
+    icon: "Building2",
     accent:
       "from-sky-500/16 via-cyan-500/8 to-transparent dark:from-sky-400/16 dark:via-cyan-400/8 dark:to-transparent",
     chip:
@@ -98,20 +96,6 @@ const POSTFILE_SECTIONS = [
     iconWrap: "bg-rose-500 text-white dark:bg-rose-400 dark:text-slate-950",
     glow:
       "shadow-[0_16px_40px_-24px_rgba(244,63,94,0.34)] dark:shadow-[0_20px_48px_-26px_rgba(251,113,133,0.28)]",
-  },
-  {
-    id: "postfile_dispatch",
-    title: "Dispatch & Records",
-    description: "Dispatch movement, disbursal records and handoff details.",
-    icon: "Send",
-    accent:
-      "from-cyan-500/16 via-sky-500/8 to-transparent dark:from-cyan-400/16 dark:via-sky-400/8 dark:to-transparent",
-    chip:
-      "bg-cyan-500/12 text-cyan-700 ring-cyan-500/20 dark:bg-cyan-400/12 dark:text-cyan-200 dark:ring-cyan-400/20",
-    panel: "border-cyan-200/70 dark:border-cyan-900/70",
-    iconWrap: "bg-cyan-500 text-white dark:bg-cyan-400 dark:text-slate-950",
-    glow:
-      "shadow-[0_16px_40px_-24px_rgba(6,182,212,0.32)] dark:shadow-[0_20px_48px_-26px_rgba(34,211,238,0.28)]",
   },
   {
     id: "postfile_docs_list",
@@ -197,10 +181,6 @@ const PostFileStep = ({ form, loanId, isEditMode }) => {
       </PostFileSectionShell>
 
       <PostFileSectionShell {...POSTFILE_SECTIONS[5]} index={6}>
-        <div className={contentConsistencyClass}><SafePostFileDispatchAndRecords form={form} /></div>
-      </PostFileSectionShell>
-
-      <PostFileSectionShell {...POSTFILE_SECTIONS[6]} index={7}>
         <div className={contentConsistencyClass}><SafeDocumentsList form={form} /></div>
       </PostFileSectionShell>
     </div>

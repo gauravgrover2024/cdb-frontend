@@ -184,7 +184,7 @@ const QuotationManagerPage = () => {
         ),
       },
       {
-        title: "Vehicle",
+        title: "Property",
         render: (row) => {
           if (!row.vehicle) return "-";
           const v = row.vehicle;
@@ -422,7 +422,7 @@ const QuotationManagerPage = () => {
             <div className="text-[11px] text-slate-500 mb-1">Search</div>
             <Input
               size="small"
-              placeholder="Name, mobile, vehicle, city..."
+              placeholder="Name, mobile, property, city..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />

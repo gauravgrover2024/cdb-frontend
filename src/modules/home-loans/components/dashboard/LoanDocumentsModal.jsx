@@ -88,7 +88,7 @@ const getSourceFromPath = (path = "") => {
   if (p.includes("approval_") || p.includes("banksdata")) return "Loan Approval Documents";
   if (p.includes("postfile_")) return "Post-File Document Management";
   if (p.includes("delivery_") || p.includes("rc_") || p.includes("invoice")) return "Delivery & RC";
-  if (p.includes("vehicle")) return "Vehicle Documents";
+  if (p.includes("vehicle") || p.includes("property")) return "Property Documents";
   return "Other Documents";
 };
 

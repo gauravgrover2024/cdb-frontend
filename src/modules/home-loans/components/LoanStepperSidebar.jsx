@@ -10,11 +10,10 @@ const ALL_STEPS = [
     label: "Customer Profile",
     details: [
       { name: "Lead Details", key: "lead" },
-      { name: "Vehicle Details", key: "vehicle" },
+      { name: "Property Details", key: "property" },
       { name: "Finance Details", key: "finance" },
       { name: "Personal Details", key: "personal" },
       { name: "Employment Details", key: "employment" },
-      { name: "Income Details", key: "income" },
       { name: "Bank Details", key: "bank" },
       { name: "Reference Details", key: "references" },
       { name: "KYC Details", key: "kyc" },
@@ -27,7 +26,7 @@ const ALL_STEPS = [
       { name: "Personal Details (Pre-File)", key: "personal_pre" },
       { name: "Occupational Details", key: "occupational" },
       { name: "Income & Banking Details", key: "income_banking" },
-      { name: "Vehicle Pricing & Loan Details", key: "vehicle_loan" },
+      { name: "Loan Details", key: "loan_details" },
       { name: "Section 7 Record Details", key: "section7" },
       { name: "Co-Applicant Section", key: "co_applicant" },
       { name: "Guarantor Section", key: "guarantor" },
@@ -44,11 +43,6 @@ const ALL_STEPS = [
     key: "postfile",
     label: "Post-File",
     details: [{ name: "Post File Step", key: "post_file" }],
-  },
-  {
-    key: "delivery",
-    label: "Vehicle Delivery",
-    details: [{ name: "Vehicle Delivery Step", key: "delivery" }],
   },
   {
     key: "payout",
@@ -70,38 +64,12 @@ export default function LoanStepperSidebar({
 }) {
   const [openKey, setOpenKey] = useState(null);
 
-  /**
-   * CONDITIONAL STEP FILTERING
-   * 
-   * Filter steps based on Finance toggle and loan type:
-   * 
-   * 1. CASH CASE (isFinanced === "No"):
-   *    - Shows only: profile, prefile, delivery
-   *    - Skips: approval, postfile, payout
-   *    - Reason: Keep cash workflow lightweight while retaining vehicle pre-file section
-   * 
-   * 2. REFINANCE / CAR CASH-IN:
-   *    - Filters out: delivery step
-   *    - Reason: These loan types don't involve new vehicle delivery
-   *    - Refinance: Existing vehicle loan refinancing
-   *    - Car Cash-in: Cash loan against existing vehicle
-   * 
-   * 3. DEFAULT (Financed: Yes, Other loan types):
-   *    - Shows all steps: profile → prefile → approval → disbursement → postfile → delivery → payout
-   */
-  // Filter steps based on Finance toggle and loan type
   const steps = useMemo(() => {
     if (isFinanced === "No") {
-      // Cash Case: intake + minimal prefile + delivery
-      return ALL_STEPS.filter(step => ["profile", "prefile", "delivery"].includes(step.key));
+      return ALL_STEPS.filter(step => ["profile", "prefile"].includes(step.key));
     }
-    // Refinance or Car Cash-in: Skip delivery step
-    if (loanType === "Refinance" || loanType === "Car Cash-in") {
-      return ALL_STEPS.filter(step => step.key !== "delivery");
-    }
-    // Default / Yes: Show all steps
     return ALL_STEPS;
-  }, [isFinanced, loanType]);
+  }, [isFinanced]);
 
   // Sync openKey with currentStep
   useEffect(() => {
