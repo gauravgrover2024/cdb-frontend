@@ -3,10 +3,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Form, message, Modal, Popover, Tooltip } from "antd";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import dayjs from "dayjs";
-import {
-  useFormAutoSave,
-  AutoSaveIndicator,
-} from "../../../utils/formDataProtection";
+// Auto-save removed from Home Loan module — data is saved only on explicit Save / Submit
 
 import LeadDetails from "./loan-form/customer-profile/LeadDetails";
 import PropertyDetailsForm from "./loan-form/customer-profile/PropertyDetailsForm";
@@ -819,16 +816,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     return Boolean(mode === "edit" || loanIdFromRoute);
   }, [mode, loanIdFromRoute]);
 
-  // ============================================
-  // ⚡ AUTO-SAVE FORM DATA PROTECTION
-  // ============================================
-  const {
-    autoSaveStatus,
-    saveToLocalStorage,
-    clearSavedFormData,
-    restoreSavedFormData,
-    handleFormValuesChange,
-  } = useFormAutoSave("HOME_LOAN_FORM_DATA", form, isEditMode);
+  // Auto-save disabled — saves happen only on Save / Save as Draft / Submit
+  const autoSaveStatus = null;
+  const saveToLocalStorage = () => {};
+  const clearSavedFormData = () => {};
+  const restoreSavedFormData = () => null;
+  const handleFormValuesChange = null;
 
   // Watch finance flag early
   const watchedIsFinanced = Form.useWatch("isFinanced", form);
