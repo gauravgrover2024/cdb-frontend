@@ -118,7 +118,13 @@
 }
 
 html {
-  font-size: clamp(var(--app-font-min), calc(11.2px + 0.22vw + 0.16vh), var(--app-font-max));
+  font-size: clamp(var(--app-font-min), calc(11.2px + 0.22vw), var(--app-font-max));
+  /* Reserve the scrollbar's width permanently so a form's validation message
+     (or any content) growing/shrinking the page height doesn't toggle the
+     scrollbar on and off. Toggling it changes the viewport width, which was
+     recalculating the vw-based font-size above on every keystroke and made
+     text inside inputs visibly jump up/down while typing across the app. */
+  scrollbar-gutter: stable;
 }
 
 body {

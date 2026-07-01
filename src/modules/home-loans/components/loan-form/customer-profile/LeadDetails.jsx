@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import dayjs from "dayjs";
 import {
   Form,
@@ -10,11 +10,13 @@ import {
   TimePicker,
   Radio,
   AutoComplete,
+  Spin,
 } from "antd";
 
 
 import Icon from "../../../../../components/AppIcon";
 import useChannelPartnerAutoSuggest from "../../../../../hooks/useChannelPartnerAutoSuggest";
+import { getEmployees, formatEmployeesForAutocomplete } from "../../../../../api/employees";
 
 const LeadDetails = () => {
   const form = Form.useFormInstance();
@@ -32,6 +34,28 @@ const LeadDetails = () => {
   const sourceDetails = Form.useWatch("sourceDetails", form);
   const { options: channelOptions, search: searchChannelPartners, getByName } =
     useChannelPartnerAutoSuggest({ limit: 25 });
+
+  const [employees, setEmployees] = useState([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+
+  // ✅ Fetch employees for the "Assigned Employee" picker (same source used
+  // by Section7RecordDetails' "Dealt By" field — both bind to `dealtBy`).
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        setLoadingEmployees(true);
+        const data = await getEmployees();
+        setEmployees(formatEmployeesForAutocomplete(data));
+      } catch (error) {
+        console.error("Failed to load employees:", error);
+        setEmployees([]);
+      } finally {
+        setLoadingEmployees(false);
+      }
+    };
+
+    fetchEmployees();
+  }, []);
 
   // Normalize applicant category for legacy/company-like values
   useEffect(() => {
@@ -61,8 +85,19 @@ const LeadDetails = () => {
   }, [applicantType, customerType, form]);
 
   // ✅ 2) Wire LeadDetails -> Section7 Record Details (safe sync)
+  // Only re-run this sync when "source" itself actually changes — it used to
+  // also fire on every keystroke in dealerName/dealerAddress/dealerMobile/
+  // sourceDetails (they're needed below to seed the mirrored fields), which
+  // kept forcing recordSource back to match "source" and wiping out whichever
+  // dealer/reference fields didn't belong to the current source. That broke
+  // the "Source" picker in Section7 (Record Details): choosing Indirect there
+  // while Lead Details still said "Direct" got silently reverted the moment
+  // the user typed anything.
+  const prevSourceRef = React.useRef(source);
   useEffect(() => {
     if (!source) return;
+    if (prevSourceRef.current === source) return;
+    prevSourceRef.current = source;
 
     const currentRecordSource = form.getFieldValue("recordSource");
 
@@ -110,7 +145,8 @@ const LeadDetails = () => {
         });
       }
     }
-  }, [form, source, dealerName, dealerAddress, dealerMobile, sourceDetails]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form, source]);
 
   useEffect(() => {
     if (source !== "Indirect") return;
@@ -263,7 +299,17 @@ const LeadDetails = () => {
             <Row gutter={[24, 24]}>
               <Col xs={24} md={8}>
                 <Form.Item label="Assigned Employee" name="dealtBy" className="mb-0">
-                  <Input placeholder="Enter handling agent name" className="rounded-xl h-10" prefix={<Icon name="UserCheck" size={14} className="text-muted-foreground" />} />
+                  <AutoComplete
+                    options={employees}
+                    className="w-full h-10"
+                    placeholder="Select employee"
+                    filterOption={(input, option) =>
+                      option?.value?.toLowerCase().includes(input.toLowerCase())
+                    }
+                    notFoundContent={loadingEmployees ? <Spin size="small" /> : null}
+                  >
+                    <Input className="rounded-xl h-10" prefix={<Icon name="UserCheck" size={14} className="text-muted-foreground" />} />
+                  </AutoComplete>
                 </Form.Item>
               </Col>
 
