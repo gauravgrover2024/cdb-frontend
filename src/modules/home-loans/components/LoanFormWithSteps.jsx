@@ -1111,7 +1111,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     setActiveStep("profile");
     stepDefaultsInitializedRef.current = new Set();
     stepDefaultsReadyRef.current = true;
-    clearSavedFormData();
     form.setFieldsValue({
       isFinanced: "Yes",
       currentStage: "profile",
@@ -1120,7 +1119,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       approval_bankName: "",
       approval_banksData: [],
     });
-  }, [isEditMode, freshLoanToken, form, clearSavedFormData]);
+    // `clearSavedFormData` intentionally excluded: it's a fresh no-op
+    // function identity every render, so including it here made this
+    // effect (and its form.resetFields()) refire on every keystroke while
+    // filling out a new loan, wiping everything the user just typed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, freshLoanToken, form]);
 
   const resolveBankAmounts = useCallback((bank = {}, context = {}) => {
     const toNum = (val) => toLoanBreakupNumber(val);
@@ -1854,7 +1858,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   // Persist KYC docs immediately on edit mode so refresh doesn't lose uploads.
   useEffect(() => {
-    const effectiveLoanId = loanIdFromRoute || form.getFieldValue("loanId");
+    const effectiveLoanId = loanIdFromRoute || loadedLoanRef.current?._id;
     if (!isEditMode || !effectiveLoanId) return;
 
     const docPatch = {
@@ -2623,15 +2627,17 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
           // SINGLE SUCCESS CASE (result = full API response: { loanId, data, customerLinked, message, ... })
           const loanData = result?.data || result;
-          let newLoanId = result?.loanId || loanData?.loanId;
-          if (!newLoanId) {
-            if (result?.id || loanData?.id)
-              newLoanId = result?.id || loanData?.id;
-            else throw new Error("Loan created but loanId not returned");
-          }
+          // newRecordId must be the Mongo _id (used for routing and all
+          // subsequent API calls) — never the human-readable applicationNumber
+          // that "loanId" holds, or update/disburse calls fail with a
+          // "Cast to ObjectId failed" error.
+          const newRecordId = loanData?._id || result?._id || loanData?.id || result?.id;
+          if (!newRecordId) throw new Error("Loan created but id not returned");
+
+          loadedLoanRef.current = loanData || loadedLoanRef.current;
 
           form.setFieldsValue({
-            loanId: newLoanId,
+            loanId: loanData?.loanId || loanData?.applicationNumber || newRecordId,
             createdAt:
               loanData?.createdAt ||
               result?.createdAt ||
@@ -2656,7 +2662,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             if (shouldExit) {
               if (!silent) navigate("/home-loans");
             } else {
-              navigate(`/home-loans/edit/${newLoanId}`, { replace: true });
+              navigate(`/home-loans/edit/${newRecordId}`, { replace: true });
             }
           }
 
@@ -2664,7 +2670,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         }
 
         // UPDATE (Existing Loan)
-        const loanId = loanIdFromRoute || form.getFieldValue("loanId");
+        // Must be the Mongo _id — "loanId" form field holds the
+        // human-readable applicationNumber, which is not a valid ObjectId.
+        const loanId = loanIdFromRoute || loadedLoanRef.current?._id;
         if (!loanId) throw new Error("loanId missing for update");
 
         await updateLoan(loanId, payload);
@@ -2734,7 +2742,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     });
 
     message.success("Form cleared");
-  }, [form, clearSavedFormData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form]);
 
   const handleDiscard = () => {
     if (
@@ -2788,8 +2797,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         return;
       }
 
-      // Get loanId (either from form or route)
-      const loanId = loanIdFromRoute || form.getFieldValue("loanId");
+      // Get loanId (either from the loaded record or route) — must be the
+      // Mongo _id, not the "loanId" form field which holds the applicationNumber
+      const loanId = loanIdFromRoute || loadedLoanRef.current?._id;
       if (!loanId) {
         alert("❌ Loan ID not found. Please save the loan first.");
         return;

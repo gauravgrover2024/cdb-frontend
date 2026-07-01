@@ -1223,6 +1223,7 @@ const LoanDashboard = () => {
     const { force = false } = options;
     const extractRows = (payload) => {
       if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload?.loans)) return payload.loans;
       if (Array.isArray(payload?.data)) return payload.data;
       if (Array.isArray(payload?.items)) return payload.items;
       if (Array.isArray(payload?.results)) return payload.results;
@@ -1595,6 +1596,7 @@ const LoanDashboard = () => {
     let cancelled = false;
     const extractRows = (payload) => {
       if (Array.isArray(payload)) return payload;
+      if (Array.isArray(payload?.loans)) return payload.loans;
       if (Array.isArray(payload?.data)) return payload.data;
       if (Array.isArray(payload?.items)) return payload.items;
       if (Array.isArray(payload?.results)) return payload.results;
