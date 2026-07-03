@@ -53,3 +53,4 @@ build/
 *.local
 *.sublime-workspace
 *.sublime-project
+.claude-flow

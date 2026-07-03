@@ -1,4 +1,3 @@
-// src/modules/loans/components/LoanStickyHeader.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { Form } from "antd";
 
@@ -492,12 +491,12 @@ const LoanStickyHeader = ({
       hasValue(data.tenure) ||
       hasValue(data.emi));
 
-  const vehicleLine = [
-    data.propertyType,
-    data.typeOfLoan,
-  ]
-    .filter((v) => hasValue(v))
-    .join(" • ");
+  // Only actual vehicle-backed loans (e.g. "New Vehicle") have showroom/reg-no
+  // data captured — a property-purchase case has none of that, so the
+  // subtitle below must not show "Regd:/Year:" for it.
+  const isVehicleBackedLoan = /vehicle|car/.test(normalizedCaseType);
+
+  const vehicleLine = data.typeOfLoan || data.caseType || "";
 
   const loanForDocumentsModal = useMemo(() => {
     const formValues = form?.getFieldsValue?.(true) || {};
@@ -602,23 +601,25 @@ const LoanStickyHeader = ({
                 {vehicleLine || "-"}
               </p>
               <p className="mt-0.5 truncate text-[11px] font-medium text-slate-600 dark:text-slate-300">
-                {isNewCar
-                  ? [
-                      hasValue(data.showroomDealerName)
-                        ? data.showroomDealerName
-                        : null,
-                      hasValue(data.exShowroom)
-                        ? formatMoney(data.exShowroom)
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" • ")
-                  : [
-                      hasValue(data.regNo) ? `Regd: ${data.regNo}` : null,
-                      hasValue(data.year) ? `Year: ${data.year}` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" • ")}
+                {isVehicleBackedLoan
+                  ? (isNewCar
+                      ? [
+                          hasValue(data.showroomDealerName)
+                            ? data.showroomDealerName
+                            : null,
+                          hasValue(data.exShowroom)
+                            ? formatMoney(data.exShowroom)
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")
+                      : [
+                          hasValue(data.regNo) ? `Regd: ${data.regNo}` : null,
+                          hasValue(data.year) ? `Year: ${data.year}` : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")) || "-"
+                  : "-"}
               </p>
             </div>
 

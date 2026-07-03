@@ -14,6 +14,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useAuth } from "../../context/AuthContext";
 import { FEATURE_ACCESS } from "../../hooks/useRBAC";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
+import { startNewLoanCase as startNewHomeLoanCase } from "../../modules/home-loans/utils/startNewLoanCase";
 import PayoutSetupModal from "../payout/PayoutSetupModal";
 import { openNewCaseConfirmation } from "./NewCaseConfirmation";
 import { showUnsavedChangesModal } from "./UnsavedChangesModal";
@@ -524,6 +525,36 @@ const Header = () => {
       }
 
       startNewLoanCase(navigate, "global-header");
+      setMobileMenuOpen(false);
+      return;
+    }
+
+    // ── Home Loan form guard (same protection as the Loan form above) ────────
+    if (path === "/home-loans/new") {
+      const isInHomeLoanForm =
+        location.pathname === "/home-loans/new" ||
+        location.pathname.startsWith("/home-loans/edit");
+
+      if (isInHomeLoanForm) {
+        if (window.__isLoanFormDirty === false) {
+          startNewHomeLoanCase(navigate, "global-header");
+          setMobileMenuOpen(false);
+          setProfileOpen(false);
+          return;
+        }
+
+        openNewCaseConfirmation({
+          moduleLabel: "Home Loan",
+          onSaveAndNew: () => {
+            window.dispatchEvent(new CustomEvent("SAVE_AND_NEW_LOAN"));
+            setMobileMenuOpen(false);
+            setProfileOpen(false);
+          },
+        });
+        return;
+      }
+
+      startNewHomeLoanCase(navigate, "global-header");
       setMobileMenuOpen(false);
       return;
     }
