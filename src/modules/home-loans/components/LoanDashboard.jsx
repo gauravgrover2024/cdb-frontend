@@ -66,11 +66,6 @@ const PRIMARY_STAT_THEMES = {
     iconBg: "bg-white/20",
     accent: "text-violet-100",
   },
-  cashCars: {
-    card: "from-cyan-500 to-blue-600",
-    iconBg: "bg-white/20",
-    accent: "text-cyan-100",
-  },
   ticket: {
     card: "from-slate-700 to-slate-900",
     iconBg: "bg-white/20",
@@ -183,7 +178,6 @@ const LoanDashboard = () => {
     pendingApprovalOnly: false,
     pendingDisbursal: false,
     disbursedOnly: false,
-    cashCarsOnly: false,
     cpvIncomplete: false,
     regNoPending: false,
     loanNoPending: false,
@@ -206,7 +200,6 @@ const LoanDashboard = () => {
     pending: 0,
     pendingDisbursal: 0,
     disbursed: 0,
-    cashCars: 0,
     totalBookValue: 0,
     emiCapturedCount: 0,
     regNoCapturedCount: 0,
@@ -1273,7 +1266,6 @@ const LoanDashboard = () => {
       if (filters.pendingDisbursal)
         serverFilterParams.filterPendingDisbursal = "1";
       if (filters.disbursedOnly) serverFilterParams.filterDisbursed = "1";
-      if (filters.cashCarsOnly) serverFilterParams.filterCashCars = "1";
       if (filters.regNoPending) serverFilterParams.filterRegNoPending = "1";
       if (filters.loanNoPending) serverFilterParams.filterLoanNoPending = "1";
       if (filters.rcPending) serverFilterParams.filterRcPending = "1";
@@ -1518,7 +1510,8 @@ const LoanDashboard = () => {
         }
 
         const startedAt = performance.now();
-        const payload = await homeLoansApi.getDashboardStats();
+        const rawPayload = await homeLoansApi.getDashboardStats();
+        const payload = rawPayload?.data || rawPayload;
         const stats = {
           total: Number(payload?.total) || 0,
           pending: Number(payload?.pending) || 0,
@@ -1527,7 +1520,6 @@ const LoanDashboard = () => {
             Number(payload?.approvedToday) ||
             0,
           disbursed: Number(payload?.disbursed) || 0,
-          cashCars: Number(payload?.cashCars) || 0,
           totalBookValue: Number(payload?.totalBookValue) || 0,
           emiCapturedCount: Number(payload?.emiCapturedCount) || 0,
           regNoCapturedCount: Number(payload?.regNoCapturedCount) || 0,
@@ -1795,7 +1787,6 @@ const LoanDashboard = () => {
       pendingApprovalOnly: false,
       pendingDisbursal: false,
       disbursedOnly: false,
-      cashCarsOnly: false,
       cpvIncomplete: false,
       regNoPending: false,
       loanNoPending: false,
@@ -1825,12 +1816,6 @@ const LoanDashboard = () => {
           setFilters((prev) => ({
             ...prev,
             disbursedOnly: true,
-          }));
-          break;
-        case "cashCars":
-          setFilters((prev) => ({
-            ...prev,
-            cashCarsOnly: true,
           }));
           break;
         default:
@@ -2034,7 +2019,6 @@ const LoanDashboard = () => {
     filters.pendingApprovalOnly,
     filters.pendingDisbursal,
     filters.disbursedOnly,
-    filters.cashCarsOnly,
     filters.cpvIncomplete,
     filters.regNoPending,
     filters.loanNoPending,
@@ -2102,7 +2086,7 @@ const LoanDashboard = () => {
           <DashboardSkeleton />
         ) : (
           <>
-            <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
               <MetricCard
                 id="total"
                 title="Total Cases"
@@ -2113,8 +2097,7 @@ const LoanDashboard = () => {
                 isActive={
                   !filters.pendingApprovalOnly &&
                   !filters.pendingDisbursal &&
-                  !filters.disbursedOnly &&
-                  !filters.cashCarsOnly
+                  !filters.disbursedOnly
                 }
                 onClick={() => handleStatClick("total")}
               />
@@ -2149,19 +2132,9 @@ const LoanDashboard = () => {
                 onClick={() => handleStatClick("disbursed")}
               />
               <MetricCard
-                id="cashCars"
-                title="Cash Cars"
-                subtitle="All cash car/cash sale cases"
-                value={statsData.cashCars}
-                iconName="CarFront"
-                loading={loading}
-                isActive={filters.cashCarsOnly}
-                onClick={() => handleStatClick("cashCars")}
-              />
-              <MetricCard
                 id="ticket"
                 title="Book Value"
-                subtitle="Disbursed amount + cash car ex-showroom"
+                subtitle="Total disbursed amount"
                 value={formatCrores(statsData.totalBookValue || 0)}
                 iconName="IndianRupee"
                 loading={loading}

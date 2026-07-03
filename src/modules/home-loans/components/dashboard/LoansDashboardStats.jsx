@@ -13,23 +13,6 @@ const LoansDashboardStats = ({ loans, loading, onStatClick }) => {
       const parsed = Number(String(value).replace(/[^\d.-]/g, ""));
       return Number.isFinite(parsed) ? parsed : 0;
     };
-    const isCashCase = (loan) => {
-      if (loan?.isCashCase === true) return true;
-      const loanType = toText(loan?.typeOfLoan || loan?.loanType || loan?.caseType);
-      const financed = toText(loan?.isFinanced);
-      const bankText = toText(
-        loan?.approval_bankName || loan?.postfile_bankName || loan?.bankName,
-      );
-      if (bankText.includes("cash sale bank")) return true;
-      if (loanType.includes("cash-in") || loanType.includes("cash in")) return false;
-      if (financed === "no" || financed === "false") return !loanType.includes("refinance");
-      if (!loanType) return false;
-      return (
-        loanType === "cash" ||
-        loanType.includes("cash car") ||
-        loanType.includes("cash sale")
-      );
-    };
     const isDisbursed = (loan) => {
       const statusText = toText(loan?.status || loan?.approval_status || "");
       const disburseStatusText = toText(
@@ -72,21 +55,12 @@ const LoansDashboardStats = ({ loans, loading, onStatClick }) => {
     ).length;
 
     const pendingDisbursal = loans.filter(
-      (l) => isApproved(l) && !isDisbursed(l) && !isCashCase(l),
+      (l) => isApproved(l) && !isDisbursed(l),
     ).length;
 
-    const disbursed = loans.filter((l) => isDisbursed(l) && !isCashCase(l)).length;
-    const cashCars = loans.filter((l) => isCashCase(l)).length;
+    const disbursed = loans.filter((l) => isDisbursed(l)).length;
 
     const bookValue = loans.reduce((sum, loan) => {
-      if (isCashCase(loan)) {
-        return (
-          sum +
-          parseAmount(
-            loan?.exShowroom ?? loan?.exShowroomPrice ?? loan?.ex_showroom ?? 0,
-          )
-        );
-      }
       if (isDisbursed(loan)) {
         return (
           sum +
@@ -137,15 +111,6 @@ const LoansDashboardStats = ({ loans, loading, onStatClick }) => {
         color: "text-emerald-600",
         bg: "bg-emerald-50",
         borderColor: "border-emerald-100",
-      },
-      {
-        id: "cashCars",
-        label: "Cash Cars",
-        value: cashCars,
-        icon: "CarFront",
-        color: "text-cyan-600",
-        bg: "bg-cyan-50",
-        borderColor: "border-cyan-100",
       },
       {
         id: "bookValue",

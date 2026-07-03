@@ -69,7 +69,6 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
     if (filters?.pendingApprovalOnly) count += 1;
     if (filters?.pendingDisbursal) count += 1;
     if (filters?.disbursedOnly) count += 1;
-    if (filters?.cashCarsOnly) count += 1;
     if (filters?.cpvIncomplete) count += 1;
     if (filters?.regNoPending) count += 1;
     if (filters?.loanNoPending) count += 1;
@@ -226,13 +225,6 @@ const HorizontalFilterBar = ({ filters, onFilterChange, onResetFilters, onRefres
               key="disbursedOnly"
               label="Disbursed only"
               onRemove={() => onFilterChange("disbursedOnly", false)}
-            />
-          )}
-          {filters?.cashCarsOnly && (
-            <Chip
-              key="cashCarsOnly"
-              label="Cash cars only"
-              onRemove={() => onFilterChange("cashCarsOnly", false)}
             />
           )}
           {filters?.cpvIncomplete && (

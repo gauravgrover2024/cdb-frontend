@@ -1572,6 +1572,10 @@ const InsuranceDashboardPage = () => {
   }, []);
 
   useEffect(() => {
+    const trimmed = search.trim();
+    // Skip firing a backend search for 1-char queries — they match nearly
+    // every record and were the main cause of the dashboard hanging on load.
+    if (trimmed.length === 1) return undefined;
     const handler = setTimeout(() => {
       setDebouncedSearch(search);
     }, 300);
