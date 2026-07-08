@@ -11,7 +11,6 @@ import {
   Form,
   Input,
   InputNumber,
-  Radio,
   Row,
   Select,
 } from "antd";
@@ -55,16 +54,13 @@ const asDayjs = (value) => {
 
 const CoApplicantSection = () => {
   const form = Form.useFormInstance();
-  const applicantType = Form.useWatch("applicantType", form);
   const hasCoApplicant = Form.useWatch("hasCoApplicant", form);
   const coId = Form.useWatch("co_id", form);
   const occupation = Form.useWatch("co_occupation", form);
   const coCompanyType = Form.useWatch("co_companyType", form);
   const coBusinessNature = Form.useWatch("co_businessNature", form);
   const coPincode = Form.useWatch("co_pincode", form);
-  const coCompanyPincode = Form.useWatch("co_companyPincode", form);
   const [fetchingCoPincode, setFetchingCoPincode] = useState(false);
-  const [fetchingCoCompanyPincode, setFetchingCoCompanyPincode] = useState(false);
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, coCompanyType);
   const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, coBusinessNature);
 
@@ -136,32 +132,6 @@ const CoApplicantSection = () => {
   }, [coPincode, form]);
 
   useEffect(() => {
-    const pin = normalizePincode(coCompanyPincode);
-    if (!pin) return;
-    let cancelled = false;
-
-    const fetchCity = async () => {
-      try {
-        setFetchingCoCompanyPincode(true);
-        const city = await lookupCityByPincode(pin);
-        if (!cancelled && city) {
-          form.setFieldsValue({ co_companyCity: city });
-        }
-      } catch (error) {
-        console.error("Co-applicant company pincode fetch failed", error);
-      } finally {
-        if (!cancelled) setFetchingCoCompanyPincode(false);
-      }
-    };
-
-    const timer = setTimeout(fetchCity, 350);
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
-  }, [coCompanyPincode, form]);
-
-  useEffect(() => {
     if (typeof coBusinessNature === "string" && coBusinessNature.trim()) {
       form.setFieldsValue({ co_businessNature: [coBusinessNature.trim()] });
     }
@@ -170,7 +140,6 @@ const CoApplicantSection = () => {
   if (!hasCoApplicant) return null;
 
   const normalizedOccupation = normalizeOccupationForUI(occupation);
-  const isCompanyApplicant = applicantType === "Company";
   const isSalaried = normalizedOccupation === "Salaried";
   const isSelfEmployed = normalizedOccupation === "Self Employed";
   const isProfessional = normalizedOccupation === "Self Employed Professional";
@@ -187,19 +156,6 @@ const CoApplicantSection = () => {
         <span className="text-base text-foreground">Co-Applicant Details</span>
       </div>
 
-      {/* ================= APPLICANT CATEGORY ================= */}
-      <Row gutter={[16, 16]} className="mb-4">
-        <Col xs={24} md={12}>
-          <Form.Item label="Applicant Category" name="co_applicantCategory">
-            <Radio.Group buttonStyle="solid" className="w-full">
-              <Radio.Button value="Individual" className="w-1/2 text-center">Individual</Radio.Button>
-              <Radio.Button value="Non-Individual" className="w-1/2 text-center">Non-Individual</Radio.Button>
-            </Radio.Group>
-          </Form.Item>
-        </Col>
-      </Row>
-
-      {/* ================= FINANCIAL DETAILS ================= */}
       <Row gutter={[16, 16]} className="mb-4">
         <Col xs={24} md={8}>
           <Form.Item label="Total Income" name="co_totalIncome">
@@ -207,22 +163,6 @@ const CoApplicantSection = () => {
               style={{ width: "100%" }}
               min={0}
               placeholder="Enter Total Income"
-              className={fieldClass}
-              formatter={(value) => {
-                if (!value) return "";
-                const numValue = Number(value);
-                return `₹ ${numValue.toLocaleString("en-IN")}`;
-              }}
-              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
-            />
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={8}>
-          <Form.Item label="Total Turnover (as per GST)" name="co_totalTurnoverGST">
-            <InputNumber
-              style={{ width: "100%" }}
-              min={0}
-              placeholder="Enter Total Turnover (as per GST)"
               className={fieldClass}
               formatter={(value) => {
                 if (!value) return "";
@@ -296,27 +236,6 @@ const CoApplicantSection = () => {
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>
-          <Form.Item label="Dependents" name="co_dependents">
-            <InputNumber className={fieldClass} style={{ width: "100%" }} min={0} />
-          </Form.Item>
-        </Col>
-
-        <Col xs={24} md={8}>
-          <Form.Item label="Education" name="co_education">
-            <Select
-              className={fieldClass}
-              showSearch
-              filterOption={(input, option) =>
-                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-            >
-              <Option value="Graduate">Graduate</Option>
-              <Option value="Post Graduate">Post Graduate</Option>
-              <Option value="Other">Other</Option>
-            </Select>
-          </Form.Item>
-        </Col>
-        <Col xs={24} md={8}>
           <Form.Item label="House" name="co_houseType">
             <Select
               className={fieldClass}
@@ -374,16 +293,6 @@ const CoApplicantSection = () => {
             <Input className={fieldClass} placeholder="1234 5678 9012" />
           </Form.Item>
         </Col>
-        {isCompanyApplicant && (
-          <Col xs={24} md={8}>
-            <Form.Item
-              label="Years at current Residence"
-              name="co_yearsAtCurrentResidence"
-            >
-              <Input className={fieldClass} placeholder="Years" />
-            </Form.Item>
-          </Col>
-        )}
       </Row>
 
       {/* ================= OCCUPATIONAL DETAILS ================= */}
@@ -412,31 +321,27 @@ const CoApplicantSection = () => {
           </Form.Item>
         </Col>
 
-        {isCompanyApplicant && (
-          <>
-            <Col xs={24} md={8}>
-              <Form.Item label="Designation" name="co_designation">
-                <Input className={fieldClass} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item
-                label="Current Exp (Years)"
-                name="co_currentExperience"
-              >
-                <Input className={fieldClass} placeholder="Years" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="Total Exp (Years)" name="co_totalExperience">
-                <Input className={fieldClass} placeholder="Years" />
-              </Form.Item>
-            </Col>
-          </>
-        )}
+        <Col xs={24} md={8}>
+          <Form.Item label="Designation" name="co_designation">
+            <Input className={fieldClass} />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={8}>
+          <Form.Item
+            label="Current Exp (Years)"
+            name="co_currentExperience"
+          >
+            <Input className={fieldClass} placeholder="Years" />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={8}>
+          <Form.Item label="Total Exp (Years)" name="co_totalExperience">
+            <Input className={fieldClass} placeholder="Years" />
+          </Form.Item>
+        </Col>
 
         {/* Professional Type */}
-        {!isCompanyApplicant && isProfessional && (
+        {isProfessional && (
           <Col xs={24} md={8}>
             <Form.Item label="Professional Type" name="co_professionalType">
               <Select
@@ -459,7 +364,7 @@ const CoApplicantSection = () => {
         )}
 
         {/* Company Type */}
-        {!isCompanyApplicant && (isSalaried || isSelfEmployed || isProfessional) && (
+        {(isSalaried || isSelfEmployed || isProfessional) && (
           <Col xs={24} md={8}>
             <Form.Item label="Type of Company" name="co_companyType">
               <AutoComplete
@@ -476,7 +381,7 @@ const CoApplicantSection = () => {
         )}
 
         {/* Nature of Business */}
-        {!isCompanyApplicant && (isSalaried || isSelfEmployed || isProfessional) && (
+        {(isSalaried || isSelfEmployed || isProfessional) && (
           <Col xs={24} md={8}>
             <Form.Item label="Nature of Business" name="co_businessNature">
               <Select
@@ -496,72 +401,6 @@ const CoApplicantSection = () => {
           </Col>
         )}
       </Row>
-
-      {/* EMPLOYER / BUSINESS DETAIL HEADER */}
-      {!isCompanyApplicant && (isSalaried || isSelfEmployed || isProfessional) && (
-        <>
-          <div className="flex items-center gap-2 mb-4 mt-8 opacity-80">
-            <SolutionOutlined className="text-[12px] text-muted-foreground" />
-            <span className={sectionLabelClass}>Employer / Business Details</span>
-          </div>
-
-          <Row gutter={[16, 0]}>
-            <Col xs={24} md={8}>
-              <Form.Item label="Designation" name="co_designation">
-                <Input className={fieldClass} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item
-                label="Current Exp (Years)"
-                name="co_currentExperience"
-              >
-                <Input className={fieldClass} placeholder="Years" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="Total Exp (Years)" name="co_totalExperience">
-                <Input className={fieldClass} placeholder="Years" />
-              </Form.Item>
-            </Col>
-
-            <Col xs={24} md={8}>
-              <Form.Item label="Company Name" name="co_companyName">
-                <Input className={fieldClass} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={16}>
-              <Form.Item label="Company Address" name="co_companyAddress">
-                <Input.TextArea autoSize={{ minRows: 2, maxRows: 5 }} placeholder="Full Business Address" />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="Pin Code" name="co_companyPincode">
-                <Input className={fieldClass} maxLength={6} />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="City" name="co_companyCity">
-                <Input
-                  className={fieldClass}
-                  suffix={
-                    fetchingCoCompanyPincode ? (
-                      <span className="text-[10px] text-muted-foreground animate-pulse">
-                        Fetching...
-                      </span>
-                    ) : null
-                  }
-                />
-              </Form.Item>
-            </Col>
-            <Col xs={24} md={8}>
-              <Form.Item label="Phone No" name="co_companyPhone">
-                <Input className={fieldClass} prefix={<PhoneOutlined className="text-muted-foreground mr-1" />} />
-              </Form.Item>
-            </Col>
-          </Row>
-        </>
-      )}
     </div>
   );
 };

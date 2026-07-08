@@ -10,8 +10,6 @@ export const mapCustomerToPersonFields = (customer, prefix) => {
     [`${prefix}_fatherName`]: customer.sdwOf || "",
     [`${prefix}_gender`]: customer.gender || "",
     [`${prefix}_maritalStatus`]: customer.maritalStatus || "",
-    [`${prefix}_dependents`]: customer.dependents || "",
-    [`${prefix}_education`]: customer.education || "",
     [`${prefix}_houseType`]: customer.houseType || "",
 
     [`${prefix}_address`]: customer.residenceAddress || "",
