@@ -2527,8 +2527,6 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             gender: formValues.co_gender,
             dob: formValues.co_dob,
             maritalStatus: formValues.co_maritalStatus,
-            dependents: formValues.co_dependents,
-            education: formValues.co_education,
             houseType: formValues.co_houseType,
             residenceAddress: formValues.co_address,
             pincode: formValues.co_pincode,
