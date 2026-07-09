@@ -222,20 +222,25 @@ const UploadField = ({
  *   • invoice_number, invoice_date, invoice_received_as, invoice_received_from, invoice_received_date
  *   • rc_redg_no, rc_chassis_no, rc_engine_no, rc_redg_date
  *   • rc_received_as, rc_received_from, rc_received_date
- *   • delivery_invoiceFile, delivery_rcFile: File uploads (storage URLs)
+ *   • delivery_invoiceFile, delivery_rcFile, delivery_rcBackFile: File uploads (storage URLs)
  */
 const VehicleDeliveryStep = ({ form }) => {
   const [invoiceFile, setInvoiceFile] = useState(null);
   const [rcFile, setRcFile] = useState(null);
+  const [rcBackFile, setRcBackFile] = useState(null);
   const [viewInvoice, setViewInvoice] = useState(false);
   const [viewRc, setViewRc] = useState(false);
+  const [viewRcBack, setViewRcBack] = useState(false);
   const [showInvoiceUploadModal, setShowInvoiceUploadModal] = useState(false);
   const [showRcUploadModal, setShowRcUploadModal] = useState(false);
+  const [showRcBackUploadModal, setShowRcBackUploadModal] = useState(false);
 
   const [uploadingInvoice, setUploadingInvoice] = useState(false);
   const [uploadingRc, setUploadingRc] = useState(false);
+  const [uploadingRcBack, setUploadingRcBack] = useState(false);
   const [invoiceUploadProgress, setInvoiceUploadProgress] = useState(0);
   const [rcUploadProgress, setRcUploadProgress] = useState(0);
+  const [rcBackUploadProgress, setRcBackUploadProgress] = useState(0);
   const rcInvReservationInFlightRef = React.useRef(false);
   const {
     options: registrationLookupOptions,
@@ -553,6 +558,13 @@ const VehicleDeliveryStep = ({ form }) => {
           String(doc?.tag || "").toLowerCase() === "rc") &&
         String(doc?.url || "").startsWith("http"),
     );
+    const rcBackDoc = docs.find(
+      (doc) =>
+        doc &&
+        (String(doc?.deliveryDocType || "").toUpperCase() === "RC_BACK" ||
+          String(doc?.tag || "").toLowerCase() === "rc back") &&
+        String(doc?.url || "").startsWith("http"),
+    );
 
     const patch = {};
     if (!form.getFieldValue("delivery_invoiceFile") && invoiceDoc?.url) {
@@ -563,7 +575,12 @@ const VehicleDeliveryStep = ({ form }) => {
     if (!form.getFieldValue("delivery_rcFile") && rcDoc?.url) {
       patch.delivery_rcFile = rcDoc.url;
       form.setFieldValue("delivery_rcFile", rcDoc.url);
-      setRcFile((prev) => prev || { name: rcDoc.name || "RC", size: rcDoc.size || "", url: rcDoc.url });
+      setRcFile((prev) => prev || { name: rcDoc.name || "RC Front", size: rcDoc.size || "", url: rcDoc.url });
+    }
+    if (!form.getFieldValue("delivery_rcBackFile") && rcBackDoc?.url) {
+      patch.delivery_rcBackFile = rcBackDoc.url;
+      form.setFieldValue("delivery_rcBackFile", rcBackDoc.url);
+      setRcBackFile((prev) => prev || { name: rcBackDoc.name || "RC Back", size: rcBackDoc.size || "", url: rcBackDoc.url });
     }
     if (Object.keys(patch).length) {
       void persistDeliveryPatch(patch);
@@ -581,7 +598,10 @@ const VehicleDeliveryStep = ({ form }) => {
     if (rcFile !== undefined) {
       form.setFieldValue("delivery_rcFile", rcFile ? rcFile.url : null);
     }
-  }, [invoiceFile, rcFile, form]);
+    if (rcBackFile !== undefined) {
+      form.setFieldValue("delivery_rcBackFile", rcBackFile ? rcBackFile.url : null);
+    }
+  }, [invoiceFile, rcFile, rcBackFile, form]);
 
   // Load initial files from form if editing
   // We use a ref to track if we've initialized to avoid overwrite loops
@@ -592,6 +612,7 @@ const VehicleDeliveryStep = ({ form }) => {
 
     const initialInvoice = form.getFieldValue("delivery_invoiceFile");
     const initialRc = form.getFieldValue("delivery_rcFile");
+    const initialRcBack = form.getFieldValue("delivery_rcBackFile");
 
     // Helper to safely parse initial value
     const parseInitialFile = (val) => {
@@ -607,6 +628,7 @@ const VehicleDeliveryStep = ({ form }) => {
 
     if (initialInvoice) setInvoiceFile(parseInitialFile(initialInvoice));
     if (initialRc) setRcFile(parseInitialFile(initialRc));
+    if (initialRcBack) setRcBackFile(parseInitialFile(initialRcBack));
 
     initializedFiles.current = true;
   }, [form]);
@@ -705,6 +727,42 @@ const VehicleDeliveryStep = ({ form }) => {
     } finally {
       setUploadingRc(false);
       setTimeout(() => setRcUploadProgress(0), 180);
+    }
+  };
+
+  const handleRcBackUpload = async (files = []) => {
+    const file = Array.isArray(files) ? files[0] : files;
+    if (!file) return;
+    try {
+      setUploadingRcBack(true);
+      setRcBackUploadProgress(10);
+      const data = await uploadSingleFile(file);
+      setRcBackUploadProgress(75);
+
+      const nextFile = {
+        name: file.name,
+        size: formatFileSize(file.size),
+        url: data.url,
+      };
+      setRcBackFile(nextFile);
+
+      const currentDocs = form.getFieldValue("postfile_documents") || currentPostFileDocuments || [];
+      const rcBackDoc = buildDeliveryDocEntry(file, data, "RC Back", "RC_BACK");
+      const mergedDocs = mergeDeliveryDocument(currentDocs, rcBackDoc, "RC_BACK");
+      form.setFieldValue("postfile_documents", mergedDocs);
+
+      await persistDeliveryPatch({
+        delivery_rcBackFile: data.url || "",
+        postfile_documents: toPersistablePostFileDocuments(mergedDocs),
+      }, { silent: false });
+      setRcBackUploadProgress(100);
+      message.success("RC back uploaded successfully");
+    } catch (error) {
+      console.error("Upload failed", error);
+      message.error("Failed to upload RC back. Please try again.");
+    } finally {
+      setUploadingRcBack(false);
+      setTimeout(() => setRcBackUploadProgress(0), 180);
     }
   };
 
@@ -1135,7 +1193,7 @@ const VehicleDeliveryStep = ({ form }) => {
             )}
 
             <UploadField
-              label="Upload RC"
+              label="RC Front"
               file={rcFile}
               uploading={uploadingRc}
               onOpenUpload={() => setShowRcUploadModal(true)}
@@ -1149,6 +1207,26 @@ const VehicleDeliveryStep = ({ form }) => {
                 form.setFieldValue("postfile_documents", nextDocs);
                 await persistDeliveryPatch({
                   delivery_rcFile: "",
+                  postfile_documents: toPersistablePostFileDocuments(nextDocs),
+                }, { silent: false });
+              }}
+            />
+
+            <UploadField
+              label="RC Back"
+              file={rcBackFile}
+              uploading={uploadingRcBack}
+              onOpenUpload={() => setShowRcBackUploadModal(true)}
+              onView={() => setViewRcBack(true)}
+              onRemove={async () => {
+                setRcBackFile(null);
+                const nextDocs = removeDeliveryDocument(
+                  form.getFieldValue("postfile_documents") || [],
+                  "RC_BACK",
+                );
+                form.setFieldValue("postfile_documents", nextDocs);
+                await persistDeliveryPatch({
+                  delivery_rcBackFile: "",
                   postfile_documents: toPersistablePostFileDocuments(nextDocs),
                 }, { silent: false });
               }}
@@ -1194,6 +1272,17 @@ const VehicleDeliveryStep = ({ form }) => {
         multiple={false}
       />
 
+      <LoanDocumentUploadModal
+        open={showRcBackUploadModal}
+        title="Upload Documents"
+        onUpload={handleRcBackUpload}
+        onClose={() => setShowRcBackUploadModal(false)}
+        uploading={uploadingRcBack}
+        progress={rcBackUploadProgress}
+        accept="image/*,.pdf,.doc,.docx"
+        multiple={false}
+      />
+
       {/* Invoice Viewer Modal */}
       {viewInvoice && invoiceFile && (
         <LoanDocumentViewerModal
@@ -1209,8 +1298,18 @@ const VehicleDeliveryStep = ({ form }) => {
         <LoanDocumentViewerModal
           open={viewRc}
           title="Post-File Document Viewer"
-          documents={[{ ...rcFile, tag: "RC" }]}
+          documents={[{ ...rcFile, tag: "RC Front" }]}
           onClose={() => setViewRc(false)}
+        />
+      )}
+
+      {/* RC Back Viewer Modal */}
+      {viewRcBack && rcBackFile && (
+        <LoanDocumentViewerModal
+          open={viewRcBack}
+          title="Post-File Document Viewer"
+          documents={[{ ...rcBackFile, tag: "RC Back" }]}
+          onClose={() => setViewRcBack(false)}
         />
       )}
     </div>

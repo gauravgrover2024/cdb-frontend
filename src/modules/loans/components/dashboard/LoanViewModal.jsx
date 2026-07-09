@@ -2273,8 +2273,13 @@ const getStageSubTabs = (stage, data, context = {}) => {
       },
       {
         key: "de_rcFile",
-        label: "RC File",
+        label: "RC Front File",
         paths: ["delivery_rcFile"],
+      },
+      {
+        key: "de_rcBackFile",
+        label: "RC Back File",
+        paths: ["delivery_rcBackFile"],
       },
     ];
     const insuranceFields = [

@@ -158,12 +158,17 @@ const PostFileInstrumentDetails = ({ form }) => {
       }
     }
     if (existing.length > 0) {
-      const nextIds = existing.map((item) => item.id).join(",");
-      const currentIds = cheques.map((item) => item.id).join(",");
-      if (nextIds !== currentIds) {
-        setCheques(existing);
+      // Only add ids detected from loaded form data that aren't already
+      // tracked locally; never drop a tracked id just because it has no
+      // value yet — that would undo a blank row the user just added via
+      // "Add Another Instrument" before they've typed anything into it.
+      const currentIds = new Set(cheques.map((item) => item.id));
+      const missing = existing.filter((item) => !currentIds.has(item.id));
+      if (missing.length > 0) {
+        setCheques((prev) => [...prev, ...missing].sort((a, b) => a.id - b.id));
       }
-      if (!existing.some((item) => item.id === expandedCheque)) {
+      const trackedIds = new Set([...currentIds, ...missing.map((item) => item.id)]);
+      if (!trackedIds.has(expandedCheque)) {
         setExpandedCheque(existing[0].id);
       }
     }

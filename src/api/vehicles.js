@@ -557,6 +557,18 @@ export const vehiclesApi = {
     return await apiClient.post("/api/vehicles/bulk", data);
   },
 
+  // "Type & Save" — add a manual Make/Model/Variant term when it's missing
+  // from autosuggest. `level` is one of "make" | "model" | "variant".
+  addSuggestionTerm: async ({ level, make, model, variant, city }) => {
+    return await apiClient.post("/api/vehicles/suggestions/terms", {
+      level,
+      make,
+      model,
+      variant,
+      city,
+    });
+  },
+
   // Distinct values API
   getUniqueMakes: async (city = null, includeDiscontinued = false) => {
     try {

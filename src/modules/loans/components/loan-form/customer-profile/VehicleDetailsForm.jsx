@@ -1,5 +1,5 @@
 import React from "react";
-import { Form, Select, Row, Col, Segmented, Spin, Checkbox, AutoComplete } from "antd";
+import { Form, Select, Row, Col, Segmented, Spin, Checkbox, AutoComplete, Divider, Button } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
 import { usedCarsDbApi } from "../../../../../api/usedCars";
@@ -119,6 +119,7 @@ const VehicleDetailsForm = () => {
     handleMakeChange,
     handleModelChange,
     handleVariantChange,
+    createCustomVehicle,
     showDiscontinuedCars,
     setShowDiscontinuedCars,
   } = useVehicleData(form, {
@@ -131,6 +132,33 @@ const VehicleDetailsForm = () => {
 
   const vehicleMake = form?.getFieldValue("vehicleMake");
   const vehicleModel = form?.getFieldValue("vehicleModel");
+
+  // "Type & Save": lets the user add a Make/Model/Variant that autosuggest
+  // doesn't have yet. Only offered for New Car (the scraped catalogue) —
+  // Used Car has its own master DB search above.
+  const [makeSearch, setMakeSearch] = React.useState("");
+  const [modelSearch, setModelSearch] = React.useState("");
+  const [variantSearch, setVariantSearch] = React.useState("");
+  const [savingTerm, setSavingTerm] = React.useState(false);
+
+  const handleAddCustomTerm = React.useCallback(
+    async (field, value, fieldName, onChangeHandler, clearSearch) => {
+      const trimmed = String(value || "").trim();
+      if (!trimmed || savingTerm) return;
+      setSavingTerm(true);
+      try {
+        const added = await createCustomVehicle(field, trimmed);
+        if (added) {
+          form.setFieldsValue({ [fieldName]: trimmed });
+          onChangeHandler?.(trimmed);
+          clearSearch("");
+        }
+      } finally {
+        setSavingTerm(false);
+      }
+    },
+    [createCustomVehicle, form, savingTerm],
+  );
 
   const cleanModelLabel = (model) => {
     if (!model) return "";
@@ -266,6 +294,7 @@ const VehicleDetailsForm = () => {
                 showSearch
                 loading={loading}
                 onChange={handleMakeChange}
+                onSearch={setMakeSearch}
                 filterOption={(input, option) =>
                   (
                     option?.children?.props?.children?.[1] ||
@@ -285,6 +314,26 @@ const VehicleDetailsForm = () => {
                       <Icon name="Search" size={16} className="mb-2" />
                       <div>No make found</div>
                     </div>
+                  )
+                }
+                dropdownRender={(menu) =>
+                  !isUsedCar && makeSearch.trim() && !hasValue(makes, makeSearch) ? (
+                    <>
+                      {menu}
+                      <Divider style={{ margin: "4px 0" }} />
+                      <Button
+                        type="text"
+                        block
+                        loading={savingTerm}
+                        onClick={() =>
+                          handleAddCustomTerm("make", makeSearch, "vehicleMake", handleMakeChange, setMakeSearch)
+                        }
+                      >
+                        + Add "{makeSearch.trim()}"
+                      </Button>
+                    </>
+                  ) : (
+                    menu
                   )
                 }
               >
@@ -322,6 +371,7 @@ const VehicleDetailsForm = () => {
                 showSearch
                 loading={loading}
                 onChange={handleModelChange}
+                onSearch={setModelSearch}
                 filterOption={(input, option) =>
                   (option?.children || option?.value || "")
                     .toLowerCase()
@@ -337,6 +387,26 @@ const VehicleDetailsForm = () => {
                       <Icon name="Search" size={16} className="mb-2" />
                       <div>No model found</div>
                     </div>
+                  )
+                }
+                dropdownRender={(menu) =>
+                  !isUsedCar && vehicleMake && modelSearch.trim() && !hasValue(models, modelSearch) ? (
+                    <>
+                      {menu}
+                      <Divider style={{ margin: "4px 0" }} />
+                      <Button
+                        type="text"
+                        block
+                        loading={savingTerm}
+                        onClick={() =>
+                          handleAddCustomTerm("model", modelSearch, "vehicleModel", handleModelChange, setModelSearch)
+                        }
+                      >
+                        + Add "{modelSearch.trim()}"
+                      </Button>
+                    </>
+                  ) : (
+                    menu
                   )
                 }
               >
@@ -364,6 +434,7 @@ const VehicleDetailsForm = () => {
                 showSearch
                 loading={loading}
                 onChange={handleVariantChange}
+                onSearch={setVariantSearch}
                 filterOption={(input, option) =>
                   (option?.children || option?.value || "")
                     .toLowerCase()
@@ -379,6 +450,26 @@ const VehicleDetailsForm = () => {
                       <Icon name="Search" size={16} className="mb-2" />
                       <div>No variant found</div>
                     </div>
+                  )
+                }
+                dropdownRender={(menu) =>
+                  !isUsedCar && vehicleModel && variantSearch.trim() && !hasValue(variants, variantSearch) ? (
+                    <>
+                      {menu}
+                      <Divider style={{ margin: "4px 0" }} />
+                      <Button
+                        type="text"
+                        block
+                        loading={savingTerm}
+                        onClick={() =>
+                          handleAddCustomTerm("variant", variantSearch, "vehicleVariant", handleVariantChange, setVariantSearch)
+                        }
+                      >
+                        + Add "{variantSearch.trim()}"
+                      </Button>
+                    </>
+                  ) : (
+                    menu
                   )
                 }
               >
