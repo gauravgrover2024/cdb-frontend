@@ -3352,6 +3352,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
       <Form.Item name="delivery_invoiceFile" hidden />
       <Form.Item name="delivery_rcFile" hidden />
+      <Form.Item name="delivery_rcBackFile" hidden />
       <Form.Item name="loan_number" hidden />
       <Form.Item name="postfile_documents" hidden />
       <Form.Item name="postfile_tags" hidden />
