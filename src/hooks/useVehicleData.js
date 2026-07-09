@@ -841,22 +841,33 @@ export const useVehicleData = (form, options = {}) => {
   /* =========================
      HANDLE CUSTOM VEHICLE CREATION
   ========================= */
+  // "Type & Save" — records a make/model/variant that's missing from
+  // autosuggest. Goes through the manual-suggestion-term endpoint rather than
+  // creating a `vehicles` row directly: that collection is scraper-owned, and
+  // a manually inserted row would get silently auto-discontinued by the next
+  // scrape. Only applies to the New Car (scraped) catalogue.
   const createCustomVehicle = useCallback(
     async (field, value) => {
-      if (!value || value.trim() === "") return false;
+      const trimmedValue = String(value || "").trim();
+      if (!trimmedValue) return false;
+      if (useUsedCarsDb) return false;
+      if (field === "model" && !make) return false;
+      if (field === "variant" && (!make || !model)) return false;
 
       try {
-        const newVehicleData = {
-          make: field === "make" ? value : make,
-          model: field === "model" ? value : model || "Other",
-          variant: field === "variant" ? value : "Standard",
-          createdFrom: "LOAN_FORM",
-        };
+        const response = await vehiclesApi.addSuggestionTerm({
+          level: field,
+          make: field === "make" ? trimmedValue : make,
+          model: field === "model" ? trimmedValue : model,
+          variant: field === "variant" ? trimmedValue : undefined,
+        });
 
-        const response = await vehiclesApi.create(newVehicleData);
-
-        if (response.success) {
-          message.success(`"${value}" added to vehicle master data`);
+        if (response?.success) {
+          message.success(
+            response.matchedExisting
+              ? `"${trimmedValue}" already exists as "${response.value}"`
+              : `"${trimmedValue}" added`,
+          );
 
           // Invalidate cached make/model/variant lists across both active/all modes.
           cacheRef.current.makesByMode = {};
@@ -879,12 +890,12 @@ export const useVehicleData = (form, options = {}) => {
         }
         return false;
       } catch (error) {
-        console.error("Failed to create custom vehicle:", error);
+        console.error("Failed to add custom vehicle term:", error);
         // Don't show error to user - they can still use the custom value
         return false;
       }
     },
-    [make, model, fetchMakes, fetchModels, fetchVariants],
+    [make, model, useUsedCarsDb, fetchMakes, fetchModels, fetchVariants],
   );
 
   /* =========================
