@@ -320,6 +320,11 @@ const compactAciContextStateForBackend = (state = {}) => {
       city: state.requested?.city || "",
       citySlug: state.requested?.citySlug || "",
     },
+    buyerContext: isObject(state.buyerContext) ? state.buyerContext : {},
+    contextLedger: isObject(state.contextLedger) ? state.contextLedger : {},
+    buyerGuidanceContext: isObject(state.buyerGuidanceContext)
+      ? state.buyerGuidanceContext
+      : {},
     anchors: {
       primaryVehicle: compactVehicleForBackend(state.anchors?.primaryVehicle || {}) || {},
       comparisonTargets: Array.isArray(state.anchors?.comparisonTargets)
