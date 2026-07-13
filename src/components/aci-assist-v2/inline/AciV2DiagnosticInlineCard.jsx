@@ -1,4 +1,5 @@
 import React from "react";
+import { Activity, Check, ShieldAlert } from "lucide-react";
 
 const asArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
@@ -52,39 +53,27 @@ export default function AciV2DiagnosticInlineCard({ payload = {} }) {
 
   return (
     <section className="aci-v2-inline-card aci-v2-diagnostic-inline-card">
-      <style>{`
-        .aci-v2-diagnostic-inline-card ul {
-          margin: 8px 0 0;
-          padding-left: 18px;
-        }
-        .aci-v2-diagnostic-inline-card li {
-          margin: 3px 0;
-        }
-        .aci-v2-diagnostic-inline-note {
-          display: inline-flex;
-          margin-top: 8px;
-          border-radius: 999px;
-          background: #eff6ff;
-          color: #0758f8;
-          padding: 5px 8px;
-          font-size: 11px;
-          font-weight: 800;
-        }
-      `}</style>
-      <h4>{title}</h4>
-      {answer ? <p>{answer}</p> : null}
-      {rows.length ? (
-        <ul>
-          {rows.map((row, index) => (
-            <li key={row.id || row.key || index}>{rowLabel(row, index)}</li>
-          ))}
-        </ul>
-      ) : null}
-      {diagnosticOnly ? (
-        <small className="aci-v2-diagnostic-inline-note">
-          Diagnostic only · final recommendation blocked
-        </small>
-      ) : null}
+      <header className="aci-v2-inline-card-header">
+        <span aria-hidden="true"><Activity size={16} strokeWidth={2} /></span>
+        <div><small>Decision insight</small><h4>{title}</h4></div>
+      </header>
+      <div className="aci-v2-inline-card-body">
+        {answer ? <p>{answer}</p> : null}
+        {rows.length ? (
+          <div className="aci-v2-inline-rows">
+            {rows.map((row, index) => (
+              <div className="aci-v2-inline-row" key={row.id || row.key || index}>
+                <span>{rowLabel(row, index)}</span><Check size={14} aria-hidden="true" />
+              </div>
+            ))}
+          </div>
+        ) : null}
+        {diagnosticOnly ? (
+          <p className="aci-v2-inline-note">
+            <ShieldAlert size={13} aria-hidden="true" /> Supporting insight only; it will not decide the recommendation by itself.
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }

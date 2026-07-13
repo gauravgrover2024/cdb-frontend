@@ -123,6 +123,19 @@ const getPatchVehicle = (patch = {}) =>
 
 export const mergeSessionContext = (previous = {}, patch = {}) => {
   const rawPatchSelectedVehicle = getPatchVehicle(patch);
+  const comparisonVehicles =
+    patch?.activeComparison?.vehicles ||
+    patch?.selectedComparisonSet?.vehicles ||
+    patch?.contextState?.activeComparison?.vehicles ||
+    patch?.aciContextState?.activeComparison?.vehicles ||
+    [];
+  const comparisonScopedPatch =
+    Number(patch?.compoundRequest?.modelCount || 0) > 1 ||
+    (Array.isArray(comparisonVehicles) && comparisonVehicles.length > 1);
+  const explicitlyClearsVehicle =
+    comparisonScopedPatch &&
+    hasOwn(patch, "selectedVehicle") &&
+    patch.selectedVehicle === null;
   const patchHasAnchorVariant = hasOwn(patch, "anchorVariant");
   const patchHasAnchorModel =
     hasOwn(patch, "anchorModel") && Boolean(String(patch.anchorModel || "").trim());
@@ -151,8 +164,11 @@ export const mergeSessionContext = (previous = {}, patch = {}) => {
   const vehicleChanged = patchModelChangedVehicle || patchVehicleChangedVehicle;
 
   const mergedSelectedVehicle = mergeVehicle(previous.selectedVehicle, patchSelectedVehicle);
-  const selectedVehicle =
-    vehicleChanged && !patchSelectedVehicle ? null : mergedSelectedVehicle;
+  const selectedVehicle = explicitlyClearsVehicle
+    ? null
+    : vehicleChanged && !patchSelectedVehicle
+      ? null
+      : mergedSelectedVehicle;
 
   const patchSelectedVehicleHasVariant =
     hasOwn(patchSelectedVehicle || {}, "variant") ||
@@ -183,15 +199,16 @@ export const mergeSessionContext = (previous = {}, patch = {}) => {
       }
     : selectedVehicle;
 
-  const canReusePreviousVehicleAnchors = !vehicleChanged;
+  const canReusePreviousVehicleAnchors = !vehicleChanged && !explicitlyClearsVehicle;
 
   return {
     ...previous,
     ...patch,
-    selectedVehicle:
-      scopedSelectedVehicle ||
-      (canReusePreviousVehicleAnchors ? previous.selectedVehicle : null) ||
-      null,
+    selectedVehicle: explicitlyClearsVehicle
+      ? null
+      : scopedSelectedVehicle ||
+        (canReusePreviousVehicleAnchors ? previous.selectedVehicle : null) ||
+        null,
     anchorMake: firstValue(
       patch.anchorMake,
       scopedSelectedVehicle?.make,

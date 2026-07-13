@@ -1064,6 +1064,7 @@ export default function AciV2FeatureInlineCard({
   message = {},
   selectedVehicle,
   onAction,
+  showJourneyActions = true,
 }) {
   const widget = isObject(message.widget) ? message.widget : {};
   const data = isObject(widget.data) ? widget.data : {};
@@ -1382,17 +1383,19 @@ export default function AciV2FeatureInlineCard({
       message.quickReplies,
   );
 
-  const suggestions = explicitSuggestions.length
-    ? explicitSuggestions.slice(0, 3)
-    : buildPremiumFeatureSuggestions({
-        model,
-        featureLabel,
-      });
+  const suggestions = showJourneyActions
+    ? explicitSuggestions.length
+      ? explicitSuggestions.slice(0, 3)
+      : buildPremiumFeatureSuggestions({
+          model,
+          featureLabel,
+        })
+    : [];
 
   const hasImage = Boolean(heroImage);
   const heroCar = heroImage ? (
     <div className="aci-feature-v4-car" style={heroFrameStyle}>
-      <img src={heroImage} alt={vehicleName} loading="lazy" draggable="false" />
+      <img src={heroImage} alt={vehicleName} loading="eager" fetchPriority="high" draggable="false" />
     </div>
   ) : null;
 
@@ -2089,8 +2092,9 @@ export default function AciV2FeatureInlineCard({
         ) : null}
       </section>
 
-      <div className="aci-feature-v4-suggestions">
-        {suggestions.map((suggestion) => {
+      {suggestions.length ? (
+        <div className="aci-feature-v4-suggestions">
+          {suggestions.map((suggestion) => {
           const suggestionLabel =
             typeof suggestion === "string"
               ? suggestion
@@ -2114,8 +2118,9 @@ export default function AciV2FeatureInlineCard({
               <ChevronRight aria-hidden="true" />
             </button>
           );
-        })}
-      </div>
+          })}
+        </div>
+      ) : null}
     </article>
   );
 }

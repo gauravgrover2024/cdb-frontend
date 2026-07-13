@@ -6,7 +6,6 @@ import AciV2QuestionIcon from "./AciV2QuestionIcon";
 import { getDisplayCarImage, resolveCarImageUrl } from "../shared/aciV2Image";
 import {
   buildChatImageFrameStyle,
-  buildChatSuggestions,
   buildInlineColorFrameStyle,
   canvasTypeLabel,
   firstValue,
@@ -1142,7 +1141,8 @@ function AciV2PricePreviewArea({
                 <img
                   src={heroImage}
                   alt={vehicleName}
-                  loading="lazy"
+                  loading="eager"
+                  fetchPriority="high"
                   draggable="false"
                 />
               ) : (
@@ -1710,25 +1710,7 @@ function AciV2ColorPreviewArea({
     });
   };
 
-  const defaultColorActions = [
-    {
-      id: "color-best",
-      label: "Which color looks best?",
-      query: `Which ${vehicleName} color looks best?`,
-    },
-    {
-      id: "color-maintain",
-      label: "Easiest to maintain?",
-      query: `Which ${vehicleName} color is easiest to maintain?`,
-    },
-    {
-      id: "color-quote",
-      label: "Get quotation",
-      query: `Get quotation for ${vehicleName} in ${selectedColorName}`,
-    },
-  ];
-
-  const leadItems = (actions.length ? actions : defaultColorActions)
+  const leadItems = actions
     .slice(0, 4)
     .map((item, index) => ({
       ...item,
@@ -2269,7 +2251,8 @@ function AciV2ColorPreviewArea({
                 <img
                   src={selectedColor.imageUrl}
                   alt={`${vehicleName} in ${selectedColorName}`}
-                  loading="lazy"
+                  loading="eager"
+                  fetchPriority="high"
                   draggable="false"
                 />
               </motion.div>
@@ -3292,23 +3275,6 @@ const getRepresentativeFeatureOptions = (featureOptions = []) => {
   return indexes.map((index) => featureOptions[index]).filter(Boolean);
 };
 
-const isDuplicateFeatureExplorerAction = (item = {}) => {
-  const text = normalizeInlineFeatureKey(
-    `${item.label || ""} ${item.title || ""} ${item.query || ""}`,
-  );
-
-  if (!text) return false;
-
-  return (
-    /show all .* features/.test(text) ||
-    /show .* all .* features/.test(text) ||
-    /show .* features/.test(text) ||
-    /open .* feature .* explorer/.test(text) ||
-    /features explorer/.test(text) ||
-    /full feature list/.test(text)
-  );
-};
-
 function AciV2FeaturePreviewArea({
   message = {},
   widget = {},
@@ -3316,9 +3282,7 @@ function AciV2FeaturePreviewArea({
   selectedVehicle,
   hasCanvas = false,
   openCanvasLabel = "Open Features",
-  actions = [],
   onOpen,
-  onAction,
 }) {
   const featureOptions = buildFeatureVariantOptions({
     rows,
@@ -3413,10 +3377,6 @@ function AciV2FeaturePreviewArea({
     });
   };
 
-  const filteredFeatureActions = actions.filter(
-    (item) => !isDuplicateFeatureExplorerAction(item),
-  );
-
   const leadItems = [
     hasCanvas
       ? {
@@ -3426,11 +3386,6 @@ function AciV2FeaturePreviewArea({
           onClick: handleOpenFeatures,
         }
       : null,
-    ...filteredFeatureActions.map((item, index) => ({
-      ...item,
-      iconIndex: index + 1,
-      onClick: () => onAction?.(item),
-    })),
   ].filter(Boolean);
 
   return (
@@ -4017,7 +3972,8 @@ function AciV2FeaturePreviewArea({
                   <img
                     src={heroImage}
                     alt={`${vehicleName} ${selectedVariantLabel}`}
-                    loading="lazy"
+                    loading="eager"
+                    fetchPriority="high"
                     draggable="false"
                   />
                 ) : (
@@ -4208,12 +4164,8 @@ export default function AciV2CanvasPreviewCard({
     canvasType === "pricelist_canvas" || canvasType === "price_breakup_canvas"
       ? "Open Pricelist"
       : `Open ${canvasTypeLabel(canvasType)}`;
-  const actions = buildChatSuggestions({ widget, message, limit: 40 });
   const carouselRef = useRef(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
-  const [showAllActions, setShowAllActions] = useState(false);
-  const visibleActions = showAllActions ? actions : actions.slice(0, 6);
-  const remainingActionCount = Math.max(0, actions.length - visibleActions.length);
   const maxCarouselIndex = Math.max(0, rows.length - 1);
   const carouselProgress =
     maxCarouselIndex > 0 ? carouselIndex / maxCarouselIndex : 0;
@@ -4304,9 +4256,7 @@ export default function AciV2CanvasPreviewCard({
               selectedVehicle={selectedVehicle}
               hasCanvas={hasCanvas}
               openCanvasLabel={openCanvasLabel}
-              actions={actions}
               onOpen={onOpen}
-              onAction={onAction}
             />
           ) : isColorResult ? (
             <AciV2ColorPreviewArea
@@ -4315,7 +4265,7 @@ export default function AciV2CanvasPreviewCard({
               rows={rows}
               selectedVehicle={selectedVehicle}
               hasCanvas={hasCanvas}
-              actions={actions}
+              actions={[]}
               onOpen={onOpen}
               onAction={onAction}
             />
@@ -4327,9 +4277,7 @@ export default function AciV2CanvasPreviewCard({
               selectedVehicle={selectedVehicle}
               hasCanvas={hasCanvas}
               openCanvasLabel={openCanvasLabel}
-              actions={actions}
               onOpen={onOpen}
-              onAction={onAction}
             />
           ) : (
             <>
@@ -4632,7 +4580,7 @@ export default function AciV2CanvasPreviewCard({
       {!isPriceResult &&
       !isColorResult &&
       !isFeatureResult &&
-      (hasCanvas || actions.length) ? (
+      hasCanvas ? (
         <footer>
           {hasCanvas ? (
             <button
@@ -4645,26 +4593,6 @@ export default function AciV2CanvasPreviewCard({
             </button>
           ) : null}
 
-          {visibleActions.map((item, index) => {
-            const label =
-              item.label || item.title || item.query || `Next ${index + 1}`;
-
-            return (
-              <button
-                type="button"
-                key={item.id || item.label || item.query || index}
-                onClick={() => onAction?.(item)}
-              >
-                <AciV2QuestionIcon label={label} index={index + 1} />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-          {remainingActionCount > 0 ? (
-            <button type="button" onClick={() => setShowAllActions(true)}>
-              <span>{`Show ${remainingActionCount} more`}</span>
-            </button>
-          ) : null}
         </footer>
       ) : null}
     </article>

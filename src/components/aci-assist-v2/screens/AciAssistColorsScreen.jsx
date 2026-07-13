@@ -5,7 +5,9 @@ import {
   Bell,
   Check,
   ChevronRight,
+  Droplets,
   Info,
+  ListChecks,
   Palette,
   Sparkles,
 } from "lucide-react";
@@ -712,7 +714,6 @@ function AskRow({ icon, title, sub, onClick }) {
 
 function AskNextCard({ vehicle, selectedColor, onAction }) {
   const vehicleTitle = getVehicleTitle(vehicle);
-  const colorName = getColorName(selectedColor);
 
   return (
     <section className="aci-color-card aci-ask-card">
@@ -723,9 +724,9 @@ function AskNextCard({ vehicle, selectedColor, onAction }) {
 
       <div className="aci-ask-list">
         <AskRow
-          icon="✨"
+          icon={<Sparkles size={17} />}
           title="Which color looks best?"
-          sub="Get an ACI recommendation"
+          sub="See the strongest visual picks"
           onClick={() =>
             fireColorAction(
               "Which color looks best?",
@@ -742,7 +743,7 @@ function AskNextCard({ vehicle, selectedColor, onAction }) {
         />
 
         <AskRow
-          icon="🧼"
+          icon={<Droplets size={17} />}
           title="Easiest to maintain?"
           sub="Dust, scratches and resale"
           onClick={() =>
@@ -761,7 +762,7 @@ function AskNextCard({ vehicle, selectedColor, onAction }) {
         />
 
         <AskRow
-          icon="₹"
+          icon={<ListChecks size={17} />}
           title="Open pricelist"
           sub="See variants and on-road price"
           onClick={() =>
@@ -781,26 +782,6 @@ function AskNextCard({ vehicle, selectedColor, onAction }) {
           }
         />
 
-        <AskRow
-          icon="▣"
-          title="Get quotation"
-          sub={`Quote in ${colorName}`}
-          onClick={() =>
-            fireColorAction(
-              "Get quotation",
-              {
-                vehicle,
-                selectedColor,
-                color: selectedColor,
-                type: "get_quotation",
-                intent: ACI_INTENTS.QUOTATION,
-                canvasType: ACI_CANVAS_TYPES.QUOTATION,
-                query: `Get quotation for ${vehicleTitle} in ${colorName}`,
-              },
-              onAction,
-            )
-          }
-        />
       </div>
     </section>
   );
@@ -1178,27 +1159,6 @@ function MobileScreen({
           <p>{selectedColor.description}</p>
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            fireColorAction(
-              "Get quotation",
-              {
-                vehicle,
-                selectedColor,
-                color: selectedColor,
-                query: `Get quotation for ${vehicleTitle} in ${colorName}`,
-                intent: ACI_INTENTS.QUOTATION,
-                canvasType: ACI_CANVAS_TYPES.QUOTATION,
-                type: "get_quotation",
-              },
-              onAction,
-            )
-          }
-        >
-          Get quote
-          <ChevronRight size={17} />
-        </button>
       </motion.section>
 
       <motion.div variants={fadeUp}>

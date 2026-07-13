@@ -18,7 +18,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { ChevronDown, Heart, History, X } from "lucide-react";
+import { ArrowDown, ChevronDown, Heart, History, X } from "lucide-react";
 
 import { AciComposer } from "../shared/AciAssistShared";
 import AciV2PortalHeader from "../shared/AciV2PortalHeader";
@@ -26,6 +26,7 @@ import AciV2PortalHeader from "../shared/AciV2PortalHeader";
 import { getDisplayVehicleFromContext } from "../context/aciV2ContextManager";
 
 import AciV2ChatMessage, { AciV2ThinkingMessage } from "./AciV2ChatMessage";
+import AciV2ChatExperienceStyles from "./AciV2ChatExperienceStyles";
 
 export default function AciV2ChatShell({
   homeData,
@@ -41,6 +42,7 @@ export default function AciV2ChatShell({
   onGoHome,
 }) {
   const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const [showJumpToLatest, setShowJumpToLatest] = useState(false);
   const contextMenuRef = useRef(null);
   const hasMessages = Array.isArray(messages) && messages.length > 0;
 
@@ -58,30 +60,98 @@ export default function AciV2ChatShell({
 
   const city = activeVehicle?.city || sessionContext?.anchorCity || "Delhi";
 
-  const contextLabel = `${model} • ${city}`;
+  const comparisonVehicles =
+    sessionContext?.activeComparison?.vehicles ||
+    sessionContext?.selectedComparisonSet?.vehicles ||
+    sessionContext?.contextState?.activeComparison?.vehicles ||
+    [];
+  const comparisonLabel = Array.isArray(comparisonVehicles) && comparisonVehicles.length > 1
+    ? comparisonVehicles
+        .slice(0, 2)
+        .map((vehicle) => vehicle?.model || vehicle?.fullModel)
+        .filter(Boolean)
+        .join(" vs ")
+    : "";
+  const contextLabel = `${comparisonLabel || model} • ${city}`;
 
+  const threadRef = useRef(null);
   const latestExchangeRef = useRef(null);
   const threadEndRef = useRef(null);
+  const autoFollowRef = useRef(true);
+  const pinLatestAnswerRef = useRef(false);
 
-  const scrollToLatest = useCallback((behavior = "smooth") => {
-    const target = latestExchangeRef.current || threadEndRef.current;
-
-    target?.scrollIntoView({
-      behavior,
-      block: "start",
-      inline: "nearest",
+  const scrollToLatest = useCallback((behavior = "smooth", force = false) => {
+    const thread = threadRef.current;
+    if (!thread || (!force && !autoFollowRef.current)) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    const latestTarget = latestExchangeRef.current;
+    const latestTargetTop = latestTarget
+      ? thread.scrollTop +
+        latestTarget.getBoundingClientRect().top -
+        thread.getBoundingClientRect().top
+      : 0;
+    const top = pinLatestAnswerRef.current && latestTarget
+      ? Math.max(0, latestTargetTop - 8)
+      : thread.scrollHeight;
+    thread.scrollTo({
+      top,
+      behavior: reducedMotion ? "auto" : behavior,
     });
+    autoFollowRef.current = true;
+    setShowJumpToLatest(false);
   }, []);
 
+  const handleThreadScroll = useCallback(() => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
+    const nearBottom = distanceFromBottom < 96;
+    const latestTarget = latestExchangeRef.current;
+    const latestTop = latestTarget
+      ? thread.scrollTop +
+        latestTarget.getBoundingClientRect().top -
+        thread.getBoundingClientRect().top
+      : Number.NaN;
+    const nearPinnedAnswer = pinLatestAnswerRef.current && Number.isFinite(latestTop)
+      ? Math.abs(thread.scrollTop - Math.max(0, latestTop - 8)) < 32
+      : false;
+    const followsConversation = nearBottom || nearPinnedAnswer;
+    autoFollowRef.current = followsConversation;
+    setShowJumpToLatest(!followsConversation);
+  }, []);
+
+  const latestMessage = hasMessages ? messages[messages.length - 1] : null;
+  const latestMessageKey = `${latestMessage?.id || messages?.length || 0}:${isLoading ? 1 : 0}:${error || ""}`;
+
   useEffect(() => {
+    pinLatestAnswerRef.current = latestMessage?.role === "assistant";
+    if (latestMessage?.role === "user") autoFollowRef.current = true;
+    if (!autoFollowRef.current) {
+      setShowJumpToLatest(true);
+      return undefined;
+    }
+
+    let followTimer;
     const frame = window.requestAnimationFrame(() => {
       scrollToLatest();
-      window.setTimeout(() => scrollToLatest(), 120);
-      window.setTimeout(() => scrollToLatest(), 320);
+      followTimer = window.setTimeout(() => scrollToLatest(), 140);
     });
 
-    return () => window.cancelAnimationFrame(frame);
-  }, [messages?.length, isLoading, error, scrollToLatest]);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(followTimer);
+    };
+  }, [latestMessage?.role, latestMessageKey, scrollToLatest]);
+
+  useEffect(() => {
+    const target = latestExchangeRef.current;
+    if (!target || typeof ResizeObserver === "undefined") return undefined;
+    const observer = new ResizeObserver(() => {
+      if (autoFollowRef.current) scrollToLatest("auto");
+    });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [latestMessageKey, scrollToLatest]);
 
   useEffect(() => {
     if (!contextMenuOpen) return undefined;
@@ -174,16 +244,7 @@ export default function AciV2ChatShell({
     });
   };
 
-  const latestExchangeIndex = (() => {
-    if (!hasMessages) return -1;
-
-    const list = Array.isArray(messages) ? messages : [];
-    for (let index = list.length - 1; index >= 0; index -= 1) {
-      if (list[index]?.role === "assistant") return index;
-    }
-
-    return list.length - 1;
-  })();
+  const latestExchangeIndex = hasMessages ? messages.length - 1 : -1;
 
   return (
     <>
@@ -210,7 +271,7 @@ export default function AciV2ChatShell({
   --caro-context-gap: 7px;
   --caro-context-h: 28px;
   --caro-after-context-gap: 22px;
-  --caro-composer-space: calc(166px + env(safe-area-inset-bottom));
+  --caro-composer-space: calc(108px + env(safe-area-inset-bottom));
 
   --caro-top-space: calc(
     var(--caro-header-top) +
@@ -273,6 +334,19 @@ export default function AciV2ChatShell({
   content: none !important;
 }
 
+.aci-chat-shell::after {
+  content: "";
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 180;
+  height: calc(82px + env(safe-area-inset-bottom));
+  pointer-events: none;
+  background: #ffffff;
+  border-top: 1px solid rgba(226, 232, 240, .7);
+}
+
 /* ========================================================================
    FIXED TOP AREA
    ======================================================================== */
@@ -288,7 +362,9 @@ export default function AciV2ChatShell({
 
   pointer-events: none;
 
-  background: transparent;
+  height: var(--caro-top-space);
+  background: #ffffff;
+  border-bottom: 1px solid rgba(226, 232, 240, .62);
 }
 
 .aci-fixed-top-stage {
@@ -825,20 +901,26 @@ export default function AciV2ChatShell({
 }
 
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card),
-.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) {
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4),
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card),
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) {
   position: relative;
   display: block !important;
 }
 
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-orb,
-.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-orb {
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-orb {
   position: absolute !important;
   left: 0 !important;
   top: 0 !important;
 }
 
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-assistant-stack,
-.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack {
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-assistant-stack,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-assistant-stack {
   width: 100% !important;
   max-width: 100% !important;
   padding-left: 0 !important;
@@ -882,7 +964,7 @@ export default function AciV2ChatShell({
     --caro-context-gap: 6px;
     --caro-context-h: 27px;
     --caro-after-context-gap: 18px;
-    --caro-composer-space: calc(176px + env(safe-area-inset-bottom));
+    --caro-composer-space: calc(112px + env(safe-area-inset-bottom));
   }
 
   .aci-fixed-top-stage,
@@ -960,7 +1042,7 @@ export default function AciV2ChatShell({
 
     padding-top: 0;
 
-    overflow-x: visible;
+    overflow-x: hidden;
   }
 
   .aci-chat-shell .aci-chat-result-card,
@@ -1001,6 +1083,7 @@ export default function AciV2ChatShell({
 
 
       `}</style>
+      <AciV2ChatExperienceStyles />
 
       <main className="aci-chat-shell aci-shell">
         {/* FIXED HEADER + CONTEXT */}
@@ -1084,6 +1167,8 @@ export default function AciV2ChatShell({
           <section
             className="aci-chat-thread aci-thread"
             aria-label="CARO conversation"
+            ref={threadRef}
+            onScroll={handleThreadScroll}
           >
             {!hasMessages ? (
               <AciV2ChatMessage
@@ -1132,6 +1217,18 @@ export default function AciV2ChatShell({
             <div ref={threadEndRef} className="aci-chat-scroll-anchor" />
           </section>
         </section>
+
+        {showJumpToLatest ? (
+          <button
+            type="button"
+            className="aci-chat-jump-latest"
+            onClick={() => scrollToLatest("smooth", true)}
+            aria-label="Jump to latest answer"
+            title="Jump to latest"
+          >
+            <ArrowDown size={18} strokeWidth={2.2} />
+          </button>
+        ) : null}
 
         <AciComposer
           onAction={onAction}

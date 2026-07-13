@@ -47,7 +47,7 @@ export default function AciV2InlineRenderer({ inlineType = "", payload = {}, onA
   const Renderer = INLINE_RENDERERS[key] || null;
 
   if (!Renderer) return null;
-  return <Renderer payload={payload} onAction={onAction} />;
+  return <Renderer payload={{ ...payload, inlineType: key }} onAction={onAction} />;
 }
 
 export { INLINE_RENDERERS };

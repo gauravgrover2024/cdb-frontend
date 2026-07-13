@@ -620,8 +620,17 @@ export default function AciAssistV2() {
       });
       const fallbackVehicle = firstVehicle(targetVehicle, selectedVehicle);
       const fallbackVehicleKey = getVehicleModelKey(fallbackVehicle);
+      const comparisonVehicles = firstArray(
+        contextPatch.activeComparison?.vehicles,
+        contextPatch.selectedComparisonSet?.vehicles,
+        contextPatch.contextState?.activeComparison?.vehicles,
+      );
+      const comparisonScopedResponse =
+        Number(contextPatch.compoundRequest?.modelCount || 0) > 1 ||
+        comparisonVehicles.length > 1;
       const canUseFallbackVehicle = Boolean(
-        fallbackVehicle &&
+        !comparisonScopedResponse &&
+          fallbackVehicle &&
           (!contextModelKey ||
             !fallbackVehicleKey ||
             contextModelKey === fallbackVehicleKey),
@@ -721,8 +730,16 @@ export default function AciAssistV2() {
             widget.leadingQuestions,
           ),
           contextPatch,
+          journeyGuidance:
+            backend.journeyGuidance ||
+            widget.journeyGuidance ||
+            contextPatch.customerJourney ||
+            null,
           sourceTransparency: backend.sourceTransparency || null,
           runtimeResultsMeta: backend.runtimeResultsMeta || [],
+          answerBlocks: firstArray(backend.answerBlocks),
+          compoundRequest:
+            backend.compoundRequest || contextPatch.compoundRequest || null,
           vehicle: scopedVehicle,
         },
       ]);
