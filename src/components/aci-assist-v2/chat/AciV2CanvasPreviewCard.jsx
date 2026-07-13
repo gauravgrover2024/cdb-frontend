@@ -1142,7 +1142,7 @@ function AciV2PricePreviewArea({
                   src={heroImage}
                   alt={vehicleName}
                   loading="eager"
-                  fetchPriority="high"
+                  fetchpriority="high"
                   draggable="false"
                 />
               ) : (
@@ -2252,7 +2252,7 @@ function AciV2ColorPreviewArea({
                   src={selectedColor.imageUrl}
                   alt={`${vehicleName} in ${selectedColorName}`}
                   loading="eager"
-                  fetchPriority="high"
+                  fetchpriority="high"
                   draggable="false"
                 />
               </motion.div>
@@ -3973,7 +3973,7 @@ function AciV2FeaturePreviewArea({
                     src={heroImage}
                     alt={`${vehicleName} ${selectedVariantLabel}`}
                     loading="eager"
-                    fetchPriority="high"
+                    fetchpriority="high"
                     draggable="false"
                   />
                 ) : (

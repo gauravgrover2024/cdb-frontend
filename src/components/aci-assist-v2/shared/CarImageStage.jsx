@@ -48,7 +48,7 @@ export default function CarImageStage({
               onImageReady?.(false);
             }}
             loading={imageLoading}
-            fetchPriority={fetchPriority}
+            fetchpriority={fetchPriority}
             decoding="async"
             draggable="false"
           />

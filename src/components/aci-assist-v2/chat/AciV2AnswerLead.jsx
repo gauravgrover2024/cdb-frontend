@@ -30,14 +30,20 @@ const number = (...values) => {
 const formatPrice = (value) => {
   const amount = Number(value || 0);
   if (!amount) return "";
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
+  const compact = (numberValue) => Number(numberValue.toFixed(2)).toString();
+  if (amount >= 10000000) return `₹${compact(amount / 10000000)}Cr`;
+  if (amount >= 100000) return `₹${compact(amount / 100000)}L`;
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
     maximumFractionDigits: 0,
   }).format(amount);
 };
+
+const displayPlace = (value = "") =>
+  String(value || "")
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (character) => character.toUpperCase());
 
 const getRows = (message = {}, widget = {}) => {
   const candidates = [
@@ -102,8 +108,8 @@ const pricePresentation = ({ message, widget, rows }) => {
   return {
     tone: "price",
     icon: IndianRupee,
-    eyebrow: `${city} · Price guide`,
-    title: entry.ex ? `${model} starts at ${formatPrice(entry.ex)}` : text(widget.title, message.title),
+    eyebrow: `${city} prices`,
+    title: entry.ex ? `${model}, from ${formatPrice(entry.ex)}` : text(widget.title, message.title),
     metrics: [
       entry.onRoad
         ? { value: formatPrice(entry.onRoad), label: "on-road from" }
@@ -113,7 +119,7 @@ const pricePresentation = ({ message, widget, rows }) => {
         ? { value: formatPrice(top.ex), label: "top ex-showroom" }
         : null,
     ].filter(Boolean),
-    note: "Optional add-ons stay separate, so the comparison remains clean.",
+    note: "On-road figures exclude optional accessories.",
   };
 };
 
@@ -199,14 +205,17 @@ const compoundPresentation = ({ message }) => {
     .map((item) => `${number(item.availableCount)}/${number(item.totalVariants, item.checkedVariants)}`)
     .filter((item) => !item.includes("0/0"));
   const colorCounts = colorBlocks.map((block) => asArray(block.widget?.rows).length).filter(Boolean);
+  const capabilityCount = [featureBlock, priceBlocks.length, colorBlocks.length].filter(Boolean).length;
 
   return {
     tone: "compare",
     icon: GitCompareArrows,
-    eyebrow: "Complete comparison",
+    eyebrow: capabilityCount > 1 ? "Complete comparison" : "Side-by-side view",
     title: names.length >= 2
       ? `${names[0]} vs ${names[1]}, answered in one view`
-      : "Your complete comparison is ready",
+      : priceBlocks.length >= 2
+        ? "Prices, side by side"
+        : "Your comparison is ready",
     metrics: [
       availability.length >= 2
         ? { value: availability.join(" vs "), label: text(featureRow.displayName, featureRow.feature, "feature availability") }
@@ -218,7 +227,34 @@ const compoundPresentation = ({ message }) => {
         ? { value: entryPrices.map(formatPrice).join(" vs "), label: "starting ex-showroom" }
         : null,
     ].filter(Boolean),
-    note: "Everything you asked for is grouped by car below.",
+    note: capabilityCount > 1
+      ? "Everything you asked for is grouped by car below."
+      : "Only confirmed details are shown below.",
+  };
+};
+
+const recommendationPresentation = ({ message, widget, rows }) => {
+  const city = displayPlace(text(widget.city, message.contextPatch?.anchorCity, "New Delhi"));
+  const feature = text(widget.featureName, widget.feature, widget.data?.featureName, "your must-have feature");
+  const top = rows[0] || {};
+  const topName = text(top.fullModel, top.displayName, [top.make, top.model].filter(Boolean).join(" "));
+  const start = number(top.startsFromPrice, top.bestUnderBudgetPrice, top.exShowroomPrice);
+  const budget = number(
+    widget.filters?.budgetMax,
+    widget.data?.filters?.budgetMax,
+    message.contextPatch?.contextState?.buyerContext?.maxBudget,
+  );
+  return {
+    tone: "recommendation",
+    icon: CarFront,
+    eyebrow: `${city} shortlist`,
+    title: `${rows.length} strong ${feature} match${rows.length === 1 ? "" : "es"}${budget ? ` under ${formatPrice(budget)}` : ""}`,
+    metrics: [
+      topName ? { value: topName, label: "start here" } : null,
+      start ? { value: formatPrice(start), label: "starts from" } : null,
+      rows.length ? { value: String(rows.length), label: "shortlisted models" } : null,
+    ].filter(Boolean),
+    note: "Start with the top three, then narrow by gearbox, fuel and daily use.",
   };
 };
 
@@ -272,6 +308,10 @@ const buildPresentation = ({ message = {}, widget = {}, hasRichContent = false }
 
   if (/score_insight/.test(`${canvasType} ${intent} ${inlineType}`) && rows.length) {
     return scorePresentation({ message, widget, rows });
+  }
+
+  if (/vehicle_recommendation|recommendation_results|feature_match_builder/.test(`${canvasType} ${intent}`) && rows.length) {
+    return recommendationPresentation({ message, widget, rows });
   }
 
   if (/price|pricelist/.test(`${canvasType} ${intent}`) && rows.length) {

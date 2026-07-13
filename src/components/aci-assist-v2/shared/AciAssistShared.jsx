@@ -1075,7 +1075,7 @@ export function AciVehiclePhoto({
       onError={onError}
       className={`creta-photo vehicle-photo ${className}`}
       loading={loading}
-      fetchPriority={fetchPriority}
+      fetchpriority={fetchPriority}
       decoding="async"
       draggable="false"
     />

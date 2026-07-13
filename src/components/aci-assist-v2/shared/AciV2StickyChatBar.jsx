@@ -325,7 +325,7 @@ export default function AciV2StickyChatBar({
           right: auto;
           width: min(430px, calc(100vw - 32px));
           transform: translateX(-50%);
-          bottom: calc(10px + env(safe-area-inset-bottom));
+          bottom: calc(4px + env(safe-area-inset-bottom));
           z-index: 220;
           pointer-events: none;
           animation: aciV2ChatFadeIn .32s ease;
@@ -428,14 +428,14 @@ export default function AciV2StickyChatBar({
         }
 
         .aci-v2-chatdock .aci-v2-chatbar {
-          height: 58px;
+          height: 50px;
           border-radius: 999px;
           border: 1px solid #dbe3ef;
           background: rgba(255,255,255,.96);
           box-shadow: 0 26px 60px -44px rgba(15,23,42,.5), inset 0 1px 0 #fff;
           backdrop-filter: blur(16px);
           display: grid;
-          grid-template-columns: 40px 1fr 36px 44px;
+          grid-template-columns: 36px 1fr 32px 38px;
           align-items: center;
           gap: 4px;
           padding: 5px;
@@ -451,22 +451,22 @@ export default function AciV2StickyChatBar({
         }
 
         .aci-v2-chatdock .chat-btn.spark {
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           background: linear-gradient(135deg, #eef4ff, #f7fbff);
           border: 1px solid #d5e1f5;
           color: #2257df;
         }
 
         .aci-v2-chatdock .chat-btn.mic {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           color: #51607a;
         }
 
         .aci-v2-chatdock .chat-btn.send {
-          width: 44px;
-          height: 44px;
+          width: 38px;
+          height: 38px;
           background: linear-gradient(135deg, #2563eb, #1455ef);
           color: white;
           box-shadow: 0 14px 34px -20px rgba(37,99,235,.75);
@@ -495,26 +495,26 @@ export default function AciV2StickyChatBar({
         .aci-v2-chatdock textarea::placeholder { color: #90a1bc; }
 
         .aci-v2-chatdock .aci-v2-disclaimer {
-          margin: 8px 0 0;
+          margin: 4px 0 0;
           text-align: center;
-          font-size: 11px;
+          font-size: 9.5px;
           color: #8a99af;
           font-weight: 540;
         }
 
         .aci-v2-chatdock.is-desktop {
           width: min(640px, calc(100vw - 56px));
-          bottom: calc(2px + env(safe-area-inset-bottom));
+          bottom: calc(1px + env(safe-area-inset-bottom));
         }
 
         .aci-v2-chatdock.is-desktop .aci-v2-chatbar {
-          height: 56px;
-          grid-template-columns: 38px 1fr 36px 42px;
+          height: 50px;
+          grid-template-columns: 36px 1fr 32px 38px;
         }
 
         .aci-v2-chatdock.is-desktop .chat-btn.send {
-          width: 42px;
-          height: 42px;
+          width: 38px;
+          height: 38px;
         }
 
         @media (max-width: 520px) {

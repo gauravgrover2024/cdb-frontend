@@ -7,6 +7,7 @@ import AciV2AnswerLead from "./AciV2AnswerLead";
 import AciV2JourneyActions from "./AciV2JourneyActions";
 import {
   AciV2CompoundInlineCard,
+  AciV2RecommendationInlineCard,
   AciV2ScoreInsightInlineCard,
 } from "./AciV2SpecialInlineCards";
 import {
@@ -50,6 +51,7 @@ export function AciV2ThinkingMessage() {
 
 function AciV2ChatMessage({
   message = {},
+  historyMessages = [],
   selectedVehicle,
   onAction,
   onOpenCanvas,
@@ -70,13 +72,16 @@ function AciV2ChatMessage({
   const isScoreInsight = /score_insight/.test(
     `${message.intent || widget.intent || ""} ${message.canvasType || widget.canvasType || ""} ${inlineType}`,
   );
+  const isRecommendation = /vehicle_recommendation|recommendation_results|feature_match_builder/.test(
+    `${message.intent || widget.intent || ""} ${message.canvasType || widget.canvasType || ""}`,
+  );
   const hasGeneralInline =
     Boolean(inlineType) &&
     !hasCanvas &&
     !hasFeatureInline &&
     !hasCompoundAnswer &&
     !isScoreInsight;
-  const hasRichContent = hasCanvas || hasFeatureInline || hasGeneralInline;
+  const hasRichContent = hasCanvas || hasFeatureInline || hasGeneralInline || isRecommendation;
   const inlinePayload = useMemo(
     () => ({ ...widget, ...message, data: widget.data || message.data || {} }),
     [message, widget],
@@ -116,7 +121,15 @@ function AciV2ChatMessage({
           />
         ) : null}
 
-        {hasFeatureInline && !hasCompoundAnswer && !isScoreInsight ? (
+        {isRecommendation && !hasCompoundAnswer && !isScoreInsight ? (
+          <AciV2RecommendationInlineCard
+            message={message}
+            widget={widget}
+            onAction={onAction}
+          />
+        ) : null}
+
+        {hasFeatureInline && !hasCompoundAnswer && !isScoreInsight && !isRecommendation ? (
           <AciV2FeatureInlineCard
             message={message}
             selectedVehicle={selectedVehicle}
@@ -133,7 +146,7 @@ function AciV2ChatMessage({
           />
         ) : null}
 
-        {hasCanvas && !hasCompoundAnswer && !isScoreInsight ? (
+        {hasCanvas && !hasCompoundAnswer && !isScoreInsight && !isRecommendation ? (
           <AciV2CanvasPreviewCard
             message={message}
             selectedVehicle={selectedVehicle}
@@ -149,7 +162,12 @@ function AciV2ChatMessage({
         ) : null}
 
         {!message.error ? (
-          <AciV2JourneyActions message={message} widget={widget} onAction={onAction} />
+          <AciV2JourneyActions
+            message={message}
+            widget={widget}
+            historyMessages={historyMessages}
+            onAction={onAction}
+          />
         ) : null}
       </div>
     </article>

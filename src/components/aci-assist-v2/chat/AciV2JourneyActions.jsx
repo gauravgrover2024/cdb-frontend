@@ -9,6 +9,60 @@ const actionLabel = (action = {}) =>
 const actionKey = (action = {}) =>
   String(action.id || action.query || actionLabel(action)).trim().toLowerCase();
 
+const normalize = (value = "") =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const capabilityFor = (value = {}) => {
+  const source = normalize(
+    typeof value === "string"
+      ? value
+      : [
+          value.intent,
+          value.canvasType,
+          value.inlineType,
+          value.label,
+          value.query,
+          value.text,
+          value.answer,
+        ].filter(Boolean).join(" "),
+  );
+  if (/\b(price|prices|pricelist|price list|on road|ex showroom)\b/.test(source)) return "price";
+  if (/\b(colour|colours|color|colors)\b/.test(source)) return "color";
+  if (/\b(emi|loan|finance|down payment)\b/.test(source)) return "finance";
+  if (/\b(compare|comparison|versus| vs )\b/.test(` ${source} `)) return "comparison";
+  if (/\b(recommend|recommendation|shortlist|find cars|best car|best suv)\b/.test(source)) return "recommendation";
+  if (/\b(feature|features|sunroof|abs|airbag|safety)\b/.test(source)) return "feature";
+  if (/\b(variant|variants|trim|trims)\b/.test(source)) return "variant";
+  return "";
+};
+
+const scopeFor = (value = {}) => {
+  const candidates = [
+    value.vehicle,
+    value.widget?.vehicle,
+    value.contextPatch?.selectedVehicle,
+    value.action?.vehicle,
+    value.action?.contextPatch?.selectedVehicle,
+  ].filter(Boolean);
+  return candidates
+    .map((vehicle = {}) =>
+      normalize(
+        vehicle.fullModel ||
+          vehicle.displayName ||
+          [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" ") ||
+          vehicle.model,
+      ),
+    )
+    .filter(Boolean);
+};
+
+const scopesOverlap = (left = [], right = []) =>
+  left.some((a) => right.some((b) => a === b || a.includes(b) || b.includes(a)));
+
 const isLeadAction = (action = {}) =>
   action.type === "lead" ||
   /\b(lead|quotation|quote|callback|enquiry|inquiry|contact|book)\b/i.test(
@@ -46,10 +100,11 @@ const comparisonModelsFor = (message = {}, widget = {}) => {
     .slice(0, 2);
 };
 
-const buildJourneyActions = ({ message = {}, widget = {} } = {}) => {
+const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] } = {}) => {
   const journey = getJourney(message, widget);
   const stage = String(journey.stage || message.contextPatch?.customerStage || "research").toLowerCase();
-  const decisionFlow = ["decision", "enquiry_ready", "enquiry"].includes(stage);
+  const readinessScore = Number(journey.readinessScore || 0);
+  const decisionFlow = ["decision", "enquiry_ready", "enquiry"].includes(stage) && readinessScore >= 55;
   const leadAllowed = decisionFlow && journey.leadMode !== "hidden";
   const candidates = [
     ...asArray(message.actions),
@@ -67,6 +122,16 @@ const buildJourneyActions = ({ message = {}, widget = {} } = {}) => {
   const seen = new Set();
   const actions = [];
   let leadCount = 0;
+  const currentScope = scopeFor({ ...message, widget });
+  const currentIntent = `${message.intent || ""} ${widget.intent || ""} ${message.canvasType || ""}`;
+  const currentCapability = capabilityFor({ ...message, widget });
+  const explored = asArray(historyMessages)
+    .filter((item) => item?.role === "assistant")
+    .map((item) => ({
+      capability: capabilityFor({ ...item, widget: item.widget || {} }),
+      scope: scopeFor(item),
+    }))
+    .filter((item) => item.capability);
 
   for (const candidate of candidates) {
     const action = typeof candidate === "string"
@@ -79,7 +144,6 @@ const buildJourneyActions = ({ message = {}, widget = {} } = {}) => {
       /vehicle_(colors?|pricelist|price)|color_studio|pricelist_canvas/i.test(
         `${action.intent || ""} ${action.canvasType || ""} ${action.label || ""}`,
       );
-    const currentIntent = `${message.intent || ""} ${widget.intent || ""} ${message.canvasType || ""}`;
     const staleComparisonStep =
       !/comparison|compare/.test(currentIntent) &&
       /compare equivalent variants|match variants|comparable variants/i.test(label);
@@ -87,10 +151,30 @@ const buildJourneyActions = ({ message = {}, widget = {} } = {}) => {
       /comparison|compare/.test(currentIntent) &&
       /compare equivalent variants|match variants|comparable variants/i.test(label) &&
       resolvedComparisonVehicles.filter((vehicle = {}) => vehicle.variant || vehicle.variantName).length >= 2;
+    const candidateCapability = capabilityFor(action);
+    const candidateScope = scopeFor(action);
+    const targetScope = candidateScope.length ? candidateScope : currentScope;
+    const alreadyExplored = Boolean(
+      candidateCapability &&
+      targetScope.length &&
+      explored.some(
+        (item) =>
+          item.capability === candidateCapability &&
+          item.scope.length &&
+          scopesOverlap(item.scope, targetScope),
+      ),
+    );
+    const repeatsCurrentAnswer = Boolean(
+      candidateCapability &&
+      currentCapability &&
+      candidateCapability === currentCapability,
+    );
     if (!label || !key || seen.has(key)) continue;
     if (alreadyAnsweredInCompound) continue;
     if (staleComparisonStep) continue;
     if (completedComparisonStep) continue;
+    if (alreadyExplored) continue;
+    if (repeatsCurrentAnswer) continue;
     if (lead && (!leadAllowed || leadCount >= 1)) continue;
     seen.add(key);
     if (lead) leadCount += 1;
@@ -107,14 +191,14 @@ const buildJourneyActions = ({ message = {}, widget = {} } = {}) => {
     actions,
     flow: decisionFlow ? "decision" : "research",
     stage,
-    readinessScore: Number(journey.readinessScore || 0),
+    readinessScore,
   };
 };
 
-function AciV2JourneyActions({ message = {}, widget = {}, onAction }) {
+function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], onAction }) {
   const presentation = useMemo(
-    () => buildJourneyActions({ message, widget }),
-    [message, widget],
+    () => buildJourneyActions({ message, widget, historyMessages }),
+    [historyMessages, message, widget],
   );
   const { actions, flow } = presentation;
   if (!actions.length) return null;

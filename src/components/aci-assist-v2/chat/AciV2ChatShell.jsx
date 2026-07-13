@@ -78,23 +78,34 @@ export default function AciV2ChatShell({
   const latestExchangeRef = useRef(null);
   const threadEndRef = useRef(null);
   const autoFollowRef = useRef(true);
-  const pinLatestAnswerRef = useRef(false);
 
-  const scrollToLatest = useCallback((behavior = "smooth", force = false) => {
+  const scrollToExchange = useCallback((behavior = "smooth", force = false) => {
     const thread = threadRef.current;
     if (!thread || (!force && !autoFollowRef.current)) return;
     const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
     const latestTarget = latestExchangeRef.current;
-    const latestTargetTop = latestTarget
-      ? thread.scrollTop +
+    if (!latestTarget) return;
+    const top = Math.max(
+      0,
+      thread.scrollTop +
         latestTarget.getBoundingClientRect().top -
-        thread.getBoundingClientRect().top
-      : 0;
-    const top = pinLatestAnswerRef.current && latestTarget
-      ? Math.max(0, latestTargetTop - 8)
-      : thread.scrollHeight;
+        thread.getBoundingClientRect().top -
+        8,
+    );
     thread.scrollTo({
       top,
+      behavior: reducedMotion ? "auto" : behavior,
+    });
+    autoFollowRef.current = true;
+    setShowJumpToLatest(false);
+  }, []);
+
+  const scrollToBottom = useCallback((behavior = "smooth") => {
+    const thread = threadRef.current;
+    if (!thread) return;
+    const reducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+    thread.scrollTo({
+      top: thread.scrollHeight,
       behavior: reducedMotion ? "auto" : behavior,
     });
     autoFollowRef.current = true;
@@ -106,25 +117,14 @@ export default function AciV2ChatShell({
     if (!thread) return;
     const distanceFromBottom = thread.scrollHeight - thread.scrollTop - thread.clientHeight;
     const nearBottom = distanceFromBottom < 96;
-    const latestTarget = latestExchangeRef.current;
-    const latestTop = latestTarget
-      ? thread.scrollTop +
-        latestTarget.getBoundingClientRect().top -
-        thread.getBoundingClientRect().top
-      : Number.NaN;
-    const nearPinnedAnswer = pinLatestAnswerRef.current && Number.isFinite(latestTop)
-      ? Math.abs(thread.scrollTop - Math.max(0, latestTop - 8)) < 32
-      : false;
-    const followsConversation = nearBottom || nearPinnedAnswer;
-    autoFollowRef.current = followsConversation;
-    setShowJumpToLatest(!followsConversation);
+    autoFollowRef.current = nearBottom;
+    setShowJumpToLatest(!nearBottom);
   }, []);
 
   const latestMessage = hasMessages ? messages[messages.length - 1] : null;
   const latestMessageKey = `${latestMessage?.id || messages?.length || 0}:${isLoading ? 1 : 0}:${error || ""}`;
 
   useEffect(() => {
-    pinLatestAnswerRef.current = latestMessage?.role === "assistant";
     if (latestMessage?.role === "user") autoFollowRef.current = true;
     if (!autoFollowRef.current) {
       setShowJumpToLatest(true);
@@ -133,25 +133,15 @@ export default function AciV2ChatShell({
 
     let followTimer;
     const frame = window.requestAnimationFrame(() => {
-      scrollToLatest();
-      followTimer = window.setTimeout(() => scrollToLatest(), 140);
+      scrollToExchange();
+      followTimer = window.setTimeout(() => scrollToExchange(), 120);
     });
 
     return () => {
       window.cancelAnimationFrame(frame);
       window.clearTimeout(followTimer);
     };
-  }, [latestMessage?.role, latestMessageKey, scrollToLatest]);
-
-  useEffect(() => {
-    const target = latestExchangeRef.current;
-    if (!target || typeof ResizeObserver === "undefined") return undefined;
-    const observer = new ResizeObserver(() => {
-      if (autoFollowRef.current) scrollToLatest("auto");
-    });
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [latestMessageKey, scrollToLatest]);
+  }, [latestMessage?.role, latestMessageKey, scrollToExchange]);
 
   useEffect(() => {
     if (!contextMenuOpen) return undefined;
@@ -244,7 +234,12 @@ export default function AciV2ChatShell({
     });
   };
 
-  const latestExchangeIndex = hasMessages ? messages.length - 1 : -1;
+  const latestExchangeIndex = hasMessages
+    ? messages.reduce(
+        (latest, message, index) => (message?.role === "user" ? index : latest),
+        -1,
+      )
+    : -1;
 
   return (
     <>
@@ -266,12 +261,12 @@ export default function AciV2ChatShell({
 
   --caro-stage-w: 1480px;
 
-  --caro-header-top: 8px;
-  --caro-header-h: 44px;
-  --caro-context-gap: 7px;
-  --caro-context-h: 28px;
-  --caro-after-context-gap: 22px;
-  --caro-composer-space: calc(108px + env(safe-area-inset-bottom));
+  --caro-header-top: 5px;
+  --caro-header-h: 40px;
+  --caro-context-gap: 3px;
+  --caro-context-h: 23px;
+  --caro-after-context-gap: 7px;
+  --caro-composer-space: calc(72px + env(safe-area-inset-bottom));
 
   --caro-top-space: calc(
     var(--caro-header-top) +
@@ -341,10 +336,10 @@ export default function AciV2ChatShell({
   right: 0;
   bottom: 0;
   z-index: 180;
-  height: calc(82px + env(safe-area-inset-bottom));
+  height: calc(68px + env(safe-area-inset-bottom));
   pointer-events: none;
-  background: #ffffff;
-  border-top: 1px solid rgba(226, 232, 240, .7);
+  background: linear-gradient(180deg, rgba(255,255,255,0), #ffffff 26%);
+  border-top: 0;
 }
 
 /* ========================================================================
@@ -364,7 +359,7 @@ export default function AciV2ChatShell({
 
   height: var(--caro-top-space);
   background: #ffffff;
-  border-bottom: 1px solid rgba(226, 232, 240, .62);
+  border-bottom: 0;
 }
 
 .aci-fixed-top-stage {
@@ -903,7 +898,8 @@ export default function AciV2ChatShell({
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card),
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4),
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card),
-.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) {
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card),
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) {
   position: relative;
   display: block !important;
 }
@@ -911,7 +907,8 @@ export default function AciV2ChatShell({
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-orb,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-orb,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-orb,
-.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-orb {
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-chat-orb {
   position: absolute !important;
   left: 0 !important;
   top: 0 !important;
@@ -920,7 +917,8 @@ export default function AciV2ChatShell({
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-assistant-stack,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-assistant-stack,
-.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-assistant-stack {
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-assistant-stack,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-chat-assistant-stack {
   width: 100% !important;
   max-width: 100% !important;
   padding-left: 0 !important;
@@ -942,9 +940,9 @@ export default function AciV2ChatShell({
 
 .aci-chat-shell .aci-chat-scroll-anchor {
   width: 100%;
-  height: var(--caro-composer-space) !important;
-  min-height: var(--caro-composer-space) !important;
-  flex: 0 0 var(--caro-composer-space) !important;
+  height: 1px !important;
+  min-height: 1px !important;
+  flex: 0 0 1px !important;
   pointer-events: none;
 }
 
@@ -959,12 +957,12 @@ export default function AciV2ChatShell({
   :root {
     --caro-stage-w: 414px;
 
-    --caro-header-top: 8px;
-    --caro-header-h: 44px;
-    --caro-context-gap: 6px;
-    --caro-context-h: 27px;
-    --caro-after-context-gap: 18px;
-    --caro-composer-space: calc(112px + env(safe-area-inset-bottom));
+    --caro-header-top: 5px;
+    --caro-header-h: 40px;
+    --caro-context-gap: 3px;
+    --caro-context-h: 23px;
+    --caro-after-context-gap: 7px;
+    --caro-composer-space: calc(72px + env(safe-area-inset-bottom));
   }
 
   .aci-fixed-top-stage,
@@ -1191,6 +1189,7 @@ export default function AciV2ChatShell({
               >
                 <AciV2ChatMessage
                   message={message}
+                  historyMessages={messages.slice(0, index)}
                   selectedVehicle={activeVehicle}
                   onAction={onAction}
                   onOpenCanvas={onOpenCanvas}
@@ -1222,7 +1221,7 @@ export default function AciV2ChatShell({
           <button
             type="button"
             className="aci-chat-jump-latest"
-            onClick={() => scrollToLatest("smooth", true)}
+            onClick={() => scrollToBottom("smooth")}
             aria-label="Jump to latest answer"
             title="Jump to latest"
           >

@@ -1,6 +1,7 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowRight,
+  CarFront,
   Check,
   IndianRupee,
   ListChecks,
@@ -8,6 +9,7 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
+import { fetchAciVehicleLiveSnapshot } from "../services/aciAssistV2Api";
 
 const asArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
@@ -63,7 +65,7 @@ function CarVisual({ imageUrl, name }) {
       src={imageUrl}
       alt={name}
       loading="eager"
-      fetchPriority="high"
+      fetchpriority="high"
       onError={() => setFailed(true)}
     />
   );
@@ -104,10 +106,14 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
         colorBlock,
         exShowroom: Number(entry.exShowroomPrice || entry.exShowroomPriceValue || 0),
         onRoad: Number(entry.onRoadPrice || entry.onRoadPriceWithoutOptional || 0),
-        colorCount: blockRows(colorBlock).length,
-        availableCount: Number(featureModel.availableCount || 0),
-        totalVariants: Number(featureModel.totalVariants || featureModel.checkedVariants || 0),
-        featureLabel: clean(featureRows[0]?.displayName || featureRows[0]?.feature || "Sunroof"),
+        colorCount: colorBlock ? blockRows(colorBlock).length : null,
+        availableCount: featureBlock ? Number(featureModel.availableCount || 0) : null,
+        totalVariants: featureBlock
+          ? Number(featureModel.totalVariants || featureModel.checkedVariants || 0)
+          : null,
+        featureLabel: featureBlock
+          ? clean(featureRows[0]?.displayName || featureRows[0]?.feature || "Requested feature")
+          : "",
         previewVariants: asArray(featureModel.previewVariants).slice(0, 4),
       };
     });
@@ -128,9 +134,15 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
             <div className="aci-compound-model-copy">
               <h4>{model.name}</h4>
               <div className="aci-compound-facts">
-                <span><IndianRupee size={14} /><b>{formatPrice(model.exShowroom)}</b><small>ex-showroom from</small></span>
-                <span><Sparkles size={14} /><b>{model.availableCount}/{model.totalVariants}</b><small>{model.featureLabel} variants</small></span>
-                <span><Palette size={14} /><b>{model.colorCount}</b><small>colours</small></span>
+                {model.exShowroom ? (
+                  <span><IndianRupee size={14} /><b>{formatPrice(model.exShowroom)}</b><small>ex-showroom from</small></span>
+                ) : null}
+                {model.totalVariants ? (
+                  <span><Sparkles size={14} /><b>{model.availableCount}/{model.totalVariants}</b><small>{model.featureLabel} variants</small></span>
+                ) : null}
+                {model.colorCount ? (
+                  <span><Palette size={14} /><b>{model.colorCount}</b><small>colours</small></span>
+                ) : null}
               </div>
               <div className="aci-compound-model-actions">
                 {model.priceBlock ? (
@@ -171,6 +183,105 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
           </button>
         </>
       ) : null}
+    </section>
+  );
+}
+
+const recommendationRows = (message = {}, widget = {}) =>
+  asArray(widget.rows || message.rows || widget.items || message.items)
+    .filter((row) => clean(row.fullModel || row.displayName || row.model))
+    .slice(0, 3);
+
+const recommendationName = (row = {}) =>
+  clean(
+    row.fullModel ||
+      row.displayName ||
+      [row.make || row.brand, row.model].filter(Boolean).join(" ") ||
+      row.model,
+  );
+
+export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAction }) {
+  const rows = useMemo(() => recommendationRows(message, widget), [message, widget]);
+  const [liveVehicles, setLiveVehicles] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    const missing = rows.filter(
+      (row) => !row.imageUrl && !row.normalizedImageUrl && row.model,
+    );
+    if (!missing.length) return undefined;
+
+    Promise.all(
+      missing.map(async (row) => {
+        const snapshot = await fetchAciVehicleLiveSnapshot({
+          make: row.make || row.brand,
+          model: row.model,
+          city: row.city || widget.city || "New Delhi",
+        }).catch(() => null);
+        return [modelKey(recommendationName(row)), snapshot?.vehicle || null];
+      }),
+    ).then((entries) => {
+      if (!active) return;
+      setLiveVehicles(Object.fromEntries(entries.filter(([, vehicle]) => vehicle)));
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [rows, widget.city]);
+
+  if (!rows.length) return null;
+  const feature = clean(
+    widget.featureName || widget.feature || widget.data?.featureName || "requested features",
+  );
+
+  return (
+    <section className="aci-recommendation-card" aria-label="Recommended cars">
+      <div className="aci-recommendation-grid">
+        {rows.map((row, index) => {
+          const name = recommendationName(row);
+          const liveVehicle = liveVehicles[modelKey(name)] || {};
+          const imageUrl =
+            row.imageUrl || row.normalizedImageUrl || liveVehicle.imageUrl || liveVehicle.normalizedImageUrl;
+          const price =
+            row.startsFromPrice || row.bestUnderBudgetPrice || row.exShowroomPrice;
+          const priceLabel = row.startsFromPriceLabel || formatPrice(price);
+          const variant = clean(row.startsFromVariant || row.bestUnderBudgetVariant || row.variant);
+
+          return (
+            <article className="aci-recommendation-model" key={modelKey(name) || index}>
+              <div className="aci-recommendation-visual">
+                {imageUrl ? (
+                  <CarVisual imageUrl={imageUrl} name={name} />
+                ) : (
+                  <CarFront size={34} strokeWidth={1.5} aria-hidden="true" />
+                )}
+              </div>
+              <span className="aci-recommendation-rank">{index === 0 ? "Start here" : `Option ${index + 1}`}</span>
+              <h4>{name}</h4>
+              {priceLabel ? <strong>{priceLabel} <small>ex-showroom</small></strong> : null}
+              {variant ? <p>{feature} starts from {variant}</p> : null}
+              <button
+                type="button"
+                onClick={() => onAction?.({
+                  id: `recommendation-variants-${modelKey(name)}`,
+                  label: `See ${row.model || name} variants`,
+                  query: `Show ${name} variants with ${feature}`,
+                  type: "ask",
+                  vehicle: {
+                    ...liveVehicle,
+                    make: row.make || row.brand,
+                    model: row.model,
+                    fullModel: name,
+                  },
+                })}
+              >
+                <span>See matching variants</span><ArrowRight size={14} />
+              </button>
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }

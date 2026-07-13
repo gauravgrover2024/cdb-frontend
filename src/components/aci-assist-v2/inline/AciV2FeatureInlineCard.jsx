@@ -1395,7 +1395,7 @@ export default function AciV2FeatureInlineCard({
   const hasImage = Boolean(heroImage);
   const heroCar = heroImage ? (
     <div className="aci-feature-v4-car" style={heroFrameStyle}>
-      <img src={heroImage} alt={vehicleName} loading="eager" fetchPriority="high" draggable="false" />
+      <img src={heroImage} alt={vehicleName} loading="eager" fetchpriority="high" draggable="false" />
     </div>
   ) : null;
 

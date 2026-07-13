@@ -28,6 +28,7 @@ export default function AciV2ChatExperienceStyles() {
       .aci-answer-lead.is-compare .aci-answer-lead-icon { color: #7c3aed; background: #faf7ff; border-color: #e4d9fa; }
       .aci-answer-lead.is-feature .aci-answer-lead-icon { color: #b45309; background: #fffbeb; border-color: #f4e3b4; }
       .aci-answer-lead.is-score .aci-answer-lead-icon { color: #8a5a00; background: #fffaf0; border-color: #ecdcb7; }
+      .aci-answer-lead.is-recommendation .aci-answer-lead-icon { color: #0758f8; background: #eef5ff; border-color: #d5e3f8; }
       .aci-answer-lead.is-error .aci-answer-lead-icon { color: #b42318; background: #fff7f6; border-color: #f1d1ce; }
 
       .aci-answer-lead-copy { min-width: 0; }
@@ -156,25 +157,28 @@ export default function AciV2ChatExperienceStyles() {
       .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-answer-lead,
       .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-answer-lead,
       .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-answer-lead,
-      .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-answer-lead {
+      .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-answer-lead,
+      .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-answer-lead {
         width: calc(100% - 46px);
         margin-left: 46px;
       }
 
       .aci-compound-card,
-      .aci-score-inline-card {
+      .aci-score-inline-card,
+      .aci-recommendation-card {
         width: 100%;
         overflow: hidden;
         border: 1px solid #dce4ef;
         border-radius: 8px;
-        background: #fff;
+        background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
         box-shadow: 0 24px 58px -44px rgba(18, 38, 76, .52);
       }
 
-      .aci-compound-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .aci-compound-model { min-width: 0; padding: 15px; display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: 13px; }
-      .aci-compound-model + .aci-compound-model { border-left: 1px solid #e5eaf1; }
-      .aci-compound-model-visual { height: 116px; display: grid; place-items: center; overflow: hidden; border-radius: 7px; background: #f7f9fc; }
+      .aci-compound-card { padding: 15px; }
+      .aci-compound-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; }
+      .aci-compound-model { min-width: 0; padding: 0; display: grid; grid-template-columns: 138px minmax(0, 1fr); gap: 13px; }
+      .aci-compound-model + .aci-compound-model { border-left: 0; }
+      .aci-compound-model-visual { height: 116px; display: grid; place-items: center; overflow: hidden; border-radius: 7px; background: transparent; }
       .aci-compound-model-visual img { width: 100%; height: 100%; object-fit: contain; }
       .aci-compound-car-fallback { width: 52px; height: 52px; display: grid; place-items: center; border: 1px solid #d9e2ee; border-radius: 50%; color: #6c7890; background: #fff; font-size: 18px; font-weight: 760; }
       .aci-compound-model-copy { min-width: 0; }
@@ -185,12 +189,12 @@ export default function AciV2ChatExperienceStyles() {
       .aci-compound-facts b { color: #24324a; font-size: 11px; line-height: 1.15; white-space: nowrap; }
       .aci-compound-facts small { min-width: 0; color: #788399; font-size: 9.5px; line-height: 1.15; overflow-wrap: anywhere; }
       .aci-compound-model-actions { margin-top: 11px; display: flex; flex-wrap: wrap; gap: 6px; }
-      .aci-compound-model-actions button { min-height: 31px; display: flex; align-items: center; gap: 5px; padding: 6px 8px; border: 1px solid #dce4ef; border-radius: 7px; color: #2a3850; background: #fff; font: inherit; font-size: 10px; font-weight: 680; cursor: pointer; }
+      .aci-compound-model-actions button { min-height: 31px; display: flex; align-items: center; gap: 5px; padding: 5px 0; border: 0; border-radius: 0; color: #0758f8; background: transparent; font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; }
       .aci-compound-model-actions button svg:first-child { color: #0758f8; }
       .aci-compound-model-actions button svg:last-child { color: #7b8799; }
       .aci-compound-model-actions button:hover,
       .aci-compound-model-actions button:focus-visible { border-color: #9abaf2; color: #064fdc; outline: none; }
-      .aci-compound-feature-action { width: 100%; min-height: 42px; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-top: 1px solid #e5eaf1; color: #23334c; background: #fafbfd; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
+      .aci-compound-feature-action { width: 100%; min-height: 38px; margin-top: 10px; padding: 7px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 0; border-top: 1px solid #e5eaf1; color: #23334c; background: transparent; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; }
       .aci-compound-feature-action span { display: flex; align-items: center; gap: 7px; }
       .aci-compound-feature-action span svg { color: #0758f8; }
       .aci-compound-feature-examples { padding: 11px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; border-top: 1px solid #e5eaf1; background: #fff; }
@@ -215,6 +219,77 @@ export default function AciV2ChatExperienceStyles() {
       .aci-score-inline-list em { color: #1e2d46; font-size: 11px; line-height: 1.15; font-style: normal; font-weight: 760; text-align: right; }
       .aci-score-inline-list em small { margin-top: 3px; color: #8a7449; font-size: 8.5px; }
       .aci-score-inline-open { width: 100%; min-height: 40px; padding: 8px 14px; display: flex; align-items: center; justify-content: space-between; border: 0; border-top: 1px solid #e7ebf2; color: #0758f8; background: #fafcff; font: inherit; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+
+      .aci-recommendation-card { padding: 15px; }
+      .aci-recommendation-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+      .aci-recommendation-model { min-width: 0; }
+      .aci-recommendation-visual { height: 116px; display: grid; place-items: center; color: #91a0b5; background: transparent; }
+      .aci-recommendation-visual img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 13px 12px rgba(15, 23, 42, .12)); }
+      .aci-recommendation-rank { display: block; margin-top: 3px; color: #0758f8; font-size: 9px; line-height: 1; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+      .aci-recommendation-model h4 { margin: 6px 0 0; color: #111d34; font-size: 13px; line-height: 1.25; font-weight: 780; letter-spacing: 0; }
+      .aci-recommendation-model > strong { display: block; margin-top: 7px; color: #17243b; font-size: 12px; line-height: 1.2; font-weight: 780; letter-spacing: 0; }
+      .aci-recommendation-model > strong small { color: #7b8799; font-size: 9px; font-weight: 560; }
+      .aci-recommendation-model > p { min-height: 30px; margin: 6px 0 0; color: #68758a; font-size: 10px; line-height: 1.35; font-weight: 540; letter-spacing: 0; }
+      .aci-recommendation-model > button { min-height: 31px; margin-top: 4px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 0; border: 0; color: #0758f8; background: transparent; font: inherit; font-size: 10.5px; line-height: 1.2; font-weight: 700; cursor: pointer; }
+      .aci-recommendation-model > button svg { width: 18px; height: 18px; padding: 3px; border: 1px solid #d9e1ec; border-radius: 50%; color: #5f6d83; }
+
+      .aci-chat-shell .aci-price-feature-leads,
+      .aci-chat-shell .aci-feature-inline-leads {
+        margin-top: 9px !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0 20px !important;
+      }
+      .aci-chat-shell .aci-price-feature-lead,
+      .aci-chat-shell .aci-feature-inline-lead {
+        min-height: 34px !important;
+        padding: 5px 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #0758f8 !important;
+        font-size: 11.5px !important;
+        line-height: 1.25 !important;
+        font-weight: 680 !important;
+      }
+      .aci-chat-shell .aci-price-feature-lead-icon,
+      .aci-chat-shell .aci-feature-inline-lead-icon { display: none !important; }
+      .aci-chat-shell .aci-price-feature-lead-arrow,
+      .aci-chat-shell .aci-feature-inline-lead-arrow {
+        width: 18px !important;
+        height: 18px !important;
+        margin-left: 0 !important;
+        display: grid !important;
+        place-items: center !important;
+        border: 1px solid #d9e1ec !important;
+        border-radius: 50% !important;
+        color: #5f6d83 !important;
+        font-size: 14px !important;
+      }
+      .aci-chat-shell .aci-color-inline-view-all {
+        width: auto !important;
+        min-height: 34px !important;
+        margin-top: 7px !important;
+        padding: 5px 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        box-shadow: none !important;
+        color: #0758f8 !important;
+        font-size: 11.5px !important;
+        line-height: 1.25 !important;
+        font-weight: 680 !important;
+      }
+      .aci-chat-shell .aci-color-inline-view-all > span {
+        width: 18px !important;
+        height: 18px !important;
+        display: grid !important;
+        place-items: center !important;
+        border: 1px solid #d9e1ec !important;
+        border-radius: 50% !important;
+        color: #5f6d83 !important;
+      }
 
       .aci-v2-inline-card {
         width: min(100%, 650px);
@@ -298,8 +373,16 @@ export default function AciV2ChatExperienceStyles() {
         .aci-compound-model + .aci-compound-model { border-left: 0; border-top: 1px solid #e5eaf1; }
         .aci-compound-model-visual { height: 102px; }
         .aci-compound-feature-examples { grid-template-columns: minmax(0, 1fr); }
+        .aci-recommendation-grid { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+        .aci-recommendation-model { display: grid; grid-template-columns: 106px minmax(0, 1fr); grid-template-rows: auto auto auto auto; column-gap: 12px; padding: 8px 0; border-bottom: 1px solid #e8edf4; }
+        .aci-recommendation-model:last-child { border-bottom: 0; }
+        .aci-recommendation-visual { height: 92px; grid-row: 1 / 5; }
+        .aci-recommendation-rank { margin-top: 2px; }
+        .aci-recommendation-model h4 { margin-top: 4px; }
+        .aci-recommendation-model > p { min-height: 0; }
         .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-answer-lead,
-        .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-answer-lead { width: calc(100% - 38px); margin-left: 38px; }
+        .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-answer-lead,
+        .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-answer-lead { width: calc(100% - 38px); margin-left: 38px; }
       }
 
       @media (prefers-reduced-motion: reduce) {
