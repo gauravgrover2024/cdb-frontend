@@ -160,6 +160,15 @@ export default function AciV2StickyChatBar({
     [selectedVehicle],
   );
 
+  const autocompleteRequestContext = useMemo(
+    () => ({
+      ...autocompleteContext,
+      draftText: text,
+      cursorPosition,
+    }),
+    [autocompleteContext, cursorPosition, text],
+  );
+
   const fire = (detail) => {
     if (typeof onAction === "function") onAction(detail);
   };
@@ -187,7 +196,7 @@ export default function AciV2StickyChatBar({
       try {
         const response = await fetchAciAutocomplete({
           query,
-          context: autocompleteContext,
+          context: autocompleteRequestContext,
           limit: 8,
           signal: controller.signal,
         });
@@ -204,7 +213,7 @@ export default function AciV2StickyChatBar({
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [activeToken.query, autocompleteContext, disabled]);
+  }, [activeToken.query, autocompleteRequestContext, disabled]);
 
   const submit = () => {
     const query = String(text || "").trim();
