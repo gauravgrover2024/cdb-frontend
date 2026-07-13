@@ -1,6 +1,8 @@
 import React from "react";
 import {
   EmiAnswerCard,
+  FinanceFaqCard,
+  ClarificationCard,
   FeatureAnswerCard,
   ModelAmbiguityCard,
   PriceSummaryCard,
@@ -21,7 +23,7 @@ const INLINE_RENDERERS = {
   price_summary_card: PriceSummaryCard,
   short_price_card: PriceSummaryCard,
   emi_answer_card: EmiAnswerCard,
-  finance_faq_card: EmiAnswerCard,
+  finance_faq_card: FinanceFaqCard,
   quotation_lead_card: QuotationLeadCard,
   recommendation_mini_card: RecommendationMiniCard,
   score_insight_summary: AciV2DiagnosticInlineCard,
@@ -37,15 +39,15 @@ const INLINE_RENDERERS = {
   spec_answer_card: AciV2DiagnosticInlineCard,
   text_notice: TextNoticeCard,
   unavailable_notice: TextNoticeCard,
-  clarification_card: TextNoticeCard,
+  clarification_card: ClarificationCard,
 };
 
-export default function AciV2InlineRenderer({ inlineType = "", payload = {} }) {
+export default function AciV2InlineRenderer({ inlineType = "", payload = {}, onAction }) {
   const key = String(inlineType || "").trim().toLowerCase();
   const Renderer = INLINE_RENDERERS[key] || null;
 
   if (!Renderer) return null;
-  return <Renderer payload={payload} />;
+  return <Renderer payload={payload} onAction={onAction} />;
 }
 
 export { INLINE_RENDERERS };

@@ -48,6 +48,31 @@ const INITIAL_SESSION_CONTEXT = {
   leadContext: {},
 };
 
+const SESSION_MEMORY_KEY = "aci-assist-v2-vehicle-memory";
+
+const getVehicleMemoryKey = (vehicle = {}) =>
+  String(getVehicleId(vehicle) || getVehicleModelKey(vehicle) || "").trim();
+
+const readVehicleMemory = () => {
+  if (typeof window === "undefined") return { recent: [], saved: [] };
+  try {
+    const parsed = JSON.parse(window.sessionStorage.getItem(SESSION_MEMORY_KEY) || "{}");
+    return {
+      recent: toArray(parsed.recent).map(normalizeVehicle).filter(Boolean).slice(0, 5),
+      saved: toArray(parsed.saved).map(normalizeVehicle).filter(Boolean).slice(0, 12),
+    };
+  } catch {
+    return { recent: [], saved: [] };
+  }
+};
+
+const rememberVehicleInList = (list = [], vehicle, limit = 5) => {
+  const normalized = normalizeVehicle(vehicle);
+  const key = getVehicleMemoryKey(normalized);
+  if (!normalized || !key) return list;
+  return [normalized, ...list.filter((item) => getVehicleMemoryKey(item) !== key)].slice(0, limit);
+};
+
 const isObject = (value) =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
 
@@ -441,7 +466,18 @@ export default function AciAssistV2() {
   const requestAbortRef = useRef(null);
 
   const [screen, setScreen] = useState(SCREEN.HOME);
-  const [savedIds, setSavedIds] = useState(() => new Set());
+  const initialVehicleMemoryRef = useRef(null);
+  if (!initialVehicleMemoryRef.current) initialVehicleMemoryRef.current = readVehicleMemory();
+  const [savedVehicles, setSavedVehicles] = useState(
+    () => initialVehicleMemoryRef.current.saved,
+  );
+  const [recentVehicles, setRecentVehicles] = useState(
+    () => initialVehicleMemoryRef.current.recent,
+  );
+  const savedIds = useMemo(
+    () => new Set(savedVehicles.map(getVehicleMemoryKey).filter(Boolean)),
+    [savedVehicles],
+  );
   const [lastAction, setLastAction] = useState(null);
   const [activeCanvasPayload, setActiveCanvasPayload] = useState(null);
   const [isBackendLoading, setIsBackendLoading] = useState(false);
@@ -472,6 +508,14 @@ export default function AciAssistV2() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(
+      SESSION_MEMORY_KEY,
+      JSON.stringify({ recent: recentVehicles, saved: savedVehicles }),
+    );
+  }, [recentVehicles, savedVehicles]);
 
   const dispatchBrowserEvent = useCallback((action) => {
     if (typeof window === "undefined") return;
@@ -514,6 +558,7 @@ export default function AciAssistV2() {
           selectedVehicle: nextVehicle,
         }),
       );
+      setRecentVehicles((previous) => rememberVehicleInList(previous, nextVehicle));
 
       return nextVehicle;
     },
@@ -613,6 +658,9 @@ export default function AciAssistV2() {
           lastCanvasType: canvasType || previous.lastCanvasType,
         }),
       );
+      if (scopedVehicle) {
+        setRecentVehicles((previous) => rememberVehicleInList(previous, scopedVehicle));
+      }
 
       const enrichedAction = {
         ...action,
@@ -823,12 +871,12 @@ export default function AciAssistV2() {
       const id = getVehicleId(vehicle);
       if (!id) return;
 
-      setSavedIds((previous) => {
-        const next = new Set(previous);
-        const saved = next.has(id);
-
-        if (saved) next.delete(id);
-        else next.add(id);
+      setSavedVehicles((previous) => {
+        const memoryKey = getVehicleMemoryKey(vehicle) || String(id);
+        const saved = previous.some((item) => getVehicleMemoryKey(item) === memoryKey);
+        const next = saved
+          ? previous.filter((item) => getVehicleMemoryKey(item) !== memoryKey)
+          : rememberVehicleInList(previous, vehicle, 12);
 
         rememberAction(
           normalizeAciAction({
@@ -911,6 +959,29 @@ export default function AciAssistV2() {
 
       if (action.type === "toggle_saved") {
         toggleSaved(action.vehicle || action.payload?.vehicle);
+        return;
+      }
+
+      if (action.type === "select_context") {
+        cancelActiveBackendRequest();
+        setSelectedVehicle(action.vehicle || action.payload?.vehicle, action.contextPatch || {});
+        setBackendError("");
+        rememberAction(action);
+        return;
+      }
+
+      if (action.type === "clear_context") {
+        cancelActiveBackendRequest();
+        setSessionContext((previous) => ({
+          ...previous,
+          selectedVehicle: null,
+          anchorMake: "",
+          anchorModel: "",
+          anchorVariant: "",
+          selectedColor: null,
+        }));
+        setBackendError("");
+        rememberAction(action);
         return;
       }
 
@@ -1715,6 +1786,74 @@ export default function AciAssistV2() {
   padding: 14px 0 0;
   margin: 0;
   overflow: visible;
+}
+
+.aci-v2-clarification-options {
+  width: min(100%, 560px);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.aci-v2-clarification-options button {
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid rgba(4, 87, 255, .18);
+  border-radius: 8px;
+  color: #073477;
+  background: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.aci-v2-clarification-options button:hover,
+.aci-v2-clarification-options button:focus-visible {
+  border-color: #0457ff;
+  background: #f4f8ff;
+  outline: none;
+}
+
+.aci-v2-finance-checklist {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 6px;
+}
+
+.aci-v2-finance-checklist li,
+.aci-v2-finance-caveat {
+  font-size: 12px;
+  line-height: 1.45;
+  letter-spacing: 0;
+}
+
+.aci-v2-finance-actions {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.aci-v2-finance-actions button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid rgba(4, 87, 255, .18);
+  border-radius: 7px;
+  color: #073477;
+  background: #fff;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.aci-v2-finance-caveat {
+  margin: 10px 0 0;
+  color: #5f6b7c;
 }
 
 .aci-chat-result-card footer button,
@@ -3386,6 +3525,8 @@ export default function AciAssistV2() {
           error={backendError}
           selectedVehicle={selectedVehicle}
           sessionContext={sessionContext}
+          recentVehicles={recentVehicles}
+          savedVehicles={savedVehicles}
           onAction={handleAciAction}
           onOpenCanvas={openCanvasFromMessage}
           onGoHome={goHomeFromChat}

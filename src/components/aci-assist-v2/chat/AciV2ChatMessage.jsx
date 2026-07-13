@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { AciAssistantOrb } from "../shared/AciAssistShared";
 import AciV2FeatureInlineCard from "../inline/AciV2FeatureInlineCard";
 import AciV2CanvasPreviewCard from "./AciV2CanvasPreviewCard";
 import AciV2QuestionIcon from "./AciV2QuestionIcon";
+import AciV2InlineRenderer from "./AciV2InlineRenderer";
 import {
   buildChatSuggestions,
   isFeatureAnswerWidget,
@@ -10,6 +11,23 @@ import {
 } from "./aciV2ChatWidgetUtils";
 
 export function AciV2ThinkingMessage() {
+  const [stage, setStage] = useState(0);
+
+  useEffect(() => {
+    const matchingTimer = window.setTimeout(() => setStage(1), 650);
+    const composingTimer = window.setTimeout(() => setStage(2), 1800);
+    return () => {
+      window.clearTimeout(matchingTimer);
+      window.clearTimeout(composingTimer);
+    };
+  }, []);
+
+  const labels = [
+    "Understanding your question...",
+    "Matching the right cars and details...",
+    "Bringing the useful parts together...",
+  ];
+
   return (
     <article className="aci-chat-message is-assistant">
       <div className="aci-chat-orb">
@@ -20,7 +38,7 @@ export function AciV2ThinkingMessage() {
         <span />
         <span />
         <span />
-        <p>Checking live ACI data...</p>
+        <p aria-live="polite">{labels[stage]}</p>
       </div>
     </article>
   );
@@ -40,6 +58,10 @@ export default function AciV2ChatMessage({
       widget.__rawCanvasType,
   );
   const hasFeatureInline = isFeatureAnswerWidget(message, widget);
+  const inlineType = message.inlineType || widget.inlineType || "";
+  const hasGeneralInline = ["clarification_card", "finance_faq_card"].includes(
+    String(inlineType).toLowerCase(),
+  );
   const followups = buildChatSuggestions({
     widget,
     message,
@@ -77,6 +99,14 @@ export default function AciV2ChatMessage({
           />
         ) : null}
 
+        {hasGeneralInline ? (
+          <AciV2InlineRenderer
+            inlineType={inlineType}
+            payload={{ ...widget, ...message, data: widget.data || message.data || {} }}
+            onAction={onAction}
+          />
+        ) : null}
+
         {hasCanvas ? (
           <AciV2CanvasPreviewCard
             message={message}
@@ -92,7 +122,7 @@ export default function AciV2ChatMessage({
           </div>
         ) : null}
 
-        {followups.length && !hasCanvas && !hasFeatureInline ? (
+        {followups.length && !hasCanvas && !hasFeatureInline && !hasGeneralInline ? (
           <div className="aci-chat-followups">
             {followups.map((item, index) => {
               const label =

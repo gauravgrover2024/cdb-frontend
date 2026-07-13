@@ -71,6 +71,74 @@ export function EmiAnswerCard({ payload = {} }) {
   );
 }
 
+export function FinanceFaqCard({ payload = {}, onAction }) {
+  const data = payload.data || {};
+  const checklist = asArray(data.checklist || payload.checklist).slice(0, 8);
+  const caveats = asArray(data.caveats || payload.caveats).slice(0, 3);
+  const actions = asArray(payload.actions).slice(0, 3);
+
+  return (
+    <Card title={safe(payload.title, "Car loan guidance")}>
+      {checklist.length ? (
+        <ul className="aci-v2-finance-checklist">
+          {checklist.map((item, index) => (
+            <li key={`${item}-${index}`}>{safe(item)}</li>
+          ))}
+        </ul>
+      ) : null}
+      {caveats.length ? (
+        <p className="aci-v2-finance-caveat">{safe(caveats[0])}</p>
+      ) : null}
+      {actions.length ? (
+        <div className="aci-v2-finance-actions">
+          {actions.map((action, index) => (
+            <button
+              type="button"
+              key={action.id || action.query || index}
+              onClick={() => onAction?.(action)}
+            >
+              {safe(action.label || action.query, `Next step ${index + 1}`)}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+export function ClarificationCard({ payload = {}, onAction }) {
+  const data = payload.data || {};
+  const options = asArray(
+    data.options || payload.options || payload.actions || payload.leadingQuestions,
+  ).slice(0, 5);
+
+  if (!options.length) return null;
+
+  return (
+    <div className="aci-v2-clarification-options" aria-label="Choose one option">
+      {options.map((option, index) => {
+        const normalized = typeof option === "string"
+          ? { id: `clarification-${index}`, label: option, query: option, type: "ask" }
+          : option;
+        const label = safe(
+          normalized.label || normalized.title || normalized.query,
+          `Option ${index + 1}`,
+        );
+
+        return (
+          <button
+            type="button"
+            key={normalized.id || normalized.query || label}
+            onClick={() => onAction?.({ ...normalized, label, query: normalized.query || label })}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function QuotationLeadCard({ payload = {} }) {
   const missing = asArray(payload.missingFields);
   return (

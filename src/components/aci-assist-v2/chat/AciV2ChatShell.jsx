@@ -16,9 +16,9 @@
    ✓ Does not change chat message rendering
    ======================================================================== */
 
-import React, { useCallback, useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Heart, History, X } from "lucide-react";
 
 import { AciComposer } from "../shared/AciAssistShared";
 import AciV2PortalHeader from "../shared/AciV2PortalHeader";
@@ -34,10 +34,14 @@ export default function AciV2ChatShell({
   error,
   selectedVehicle,
   sessionContext,
+  recentVehicles = [],
+  savedVehicles = [],
   onAction,
   onOpenCanvas,
   onGoHome,
 }) {
+  const [contextMenuOpen, setContextMenuOpen] = useState(false);
+  const contextMenuRef = useRef(null);
   const hasMessages = Array.isArray(messages) && messages.length > 0;
 
   const activeVehicle =
@@ -79,6 +83,24 @@ export default function AciV2ChatShell({
     return () => window.cancelAnimationFrame(frame);
   }, [messages?.length, isLoading, error, scrollToLatest]);
 
+  useEffect(() => {
+    if (!contextMenuOpen) return undefined;
+
+    const closeOnOutsidePress = (event) => {
+      if (!contextMenuRef.current?.contains(event.target)) setContextMenuOpen(false);
+    };
+    const closeOnEscape = (event) => {
+      if (event.key === "Escape") setContextMenuOpen(false);
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsidePress);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsidePress);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [contextMenuOpen]);
+
   const handleLogoClick = () => {
     if (typeof onGoHome === "function") {
       onGoHome();
@@ -93,12 +115,23 @@ export default function AciV2ChatShell({
   };
 
   const handleChangeContext = () => {
+    setContextMenuOpen((open) => !open);
+  };
+
+  const chooseContext = (vehicle) => {
+    setContextMenuOpen(false);
     onAction?.({
-      id: "change-chat-context",
-      type: "change_context",
-      label: "Change context",
-      query: "Change my car search context",
+      id: `select-context-${vehicle?.id || vehicle?.model || "vehicle"}`,
+      type: "select_context",
+      label: `Continue with ${vehicle?.displayName || vehicle?.model || "this car"}`,
+      query: "",
+      vehicle,
     });
+  };
+
+  const clearContext = () => {
+    setContextMenuOpen(false);
+    onAction?.({ id: "clear-chat-context", type: "clear_context", label: "Context cleared", query: "" });
   };
 
   const handleNewChat = () => {
@@ -456,6 +489,8 @@ export default function AciV2ChatShell({
 .aci-floating-context {
   pointer-events: none;
 
+  position: relative;
+
   width: 100%;
 
   height: var(--caro-context-h);
@@ -569,6 +604,85 @@ export default function AciV2ChatShell({
   font-weight: 760;
 
   letter-spacing: -.01em;
+}
+
+.aci-context-menu {
+  pointer-events: auto;
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(calc(100vw - 32px), 390px);
+  padding: 10px;
+  border: 1px solid rgba(15, 35, 70, .1);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, .98);
+  box-shadow: 0 16px 36px rgba(18, 43, 82, .14);
+}
+
+.aci-context-menu-section + .aci-context-menu-section {
+  margin-top: 9px;
+  padding-top: 9px;
+  border-top: 1px solid #edf1f7;
+}
+
+.aci-context-menu-title {
+  margin: 0 0 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #687386;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.aci-context-menu-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.aci-context-menu-item,
+.aci-context-menu-clear {
+  min-height: 34px;
+  border: 1px solid #dce5f2;
+  border-radius: 7px;
+  background: #fff;
+  color: #15233a;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.aci-context-menu-item {
+  max-width: 100%;
+  padding: 7px 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.aci-context-menu-item:hover,
+.aci-context-menu-item:focus-visible {
+  border-color: #0457ff;
+  background: #f4f8ff;
+  outline: none;
+}
+
+.aci-context-menu-clear {
+  width: 100%;
+  margin-top: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #5f6b7c;
+  background: #f8fafc;
 }
 
 /* ========================================================================
@@ -901,12 +1015,15 @@ export default function AciV2ChatShell({
               onProfile={handleProfile}
             />
 
-            <div className="aci-floating-context">
+            <div className="aci-floating-context" ref={contextMenuRef}>
               <button
                 type="button"
                 className="aci-floating-context-inner"
                 onClick={handleChangeContext}
                 aria-label="Change car context"
+                aria-haspopup="dialog"
+                aria-expanded={contextMenuOpen}
+                aria-controls="aci-car-context-menu"
               >
                 <span className="aci-context-aura" />
 
@@ -918,6 +1035,47 @@ export default function AciV2ChatShell({
 
                 <span className="aci-floating-context-change">Change</span>
               </button>
+              {contextMenuOpen ? (
+                <div id="aci-car-context-menu" className="aci-context-menu" role="dialog" aria-label="Car context">
+                  {recentVehicles.length ? (
+                    <section className="aci-context-menu-section">
+                      <p className="aci-context-menu-title"><History size={12} /> Recent</p>
+                      <div className="aci-context-menu-list">
+                        {recentVehicles.slice(0, 5).map((vehicle, index) => (
+                          <button
+                            type="button"
+                            className="aci-context-menu-item"
+                            key={vehicle.id || `${vehicle.model}-${index}`}
+                            onClick={() => chooseContext(vehicle)}
+                          >
+                            {vehicle.displayName || vehicle.model}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                  {savedVehicles.length ? (
+                    <section className="aci-context-menu-section">
+                      <p className="aci-context-menu-title"><Heart size={12} /> Saved</p>
+                      <div className="aci-context-menu-list">
+                        {savedVehicles.slice(0, 6).map((vehicle, index) => (
+                          <button
+                            type="button"
+                            className="aci-context-menu-item"
+                            key={vehicle.id || `${vehicle.model}-${index}`}
+                            onClick={() => chooseContext(vehicle)}
+                          >
+                            {vehicle.displayName || vehicle.model}
+                          </button>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
+                  <button type="button" className="aci-context-menu-clear" onClick={clearContext}>
+                    <X size={13} /> Clear current car
+                  </button>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
