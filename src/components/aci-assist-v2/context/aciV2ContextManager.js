@@ -426,6 +426,13 @@ export const compactContextForBackend = ({
     lastIntent: firstValue(action.intent, lastAction?.intent, effectiveContext.lastIntent),
     lastActionLabel: firstValue(action.label, lastAction?.label),
     lastActionQuery: firstValue(action.query, lastAction?.query),
+    customerStage: effectiveContext.customerStage || "",
+    customerJourney: isObject(effectiveContext.customerJourney)
+      ? effectiveContext.customerJourney
+      : {},
+    leadContext: isObject(effectiveContext.leadContext)
+      ? effectiveContext.leadContext
+      : {},
   };
 };
 

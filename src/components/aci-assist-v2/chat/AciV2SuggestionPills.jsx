@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { emitAciAction } from "../shared/AciAssistShared";
 
 export default function AciV2SuggestionPills({
@@ -6,12 +6,24 @@ export default function AciV2SuggestionPills({
   onAction,
   className = "",
 }) {
-  const list = Array.isArray(items) ? items.filter(Boolean) : [];
+  const list = useMemo(
+    () => (Array.isArray(items) ? items.filter(Boolean) : []),
+    [items],
+  );
+  const [expanded, setExpanded] = useState(false);
+  const initialCount = 6;
+  const visibleItems = expanded ? list : list.slice(0, initialCount);
+  const remaining = Math.max(0, list.length - visibleItems.length);
+
+  useEffect(() => {
+    setExpanded(false);
+  }, [list.length]);
+
   if (!list.length) return null;
 
   return (
     <div className={`aci-v2-suggestion-pills ${className}`.trim()}>
-      {list.map((item, index) => {
+      {visibleItems.map((item, index) => {
         const label = item.label || item.title || item.query || `Option ${index + 1}`;
         return (
           <button
@@ -24,6 +36,15 @@ export default function AciV2SuggestionPills({
           </button>
         );
       })}
+      {remaining > 0 ? (
+        <button
+          type="button"
+          className="aci-v2-pill"
+          onClick={() => setExpanded(true)}
+        >
+          Show {remaining} more
+        </button>
+      ) : null}
     </div>
   );
 }

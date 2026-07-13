@@ -3,6 +3,8 @@ import { getDisplayCarImage } from "../shared/aciV2Image";
 
 const DEFAULT_CHAT_ENDPOINT = "/api/ai-agent/chat";
 const DEFAULT_PUBLIC_CHAT_ENDPOINT = "/api/ai-agent/public-chat";
+const PUBLIC_AUTOCOMPLETE_ENDPOINT = "/api/ai-agent/public-autocomplete";
+const PUBLIC_PRICING_CITIES_ENDPOINT = "/api/ai-agent/public-pricing-cities";
 const VEHICLE_MEDIA_ENDPOINT = "/api/vehicles/media";
 const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
 const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
@@ -1993,4 +1995,64 @@ export async function fetchAciBrandCatalog({
     brand: cleanedBrand,
     rows: rows.filter(Boolean),
   };
+}
+
+export async function fetchAciAutocomplete({
+  query = "",
+  context = {},
+  limit = 8,
+  signal,
+} = {}) {
+  const q = String(query || "").trim();
+  if (!q) return { query: "", suggestions: [], meta: {} };
+
+  const candidates = resolveApiBaseCandidates();
+  let lastError = null;
+
+  for (const apiBase of candidates) {
+    throwIfAborted(signal);
+    try {
+      const response = await fetch(cleanJoin(apiBase, PUBLIC_AUTOCOMPLETE_ENDPOINT), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q, context, limit }),
+        signal,
+      });
+      if (!response.ok) throw new Error(`Autocomplete failed with ${response.status}`);
+      const payload = await response.json();
+      return {
+        query: payload?.query || q,
+        suggestions: toSafeList(payload?.suggestions),
+        meta: isObject(payload?.meta) ? payload.meta : {},
+      };
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Autocomplete is unavailable");
+}
+
+export async function fetchAciPricingCities({ signal } = {}) {
+  const candidates = resolveApiBaseCandidates();
+  let lastError = null;
+
+  for (const apiBase of candidates) {
+    throwIfAborted(signal);
+    try {
+      const response = await fetch(
+        cleanJoin(apiBase, PUBLIC_PRICING_CITIES_ENDPOINT),
+        { signal },
+      );
+      if (!response.ok) throw new Error(`Pricing cities failed with ${response.status}`);
+      const payload = await response.json();
+      return toSafeList(payload?.rows);
+    } catch (error) {
+      if (error?.name === "AbortError") throw error;
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Pricing cities are unavailable");
 }

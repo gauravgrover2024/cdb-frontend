@@ -4208,9 +4208,12 @@ export default function AciV2CanvasPreviewCard({
     canvasType === "pricelist_canvas" || canvasType === "price_breakup_canvas"
       ? "Open Pricelist"
       : `Open ${canvasTypeLabel(canvasType)}`;
-  const actions = buildChatSuggestions({ widget, message, limit: 4 });
+  const actions = buildChatSuggestions({ widget, message, limit: 40 });
   const carouselRef = useRef(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
+  const [showAllActions, setShowAllActions] = useState(false);
+  const visibleActions = showAllActions ? actions : actions.slice(0, 6);
+  const remainingActionCount = Math.max(0, actions.length - visibleActions.length);
   const maxCarouselIndex = Math.max(0, rows.length - 1);
   const carouselProgress =
     maxCarouselIndex > 0 ? carouselIndex / maxCarouselIndex : 0;
@@ -4642,7 +4645,7 @@ export default function AciV2CanvasPreviewCard({
             </button>
           ) : null}
 
-          {actions.map((item, index) => {
+          {visibleActions.map((item, index) => {
             const label =
               item.label || item.title || item.query || `Next ${index + 1}`;
 
@@ -4657,6 +4660,11 @@ export default function AciV2CanvasPreviewCard({
               </button>
             );
           })}
+          {remainingActionCount > 0 ? (
+            <button type="button" onClick={() => setShowAllActions(true)}>
+              <span>{`Show ${remainingActionCount} more`}</span>
+            </button>
+          ) : null}
         </footer>
       ) : null}
     </article>

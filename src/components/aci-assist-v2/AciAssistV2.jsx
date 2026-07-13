@@ -15,7 +15,11 @@ import {
 import AciAssistStyles from "./shared/AciAssistStyles";
 import { normalizeAciAction } from "./shared/AciAssistShared";
 import AciV2PortalHeader from "./shared/AciV2PortalHeader";
-import { askAciAssistV2 } from "./services/aciAssistV2Api";
+import AciV2CityPicker from "./shared/AciV2CityPicker";
+import {
+  askAciAssistV2,
+  fetchAciPricingCities,
+} from "./services/aciAssistV2Api";
 import AciAssistHomeScreen from "./screens/AciAssistHomeScreen";
 import AciV2ChatFirstShell from "./chat/AciV2ChatShell";
 import {
@@ -30,6 +34,19 @@ import {
 } from "./context/aciV2ContextManager";
 
 const SCREEN = ACI_V2_SCREENS;
+
+const INITIAL_SESSION_CONTEXT = {
+  selectedVehicle: null,
+  anchorMake: "",
+  anchorModel: "",
+  anchorVariant: "",
+  anchorCity: "Delhi",
+  selectedColor: null,
+  lastCanvasType: "",
+  customerStage: "discovery",
+  customerJourney: {},
+  leadContext: {},
+};
 
 const isObject = (value) =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -432,15 +449,8 @@ export default function AciAssistV2() {
   const [hasStartedChat, setHasStartedChat] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
-  const [sessionContext, setSessionContext] = useState({
-    selectedVehicle: null,
-    anchorMake: "",
-    anchorModel: "",
-    anchorVariant: "",
-    anchorCity: "Delhi",
-    selectedColor: null,
-    lastCanvasType: "",
-  });
+  const [cityPicker, setCityPicker] = useState(null);
+  const [sessionContext, setSessionContext] = useState(INITIAL_SESSION_CONTEXT);
 
   const homeData = useMemo(
     () => ({
@@ -574,10 +584,32 @@ export default function AciAssistV2() {
       const scopedVehicle =
         backendVehicle || (canUseFallbackVehicle ? fallbackVehicle : null);
 
+      const scopedIdentityPatch = scopedVehicle
+        ? {
+            selectedVehicle: scopedVehicle,
+            anchorMake: firstValue(scopedVehicle.make, scopedVehicle.brand),
+            anchorModel: scopedVehicle.model || "",
+            anchorFullModel: firstValue(
+              scopedVehicle.fullModel,
+              scopedVehicle.displayName,
+              [scopedVehicle.make || scopedVehicle.brand, scopedVehicle.model]
+                .filter(Boolean)
+                .join(" "),
+            ),
+            anchorCity: firstValue(
+              scopedVehicle.citySlug,
+              scopedVehicle.city,
+              contextPatch.anchorCity,
+            ),
+          }
+        : {};
+
       setSessionContext((previous) =>
         mergeSessionContext(previous, {
           ...contextPatch,
-          selectedVehicle: scopedVehicle || contextPatch.selectedVehicle || null,
+          ...scopedIdentityPatch,
+          selectedVehicle:
+            scopedVehicle || contextPatch.selectedVehicle || null,
           lastCanvasType: canvasType || previous.lastCanvasType,
         }),
       );
@@ -635,8 +667,11 @@ export default function AciAssistV2() {
             widget.data?.featureList,
             widget.data?.searchableFeatures,
           ),
-          actions: toArray(widget.actions),
-          leadingQuestions: toArray(widget.leadingQuestions),
+          actions: firstArray(backend.actions, widget.actions),
+          leadingQuestions: firstArray(
+            backend.leadingQuestions,
+            widget.leadingQuestions,
+          ),
           contextPatch,
           sourceTransparency: backend.sourceTransparency || null,
           runtimeResultsMeta: backend.runtimeResultsMeta || [],
@@ -824,6 +859,24 @@ export default function AciAssistV2() {
       const actionText =
         `${action.label || ""} ${action.query || ""}`.toLowerCase();
 
+      if (
+        action.type === "reset_session" ||
+        action.action === "RESET_SESSION" ||
+        action.resetConversation === true
+      ) {
+        cancelActiveBackendRequest();
+        setScreen(SCREEN.HOME);
+        setActiveCanvasPayload(null);
+        setBackendError("");
+        setHasStartedChat(false);
+        setIsCanvasOpen(false);
+        setCityPicker(null);
+        setChatMessages([]);
+        setSessionContext({ ...INITIAL_SESSION_CONTEXT });
+        rememberAction(action);
+        return;
+      }
+
       if (action.type === "go_home" || action.label === "Home") {
         cancelActiveBackendRequest();
         setScreen(SCREEN.HOME);
@@ -866,6 +919,43 @@ export default function AciAssistV2() {
         action.contextPatch?.selectedVehicle ||
         selectedVehicle ||
         null;
+
+      if (action.type === "change_city") {
+        cancelActiveBackendRequest();
+        const embeddedCities = firstArray(
+          action.availableCities,
+          action.payload?.availableCities,
+          activeCanvasPayload?.availableCities,
+          activeCanvasPayload?.widget?.availableCities,
+        );
+
+        setCityPicker({
+          vehicle: targetVehicle,
+          cities: embeddedCities,
+          loading: !embeddedCities.length,
+        });
+        rememberAction({
+          ...action,
+          label: "Choose pricing city",
+          query: "",
+        });
+
+        if (!embeddedCities.length) {
+          try {
+            const cities = await fetchAciPricingCities();
+            setCityPicker((current) =>
+              current
+                ? { ...current, cities, loading: false }
+                : current,
+            );
+          } catch {
+            setCityPicker((current) =>
+              current ? { ...current, cities: [], loading: false } : current,
+            );
+          }
+        }
+        return;
+      }
 
       if (isCanvasInteractionOnly(action)) {
         setSessionContext((previous) =>
@@ -914,6 +1004,7 @@ export default function AciAssistV2() {
     },
     [
       cancelActiveBackendRequest,
+      activeCanvasPayload,
       openBackendWidgetFromAction,
       rememberAction,
       selectedVehicle,
@@ -3306,6 +3397,41 @@ export default function AciAssistV2() {
           <strong>{lastAction.label}</strong>
           {lastAction.query || lastAction.intent || "Action captured"}
         </div>
+      ) : null}
+
+      {cityPicker ? (
+        <AciV2CityPicker
+          cities={cityPicker.cities}
+          vehicle={cityPicker.vehicle}
+          loading={cityPicker.loading}
+          onClose={() => setCityPicker(null)}
+          onSelect={(city) => {
+            const vehicle = cityPicker.vehicle || selectedVehicle || {};
+            const cityName = city.city || city.citySlug;
+            const citySlug = city.citySlug || cityName;
+            setCityPicker(null);
+            handleAciAction({
+              id: `change-city-${citySlug}`,
+              label: `${cityName} prices`,
+              query: `${getVehicleTitle(vehicle)} price in ${cityName}`,
+              type: "ask",
+              vehicle: {
+                ...vehicle,
+                city: cityName,
+                citySlug,
+              },
+              contextPatch: {
+                selectedVehicle: {
+                  ...vehicle,
+                  city: cityName,
+                  citySlug,
+                },
+                anchorCity: citySlug,
+              },
+              source: "aci_v2_city_picker",
+            });
+          }}
+        />
       ) : null}
     </>
   );
