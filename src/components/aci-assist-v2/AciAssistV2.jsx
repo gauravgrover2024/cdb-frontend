@@ -628,8 +628,12 @@ export default function AciAssistV2() {
       const comparisonScopedResponse =
         Number(contextPatch.compoundRequest?.modelCount || 0) > 1 ||
         comparisonVehicles.length > 1;
+      const recommendationScopedResponse = /vehicle_recommendation|recommendation_results|feature_match_builder/i.test(
+        `${backend.intent || ""} ${widget.intent || ""} ${canvasType}`,
+      );
       const canUseFallbackVehicle = Boolean(
         !comparisonScopedResponse &&
+          !recommendationScopedResponse &&
           fallbackVehicle &&
           (!contextModelKey ||
             !fallbackVehicleKey ||
@@ -657,13 +661,24 @@ export default function AciAssistV2() {
             ),
           }
         : {};
+      const scopedContextPatch = recommendationScopedResponse
+        ? {
+            ...contextPatch,
+            selectedVehicle: null,
+            clearSelectedVehicle: true,
+            anchorMake: "",
+            anchorModel: "",
+            anchorFullModel: "",
+            anchorVariant: "",
+          }
+        : contextPatch;
 
       setSessionContext((previous) =>
         mergeSessionContext(previous, {
-          ...contextPatch,
+          ...scopedContextPatch,
           ...scopedIdentityPatch,
           selectedVehicle:
-            scopedVehicle || contextPatch.selectedVehicle || null,
+            scopedVehicle || scopedContextPatch.selectedVehicle || null,
           lastCanvasType: canvasType || previous.lastCanvasType,
         }),
       );
@@ -684,8 +699,8 @@ export default function AciAssistV2() {
         vehicle: scopedVehicle,
         contextPatch: {
           ...(action.contextPatch || {}),
-          ...contextPatch,
-          selectedVehicle: scopedVehicle || contextPatch.selectedVehicle || null,
+          ...scopedContextPatch,
+          selectedVehicle: scopedVehicle || scopedContextPatch.selectedVehicle || null,
         },
       };
 
@@ -729,17 +744,17 @@ export default function AciAssistV2() {
             backend.leadingQuestions,
             widget.leadingQuestions,
           ),
-          contextPatch,
+          contextPatch: scopedContextPatch,
           journeyGuidance:
             backend.journeyGuidance ||
             widget.journeyGuidance ||
-            contextPatch.customerJourney ||
+            scopedContextPatch.customerJourney ||
             null,
           sourceTransparency: backend.sourceTransparency || null,
           runtimeResultsMeta: backend.runtimeResultsMeta || [],
           answerBlocks: firstArray(backend.answerBlocks),
           compoundRequest:
-            backend.compoundRequest || contextPatch.compoundRequest || null,
+            backend.compoundRequest || scopedContextPatch.compoundRequest || null,
           vehicle: scopedVehicle,
         },
       ]);

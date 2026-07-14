@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowRight,
   CarFront,
   Check,
+  ChevronLeft,
+  ChevronRight,
   IndianRupee,
   ListChecks,
   Palette,
@@ -21,8 +23,9 @@ const modelKey = (value = "") =>
 const formatPrice = (value) => {
   const amount = Number(value || 0);
   if (!amount) return "—";
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
-  if (amount >= 100000) return `₹${(amount / 100000).toFixed(2)}L`;
+  const compact = (number) => Number(number.toFixed(2)).toString();
+  if (amount >= 10000000) return `₹${compact(amount / 10000000)}Cr`;
+  if (amount >= 100000) return `₹${compact(amount / 100000)}L`;
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
 };
 
@@ -118,20 +121,36 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
       };
     });
 
-    return { models, featureBlock };
+    const capabilityCount = [featureBlock, priceBlocks.length, colorBlocks.length].filter(Boolean).length;
+    return {
+      models,
+      featureBlock,
+      title: models.length >= 2 ? `${models[0].name} vs ${models[1].name}` : "Compare cars",
+      subtitle: capabilityCount > 1
+        ? "Prices, features and colours together."
+        : "Current prices shown side by side.",
+    };
   }, [blocks]);
 
   if (presentation.models.length < 2) return null;
 
   return (
     <section className="aci-compound-card" aria-label="Complete comparison answer">
+      <header className="aci-vehicle-card-header">
+        <div>
+          <span>Side-by-side</span>
+          <h3>{presentation.title}</h3>
+          <p>{presentation.subtitle}</p>
+        </div>
+      </header>
       <div className="aci-compound-grid">
-        {presentation.models.map((model) => (
-          <article className="aci-compound-model" key={modelKey(model.name)}>
+        {presentation.models.map((model, index) => (
+          <article className="aci-compound-model aci-vehicle-choice-card" key={modelKey(model.name)}>
             <div className="aci-compound-model-visual">
               <CarVisual imageUrl={model.imageUrl} name={model.name} />
             </div>
             <div className="aci-compound-model-copy">
+              <span className="aci-vehicle-choice-rank">Option {index + 1}</span>
               <h4>{model.name}</h4>
               <div className="aci-compound-facts">
                 {model.exShowroom ? (
@@ -190,7 +209,7 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
 const recommendationRows = (message = {}, widget = {}) =>
   asArray(widget.rows || message.rows || widget.items || message.items)
     .filter((row) => clean(row.fullModel || row.displayName || row.model))
-    .slice(0, 3);
+    .slice(0, 8);
 
 const recommendationName = (row = {}) =>
   clean(
@@ -200,44 +219,135 @@ const recommendationName = (row = {}) =>
       row.model,
   );
 
-export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAction }) {
-  const rows = useMemo(() => recommendationRows(message, widget), [message, widget]);
+const vehicleSource = (row = {}) => row.vehicle || row.selectedVehicle || row;
+
+const useLiveVehicleMap = (rows = [], city = "New Delhi") => {
   const [liveVehicles, setLiveVehicles] = useState({});
 
   useEffect(() => {
     let active = true;
-    const missing = rows.filter(
-      (row) => !row.imageUrl && !row.normalizedImageUrl && row.model,
-    );
+    const missing = rows.filter((row) => {
+      const source = vehicleSource(row);
+      return !row.imageUrl && !row.normalizedImageUrl && !source.imageUrl && !source.normalizedImageUrl && source.model;
+    });
     if (!missing.length) return undefined;
 
     Promise.all(
       missing.map(async (row) => {
+        const source = vehicleSource(row);
         const snapshot = await fetchAciVehicleLiveSnapshot({
-          make: row.make || row.brand,
-          model: row.model,
-          city: row.city || widget.city || "New Delhi",
+          make: source.make || source.brand || row.make || row.brand,
+          model: source.model || row.model,
+          city: source.city || row.city || city,
         }).catch(() => null);
-        return [modelKey(recommendationName(row)), snapshot?.vehicle || null];
+        return [modelKey(recommendationName(source) || recommendationName(row)), snapshot?.vehicle || null];
       }),
     ).then((entries) => {
       if (!active) return;
-      setLiveVehicles(Object.fromEntries(entries.filter(([, vehicle]) => vehicle)));
+      setLiveVehicles((current) => ({
+        ...current,
+        ...Object.fromEntries(entries.filter(([, vehicle]) => vehicle)),
+      }));
     });
 
     return () => {
       active = false;
     };
-  }, [rows, widget.city]);
+  }, [city, rows]);
+
+  return liveVehicles;
+};
+
+export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAction }) {
+  const rows = useMemo(() => recommendationRows(message, widget), [message, widget]);
+  const trackRef = useRef(null);
+  const [carousel, setCarousel] = useState({ index: 0, visible: 3, max: 0 });
+  const liveVehicles = useLiveVehicleMap(rows, widget.city || "New Delhi");
+
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return undefined;
+    const update = () => {
+      const first = track.querySelector(".aci-recommendation-model");
+      if (!first) return;
+      const styles = window.getComputedStyle(track);
+      const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+      const step = first.getBoundingClientRect().width + gap;
+      if (!step) return;
+      const visible = Math.max(1, Math.round((track.clientWidth + gap) / step));
+      const max = Math.max(0, rows.length - visible);
+      setCarousel((current) => ({ ...current, visible, max, index: Math.min(current.index, max) }));
+    };
+    update();
+    const observer = typeof ResizeObserver === "function" ? new ResizeObserver(update) : null;
+    observer?.observe(track);
+    return () => observer?.disconnect();
+  }, [rows.length]);
 
   if (!rows.length) return null;
-  const feature = clean(
-    widget.featureName || widget.feature || widget.data?.featureName || "requested features",
-  );
+  const filters = widget.filters || widget.data?.filters || message.filters || {};
+  const feature = clean(widget.featureName || widget.feature || widget.data?.featureName);
+  const budget = Number(filters.budgetMax || filters.maxBudget || filters.maxPrice || 0);
+  const bodyLabel = /suv/i.test(filters.bodyType || filters.bodyStyle || "") ? "SUVs" : "cars";
+  const title = `${rows.length} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`;
+
+  const measureCarousel = () => {
+    const track = trackRef.current;
+    const first = track?.querySelector(".aci-recommendation-model");
+    if (!track || !first) return { step: 0, visible: 1, max: 0 };
+    const styles = window.getComputedStyle(track);
+    const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
+    const step = first.getBoundingClientRect().width + gap;
+    const visible = Math.max(1, Math.round((track.clientWidth + gap) / step));
+    return { step, visible, max: Math.max(0, rows.length - visible) };
+  };
+
+  const syncCarousel = () => {
+    const track = trackRef.current;
+    const metrics = measureCarousel();
+    if (!track || !metrics.step) return;
+    setCarousel({
+      index: Math.min(metrics.max, Math.max(0, Math.round(track.scrollLeft / metrics.step))),
+      visible: metrics.visible,
+      max: metrics.max,
+    });
+  };
+
+  const moveCarousel = (direction) => {
+    const track = trackRef.current;
+    const metrics = measureCarousel();
+    if (!track || !metrics.step) return;
+    const next = Math.min(metrics.max, Math.max(0, carousel.index + direction));
+    track.scrollTo({ left: next * metrics.step, behavior: "smooth" });
+    setCarousel({ index: next, visible: metrics.visible, max: metrics.max });
+  };
 
   return (
     <section className="aci-recommendation-card" aria-label="Recommended cars">
-      <div className="aci-recommendation-grid">
+      <header className="aci-vehicle-card-header">
+        <div>
+          <span>Shortlist</span>
+          <h3>{title}</h3>
+          <p>{feature ? `Each price starts at the first variant with ${feature}.` : "Current new-car options, sorted by starting price."}</p>
+        </div>
+        {rows.length > carousel.visible ? (
+          <div className="aci-carousel-controls">
+            <small>{carousel.index + 1}–{Math.min(rows.length, carousel.index + carousel.visible)} of {rows.length}</small>
+            <button type="button" onClick={() => moveCarousel(-1)} disabled={carousel.index === 0} aria-label="Previous car">
+              <ChevronLeft size={17} />
+            </button>
+            <button type="button" onClick={() => moveCarousel(1)} disabled={carousel.index >= carousel.max} aria-label="Next car">
+              <ChevronRight size={17} />
+            </button>
+          </div>
+        ) : null}
+      </header>
+      <div
+        className="aci-recommendation-grid"
+        ref={trackRef}
+        onScroll={syncCarousel}
+        onTouchEnd={syncCarousel}
+      >
         {rows.map((row, index) => {
           const name = recommendationName(row);
           const liveVehicle = liveVehicles[modelKey(name)] || {};
@@ -249,7 +359,7 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
           const variant = clean(row.startsFromVariant || row.bestUnderBudgetVariant || row.variant);
 
           return (
-            <article className="aci-recommendation-model" key={modelKey(name) || index}>
+            <article className="aci-recommendation-model aci-vehicle-choice-card" key={modelKey(name) || index}>
               <div className="aci-recommendation-visual">
                 {imageUrl ? (
                   <CarVisual imageUrl={imageUrl} name={name} />
@@ -260,13 +370,15 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
               <span className="aci-recommendation-rank">{index === 0 ? "Start here" : `Option ${index + 1}`}</span>
               <h4>{name}</h4>
               {priceLabel ? <strong>{priceLabel} <small>ex-showroom</small></strong> : null}
-              {variant ? <p>{feature} starts from {variant}</p> : null}
+              {variant ? <p>{feature ? `${feature} starts from ${variant}` : `Starts with ${variant}`}</p> : null}
               <button
                 type="button"
                 onClick={() => onAction?.({
                   id: `recommendation-variants-${modelKey(name)}`,
                   label: `See ${row.model || name} variants`,
-                  query: `Show ${name} variants with ${feature}`,
+                  query: feature
+                    ? `Show ${name} variants with ${feature}`
+                    : `Show ${name} variants${budget ? ` under ${formatPrice(budget)}` : ""}`,
                   type: "ask",
                   vehicle: {
                     ...liveVehicle,
@@ -276,12 +388,85 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
                   },
                 })}
               >
-                <span>See matching variants</span><ArrowRight size={14} />
+                <span>{feature ? "See matching variants" : "View variants"}</span><ArrowRight size={14} />
               </button>
             </article>
           );
         })}
       </div>
+    </section>
+  );
+}
+
+const comparisonName = (row = {}) => {
+  const source = vehicleSource(row);
+  return clean(
+    source.fullModel ||
+      source.displayName ||
+      row.fullModel ||
+      row.displayName ||
+      [source.make || source.brand || row.make || row.brand, source.model || row.model].filter(Boolean).join(" ") ||
+      source.model ||
+      row.model,
+  );
+};
+
+export function AciV2ComparisonInlineCard({ message = {}, widget = {}, onOpen, onAction }) {
+  const rows = useMemo(
+    () => asArray(widget.rows || message.rows || widget.items || message.items).slice(0, 2),
+    [message, widget],
+  );
+  const liveVehicles = useLiveVehicleMap(rows, widget.city || "New Delhi");
+  if (rows.length < 2) return null;
+
+  const names = rows.map(comparisonName);
+  return (
+    <section className="aci-comparison-card" aria-label={`${names[0]} and ${names[1]} comparison`}>
+      <header className="aci-vehicle-card-header">
+        <div>
+          <span>Like-for-like</span>
+          <h3>{names[0]} vs {names[1]}</h3>
+          <p>Matched fuel and gearbox wherever the current variants allow.</p>
+        </div>
+      </header>
+      <div className="aci-comparison-grid">
+        {rows.map((row, index) => {
+          const source = vehicleSource(row);
+          const name = names[index];
+          const liveVehicle = liveVehicles[modelKey(name)] || {};
+          const imageUrl = source.imageUrl || source.normalizedImageUrl || row.imageUrl || row.normalizedImageUrl || liveVehicle.imageUrl || liveVehicle.normalizedImageUrl;
+          const variant = clean(row.variantName || row.variant || source.variant || source.variantName);
+          const fuel = clean(row.fuelType || row.fuel || source.fuelType || source.fuel);
+          const transmission = clean(row.transmission || source.transmission);
+          const price = Number(row.onRoadPrice || row.exShowroomPrice || row.price || 0);
+          return (
+            <article className="aci-comparison-model aci-vehicle-choice-card" key={modelKey(name) || index}>
+              <div className="aci-comparison-model-visual">
+                <CarVisual imageUrl={imageUrl} name={name} />
+              </div>
+              <span className="aci-vehicle-choice-rank">Option {index + 1}</span>
+              <h4>{name}</h4>
+              {variant ? <p className="aci-comparison-variant">{variant}</p> : null}
+              <div className="aci-comparison-facts">
+                {price ? <strong>{formatPrice(price)} <small>{row.onRoadPrice ? "on-road" : "ex-showroom"}</small></strong> : null}
+                {[fuel, transmission].filter(Boolean).length ? <span>{[fuel, transmission].filter(Boolean).join(" · ")}</span> : null}
+              </div>
+              <button type="button" onClick={() => onAction?.({
+                id: `comparison-variants-${modelKey(name)}`,
+                label: `View ${source.model || row.model || name} variants`,
+                query: `Show ${name} variants`,
+                type: "ask",
+                vehicle: { ...liveVehicle, ...source, fullModel: name },
+              })}>
+                <span>View variants</span><ArrowRight size={14} />
+              </button>
+            </article>
+          );
+        })}
+      </div>
+      <button type="button" className="aci-comparison-open" onClick={() => onOpen?.(message)}>
+        <span>Open full comparison</span><ArrowRight size={15} />
+      </button>
     </section>
   );
 }

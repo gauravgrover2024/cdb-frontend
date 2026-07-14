@@ -133,9 +133,9 @@ export const mergeSessionContext = (previous = {}, patch = {}) => {
     Number(patch?.compoundRequest?.modelCount || 0) > 1 ||
     (Array.isArray(comparisonVehicles) && comparisonVehicles.length > 1);
   const explicitlyClearsVehicle =
-    comparisonScopedPatch &&
     hasOwn(patch, "selectedVehicle") &&
-    patch.selectedVehicle === null;
+    patch.selectedVehicle === null &&
+    (comparisonScopedPatch || patch.clearSelectedVehicle === true);
   const patchHasAnchorVariant = hasOwn(patch, "anchorVariant");
   const patchHasAnchorModel =
     hasOwn(patch, "anchorModel") && Boolean(String(patch.anchorModel || "").trim());

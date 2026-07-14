@@ -119,7 +119,7 @@ const pricePresentation = ({ message, widget, rows }) => {
         ? { value: formatPrice(top.ex), label: "top ex-showroom" }
         : null,
     ].filter(Boolean),
-    note: "On-road figures exclude optional accessories.",
+    note: "",
   };
 };
 
@@ -235,7 +235,10 @@ const compoundPresentation = ({ message }) => {
 
 const recommendationPresentation = ({ message, widget, rows }) => {
   const city = displayPlace(text(widget.city, message.contextPatch?.anchorCity, "New Delhi"));
-  const feature = text(widget.featureName, widget.feature, widget.data?.featureName, "your must-have feature");
+  const feature = text(widget.featureName, widget.feature, widget.data?.featureName);
+  const bodyLabel = /suv/i.test(
+    text(widget.filters?.bodyType, widget.data?.filters?.bodyType, widget.filters?.bodyStyle),
+  ) ? "SUVs" : "cars";
   const top = rows[0] || {};
   const topName = text(top.fullModel, top.displayName, [top.make, top.model].filter(Boolean).join(" "));
   const start = number(top.startsFromPrice, top.bestUnderBudgetPrice, top.exShowroomPrice);
@@ -248,7 +251,7 @@ const recommendationPresentation = ({ message, widget, rows }) => {
     tone: "recommendation",
     icon: CarFront,
     eyebrow: `${city} shortlist`,
-    title: `${rows.length} strong ${feature} match${rows.length === 1 ? "" : "es"}${budget ? ` under ${formatPrice(budget)}` : ""}`,
+    title: `${rows.length} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`,
     metrics: [
       topName ? { value: topName, label: "start here" } : null,
       start ? { value: formatPrice(start), label: "starts from" } : null,

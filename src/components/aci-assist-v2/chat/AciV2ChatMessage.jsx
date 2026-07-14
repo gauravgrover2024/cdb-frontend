@@ -4,8 +4,9 @@ import AciV2FeatureInlineCard from "../inline/AciV2FeatureInlineCard";
 import AciV2CanvasPreviewCard from "./AciV2CanvasPreviewCard";
 import AciV2InlineRenderer from "./AciV2InlineRenderer";
 import AciV2AnswerLead from "./AciV2AnswerLead";
-import AciV2JourneyActions from "./AciV2JourneyActions";
+import AciV2JourneyActions, { buildAciJourneyActions } from "./AciV2JourneyActions";
 import {
+  AciV2ComparisonInlineCard,
   AciV2CompoundInlineCard,
   AciV2RecommendationInlineCard,
   AciV2ScoreInsightInlineCard,
@@ -75,17 +76,45 @@ function AciV2ChatMessage({
   const isRecommendation = /vehicle_recommendation|recommendation_results|feature_match_builder/.test(
     `${message.intent || widget.intent || ""} ${message.canvasType || widget.canvasType || ""}`,
   );
+  const messageRows = Array.isArray(message.rows) && message.rows.length
+    ? message.rows
+    : Array.isArray(widget.rows)
+      ? widget.rows
+      : [];
+  const isDirectComparison =
+    !hasCompoundAnswer &&
+    messageRows.length >= 2 &&
+    /comparison|compare/.test(
+      `${message.intent || widget.intent || ""} ${message.canvasType || widget.canvasType || ""}`,
+    );
+  const isPriceOrColorCanvas = /price|pricelist|color|colour/.test(
+    `${message.intent || widget.intent || ""} ${message.canvasType || widget.canvasType || ""}`,
+  );
   const hasGeneralInline =
     Boolean(inlineType) &&
     !hasCanvas &&
     !hasFeatureInline &&
     !hasCompoundAnswer &&
-    !isScoreInsight;
-  const hasRichContent = hasCanvas || hasFeatureInline || hasGeneralInline || isRecommendation;
+    !isScoreInsight &&
+    !isDirectComparison;
+  const hasRichContent = hasCanvas || hasFeatureInline || hasGeneralInline || isRecommendation || isDirectComparison;
   const inlinePayload = useMemo(
     () => ({ ...widget, ...message, data: widget.data || message.data || {} }),
     [message, widget],
   );
+  const journeyPresentation = useMemo(
+    () => buildAciJourneyActions({ message, widget, historyMessages }),
+    [historyMessages, message, widget],
+  );
+  const suppressAnswerLead = Boolean(
+    hasCompoundAnswer ||
+      isScoreInsight ||
+      isRecommendation ||
+      hasFeatureInline ||
+      isPriceOrColorCanvas ||
+      isDirectComparison,
+  );
+  const mergeJourneyIntoCanvas = hasCanvas && isPriceOrColorCanvas && !hasCompoundAnswer;
 
   if (isUser) {
     return (
@@ -104,11 +133,13 @@ function AciV2ChatMessage({
       </div>
 
       <div className="aci-chat-assistant-stack">
-        <AciV2AnswerLead
-          message={message}
-          widget={widget}
-          hasRichContent={hasRichContent}
-        />
+        {!suppressAnswerLead ? (
+          <AciV2AnswerLead
+            message={message}
+            widget={widget}
+            hasRichContent={hasRichContent}
+          />
+        ) : null}
 
         {hasCompoundAnswer ? (
           <AciV2CompoundInlineCard blocks={answerBlocks} onOpen={onOpenCanvas} />
@@ -129,7 +160,16 @@ function AciV2ChatMessage({
           />
         ) : null}
 
-        {hasFeatureInline && !hasCompoundAnswer && !isScoreInsight && !isRecommendation ? (
+        {isDirectComparison && !isRecommendation && !isScoreInsight ? (
+          <AciV2ComparisonInlineCard
+            message={message}
+            widget={widget}
+            onOpen={onOpenCanvas}
+            onAction={onAction}
+          />
+        ) : null}
+
+        {hasFeatureInline && !hasCompoundAnswer && !isScoreInsight && !isRecommendation && !isDirectComparison ? (
           <AciV2FeatureInlineCard
             message={message}
             selectedVehicle={selectedVehicle}
@@ -146,12 +186,13 @@ function AciV2ChatMessage({
           />
         ) : null}
 
-        {hasCanvas && !hasCompoundAnswer && !isScoreInsight && !isRecommendation ? (
+        {hasCanvas && !hasCompoundAnswer && !isScoreInsight && !isRecommendation && !isDirectComparison ? (
           <AciV2CanvasPreviewCard
             message={message}
             selectedVehicle={selectedVehicle}
             onOpen={onOpenCanvas}
             onAction={onAction}
+            actions={mergeJourneyIntoCanvas ? journeyPresentation.actions : []}
           />
         ) : null}
 
@@ -161,12 +202,13 @@ function AciV2ChatMessage({
           </div>
         ) : null}
 
-        {!message.error ? (
+        {!message.error && !mergeJourneyIntoCanvas ? (
           <AciV2JourneyActions
             message={message}
             widget={widget}
             historyMessages={historyMessages}
             onAction={onAction}
+            compact
           />
         ) : null}
       </div>

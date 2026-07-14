@@ -4146,6 +4146,7 @@ export default function AciV2CanvasPreviewCard({
   selectedVehicle,
   onAction,
   onOpen,
+  actions = [],
 }) {
   const widget = message.widget || {};
   const canvasType =
@@ -4256,7 +4257,9 @@ export default function AciV2CanvasPreviewCard({
               selectedVehicle={selectedVehicle}
               hasCanvas={hasCanvas}
               openCanvasLabel={openCanvasLabel}
+              actions={actions}
               onOpen={onOpen}
+              onAction={onAction}
             />
           ) : isColorResult ? (
             <AciV2ColorPreviewArea
@@ -4265,7 +4268,7 @@ export default function AciV2CanvasPreviewCard({
               rows={rows}
               selectedVehicle={selectedVehicle}
               hasCanvas={hasCanvas}
-              actions={[]}
+              actions={actions}
               onOpen={onOpen}
               onAction={onAction}
             />

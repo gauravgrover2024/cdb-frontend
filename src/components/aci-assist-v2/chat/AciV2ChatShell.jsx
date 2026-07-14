@@ -898,6 +898,7 @@ export default function AciV2ChatShell({
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card),
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4),
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card),
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-comparison-card),
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card),
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) {
   position: relative;
@@ -907,6 +908,7 @@ export default function AciV2ChatShell({
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-orb,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-orb,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-comparison-card) .aci-chat-orb,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-orb,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-chat-orb {
   position: absolute !important;
@@ -917,11 +919,22 @@ export default function AciV2ChatShell({
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-assistant-stack,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-assistant-stack,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-assistant-stack,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-comparison-card) .aci-chat-assistant-stack,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-assistant-stack,
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-chat-assistant-stack {
   width: 100% !important;
   max-width: 100% !important;
   padding-left: 0 !important;
+}
+
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-price-feature-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-color-inline-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-feature-inline-card-v4) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-compound-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-comparison-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-score-inline-card) .aci-chat-orb,
+.aci-chat-shell .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-chat-orb {
+  display: none !important;
 }
 
 .aci-chat-shell .aci-chat-message.is-assistant:has(.aci-chat-result-card) .aci-chat-bubble,

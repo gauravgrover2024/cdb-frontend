@@ -385,6 +385,304 @@ export default function AciV2ChatExperienceStyles() {
         .aci-chat-message.is-assistant:has(.aci-recommendation-card) .aci-answer-lead { width: calc(100% - 38px); margin-left: 38px; }
       }
 
+      /* Shared vehicle answer language: price, colour, comparisons and shortlists. */
+      .aci-compound-card,
+      .aci-comparison-card,
+      .aci-recommendation-card {
+        width: 100%;
+        padding: 0;
+        overflow: hidden;
+        border: 1px solid rgba(213, 223, 239, .9);
+        border-radius: 8px;
+        color: #071142;
+        background: linear-gradient(180deg, #fff 0%, #f8fbff 100%);
+        box-shadow: 0 24px 58px -44px rgba(18, 38, 76, .52);
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .aci-compound-card *,
+      .aci-comparison-card *,
+      .aci-recommendation-card *,
+      .aci-price-feature-card *,
+      .aci-color-inline-card *,
+      .aci-feature-inline-card-v4 * {
+        letter-spacing: 0 !important;
+      }
+
+      .aci-vehicle-card-header {
+        min-height: 66px;
+        padding: 13px 15px 11px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        border-bottom: 1px solid #e8edf4;
+        background: rgba(255, 255, 255, .86);
+      }
+      .aci-vehicle-card-header > div:first-child { min-width: 0; }
+      .aci-vehicle-card-header span,
+      .aci-vehicle-card-header h3,
+      .aci-vehicle-card-header p { display: block; margin: 0; }
+      .aci-vehicle-card-header > div:first-child > span {
+        color: #0758f8;
+        font-size: 9px;
+        line-height: 1;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .aci-vehicle-card-header h3 {
+        margin-top: 4px;
+        color: #101c34;
+        font-size: 17px;
+        line-height: 1.18;
+        font-weight: 790;
+        overflow-wrap: anywhere;
+      }
+      .aci-vehicle-card-header p {
+        margin-top: 4px;
+        color: #6b778b;
+        font-size: 10.5px;
+        line-height: 1.35;
+        font-weight: 540;
+      }
+
+      .aci-carousel-controls {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex: 0 0 auto;
+      }
+      .aci-carousel-controls small { margin-right: 3px; color: #6d798d; font-size: 9.5px; font-weight: 650; }
+      .aci-carousel-controls button {
+        width: 29px;
+        height: 29px;
+        display: grid;
+        place-items: center;
+        padding: 0;
+        border: 1px solid #d9e2ee;
+        border-radius: 50%;
+        color: #24334d;
+        background: #fff;
+        cursor: pointer;
+      }
+      .aci-carousel-controls button:disabled { opacity: .35; cursor: default; }
+      .aci-carousel-controls button:not(:disabled):hover,
+      .aci-carousel-controls button:not(:disabled):focus-visible { color: #0758f8; border-color: #a9c2ef; outline: none; }
+
+      .aci-compound-grid,
+      .aci-comparison-grid {
+        padding: 10px 15px 14px;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 18px;
+      }
+      .aci-vehicle-choice-card {
+        min-width: 0;
+        min-height: 268px;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        border: 0;
+        background: transparent;
+      }
+      .aci-vehicle-choice-card + .aci-vehicle-choice-card { border-left: 1px solid #e7ecf3; padding-left: 18px; }
+      .aci-compound-model,
+      .aci-comparison-model { grid-template-columns: none; gap: 0; }
+      .aci-compound-model-visual,
+      .aci-comparison-model-visual {
+        width: 100%;
+        height: 146px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 7px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f4f8fd 100%);
+      }
+      .aci-compound-model-visual img,
+      .aci-comparison-model-visual img {
+        width: 96%;
+        height: 96%;
+        object-fit: contain;
+        filter: drop-shadow(0 14px 12px rgba(15, 23, 42, .12));
+      }
+      .aci-vehicle-choice-rank,
+      .aci-recommendation-rank {
+        display: block;
+        margin-top: 8px;
+        color: #0758f8;
+        font-size: 8.5px;
+        line-height: 1;
+        font-weight: 800;
+        text-transform: uppercase;
+      }
+      .aci-compound-model h4,
+      .aci-comparison-model h4,
+      .aci-recommendation-model h4 {
+        margin: 5px 0 0;
+        min-height: 33px;
+        color: #111d34;
+        font-size: 13px;
+        line-height: 1.25;
+        font-weight: 780;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+      .aci-comparison-variant { margin: 1px 0 0; color: #647086; font-size: 10px; line-height: 1.25; }
+      .aci-comparison-facts { margin-top: 7px; min-height: 38px; }
+      .aci-comparison-facts strong,
+      .aci-comparison-facts span { display: block; }
+      .aci-comparison-facts strong { color: #17243b; font-size: 11.5px; line-height: 1.2; }
+      .aci-comparison-facts strong small { color: #7b8799; font-size: 9px; font-weight: 560; }
+      .aci-comparison-facts span { margin-top: 4px; color: #6d798e; font-size: 9.5px; line-height: 1.2; }
+      .aci-comparison-model > button,
+      .aci-recommendation-model > button {
+        min-height: 30px;
+        margin-top: auto;
+        display: inline-flex;
+        align-items: center;
+        align-self: flex-start;
+        gap: 6px;
+        padding: 5px 0;
+        border: 0;
+        color: #0758f8;
+        background: transparent;
+        font: inherit;
+        font-size: 10.5px;
+        line-height: 1.2;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .aci-comparison-model > button svg,
+      .aci-recommendation-model > button svg {
+        width: 18px;
+        height: 18px;
+        padding: 3px;
+        border: 1px solid #d9e1ec;
+        border-radius: 50%;
+        color: #5f6d83;
+      }
+      .aci-comparison-open {
+        width: calc(100% - 30px);
+        min-height: 36px;
+        margin: 0 15px 10px;
+        padding: 7px 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border: 0;
+        border-top: 1px solid #e6ebf2;
+        color: #0758f8;
+        background: transparent;
+        font: inherit;
+        font-size: 10.5px;
+        font-weight: 700;
+        cursor: pointer;
+      }
+
+      .aci-recommendation-grid {
+        padding: 10px 0 14px 15px;
+        display: flex;
+        align-items: stretch;
+        gap: 16px;
+        overflow-x: auto;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        overscroll-behavior-inline: contain;
+      }
+      .aci-recommendation-grid::-webkit-scrollbar { display: none; }
+      .aci-recommendation-model {
+        flex: 0 0 calc((100% - 32px) / 3);
+        width: calc((100% - 32px) / 3);
+        min-height: 276px;
+        scroll-snap-align: start;
+      }
+      .aci-recommendation-model + .aci-recommendation-model { padding-left: 0; border-left: 0; }
+      .aci-recommendation-visual {
+        width: 100%;
+        height: 138px;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+        border-radius: 7px;
+        background: linear-gradient(180deg, #fbfdff 0%, #f4f8fd 100%);
+      }
+      .aci-recommendation-visual img { width: 98%; height: 98%; object-fit: contain; filter: drop-shadow(0 14px 12px rgba(15, 23, 42, .12)); }
+      .aci-recommendation-model > strong { min-height: 18px; margin-top: 4px; font-size: 11.5px; }
+      .aci-recommendation-model > p {
+        min-height: 32px;
+        margin: 5px 0 7px;
+        color: #68758a;
+        font-size: 9.5px;
+        line-height: 1.35;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .aci-journey-actions.is-compact {
+        width: min(100%, 760px);
+        margin-top: 6px;
+        padding-top: 0;
+        border-top: 0;
+      }
+      .aci-journey-actions.is-compact .aci-journey-actions-list { margin-top: 0; }
+
+      @media (max-width: 720px) {
+        .aci-vehicle-card-header { min-height: 62px; padding: 11px 12px 10px; align-items: flex-end; }
+        .aci-vehicle-card-header h3 { font-size: 15px; }
+        .aci-vehicle-card-header p { font-size: 9.5px; }
+        .aci-carousel-controls small { display: none; }
+        .aci-carousel-controls button { width: 28px; height: 28px; }
+
+        .aci-recommendation-grid { gap: 12px; padding: 10px 0 12px 12px; }
+        .aci-recommendation-model {
+          flex: 0 0 100%;
+          width: 100%;
+          min-height: 330px;
+          display: flex;
+          padding: 0;
+          border-bottom: 0;
+        }
+        .aci-recommendation-visual { height: 182px; grid-row: auto; }
+        .aci-recommendation-model h4 { min-height: 0; font-size: 14px; }
+        .aci-recommendation-model > p { min-height: 27px; }
+
+        .aci-compound-grid,
+        .aci-comparison-grid {
+          padding: 10px 12px 12px;
+          display: flex;
+          gap: 12px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+        }
+        .aci-compound-grid::-webkit-scrollbar,
+        .aci-comparison-grid::-webkit-scrollbar { display: none; }
+        .aci-compound-model,
+        .aci-comparison-model {
+          flex: 0 0 88%;
+          width: 88%;
+          min-height: 292px;
+          padding: 0;
+          border: 0;
+          scroll-snap-align: start;
+        }
+        .aci-compound-model + .aci-compound-model,
+        .aci-comparison-model + .aci-comparison-model { padding-left: 0; border-left: 0; }
+        .aci-compound-model-visual,
+        .aci-comparison-model-visual { height: 170px; }
+        .aci-journey-actions.is-compact .aci-journey-actions-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0 18px;
+        }
+        .aci-journey-actions.is-compact .aci-journey-actions-list button + button { border-top: 0; }
+      }
+
       @media (prefers-reduced-motion: reduce) {
         .aci-answer-lead *,
         .aci-journey-actions *,

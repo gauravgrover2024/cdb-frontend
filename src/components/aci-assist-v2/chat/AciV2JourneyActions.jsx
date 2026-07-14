@@ -86,7 +86,7 @@ const comparisonModelsFor = (message = {}, widget = {}) => {
   );
   if (models.length >= 2) return models.slice(0, 2);
 
-  return asArray(
+  const contextualModels = asArray(
     message.contextPatch?.activeComparison?.vehicles ||
       widget.contextPatch?.activeComparison?.vehicles,
   )
@@ -98,6 +98,38 @@ const comparisonModelsFor = (message = {}, widget = {}) => {
     )
     .filter(Boolean)
     .slice(0, 2);
+  if (contextualModels.length >= 2) return contextualModels;
+
+  return asArray(widget.rows || message.rows)
+    .map((row = {}) => {
+      const vehicle = row.vehicle || row;
+      return String(
+        vehicle.fullModel ||
+          vehicle.displayName ||
+          [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" ") ||
+          row.displayName ||
+          row.model ||
+          "",
+      ).trim();
+    })
+    .filter(Boolean)
+    .slice(0, 2);
+};
+
+const vehicleLabelFor = (message = {}, widget = {}) => {
+  const vehicle =
+    message.vehicle ||
+    widget.vehicle ||
+    message.contextPatch?.selectedVehicle ||
+    widget.contextPatch?.selectedVehicle ||
+    {};
+  return String(
+    vehicle.fullModel ||
+      vehicle.displayName ||
+      [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" ") ||
+      vehicle.model ||
+      "",
+  ).trim();
 };
 
 const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] } = {}) => {
@@ -125,6 +157,7 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
   const currentScope = scopeFor({ ...message, widget });
   const currentIntent = `${message.intent || ""} ${widget.intent || ""} ${message.canvasType || ""}`;
   const currentCapability = capabilityFor({ ...message, widget });
+  const currentVehicleLabel = vehicleLabelFor(message, widget);
   const explored = asArray(historyMessages)
     .filter((item) => item?.role === "assistant")
     .map((item) => ({
@@ -178,13 +211,62 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
     if (lead && (!leadAllowed || leadCount >= 1)) continue;
     seen.add(key);
     if (lead) leadCount += 1;
+    const isOverviewAction = /open (?:car |vehicle )?overview|view (?:car |vehicle )?overview/i.test(label);
+    if (isOverviewAction && !currentVehicleLabel) continue;
     const comparisonQuery =
       /compare equivalent variants|match variants|comparable variants/i.test(label) &&
       comparisonModels.length >= 2
         ? `Compare ${comparisonModels.join(" vs ")}`
-        : action.query || label;
+        : isOverviewAction
+          ? `Show ${currentVehicleLabel} overview`
+          : action.query || label;
     actions.push({ ...action, label, query: comparisonQuery, isLead: lead });
     if (actions.length >= 2) break;
+  }
+
+  const addFallback = (action) => {
+    const key = actionKey(action);
+    if (!key || seen.has(key) || actions.length >= 2) return;
+    seen.add(key);
+    actions.push(action);
+  };
+
+  if (currentCapability === "comparison" && comparisonModels.length >= 2) {
+    addFallback({
+      id: "compare-key-features",
+      label: "Compare key features",
+      query: `Compare ${comparisonModels.join(" vs ")} on key features`,
+      type: "ask",
+    });
+    addFallback({
+      id: "compare-automatic-variants",
+      label: "Compare automatic variants",
+      query: `Compare automatic variants of ${comparisonModels.join(" vs ")}`,
+      type: "ask",
+    });
+  }
+
+  if (currentCapability === "recommendation") {
+    const recommendationModels = asArray(widget.rows || message.rows)
+      .map((row) => String(row.fullModel || row.displayName || [row.make || row.brand, row.model].filter(Boolean).join(" ")).trim())
+      .filter(Boolean);
+    if (recommendationModels.length >= 2) {
+      addFallback({
+        id: "compare-top-shortlist",
+        label: "Compare top matches",
+        query: `Compare ${recommendationModels.slice(0, 2).join(" vs ")}`,
+        type: "ask",
+      });
+    }
+    const feature = String(widget.featureName || widget.feature || widget.data?.featureName || "").trim();
+    addFallback({
+      id: "refine-shortlist-automatic",
+      label: "Show automatic options",
+      query: feature
+        ? `Show automatic cars with ${feature} in this budget`
+        : "Show automatic cars in this budget",
+      type: "ask",
+    });
   }
 
   return {
@@ -195,7 +277,7 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
   };
 };
 
-function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], onAction }) {
+function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], onAction, compact = false }) {
   const presentation = useMemo(
     () => buildJourneyActions({ message, widget, historyMessages }),
     [historyMessages, message, widget],
@@ -206,8 +288,8 @@ function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], 
   const FlowIcon = decisionFlow ? Route : Compass;
 
   return (
-    <nav className={`aci-journey-actions is-${flow}`} aria-label="Helpful next steps">
-      <div className="aci-journey-actions-intro">
+    <nav className={`aci-journey-actions is-${flow} ${compact ? "is-compact" : ""}`} aria-label="Helpful next steps">
+      {!compact ? <div className="aci-journey-actions-intro">
         <FlowIcon size={16} strokeWidth={2} aria-hidden="true" />
         <span>
           <strong>{decisionFlow ? "Ready when you are" : "A useful next step"}</strong>
@@ -217,7 +299,7 @@ function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], 
               : "Keep exploring at your own pace."}
           </small>
         </span>
-      </div>
+      </div> : null}
       <div className="aci-journey-actions-list">
         {actions.map((action, index) => (
           <button
