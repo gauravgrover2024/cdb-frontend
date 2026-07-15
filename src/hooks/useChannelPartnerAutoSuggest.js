@@ -28,6 +28,7 @@ export default function useChannelPartnerAutoSuggest({
   const [loading, setLoading] = useState(false);
   const timerRef = useRef(null);
   const allRef = useRef(null);
+  const requestSeqRef = useRef(0);
 
   const fetchAll = useCallback(async () => {
     if (Array.isArray(allRef.current)) return allRef.current;
@@ -61,6 +62,7 @@ export default function useChannelPartnerAutoSuggest({
       }
 
       timerRef.current = setTimeout(async () => {
+        const requestId = ++requestSeqRef.current;
         setLoading(true);
         try {
           const response = await channelsApi.search(q, type);
@@ -69,10 +71,13 @@ export default function useChannelPartnerAutoSuggest({
             const all = await fetchAll();
             rows = (all || []).filter((item) => containsTerm(item, q));
           }
+          if (requestId !== requestSeqRef.current) return;
           setPartners(rows);
         } catch {
+          if (requestId !== requestSeqRef.current) return;
           setPartners([]);
         } finally {
+          if (requestId !== requestSeqRef.current) return;
           setLoading(false);
         }
       }, 240);

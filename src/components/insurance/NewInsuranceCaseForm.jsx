@@ -55,6 +55,7 @@ import {
   mergeLinkedIntoExistingDocuments,
 } from "../../utils/insuranceLinkedDocuments";
 import { useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 import {
   digits10,
   mergeInsuranceCustomerFields,
@@ -864,6 +865,7 @@ const NewInsuranceCaseForm = ({
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user: currentUser } = useAuth();
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
     ...initialFormState,
@@ -1290,6 +1292,20 @@ const NewInsuranceCaseForm = ({
       cancelled = true;
     };
   }, []);
+
+  // Auto-fill Employee (Staff) with the logged-in user on a fresh case,
+  // without clobbering a value already loaded from an existing case.
+  useEffect(() => {
+    if (!isCreateMode || !currentUser) return;
+    setFormData((prev) => {
+      if (prev.employeeName) return prev;
+      return {
+        ...prev,
+        employeeName: currentUser.name || "",
+        employeeUserId: currentUser._id || currentUser.id || "",
+      };
+    });
+  }, [isCreateMode, currentUser]);
 
   useEffect(() => {
     let ignore = false;
@@ -2963,7 +2979,6 @@ const NewInsuranceCaseForm = ({
       }
       return { ...prev, [field]: nextValue };
     });
-    schedulePersist();
   };
 
   const buildPersistPayload = useCallback(
@@ -3231,8 +3246,7 @@ const NewInsuranceCaseForm = ({
 
   const setField = useCallback((field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    schedulePersist();
-  }, [schedulePersist]);
+  }, []);
 
   const handleSwitchToUsedCar = useCallback(() => {
     setFormData((prev) => ({
@@ -3240,8 +3254,7 @@ const NewInsuranceCaseForm = ({
       vehicleType: "Used Car",
       usedCarFlowType: prev.usedCarFlowType || "Sale/Purchase",
     }));
-    schedulePersist();
-  }, [schedulePersist]);
+  }, []);
 
   const draftSnapshot = React.useMemo(
     () =>
@@ -3965,7 +3978,6 @@ const NewInsuranceCaseForm = ({
 
       return next;
     });
-    schedulePersist();
   };
 
   const handleNewPolicyStartOrDuration = (updated) => {
@@ -4005,7 +4017,6 @@ const NewInsuranceCaseForm = ({
 
       return next;
     });
-    schedulePersist();
   };
 
   const handleSubmitFinal = async (event) => {
@@ -4524,6 +4535,7 @@ const NewInsuranceCaseForm = ({
               totalSteps={visibleSteps.length}
               isLastStep={stepIndex === visibleSteps.length - 1}
               onNext={step === 9 ? handleSubmitFinal : goNext}
+              onSave={() => persistNow({ silent: false })}
               onExit={handleSaveAndExit}
               onDiscard={handleDiscard}
               onClear={handleClearForm}

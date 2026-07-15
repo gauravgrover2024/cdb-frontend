@@ -12,12 +12,13 @@ import PersonalDetailsWithSearch from "./loan-form/PersonalDetailsWithSearch";
 
 import EmploymentDetails from "../../customers/customer-form/EmploymentDetails";
 import BankDetails from "../../customers/customer-form/BankDetails";
-import ReferenceDetails from "../../customers/customer-form/ReferenceDetails";
+import ReferenceDetails from "./loan-form/pre-file/HomeLoanReferenceDetails";
 import KycDetails from "../../customers/customer-form/KycDetails";
 
 import PersonalDetailsPreFile from "./loan-form/pre-file/PersonalDetailsPreFile";
 import OccupationalDetailsPreFile from "./loan-form/pre-file/OccupationalDetailsPreFile";
 import IncomeBankingDetailsPreFile from "./loan-form/pre-file/IncomeBankingDetailsPreFile";
+import VehiclePricingLoanDetails from "./loan-form/pre-file/VehiclePricingLoanDetails";
 import Section7RecordDetails from "./loan-form/pre-file/Section7RecordDetails";
 import CoApplicantSection from "./loan-form/pre-file/CoApplicantSection";
 import GuarantorSection from "./loan-form/pre-file/GuarantorSection";
@@ -828,6 +829,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedHasCoApplicant = Form.useWatch("hasCoApplicant", form);
   const watchedHasGuarantor = Form.useWatch("hasGuarantor", form);
   const watchedApplicantType = Form.useWatch("applicantType", form);
+  const watchedIsBulk = Form.useWatch("isBulk", form);
   const watchedAadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
   const watchedAadhaarCardBackDocUrl = Form.useWatch(
     "aadhaarCardBackDocUrl",
@@ -2602,6 +2604,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         const numberOfCars = Number(payload.numberOfCars) || 1;
         const forceBulkCreate = extraData?.forceBulkCreate;
 
+        // A loan file that is itself the result of a previous split must not be split
+        // again - bulk creation is only available on the original entry.
+        if (forceBulkCreate && payload.isBulk) {
+          message.error(
+            "This loan file was created by splitting an original entry and cannot be split again.",
+          );
+          if (!silent) setSaving(false);
+          return false;
+        }
+
         // BULK SUCCESS CASE
         if (numberOfCars > 1 && (!isEditMode || forceBulkCreate)) {
           const result = await createLoan(payload);
@@ -3065,7 +3077,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PREFILE_SECTIONS[4]} index={4}>
+            <PrefileSectionShell {...PREFILE_SECTIONS[3]} index={4}>
+              <div
+                id="vehicle_loan"
+                className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+              >
+                <VehiclePricingLoanDetails cashPrefileMode={isCashCase} />
+              </div>
+            </PrefileSectionShell>
+
+            <PrefileSectionShell {...PREFILE_SECTIONS[4]} index={5}>
               <div
                 id="references"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3074,7 +3095,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PREFILE_SECTIONS[5]} index={5}>
+            <PrefileSectionShell {...PREFILE_SECTIONS[5]} index={6}>
               <div
                 id="kyc"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3083,7 +3104,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PREFILE_SECTIONS[6]} index={6}>
+            <PrefileSectionShell {...PREFILE_SECTIONS[6]} index={7}>
               <div
                 id="section7"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3093,7 +3114,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             </PrefileSectionShell>
 
             {showPrefileCoApplicant && (
-              <PrefileSectionShell {...PREFILE_SECTIONS[7]} index={7}>
+              <PrefileSectionShell {...PREFILE_SECTIONS[7]} index={8}>
                 <div
                   id="co_applicant"
                   className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3104,7 +3125,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             )}
 
             {showPrefileGuarantor && (
-              <PrefileSectionShell {...PREFILE_SECTIONS[8]} index={8}>
+              <PrefileSectionShell {...PREFILE_SECTIONS[8]} index={9}>
                 <div
                   id="guarantor"
                   className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3115,7 +3136,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
             )}
 
             {showPrefileAuthorisedSignatory && (
-              <PrefileSectionShell {...PREFILE_SECTIONS[9]} index={9}>
+              <PrefileSectionShell {...PREFILE_SECTIONS[9]} index={10}>
                 <div
                   id="auth_signatory"
                   className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3129,7 +3150,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               id="bulk_loan"
               className="rounded-2xl border border-dashed border-border/70 bg-card/75 p-2 dark:border-zinc-800 dark:bg-black/70"
             >
-              <BulkLoanCreationSection form={form} onProcess={(extra) => handleSaveLoan(true, extra)} />
+              <BulkLoanCreationSection
+                form={form}
+                onProcess={(extra) => handleSaveLoan(true, extra)}
+                disabled={isEditMode && Boolean(watchedIsBulk)}
+              />
             </div>
           </div>
         );

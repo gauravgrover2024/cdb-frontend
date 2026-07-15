@@ -26,6 +26,10 @@ const LeadDetails = () => {
   const companyType = Form.useWatch("companyType", form);
   const gstNumber = Form.useWatch("gstNumber", form);
   const source = Form.useWatch("source", form);
+  const propertyType = Form.useWatch("propertyType", form);
+  const typeOfLoan = Form.useWatch("typeOfLoan", form);
+  const isPersonalLoan =
+    propertyType === "Unsecured" && typeOfLoan === "Personal Loan";
 
   const dealerName = Form.useWatch("dealerName", form);
   const dealerAddress = Form.useWatch("dealerAddress", form);
@@ -61,19 +65,30 @@ const LeadDetails = () => {
   useEffect(() => {
     const currentApplicantType = String(form.getFieldValue("applicantType") || "").trim();
     const currentCustomerType = String(form.getFieldValue("customerType") || "").trim();
+    // Personal Loan is individual-only — never infer/allow Company here.
     const inferCompany =
-      /company|corporate|firm|llp|partnership|proprietor/i.test(
+      !isPersonalLoan &&
+      (/company|corporate|firm|llp|partnership|proprietor/i.test(
         `${currentApplicantType} ${currentCustomerType} ${companyType || ""}`,
-      ) || Boolean(gstNumber);
+      ) ||
+        Boolean(gstNumber));
 
     const normalizedApplicantType = inferCompany ? "Company" : "Individual";
-    if (currentApplicantType !== "Company" && currentApplicantType !== "Individual") {
+    if (
+      isPersonalLoan
+        ? currentApplicantType !== "Individual"
+        : currentApplicantType !== "Company" && currentApplicantType !== "Individual"
+    ) {
       form.setFieldsValue({ applicantType: normalizedApplicantType });
     }
-    if (currentCustomerType !== "Company" && currentCustomerType !== "Individual") {
+    if (
+      isPersonalLoan
+        ? currentCustomerType !== "Individual"
+        : currentCustomerType !== "Company" && currentCustomerType !== "Individual"
+    ) {
       form.setFieldsValue({ customerType: normalizedApplicantType });
     }
-  }, [form, companyType, gstNumber]);
+  }, [form, companyType, gstNumber, isPersonalLoan]);
 
   // Keep customerType aligned with applicantType for downstream sections
   useEffect(() => {
@@ -314,26 +329,37 @@ const LeadDetails = () => {
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Applicant Category" name="applicantType" className="mb-0">
-                  <Radio.Group buttonStyle="solid" className="w-full flex">
+                <Form.Item
+                  label="Applicant Category"
+                  name="applicantType"
+                  className="mb-0"
+                  tooltip={
+                    isPersonalLoan
+                      ? "Personal Loan applicants are always Individual."
+                      : undefined
+                  }
+                >
+                  <Radio.Group buttonStyle="solid" className="w-full flex" disabled={isPersonalLoan}>
                     <Radio.Button value="Individual" className="flex-1 text-center h-10 flex items-center justify-center">
                       <div className="flex items-center gap-2 justify-center w-full">
                         <Icon name="User" size={14} />
                         <span>Individual</span>
                       </div>
                     </Radio.Button>
-                    <Radio.Button value="Company" className="flex-1 text-center h-10 flex items-center justify-center">
-                      <div className="flex items-center gap-2 justify-center w-full">
-                        <Icon name="Building" size={14} />
-                        <span>Company</span>
-                      </div>
-                    </Radio.Button>
+                    {!isPersonalLoan && (
+                      <Radio.Button value="Company" className="flex-1 text-center h-10 flex items-center justify-center">
+                        <div className="flex items-center gap-2 justify-center w-full">
+                          <Icon name="Building" size={14} />
+                          <span>Company</span>
+                        </div>
+                      </Radio.Button>
+                    )}
                   </Radio.Group>
                 </Form.Item>
               </Col>
 
               <Col xs={24} md={8}>
-                {applicantType === "Company" && (
+                {!isPersonalLoan && applicantType === "Company" && (
                   <Form.Item label="Is MSME Registered?" name="isMSME" className="mb-0">
                     <Select placeholder="Select status" className="h-10 rounded-xl">
                       <Select.Option value="Yes">Yes, Registered</Select.Option>

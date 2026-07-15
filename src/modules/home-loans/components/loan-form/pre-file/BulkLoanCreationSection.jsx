@@ -2,9 +2,11 @@ import { Alert, Form, InputNumber, Radio, Button, message, Progress } from "antd
 import { useState } from "react";
 import Icon from "../../../../../components/AppIcon";
 
-const BulkLoanCreationSection = ({ form, onProcess }) => {
+const BulkLoanCreationSection = ({ form, onProcess, disabled = false }) => {
   const isMultipleCars = Form.useWatch("isMultipleCars", form);
   const isSameVehicle = Form.useWatch("isSameVehicle", form) ?? true;
+  const propertyType = Form.useWatch("propertyType", form);
+  const isUnsecured = propertyType === "Unsecured";
 
   const numberOfCars = Form.useWatch("numberOfCars", form);
 
@@ -12,6 +14,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
   const [progress, setProgress] = useState(0);
 
   const handleCreateBulkLoans = async () => {
+    if (disabled) return;
     try {
       await form.validateFields();
     } catch (error) {
@@ -72,6 +75,17 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
         </div>
       </div>
 
+      {disabled && (
+        <Alert
+          message="Bulk creation unavailable on split entries"
+          description="This loan file was created by splitting an original bulk entry, so it can't be used to create further splits. Use the original entry to add more loan files."
+          type="warning"
+          showIcon
+          icon={<Icon name="Info" size={18} />}
+          className="mb-6"
+        />
+      )}
+
       <div className="space-y-6">
         {/* Question 1: Multiple Loans */}
         <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/10 rounded-xl border border-blue-200 dark:border-blue-800/30 p-5">
@@ -89,6 +103,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
 
           <Form.Item name="isMultipleCars" className="mb-0">
             <Radio.Group
+              disabled={disabled}
               className="flex gap-3"
             >
               <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-blue-600 has-[:checked]:bg-blue-50 dark:has-[:checked]:bg-blue-950/30 transition-all cursor-pointer">
@@ -108,37 +123,40 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
         {/* Show additional questions only if multiple loans */}
         {isMultipleCars && (
           <>
-            {/* Question 2: Same Property */}
-            <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/30 p-5">
-              <div className="flex items-start gap-3 mb-4">
-                <Icon name="Building2" size={20} className="text-emerald-600 dark:text-emerald-400 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="text-sm text-emerald-900 dark:text-emerald-300 mb-1">
-                    Is the property same for all loans?
-                  </h4>
-                  <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                    If yes, property details will be cloned. If no, you'll need to enter property details separately
-                  </p>
+            {/* Question 2: Same Property - not applicable to unsecured loans (no property involved) */}
+            {!isUnsecured && (
+              <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-950/20 dark:to-emerald-900/10 rounded-xl border border-emerald-200 dark:border-emerald-800/30 p-5">
+                <div className="flex items-start gap-3 mb-4">
+                  <Icon name="Building2" size={20} className="text-emerald-600 dark:text-emerald-400 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-sm text-emerald-900 dark:text-emerald-300 mb-1">
+                      Is the property same for all loans?
+                    </h4>
+                    <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                      If yes, property details will be cloned. If no, you'll need to enter property details separately
+                    </p>
+                  </div>
                 </div>
-              </div>
 
-              <Form.Item name="isSameVehicle" className="mb-0">
-                <Radio.Group
-                  className="flex gap-3"
-                >
-                  <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
-                    <Radio value={true} className="w-full">
-                      <span className="font-medium text-foreground">Yes - Same Property</span>
-                    </Radio>
-                  </div>
-                  <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
-                    <Radio value={false} className="w-full">
-                      <span className="font-medium text-foreground">No - Different Properties</span>
-                    </Radio>
-                  </div>
-                </Radio.Group>
-              </Form.Item>
-            </div>
+                <Form.Item name="isSameVehicle" className="mb-0">
+                  <Radio.Group
+                    disabled={disabled}
+                    className="flex gap-3"
+                  >
+                    <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
+                      <Radio value={true} className="w-full">
+                        <span className="font-medium text-foreground">Yes - Same Property</span>
+                      </Radio>
+                    </div>
+                    <div className="flex-1 p-3 rounded-lg border-2 border-transparent has-[:checked]:border-emerald-600 has-[:checked]:bg-emerald-50 dark:has-[:checked]:bg-emerald-950/30 transition-all cursor-pointer">
+                      <Radio value={false} className="w-full">
+                        <span className="font-medium text-foreground">No - Different Properties</span>
+                      </Radio>
+                    </div>
+                  </Radio.Group>
+                </Form.Item>
+              </div>
+            )}
 
             {/* Number of Loans Input */}
             <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/20 dark:to-amber-900/10 rounded-xl border border-amber-200 dark:border-amber-800/30 p-5">
@@ -168,6 +186,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                   placeholder="e.g. 5"
                   className="w-full"
                   size="large"
+                  disabled={disabled}
                 />
               </Form.Item>
 
@@ -176,7 +195,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                   <Icon name="Info" size={16} />
                   <span className="text-xs font-medium">
                     {numberOfCars} loan files will be created with cloned customer data
-                    {!isSameVehicle && " (property details will need to be entered separately)"}
+                    {!isUnsecured && !isSameVehicle && " (property details will need to be entered separately)"}
                   </span>
                 </div>
               )}
@@ -199,7 +218,12 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                     <Icon name="Check" size={16} className="text-success mt-0.5" />
                     <span>Co-Applicant, Guarantor, Authorized Signatory (if applicable)</span>
                   </li>
-                  {isSameVehicle ? (
+                  {isUnsecured ? (
+                    <li className="flex items-start gap-2">
+                      <Icon name="Check" size={16} className="text-success mt-0.5" />
+                      <span>Not applicable - Unsecured loan, no property involved</span>
+                    </li>
+                  ) : isSameVehicle ? (
                     <li className="flex items-start gap-2">
                       <Icon name="Check" size={16} className="text-success mt-0.5" />
                       <span>Property Details & Pricing</span>
@@ -236,6 +260,7 @@ const BulkLoanCreationSection = ({ form, onProcess }) => {
                   className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 border-0 shadow-md shadow-violet-500/20 flex items-center justify-center gap-2 font-semibold h-12 px-10 rounded-full text-base"
                   onClick={handleCreateBulkLoans}
                   loading={isCreating}
+                  disabled={disabled}
                 >
                   {!isCreating && <Icon name="Copy" size={20} className="text-white" />}
                   <span>Create Bulk Loans</span>

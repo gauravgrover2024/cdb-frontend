@@ -1,11 +1,14 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
+  DeleteOutlined,
   PhoneOutlined,
+  PlusCircleOutlined,
   SolutionOutlined,
   TeamOutlined,
 } from "@ant-design/icons";
 import {
   AutoComplete,
+  Button,
   Col,
   DatePicker,
   Form,
@@ -15,11 +18,17 @@ import {
   Select,
 } from "antd";
 import dayjs from "dayjs";
-import { BUSINESS_NATURE_OPTIONS, COMPANY_TYPE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
+import { BUSINESS_NATURE_OPTIONS, COMPANY_TYPE_OPTIONS, getOptionsWithCustom, isFirmConstitution } from "../../../../../constants/employmentOptions";
 import CustomerQuickSearch from "../../../../shared/CustomerQuickSearch";
 import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
 import { customersApi } from "../../../../../api/customers";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
+
+const RELATION_WITH_FIRM_OPTIONS = ["Partner", "Shareholder", "Director", "Other"];
+// Relations that represent a seat on the Partners/Directors register - a
+// co-applicant with one of these gets auto-mirrored into companyPartners so
+// the same details don't need to be re-entered there.
+const PARTNERS_REGISTER_RELATIONS = ["Partner", "Director"];
 
 const { Option } = Select;
 const normalizeMultiTags = (values) =>
@@ -63,6 +72,102 @@ const CoApplicantSection = () => {
   const [fetchingCoPincode, setFetchingCoPincode] = useState(false);
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, coCompanyType);
   const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, coBusinessNature);
+
+  // Firm applicants (partnership/proprietorship) can have more than one
+  // co-applicant, and each one's relation to the firm auto-fills the
+  // Partners/Directors (companyPartners) list further down the form.
+  const applicantType = Form.useWatch("applicantType", form);
+  const companyType = Form.useWatch("companyType", form);
+  const isFirm = applicantType === "Company" && isFirmConstitution(companyType);
+  const coRelationWithFirm = Form.useWatch("co_relationWithFirm", form);
+  const coCustomerName = Form.useWatch("co_customerName", form);
+  const coPan = Form.useWatch("co_pan", form);
+  const coDob = Form.useWatch("co_dob", form);
+  const additionalCoApplicants = Form.useWatch("coApplicants", form);
+  const autoPartnerKeysRef = useRef(new Set());
+
+  // Auto-mirror any co-applicant marked as Partner/Director into the
+  // Partners/Directors (companyPartners) list, so the same person's details
+  // don't have to be typed twice. Only touches entries this effect itself
+  // added on a previous run (tracked by name+PAN key) - manually-added
+  // partner rows are left alone.
+  useEffect(() => {
+    if (!isFirm || !hasCoApplicant) return;
+
+    const toKey = (name, pan) =>
+      `${String(name || "").trim().toLowerCase()}|${String(pan || "").trim().toUpperCase()}`;
+
+    const candidates = [
+      {
+        name: coCustomerName,
+        relation: coRelationWithFirm,
+        pan: coPan,
+        contactNumber: form.getFieldValue("co_primaryMobile"),
+        dateOfBirth: coDob ? (dayjs.isDayjs(coDob) ? coDob.format("YYYY-MM-DD") : String(coDob)) : "",
+      },
+      ...(Array.isArray(additionalCoApplicants) ? additionalCoApplicants : []).map((c) => ({
+        name: c?.customerName,
+        relation: c?.relationWithFirm,
+        pan: c?.pan,
+        contactNumber: c?.primaryMobile,
+        dateOfBirth: c?.dob ? (dayjs.isDayjs(c.dob) ? c.dob.format("YYYY-MM-DD") : String(c.dob)) : "",
+      })),
+    ];
+
+    const desired = candidates
+      .filter((c) => PARTNERS_REGISTER_RELATIONS.includes(c.relation) && String(c.name || "").trim())
+      .map((c) => ({
+        name: c.name,
+        panNumber: c.pan || "",
+        contactNumber: c.contactNumber || "",
+        dateOfBirth: c.dateOfBirth || "",
+        __key: toKey(c.name, c.pan),
+      }));
+    const desiredKeys = new Set(desired.map((d) => d.__key));
+
+    const existing = Array.isArray(form.getFieldValue("companyPartners"))
+      ? form.getFieldValue("companyPartners")
+      : [];
+
+    // Keep rows the user added manually (never auto-managed), plus rows this
+    // effect previously added that are still desired (refreshed with latest
+    // details). Drop rows this effect previously added but are no longer
+    // desired (relation changed away from Partner/Director, or removed).
+    const untouched = existing.filter(
+      (row) => !autoPartnerKeysRef.current.has(toKey(row?.name, row?.panNumber)),
+    );
+
+    const nextPartners = [
+      ...untouched,
+      ...desired.map(({ __key, ...row }) => row),
+    ];
+
+    const isSame =
+      existing.length === nextPartners.length &&
+      existing.every((row, i) => {
+        const next = nextPartners[i];
+        return (
+          row?.name === next?.name &&
+          row?.panNumber === next?.panNumber &&
+          row?.contactNumber === next?.contactNumber &&
+          row?.dateOfBirth === next?.dateOfBirth
+        );
+      });
+
+    if (!isSame) {
+      form.setFieldsValue({ companyPartners: nextPartners });
+    }
+    autoPartnerKeysRef.current = desiredKeys;
+  }, [
+    isFirm,
+    hasCoApplicant,
+    coCustomerName,
+    coRelationWithFirm,
+    coPan,
+    coDob,
+    additionalCoApplicants,
+    form,
+  ]);
 
   const handleCustomerSelect = (customer) => {
     const mappedFields = mapCustomerToPersonFields(customer, "co");
@@ -191,6 +296,27 @@ const CoApplicantSection = () => {
             />
           </Form.Item>
         </Col>
+        {isFirm && (
+          <Col xs={24} md={8}>
+            <Form.Item
+              label="Relation with Firm"
+              name="co_relationWithFirm"
+              tooltip="Partner/Director selections auto-fill this person into the Partners/Directors list below."
+            >
+              <Select
+                className={fieldClass}
+                placeholder="Select relation"
+                allowClear
+              >
+                {RELATION_WITH_FIRM_OPTIONS.map((option) => (
+                  <Option key={option} value={option}>
+                    {option}
+                  </Option>
+                ))}
+              </Select>
+            </Form.Item>
+          </Col>
+        )}
         <Col xs={24} md={8}>
           <Form.Item label="Mother's Name" name="co_motherName">
             <Input className={fieldClass} placeholder="Name" />
@@ -401,6 +527,116 @@ const CoApplicantSection = () => {
           </Col>
         )}
       </Row>
+
+      {/* ================= ADDITIONAL CO-APPLICANTS (FIRM ONLY) ================= */}
+      {isFirm && (
+        <div className="mt-8">
+          <div className="mb-4 flex items-center gap-2">
+            <TeamOutlined className="text-[12px] text-muted-foreground" />
+            <span className={sectionLabelClass}>Additional Co-Applicants</span>
+          </div>
+          <p className="mb-4 text-xs text-muted-foreground">
+            Firm applicants can add more than one co-applicant (e.g. multiple partners co-signing).
+            Set a relation of Partner or Director to auto-fill that person into Partners/Directors
+            Details below.
+          </p>
+
+          <Form.List name="coApplicants">
+            {(fields, { add, remove }) => (
+              <div className="space-y-3">
+                {fields.map((field) => (
+                  <div
+                    key={field.key}
+                    className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-xl border border-border bg-background p-3"
+                  >
+                    <div className="md:col-span-3">
+                      <Form.Item
+                        {...field}
+                        label="Name"
+                        name={[field.name, "customerName"]}
+                        className="mb-0"
+                      >
+                        <Input placeholder="Co-applicant name" />
+                      </Form.Item>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Form.Item
+                        {...field}
+                        label="Relation with Firm"
+                        name={[field.name, "relationWithFirm"]}
+                        className="mb-0"
+                      >
+                        <Select placeholder="Select" allowClear>
+                          {RELATION_WITH_FIRM_OPTIONS.map((option) => (
+                            <Option key={option} value={option}>
+                              {option}
+                            </Option>
+                          ))}
+                        </Select>
+                      </Form.Item>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Form.Item
+                        {...field}
+                        label="Mobile"
+                        name={[field.name, "primaryMobile"]}
+                        className="mb-0"
+                        rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits required" }]}
+                      >
+                        <Input maxLength={10} placeholder="10-digit number" />
+                      </Form.Item>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Form.Item
+                        {...field}
+                        label="PAN"
+                        name={[field.name, "pan"]}
+                        className="mb-0"
+                      >
+                        <Input placeholder="ABCDE1234F" />
+                      </Form.Item>
+                    </div>
+                    <div className="md:col-span-2">
+                      <Form.Item
+                        {...field}
+                        label="Aadhaar"
+                        name={[field.name, "aadhaar"]}
+                        className="mb-0"
+                      >
+                        <Input placeholder="1234 5678 9012" />
+                      </Form.Item>
+                    </div>
+                    <div className="md:col-span-1 flex items-end justify-end">
+                      <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={() => remove(field.name)}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                <Button
+                  type="dashed"
+                  icon={<PlusCircleOutlined />}
+                  onClick={() =>
+                    add({
+                      customerName: "",
+                      relationWithFirm: undefined,
+                      primaryMobile: "",
+                      pan: "",
+                      aadhaar: "",
+                    })
+                  }
+                >
+                  Add Co-Applicant
+                </Button>
+              </div>
+            )}
+          </Form.List>
+        </div>
+      )}
     </div>
   );
 };

@@ -10,6 +10,7 @@ const InsuranceStageFooter = ({
   totalSteps = 9,
   isLastStep,
   onNext,
+  onSave,
   onExit,
   onDiscard,
   onClear,
@@ -74,6 +75,17 @@ const InsuranceStageFooter = ({
               >
                 <Icon name="LogOut" size={16} style={{ marginRight: 6 }} />
                 {isSaving ? "Saving..." : "Exit"}
+              </Button>
+
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onSave}
+                disabled={isSaving}
+                className="h-9 border-none bg-slate-600 text-white shadow-lg shadow-slate-600/30 hover:bg-slate-700 dark:bg-slate-600 dark:hover:bg-slate-700"
+              >
+                <Icon name="Save" size={16} style={{ marginRight: 6 }} />
+                {isSaving ? "Saving..." : "Save"}
               </Button>
 
               <Button
