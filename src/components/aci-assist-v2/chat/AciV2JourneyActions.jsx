@@ -1,5 +1,12 @@
 import React, { useMemo } from "react";
-import { ArrowRight, Compass, Route } from "lucide-react";
+import {
+  ArrowRight,
+  Calculator,
+  Compass,
+  ListChecks,
+  Route,
+  SlidersHorizontal,
+} from "lucide-react";
 
 const asArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
@@ -30,10 +37,10 @@ const capabilityFor = (value = {}) => {
           value.answer,
         ].filter(Boolean).join(" "),
   );
+  if (/\b(compare|comparison|versus| vs )\b/.test(` ${source} `)) return "comparison";
   if (/\b(price|prices|pricelist|price list|on road|ex showroom)\b/.test(source)) return "price";
   if (/\b(colour|colours|color|colors)\b/.test(source)) return "color";
   if (/\b(emi|loan|finance|down payment)\b/.test(source)) return "finance";
-  if (/\b(compare|comparison|versus| vs )\b/.test(` ${source} `)) return "comparison";
   if (/\b(recommend|recommendation|shortlist|find cars|best car|best suv)\b/.test(source)) return "recommendation";
   if (/\b(feature|features|sunroof|abs|airbag|safety)\b/.test(source)) return "feature";
   if (/\b(variant|variants|trim|trims)\b/.test(source)) return "variant";
@@ -70,6 +77,15 @@ const isLeadAction = (action = {}) =>
       .filter(Boolean)
       .join(" "),
   );
+
+const iconForAction = (action = {}) => {
+  const label = normalize(actionLabel(action));
+  if (/\b(variant|variants|trim|trims)\b/.test(label)) return SlidersHorizontal;
+  if (/\b(emi|loan|finance)\b/.test(label)) return Calculator;
+  if (/\b(feature|features|equipment|specification)\b/.test(label)) return ListChecks;
+  if (/\b(compare|comparison)\b/.test(label)) return ListChecks;
+  return Compass;
+};
 
 const getJourney = (message = {}, widget = {}) =>
   message.journeyGuidance ||
@@ -152,11 +168,14 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
       widget.contextPatch?.activeComparison?.vehicles,
   );
   const seen = new Set();
+  const seenLabels = new Set();
+  const seenQueries = new Set();
   const actions = [];
   let leadCount = 0;
   const currentScope = scopeFor({ ...message, widget });
   const currentIntent = `${message.intent || ""} ${widget.intent || ""} ${message.canvasType || ""}`;
   const currentCapability = capabilityFor({ ...message, widget });
+  const actionLimit = currentCapability === "comparison" ? 3 : 2;
   const currentVehicleLabel = vehicleLabelFor(message, widget);
   const explored = asArray(historyMessages)
     .filter((item) => item?.role === "assistant")
@@ -172,6 +191,8 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
       : candidate;
     const label = actionLabel(action);
     const key = actionKey(action);
+    const labelKey = normalize(label);
+    const queryKey = normalize(action.query || label);
     const lead = isLeadAction(action);
     const alreadyAnsweredInCompound = compoundAnswer &&
       /vehicle_(colors?|pricelist|price)|color_studio|pricelist_canvas/i.test(
@@ -202,7 +223,7 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
       currentCapability &&
       candidateCapability === currentCapability,
     );
-    if (!label || !key || seen.has(key)) continue;
+    if (!label || !key || seen.has(key) || seenLabels.has(labelKey) || seenQueries.has(queryKey)) continue;
     if (alreadyAnsweredInCompound) continue;
     if (staleComparisonStep) continue;
     if (completedComparisonStep) continue;
@@ -210,6 +231,8 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
     if (repeatsCurrentAnswer) continue;
     if (lead && (!leadAllowed || leadCount >= 1)) continue;
     seen.add(key);
+    seenLabels.add(labelKey);
+    seenQueries.add(queryKey);
     if (lead) leadCount += 1;
     const isOverviewAction = /open (?:car |vehicle )?overview|view (?:car |vehicle )?overview/i.test(label);
     if (isOverviewAction && !currentVehicleLabel) continue;
@@ -221,27 +244,43 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
           ? `Show ${currentVehicleLabel} overview`
           : action.query || label;
     actions.push({ ...action, label, query: comparisonQuery, isLead: lead });
-    if (actions.length >= 2) break;
+    if (actions.length >= actionLimit) break;
   }
 
   const addFallback = (action) => {
     const key = actionKey(action);
-    if (!key || seen.has(key) || actions.length >= 2) return;
+    const labelKey = normalize(actionLabel(action));
+    const queryKey = normalize(action.query || actionLabel(action));
+    if (
+      !key ||
+      seen.has(key) ||
+      seenLabels.has(labelKey) ||
+      seenQueries.has(queryKey) ||
+      actions.length >= actionLimit
+    ) return;
     seen.add(key);
+    seenLabels.add(labelKey);
+    seenQueries.add(queryKey);
     actions.push(action);
   };
 
   if (currentCapability === "comparison" && comparisonModels.length >= 2) {
     addFallback({
-      id: "compare-key-features",
-      label: "Compare key features",
-      query: `Compare ${comparisonModels.join(" vs ")} on key features`,
+      id: "open-full-comparison",
+      label: "Full comparison",
+      query: `Give me a full comparison of ${comparisonModels.join(" vs ")}`,
       type: "ask",
     });
     addFallback({
-      id: "compare-automatic-variants",
-      label: "Compare automatic variants",
-      query: `Compare automatic variants of ${comparisonModels.join(" vs ")}`,
+      id: "change-comparison-variants",
+      label: "Change variants",
+      query: `Change variants for ${comparisonModels.join(" vs ")}`,
+      type: "ask",
+    });
+    addFallback({
+      id: "compare-emi-difference",
+      label: "Check EMI difference",
+      query: `Compare EMI for ${comparisonModels.join(" vs ")}`,
       type: "ask",
     });
   }
@@ -277,7 +316,13 @@ const buildJourneyActions = ({ message = {}, widget = {}, historyMessages = [] }
   };
 };
 
-function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], onAction, compact = false }) {
+function AciV2JourneyActions({
+  message = {},
+  widget = {},
+  historyMessages = [],
+  onAction,
+  compact = false,
+}) {
   const presentation = useMemo(
     () => buildJourneyActions({ message, widget, historyMessages }),
     [historyMessages, message, widget],
@@ -301,17 +346,23 @@ function AciV2JourneyActions({ message = {}, widget = {}, historyMessages = [], 
         </span>
       </div> : null}
       <div className="aci-journey-actions-list">
-        {actions.map((action, index) => (
-          <button
-            type="button"
-            className={`${index === 0 ? "is-primary" : ""} ${action.isLead ? "is-lead" : ""}`.trim()}
-            key={actionKey(action)}
-            onClick={() => onAction?.(action)}
-          >
-            <span>{action.label}</span>
-            <ArrowRight size={15} strokeWidth={2} aria-hidden="true" />
-          </button>
-        ))}
+        {actions.map((action, index) => {
+          const ActionIcon = iconForAction(action);
+          return (
+            <button
+              type="button"
+              className={`${index === 0 ? "is-primary" : ""} ${action.isLead ? "is-lead" : ""}`.trim()}
+              key={actionKey(action)}
+              onClick={() => onAction?.(action)}
+            >
+              <span className="aci-journey-action-label">
+                <ActionIcon size={15} strokeWidth={2} aria-hidden="true" />
+                <span>{action.label}</span>
+              </span>
+              <ArrowRight className="aci-journey-action-arrow" size={15} strokeWidth={2} aria-hidden="true" />
+            </button>
+          );
+        })}
       </div>
     </nav>
   );

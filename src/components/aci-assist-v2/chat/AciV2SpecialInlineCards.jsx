@@ -1,13 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowDownUp,
   ArrowRight,
+  Car,
   CarFront,
   Check,
   ChevronLeft,
   ChevronRight,
+  Fuel,
   IndianRupee,
   ListChecks,
   Palette,
+  Scale,
+  Settings2,
+  ShieldCheck,
   Sparkles,
   Trophy,
 } from "lucide-react";
@@ -27,6 +33,35 @@ const formatPrice = (value) => {
   if (amount >= 10000000) return `₹${compact(amount / 10000000)}Cr`;
   if (amount >= 100000) return `₹${compact(amount / 100000)}L`;
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+};
+
+const firstText = (...values) =>
+  values.map(clean).find(Boolean) || "";
+
+const numericPrice = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const text = clean(value).replace(/,/g, "");
+  const match = text.match(/\d+(?:\.\d+)?/);
+  if (!match) return 0;
+  const amount = Number(match[0]);
+  if (/\bcr(?:ore)?\b/i.test(text)) return amount * 10000000;
+  if (/\b(?:l|lac|lakh)\b/i.test(text) || amount < 250) return amount * 100000;
+  return amount;
+};
+
+const compactVariantName = (value = "", vehicle = {}) => {
+  let label = clean(value);
+  const brand = clean(vehicle.brand || vehicle.make);
+  const model = clean(vehicle.model);
+  const fullModel = clean(vehicle.fullModel || [brand, model].filter(Boolean).join(" "));
+  const prefixes = [fullModel, [brand, model].filter(Boolean).join(" "), model, brand]
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  prefixes.forEach((prefix) => {
+    label = label.replace(new RegExp(`^${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*`, "i"), "");
+  });
+  return clean(label) || clean(value);
 };
 
 const blockRows = (block = {}) =>
@@ -53,8 +88,24 @@ const openBlockMessage = (block = {}) => ({
   contextPatch: block.widget?.contextPatch || block.contextPatch || {},
 });
 
-function CarVisual({ imageUrl, name }) {
+const findRelatedBlock = (blocks = [], name = "") => {
+  const key = modelKey(name);
+  const exact = blocks.find((block) => modelKey(blockVehicleName(block)) === key);
+  if (exact) return exact;
+
+  return blocks.find((block) => {
+    const candidate = modelKey(blockVehicleName(block));
+    return Boolean(candidate && key && (candidate.endsWith(key) || key.endsWith(candidate)));
+  });
+};
+
+function CarVisual({ imageUrl, name, priority = false }) {
   const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    setFailed(false);
+  }, [imageUrl]);
+
   if (!imageUrl || failed) {
     return (
       <div className="aci-compound-car-fallback" aria-hidden="true">
@@ -67,8 +118,10 @@ function CarVisual({ imageUrl, name }) {
     <img
       src={imageUrl}
       alt={name}
-      loading="eager"
-      fetchpriority="high"
+      loading={priority ? "eager" : "lazy"}
+      fetchpriority={priority ? "high" : "auto"}
+      decoding="async"
+      draggable="false"
       onError={() => setFailed(true)}
     />
   );
@@ -91,8 +144,8 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
 
     const models = modelNames.slice(0, 2).map((name) => {
       const key = modelKey(name);
-      const priceBlock = priceBlocks.find((block) => modelKey(blockVehicleName(block)).includes(key) || key.includes(modelKey(blockVehicleName(block))));
-      const colorBlock = colorBlocks.find((block) => modelKey(blockVehicleName(block)).includes(key) || key.includes(modelKey(blockVehicleName(block))));
+      const priceBlock = findRelatedBlock(priceBlocks, name);
+      const colorBlock = findRelatedBlock(colorBlocks, name);
       const featureModel = featureModels.find((item) => {
         const label = item.fullModel || [item.make, item.model].filter(Boolean).join(" ");
         return modelKey(label).includes(key) || key.includes(modelKey(label));
@@ -104,7 +157,12 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
       const vehicle = priceBlock?.widget?.vehicle || colorBlock?.widget?.vehicle || {};
       return {
         name,
-        imageUrl: vehicle.imageUrl || vehicle.normalizedImageUrl || blockRows(colorBlock)[0]?.imageUrl || "",
+        imageUrl:
+          vehicle.normalizedImageUrl ||
+          vehicle.imageUrl ||
+          blockRows(colorBlock)[0]?.normalizedImageUrl ||
+          blockRows(colorBlock)[0]?.imageUrl ||
+          "",
         priceBlock,
         colorBlock,
         exShowroom: Number(entry.exShowroomPrice || entry.exShowroomPriceValue || 0),
@@ -145,12 +203,15 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
       </header>
       <div className="aci-compound-grid">
         {presentation.models.map((model, index) => (
-          <article className="aci-compound-model aci-vehicle-choice-card" key={modelKey(model.name)}>
+          <article
+              className="aci-compound-model aci-vehicle-choice-card"
+              key={modelKey(model.name)}
+              style={{ "--aci-item-index": index }}
+            >
             <div className="aci-compound-model-visual">
-              <CarVisual imageUrl={model.imageUrl} name={model.name} />
+              <CarVisual imageUrl={model.imageUrl} name={model.name} priority={index === 0} />
             </div>
             <div className="aci-compound-model-copy">
-              <span className="aci-vehicle-choice-rank">Option {index + 1}</span>
               <h4>{model.name}</h4>
               <div className="aci-compound-facts">
                 {model.exShowroom ? (
@@ -221,26 +282,69 @@ const recommendationName = (row = {}) =>
 
 const vehicleSource = (row = {}) => row.vehicle || row.selectedVehicle || row;
 
-const useLiveVehicleMap = (rows = [], city = "New Delhi") => {
+const LIVE_VEHICLE_CACHE_TTL_MS = 10 * 60 * 1000;
+const LIVE_VEHICLE_CACHE_LIMIT = 100;
+const liveVehicleCache = new Map();
+const liveVehiclePending = new Map();
+
+const liveVehicleRequestKey = ({ make = "", model = "", city = "" } = {}) =>
+  [make, model, city].map(modelKey).join(":");
+
+const fetchCachedLiveVehicle = async ({ make, model, city }) => {
+  const key = liveVehicleRequestKey({ make, model, city });
+  const cached = liveVehicleCache.get(key);
+  if (cached && Date.now() - cached.savedAt < LIVE_VEHICLE_CACHE_TTL_MS) {
+    return cached.vehicle;
+  }
+  if (liveVehiclePending.has(key)) return liveVehiclePending.get(key);
+
+  const request = fetchAciVehicleLiveSnapshot({ make, model, city })
+    .then((snapshot) => {
+      const vehicle = snapshot?.vehicle || null;
+      if (vehicle) {
+        liveVehicleCache.delete(key);
+        liveVehicleCache.set(key, { savedAt: Date.now(), vehicle });
+        while (liveVehicleCache.size > LIVE_VEHICLE_CACHE_LIMIT) {
+          liveVehicleCache.delete(liveVehicleCache.keys().next().value);
+        }
+      }
+      return vehicle;
+    })
+    .catch(() => null)
+    .finally(() => liveVehiclePending.delete(key));
+
+  liveVehiclePending.set(key, request);
+  return request;
+};
+
+const useLiveVehicleMap = (rows = [], city = "New Delhi", requireDetails = false) => {
   const [liveVehicles, setLiveVehicles] = useState({});
 
   useEffect(() => {
     let active = true;
     const missing = rows.filter((row) => {
       const source = vehicleSource(row);
-      return !row.imageUrl && !row.normalizedImageUrl && !source.imageUrl && !source.normalizedImageUrl && source.model;
+      const missingImage =
+        !row.imageUrl &&
+        !row.normalizedImageUrl &&
+        !source.imageUrl &&
+        !source.normalizedImageUrl;
+      const missingVariants =
+        requireDetails &&
+        !asArray(row.variants || source.variants).length;
+      return Boolean((missingImage || missingVariants) && source.model);
     });
     if (!missing.length) return undefined;
 
     Promise.all(
       missing.map(async (row) => {
         const source = vehicleSource(row);
-        const snapshot = await fetchAciVehicleLiveSnapshot({
+        const vehicle = await fetchCachedLiveVehicle({
           make: source.make || source.brand || row.make || row.brand,
           model: source.model || row.model,
           city: source.city || row.city || city,
-        }).catch(() => null);
-        return [modelKey(recommendationName(source) || recommendationName(row)), snapshot?.vehicle || null];
+        });
+        return [modelKey(recommendationName(source) || recommendationName(row)), vehicle];
       }),
     ).then((entries) => {
       if (!active) return;
@@ -253,16 +357,122 @@ const useLiveVehicleMap = (rows = [], city = "New Delhi") => {
     return () => {
       active = false;
     };
-  }, [city, rows]);
+  }, [city, requireDetails, rows]);
 
   return liveVehicles;
 };
 
-export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAction }) {
+const recommendationFacts = (row = {}, liveVehicle = {}) => {
+  const source = vehicleSource(row);
+  const variants = asArray(row.variants || source.variants || liveVehicle.variants);
+  const requestedVariant = firstText(
+    row.startsFromVariant,
+    row.bestUnderBudgetVariant,
+    row.variant,
+    source.variant,
+  );
+  const variant = variants.find((item = {}) =>
+    modelKey(item.name || item.variant || item.variantName) === modelKey(requestedVariant),
+  ) || variants[0] || {};
+  const evidence = asArray(
+    row.matchReasons ||
+      row.highlights ||
+      row.reasons ||
+      source.matchReasons ||
+      source.highlights,
+  ).map((item) => clean(typeof item === "string" ? item : item?.label || item?.text || item?.value));
+  const safetyEvidence = evidence.find((item) => /ncap|\bstar\b.*safety|safety.*\bstar\b/i.test(item)) || "";
+  const safetyValue = firstText(
+    row.safetyScore,
+    row.safetyRating,
+    row.crashTestRating,
+    source.safetyScore,
+    source.safetyRating,
+    variant.safetyScore,
+    safetyEvidence.match(/\b([0-5](?:\.\d)?)\b/)?.[1],
+  );
+  const safetyScore = Number.parseFloat(safetyValue);
+  const safetyAgency = firstText(
+    row.safetyAgency,
+    row.crashTestAgency,
+    source.safetyAgency,
+    safetyEvidence.match(/(?:Bharat|Global|ASEAN|Euro)\s+NCAP/i)?.[0],
+  );
+  const fuel = firstText(
+    row.fuelType,
+    row.fuel,
+    source.fuelType,
+    source.fuel,
+    variant.fuelType,
+    variant.fuel,
+  );
+  const explicitTransmission = firstText(
+    row.transmissionType,
+    row.transmission,
+    row.gearbox,
+    source.transmissionType,
+    source.transmission,
+    variant.transmissionType,
+    variant.transmission,
+    variant.gearbox,
+  );
+  const transmissionToken = requestedVariant.match(/\b(DCT|AMT|CVT|IVT|AT|MT|automatic|manual)\b/i)?.[1] || "";
+  const transmission = explicitTransmission || (
+    /^(DCT|AMT|CVT|IVT|AT|automatic)$/i.test(transmissionToken)
+      ? "Automatic"
+      : /^(MT|manual)$/i.test(transmissionToken)
+        ? "Manual"
+        : /^electric$/i.test(fuel)
+          ? "Automatic"
+          : ""
+  );
+  const bodyType = firstText(
+    row.bodyType,
+    row.bodyStyle,
+    source.bodyType,
+    source.bodyStyle,
+    liveVehicle.bodyType,
+    liveVehicle.bodyStyle,
+  ).replace(/^sedans$/i, "Sedan").replace(/^suvs$/i, "SUV");
+
+  return {
+    make: firstText(source.make, source.brand, row.make, row.brand, liveVehicle.make, liveVehicle.brand),
+    model: firstText(source.model, row.model, source.displayName, row.displayName, recommendationName(row)),
+    fuel,
+    transmission,
+    bodyType,
+    safetyScore: Number.isFinite(safetyScore) && safetyScore > 0 && safetyScore <= 5 ? safetyScore : 0,
+    safetyLabel: safetyEvidence || (Number.isFinite(safetyScore) && safetyScore > 0
+      ? `${safetyScore}-Star Safety${safetyAgency ? ` (${safetyAgency})` : ""}`
+      : ""),
+  };
+};
+
+const recommendationActionIcon = (action = {}) => {
+  const label = clean(action.label || action.query).toLowerCase();
+  if (/compare/.test(label)) return Scale;
+  if (/automatic|gearbox|transmission/.test(label)) return Settings2;
+  return ListChecks;
+};
+
+export function AciV2RecommendationInlineCard({
+  message = {},
+  widget = {},
+  actions = [],
+  onAction,
+}) {
   const rows = useMemo(() => recommendationRows(message, widget), [message, widget]);
   const trackRef = useRef(null);
+  const swipeRef = useRef({ x: 0, index: 0, target: null, settleTimer: null });
   const [carousel, setCarousel] = useState({ index: 0, visible: 3, max: 0 });
+  const [sortDirection, setSortDirection] = useState("asc");
   const liveVehicles = useLiveVehicleMap(rows, widget.city || "New Delhi");
+  const displayRows = useMemo(() => [...rows].sort((left, right) => {
+    const leftPrice = numericPrice(left.startsFromPrice || left.bestUnderBudgetPrice || left.exShowroomPrice);
+    const rightPrice = numericPrice(right.startsFromPrice || right.bestUnderBudgetPrice || right.exShowroomPrice);
+    const difference = (leftPrice || Number.MAX_SAFE_INTEGER) - (rightPrice || Number.MAX_SAFE_INTEGER);
+    return sortDirection === "asc" ? difference : -difference;
+  }), [rows, sortDirection]);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -275,21 +485,34 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
       const step = first.getBoundingClientRect().width + gap;
       if (!step) return;
       const visible = Math.max(1, Math.round((track.clientWidth + gap) / step));
-      const max = Math.max(0, rows.length - visible);
+      const max = Math.max(0, displayRows.length - visible);
       setCarousel((current) => ({ ...current, visible, max, index: Math.min(current.index, max) }));
     };
     update();
     const observer = typeof ResizeObserver === "function" ? new ResizeObserver(update) : null;
     observer?.observe(track);
     return () => observer?.disconnect();
-  }, [rows.length]);
+  }, [displayRows.length]);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      trackRef.current?.scrollTo({ left: 0, behavior: "auto" });
+      setCarousel((current) => ({ ...current, index: 0 }));
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [sortDirection]);
+
+  useEffect(() => () => window.clearTimeout(swipeRef.current.settleTimer), []);
 
   if (!rows.length) return null;
   const filters = widget.filters || widget.data?.filters || message.filters || {};
   const feature = clean(widget.featureName || widget.feature || widget.data?.featureName);
   const budget = Number(filters.budgetMax || filters.maxBudget || filters.maxPrice || 0);
-  const bodyLabel = /suv/i.test(filters.bodyType || filters.bodyStyle || "") ? "SUVs" : "cars";
-  const title = `${rows.length} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`;
+  const isSuv = /suv/i.test(filters.bodyType || filters.bodyStyle || "");
+  const bodyLabel = rows.length === 1
+    ? (isSuv ? "SUV" : "car")
+    : (isSuv ? "SUVs" : "cars");
+  const title = `${displayRows.length} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`;
 
   const measureCarousel = () => {
     const track = trackRef.current;
@@ -299,13 +522,30 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
     const gap = Number.parseFloat(styles.columnGap || styles.gap || "0") || 0;
     const step = first.getBoundingClientRect().width + gap;
     const visible = Math.max(1, Math.round((track.clientWidth + gap) / step));
-    return { step, visible, max: Math.max(0, rows.length - visible) };
+    return { step, visible, max: Math.max(0, displayRows.length - visible) };
+  };
+
+  const settleSwipeTarget = () => {
+    const track = trackRef.current;
+    const metrics = measureCarousel();
+    const target = swipeRef.current.target;
+    if (!track || !metrics.step || target == null) return;
+    const next = Math.min(metrics.max, Math.max(0, target));
+    swipeRef.current.target = null;
+    swipeRef.current.settleTimer = null;
+    track.scrollTo({ left: next * metrics.step, behavior: "smooth" });
+    setCarousel({ index: next, visible: metrics.visible, max: metrics.max });
   };
 
   const syncCarousel = () => {
     const track = trackRef.current;
     const metrics = measureCarousel();
     if (!track || !metrics.step) return;
+    if (swipeRef.current.target != null) {
+      window.clearTimeout(swipeRef.current.settleTimer);
+      swipeRef.current.settleTimer = window.setTimeout(settleSwipeTarget, 90);
+      return;
+    }
     setCarousel({
       index: Math.min(metrics.max, Math.max(0, Math.round(track.scrollLeft / metrics.step))),
       visible: metrics.visible,
@@ -322,17 +562,48 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
     setCarousel({ index: next, visible: metrics.visible, max: metrics.max });
   };
 
+  const beginSwipe = (event) => {
+    const touch = event.touches?.[0];
+    const track = trackRef.current;
+    const metrics = measureCarousel();
+    if (!touch || !track || !metrics.step) return;
+    window.clearTimeout(swipeRef.current.settleTimer);
+    swipeRef.current = {
+      x: touch.clientX,
+      index: Math.min(metrics.max, Math.max(0, Math.round(track.scrollLeft / metrics.step))),
+      target: null,
+      settleTimer: null,
+    };
+  };
+
+  const finishSwipe = (event) => {
+    const touch = event.changedTouches?.[0];
+    const track = trackRef.current;
+    const metrics = measureCarousel();
+    if (!touch || !track || !metrics.step) return;
+    const delta = touch.clientX - swipeRef.current.x;
+    const direction = Math.abs(delta) >= 26 ? (delta < 0 ? 1 : -1) : 0;
+    const next = Math.min(metrics.max, Math.max(0, swipeRef.current.index + direction));
+    swipeRef.current.target = next;
+    window.requestAnimationFrame(() => {
+      track.scrollTo({ left: next * metrics.step, behavior: "smooth" });
+    });
+    window.clearTimeout(swipeRef.current.settleTimer);
+    swipeRef.current.settleTimer = window.setTimeout(settleSwipeTarget, 180);
+    setCarousel({ index: next, visible: metrics.visible, max: metrics.max });
+  };
+
   return (
-    <section className="aci-recommendation-card" aria-label="Recommended cars">
-      <header className="aci-vehicle-card-header">
+    <section className="aci-recommendation-card aci-reference-shortlist-card" aria-label="Recommended cars">
+      <header className="aci-reference-shortlist-header">
         <div>
           <span>Shortlist</span>
           <h3>{title}</h3>
           <p>{feature ? `Each price starts at the first variant with ${feature}.` : "Current new-car options, sorted by starting price."}</p>
         </div>
-        {rows.length > carousel.visible ? (
+        {displayRows.length > carousel.visible ? (
           <div className="aci-carousel-controls">
-            <small>{carousel.index + 1}–{Math.min(rows.length, carousel.index + carousel.visible)} of {rows.length}</small>
+            <small>{carousel.index + 1}–{Math.min(displayRows.length, carousel.index + carousel.visible)} of {displayRows.length}</small>
             <button type="button" onClick={() => moveCarousel(-1)} disabled={carousel.index === 0} aria-label="Previous car">
               <ChevronLeft size={17} />
             </button>
@@ -346,33 +617,61 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
         className="aci-recommendation-grid"
         ref={trackRef}
         onScroll={syncCarousel}
-        onTouchEnd={syncCarousel}
+        onTouchStart={beginSwipe}
+        onTouchEnd={finishSwipe}
       >
-        {rows.map((row, index) => {
+        {displayRows.map((row, index) => {
           const name = recommendationName(row);
+          const source = vehicleSource(row);
           const liveVehicle = liveVehicles[modelKey(name)] || {};
+          const facts = recommendationFacts(row, liveVehicle);
           const imageUrl =
-            row.imageUrl || row.normalizedImageUrl || liveVehicle.imageUrl || liveVehicle.normalizedImageUrl;
+            row.normalizedImageUrl ||
+            row.imageUrl ||
+            source.normalizedImageUrl ||
+            source.imageUrl ||
+            liveVehicle.normalizedImageUrl ||
+            liveVehicle.imageUrl;
           const price =
             row.startsFromPrice || row.bestUnderBudgetPrice || row.exShowroomPrice;
           const priceLabel = row.startsFromPriceLabel || formatPrice(price);
           const variant = clean(row.startsFromVariant || row.bestUnderBudgetVariant || row.variant);
+          const factChips = [
+            facts.fuel ? { label: facts.fuel, Icon: Fuel } : null,
+            facts.transmission ? { label: facts.transmission, Icon: Settings2 } : null,
+            facts.bodyType ? { label: facts.bodyType, Icon: Car } : null,
+          ].filter(Boolean);
 
           return (
-            <article className="aci-recommendation-model aci-vehicle-choice-card" key={modelKey(name) || index}>
+            <article
+              className={`aci-recommendation-model aci-reference-shortlist-model${index === 0 ? " is-leading" : ""}`}
+              key={row.vehicleId || row.modelId || modelKey(name) || index}
+              style={{ "--aci-item-index": index }}
+            >
               <div className="aci-recommendation-visual">
+                <span className="aci-reference-shortlist-rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
                 {imageUrl ? (
-                  <CarVisual imageUrl={imageUrl} name={name} />
+                  <CarVisual imageUrl={imageUrl} name={name} priority={index === 0} />
                 ) : (
                   <CarFront size={34} strokeWidth={1.5} aria-hidden="true" />
                 )}
+                {facts.safetyLabel ? (
+                  <span className="aci-reference-shortlist-safety-label">
+                    <ShieldCheck size={12} /> {facts.safetyLabel}
+                  </span>
+                ) : null}
               </div>
-              <span className="aci-recommendation-rank">{index === 0 ? "Start here" : `Option ${index + 1}`}</span>
-              <h4>{name}</h4>
-              {priceLabel ? <strong>{priceLabel} <small>ex-showroom</small></strong> : null}
-              {variant ? <p>{feature ? `${feature} starts from ${variant}` : `Starts with ${variant}`}</p> : null}
+              {factChips.length ? (
+                <div className="aci-reference-shortlist-facts" aria-label={`${name} specifications`}>
+                  {factChips.map(({ label, Icon }) => (
+                    <span key={label}><Icon size={13} /><b>{label}</b></span>
+                  ))}
+                </div>
+              ) : null}
               <button
                 type="button"
+                className="aci-reference-shortlist-summary"
+                aria-label={`View ${name} variants`}
                 onClick={() => onAction?.({
                   id: `recommendation-variants-${modelKey(name)}`,
                   label: `See ${row.model || name} variants`,
@@ -388,12 +687,44 @@ export function AciV2RecommendationInlineCard({ message = {}, widget = {}, onAct
                   },
                 })}
               >
-                <span>{feature ? "See matching variants" : "View variants"}</span><ArrowRight size={14} />
+                <div className="aci-reference-shortlist-summary-identity">
+                  {facts.make ? <small>{facts.make}</small> : null}
+                  <span className="aci-reference-shortlist-summary-model">
+                    <strong>{facts.model || name}</strong>
+                    {variant ? <em>{compactVariantName(variant, source)}</em> : null}
+                  </span>
+                </div>
+                {priceLabel ? (
+                  <div className="aci-reference-shortlist-summary-price">
+                    <small>Ex-showroom</small>
+                    <strong>{priceLabel}</strong>
+                  </div>
+                ) : null}
+                <ChevronRight className="aci-reference-shortlist-summary-arrow" size={16} aria-hidden="true" />
               </button>
             </article>
           );
         })}
       </div>
+      <footer className="aci-reference-shortlist-actions" aria-label="Shortlist actions">
+        {asArray(actions).slice(0, 2).map((action) => {
+          const Icon = recommendationActionIcon(action);
+          return (
+            <button type="button" key={action.id || action.query || action.label} onClick={() => onAction?.(action)}>
+              <Icon size={16} /><span>{action.label || action.query}</span><ArrowRight size={14} />
+            </button>
+          );
+        })}
+        <button
+          type="button"
+          aria-label={`Sort price ${sortDirection === "asc" ? "high to low" : "low to high"}`}
+          onClick={() => setSortDirection((current) => current === "asc" ? "desc" : "asc")}
+        >
+          <ArrowDownUp size={16} />
+          <span>Price: {sortDirection === "asc" ? "Low to high" : "High to low"}</span>
+          <ChevronRight size={14} />
+        </button>
+      </footer>
     </section>
   );
 }
@@ -411,62 +742,158 @@ const comparisonName = (row = {}) => {
   );
 };
 
-export function AciV2ComparisonInlineCard({ message = {}, widget = {}, onOpen, onAction }) {
+export function AciV2ComparisonInlineCard({ message = {}, widget = {}, onAction }) {
   const rows = useMemo(
     () => asArray(widget.rows || message.rows || widget.items || message.items).slice(0, 2),
     [message, widget],
   );
-  const liveVehicles = useLiveVehicleMap(rows, widget.city || "New Delhi");
+  const liveVehicles = useLiveVehicleMap(rows, widget.city || "New Delhi", true);
   if (rows.length < 2) return null;
 
   const names = rows.map(comparisonName);
+
   return (
-    <section className="aci-comparison-card" aria-label={`${names[0]} and ${names[1]} comparison`}>
-      <header className="aci-vehicle-card-header">
-        <div>
-          <span>Like-for-like</span>
-          <h3>{names[0]} vs {names[1]}</h3>
-          <p>Matched fuel and gearbox wherever the current variants allow.</p>
+    <section
+      className="aci-comparison-card aci-reference-comparison-card"
+      aria-label={`${names[0]} and ${names[1]} comparison`}
+    >
+      <div className="aci-reference-comparison-stage">
+        <div className="aci-reference-comparison-grid">
+          {rows.map((row, index) => {
+            const source = vehicleSource(row);
+            const name = names[index];
+            const liveVehicle = liveVehicles[modelKey(name)] || {};
+            const imageUrl =
+              source.normalizedImageUrl ||
+              row.normalizedImageUrl ||
+              liveVehicle.normalizedImageUrl ||
+              source.imageUrl ||
+              row.imageUrl ||
+              liveVehicle.imageUrl;
+
+            const variant = clean(row.variantName || row.variant || source.variant || source.variantName);
+            const fuel = clean(row.fuelType || row.fuel || source.fuelType || source.fuel);
+            const transmission = clean(row.transmission || source.transmission);
+            const price = Number(row.onRoadPrice || row.exShowroomPrice || row.price || 0);
+            const variants = asArray(
+              liveVehicle.variants || source.variants || row.variants,
+            ).filter((item) => Number(item.onRoadPrice || item.exShowroomPrice || item.price || 0));
+            const startingVariant = variants.reduce((best, item) => {
+              const amount = Number(item.onRoadPrice || item.exShowroomPrice || item.price || 0);
+              const bestAmount = Number(best?.onRoadPrice || best?.exShowroomPrice || best?.price || 0);
+              return !best || amount < bestAmount ? item : best;
+            }, null);
+            const topVariant = variants.reduce((best, item) => {
+              const amount = Number(item.onRoadPrice || item.exShowroomPrice || item.price || 0);
+              const bestAmount = Number(best?.onRoadPrice || best?.exShowroomPrice || best?.price || 0);
+              return !best || amount > bestAmount ? item : best;
+            }, null);
+            const startingPrice = Number(
+              startingVariant?.onRoadPrice ||
+                startingVariant?.exShowroomPrice ||
+                startingVariant?.price ||
+                price,
+            );
+            const rawTopVariantName = clean(
+              topVariant?.variant ||
+                topVariant?.variantName ||
+                topVariant?.name ||
+                variant,
+            );
+            const topVariantPrice = Number(
+              topVariant?.onRoadPrice ||
+                topVariant?.exShowroomPrice ||
+                topVariant?.price ||
+                price,
+            );
+            const topVariantMeta = [
+              clean(topVariant?.fuel || topVariant?.fuelType || fuel),
+              clean(topVariant?.transmission || transmission),
+            ].filter(Boolean).join(" · ");
+
+            const brand = clean(
+              source.make ||
+                source.brand ||
+                row.make ||
+                row.brand,
+            );
+
+            const displayModel =
+              brand && name.toLowerCase().startsWith(brand.toLowerCase())
+                ? clean(name.slice(brand.length))
+                : name;
+            const topVariantName = compactVariantName(rawTopVariantName, {
+              brand,
+              model: source.model || row.model || displayModel,
+              fullModel: name,
+            });
+
+            return (
+              <article
+                className="aci-reference-comparison-model"
+                key={modelKey(name) || index}
+                style={{ "--aci-item-index": index }}
+              >
+                <span className="aci-reference-comparison-rank" aria-label={`Car ${index + 1}`}>
+                  {index + 1}
+                </span>
+                <div className="aci-reference-model-heading">
+                  <div className="aci-reference-model-identity">
+                    {brand ? <small>{brand}</small> : null}
+                      <h4>{displayModel}</h4>
+                  </div>
+
+                  <div className="aci-reference-model-specs" aria-label={`${name} specifications`}>
+                    {variant ? (
+                      <span><small>Variant</small><b>{variant}</b></span>
+                    ) : null}
+                    {fuel ? (
+                      <span><small>Fuel</small><b>{fuel}</b></span>
+                    ) : null}
+
+                    {transmission ? (
+                      <span><small>Gearbox</small><b>{transmission}</b></span>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="aci-reference-model-visual">
+                  <div className="aci-reference-model-floor" aria-hidden="true" />
+                  <CarVisual imageUrl={imageUrl} name={name} priority={index === 0} />
+                </div>
+
+                <div className="aci-reference-model-footer">
+                  <div className="aci-reference-starting-price">
+                    <small>Starting from</small>
+                    <strong>{formatPrice(startingPrice)}</strong>
+                    <span>{row.onRoadPrice || startingVariant?.onRoadPrice ? "On-road" : "Ex-showroom"}</span>
+                  </div>
+                  <div className="aci-reference-top-variant">
+                    <small>Top variant</small>
+                    <strong>{topVariantName || "Variant details"}</strong>
+                    <span>{topVariantPrice ? formatPrice(topVariantPrice) : ""}{topVariantMeta ? ` · ${topVariantMeta}` : ""}</span>
+                  </div>
+                  <button type="button" onClick={() => onAction?.({
+                    id: `comparison-variants-${modelKey(name)}`,
+                    label: `View ${source.model || row.model || name} variants`,
+                    query: `Show ${name} variants`,
+                    type: "ask",
+                    vehicle: { ...liveVehicle, ...source, fullModel: name },
+                  })}>
+                    <span>View variants</span>
+                    <ArrowRight size={15} />
+                  </button>
+                </div>
+              </article>
+            );
+          })}
         </div>
-      </header>
-      <div className="aci-comparison-grid">
-        {rows.map((row, index) => {
-          const source = vehicleSource(row);
-          const name = names[index];
-          const liveVehicle = liveVehicles[modelKey(name)] || {};
-          const imageUrl = source.imageUrl || source.normalizedImageUrl || row.imageUrl || row.normalizedImageUrl || liveVehicle.imageUrl || liveVehicle.normalizedImageUrl;
-          const variant = clean(row.variantName || row.variant || source.variant || source.variantName);
-          const fuel = clean(row.fuelType || row.fuel || source.fuelType || source.fuel);
-          const transmission = clean(row.transmission || source.transmission);
-          const price = Number(row.onRoadPrice || row.exShowroomPrice || row.price || 0);
-          return (
-            <article className="aci-comparison-model aci-vehicle-choice-card" key={modelKey(name) || index}>
-              <div className="aci-comparison-model-visual">
-                <CarVisual imageUrl={imageUrl} name={name} />
-              </div>
-              <span className="aci-vehicle-choice-rank">Option {index + 1}</span>
-              <h4>{name}</h4>
-              {variant ? <p className="aci-comparison-variant">{variant}</p> : null}
-              <div className="aci-comparison-facts">
-                {price ? <strong>{formatPrice(price)} <small>{row.onRoadPrice ? "on-road" : "ex-showroom"}</small></strong> : null}
-                {[fuel, transmission].filter(Boolean).length ? <span>{[fuel, transmission].filter(Boolean).join(" · ")}</span> : null}
-              </div>
-              <button type="button" onClick={() => onAction?.({
-                id: `comparison-variants-${modelKey(name)}`,
-                label: `View ${source.model || row.model || name} variants`,
-                query: `Show ${name} variants`,
-                type: "ask",
-                vehicle: { ...liveVehicle, ...source, fullModel: name },
-              })}>
-                <span>View variants</span><ArrowRight size={14} />
-              </button>
-            </article>
-          );
-        })}
+
+        <div className="aci-reference-comparison-vs" aria-hidden="true">
+          <span>VS</span>
+        </div>
+
       </div>
-      <button type="button" className="aci-comparison-open" onClick={() => onOpen?.(message)}>
-        <span>Open full comparison</span><ArrowRight size={15} />
-      </button>
     </section>
   );
 }
@@ -490,7 +917,10 @@ export function AciV2ScoreInsightInlineCard({ message = {}, widget = {} }) {
         {topRows.map((row, index) => {
           const valueScore = Number(row.modules?.value?.score || 0);
           return (
-            <article key={row.variantProfileKey || row.variantFullName || index}>
+            <article
+              key={row.variantProfileKey || row.variantFullName || index}
+              style={{ "--aci-item-index": index }}
+            >
               <b>{index + 1}</b>
               <span>
                 <strong>{row.variantFullName || row.variantName || `Option ${index + 1}`}</strong>

@@ -156,6 +156,7 @@ function AciV2ChatMessage({
           <AciV2RecommendationInlineCard
             message={message}
             widget={widget}
+            actions={journeyPresentation.actions}
             onAction={onAction}
           />
         ) : null}
@@ -202,7 +203,7 @@ function AciV2ChatMessage({
           </div>
         ) : null}
 
-        {!message.error && !mergeJourneyIntoCanvas ? (
+        {!message.error && !mergeJourneyIntoCanvas && !isRecommendation ? (
           <AciV2JourneyActions
             message={message}
             widget={widget}
