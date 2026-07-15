@@ -21,6 +21,7 @@ import {
 import dayjs from "dayjs";
 import { lookupCityByPincode, normalizePincode, lookupAddressByPincode } from "./pincodeCityLookup";
 import { useAuth } from "../../../../../context/AuthContext";
+import { isFirmConstitution } from "../../../../../constants/employmentOptions";
 
 const { TextArea } = Input;
 
@@ -72,6 +73,7 @@ const PersonalDetailsPreFile = () => {
 
   // Watches
   const applicantType = Form.useWatch("applicantType", form);
+  const companyType = Form.useWatch("companyType", form);
   const identityType = Form.useWatch("identityProofType", form);
   const addressProofType = Form.useWatch("addressProofType", form);
   const sameAsCurrent = Form.useWatch("sameAsCurrentAddress", form);
@@ -89,6 +91,7 @@ const PersonalDetailsPreFile = () => {
   const passportNumber = Form.useWatch("passportNumber", form);
   const dlNumber = Form.useWatch("dlNumber", form);
   const isCompany = applicantType === "Company";
+  const isFirm = isCompany && isFirmConstitution(companyType);
 
   // State
   const [fetchingPincode, setFetchingPincode] = useState(false);
@@ -606,8 +609,13 @@ const PersonalDetailsPreFile = () => {
             label="Is Co-Applicant Applicable"
             name="hasCoApplicant"
             valuePropName="checked"
+            tooltip={
+              isCompany && !isFirm
+                ? "Company applicants use Authorised Signatory instead of a co-applicant."
+                : undefined
+            }
           >
-            <Switch disabled={isCompany} />
+            <Switch disabled={isCompany && !isFirm} />
           </Form.Item>
         </Col>
         <Col xs={24} md={8}>

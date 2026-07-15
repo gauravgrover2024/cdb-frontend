@@ -51,10 +51,10 @@ export const pickPolicyValue = (...args) => {
 };
 
 const POLICY_DURATION_DISPLAY = {
-  "1yr OD + 1yr TP": "1 Year Own Damage (OD) + 1 Year Third Party (TP)",
-  "1yr OD + 3yr TP": "1 Year Own Damage (OD) + 3 Years Third Party (TP)",
-  "2yr OD + 3yr TP": "2 Years Own Damage (OD) + 3 Years Third Party (TP)",
-  "3yr OD + 3yr TP": "3 Years Own Damage (OD) + 3 Years Third Party (TP)",
+  "1yr OD + 1yr TP": "1 yr (OD) + 1 Yr (TP)",
+  "1yr OD + 3yr TP": "1 Yr (OD) + 3 Yr (TP)",
+  "2yr OD + 3yr TP": "2 yr (OD) + 3 Yr (TP)",
+  "3yr OD + 3yr TP": "3 Yr (OD) + 3 Yr (TP)",
 };
 
 export const formatPolicyDuration = (value) => {
@@ -185,7 +185,15 @@ export const computeInsuranceQuoteBreakup = (quote) => {
   const storedIdv = Number(quote.totalIdv);
   const totalIdv =
     Number.isFinite(storedIdv) && storedIdv > 0 ? storedIdv : idvParts;
-  return { addOnsTotal, odAmt, tpAmt, totalIdv, ncbAmount, totalPremium, ncbPct };
+  return {
+    addOnsTotal,
+    odAmt,
+    tpAmt,
+    totalIdv,
+    ncbAmount,
+    totalPremium,
+    ncbPct,
+  };
 };
 
 export const getAcceptedQuoteContext = (record) => {
@@ -251,22 +259,42 @@ export const getPolicyPulseExpiryDate = (record) => {
     safe.previousPolicyType,
   );
 
-  const policyCategory = String(safe.policyCategory || safe.policyTypeSelector || "").trim().toLowerCase();
+  const policyCategory = String(
+    safe.policyCategory || safe.policyTypeSelector || "",
+  )
+    .trim()
+    .toLowerCase();
   const isEw = ["extended warranty", "ew policy"].includes(policyCategory);
   if (isEw) {
     if (hasDisplayValue(safe.ewExpiryDate)) return safe.ewExpiryDate;
     if (hasDisplayValue(safe.ewCommencementDate)) {
-      return computeExpiryFallback(safe.ewCommencementDate, safe.newInsuranceDuration || "1yr OD");
+      return computeExpiryFallback(
+        safe.ewCommencementDate,
+        safe.newInsuranceDuration || "1yr OD",
+      );
     }
   }
 
-  const rawOd = pickPolicyValue(safe.newOdExpiryDate, safe.previousOdExpiryDate);
-  const rawTp = pickPolicyValue(safe.newTpExpiryDate, safe.previousTpExpiryDate);
+  const rawOd = pickPolicyValue(
+    safe.newOdExpiryDate,
+    safe.previousOdExpiryDate,
+  );
+  const rawTp = pickPolicyValue(
+    safe.newTpExpiryDate,
+    safe.previousTpExpiryDate,
+  );
 
   if (isThirdPartyOnlyPolicy(policyType)) {
     if (hasDisplayValue(rawTp)) return rawTp;
-    const startDate = pickPolicyValue(safe.newPolicyStartDate, safe.previousPolicyStartDate);
-    const duration = pickPolicyValue(safe.newInsuranceDuration, safe.previousPolicyDuration, safe.previousInsuranceDuration);
+    const startDate = pickPolicyValue(
+      safe.newPolicyStartDate,
+      safe.previousPolicyStartDate,
+    );
+    const duration = pickPolicyValue(
+      safe.newInsuranceDuration,
+      safe.previousPolicyDuration,
+      safe.previousInsuranceDuration,
+    );
     if (hasDisplayValue(startDate)) {
       return computeExpiryFallback(startDate, duration, "tp");
     }
@@ -276,8 +304,15 @@ export const getPolicyPulseExpiryDate = (record) => {
   if (hasDisplayValue(rawOd)) return rawOd;
   if (hasDisplayValue(rawTp)) return rawTp;
 
-  const startDate = pickPolicyValue(safe.newPolicyStartDate, safe.previousPolicyStartDate);
-  const duration = pickPolicyValue(safe.newInsuranceDuration, safe.previousPolicyDuration, safe.previousInsuranceDuration);
+  const startDate = pickPolicyValue(
+    safe.newPolicyStartDate,
+    safe.previousPolicyStartDate,
+  );
+  const duration = pickPolicyValue(
+    safe.newInsuranceDuration,
+    safe.previousPolicyDuration,
+    safe.previousInsuranceDuration,
+  );
   if (hasDisplayValue(startDate)) {
     return computeExpiryFallback(startDate, duration, "od");
   }
@@ -285,7 +320,10 @@ export const getPolicyPulseExpiryDate = (record) => {
   return safe.policyExpiry || "";
 };
 
-export const getCycleAdjustedExpiryDate = (expiryDateStr, baseDate = dayjs()) => {
+export const getCycleAdjustedExpiryDate = (
+  expiryDateStr,
+  baseDate = dayjs(),
+) => {
   if (!expiryDateStr) return null;
   const parsed = parseInsuranceDate(expiryDateStr);
   if (!parsed || !parsed.isValid()) return null;
@@ -513,19 +551,17 @@ export const resolveActivePolicySnapshot = (record) => {
     pickPolicyValue(
       safe.newNcbDiscount ?? safe.newNcb,
       safe.previousNcbDiscount,
-    ) || acceptedQuote?.ncbDiscount || 0,
+    ) ||
+      acceptedQuote?.ncbDiscount ||
+      0,
   );
 
   const ownDamage = pickPolicyNumber(
-    acceptedBreakup?.odAmt ||
-      safe.newOwnDamageAmount ||
-      safe.newOdAmount,
+    acceptedBreakup?.odAmt || safe.newOwnDamageAmount || safe.newOdAmount,
     safe.previousOwnDamageAmount || safe.previousOdAmount,
   );
   const thirdParty = pickPolicyNumber(
-    acceptedBreakup?.tpAmt ||
-      safe.newThirdPartyAmount ||
-      safe.newTpAmount,
+    acceptedBreakup?.tpAmt || safe.newThirdPartyAmount || safe.newTpAmount,
     safe.previousThirdPartyAmount || safe.previousTpAmount,
   );
   const addOnsTotal = pickPolicyNumber(
@@ -571,10 +607,11 @@ export const resolveActivePolicySnapshot = (record) => {
     expiryDays,
     acceptedQuote,
     acceptedBreakup,
-    usesIssuedPolicyFields: hasDisplayValue(safe.newInsuranceCompany)
-      || hasDisplayValue(safe.newPolicyNumber)
-      || hasDisplayValue(safe.newOdExpiryDate)
-      || hasDisplayValue(safe.newTpExpiryDate),
+    usesIssuedPolicyFields:
+      hasDisplayValue(safe.newInsuranceCompany) ||
+      hasDisplayValue(safe.newPolicyNumber) ||
+      hasDisplayValue(safe.newOdExpiryDate) ||
+      hasDisplayValue(safe.newTpExpiryDate),
   };
 };
 
@@ -681,8 +718,7 @@ export const buildInsurancePaymentTimeline = (record) => {
     (row) => row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_REFUND,
   );
   const latestSubventionNrRow = latestRowBy(
-    (row) =>
-      row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE,
+    (row) => row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE,
   );
 
   const fallbackInsurerPaidByCustomer = Number(
@@ -737,14 +773,12 @@ export const buildInsurancePaymentTimeline = (record) => {
   const receiptVisible =
     effectiveInsurerMode === INSURER_SETTLEMENT_MODE.NONE ||
     effectiveInsurerMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
-  const insurerPaymentPending =
-    effectiveInsurerPaidTotal <= 0 && premium > 0;
+  const insurerPaymentPending = effectiveInsurerPaidTotal <= 0 && premium > 0;
   const receiptBase = receiptVisible
     ? Math.max(0, premium - effectiveSubventionNr)
     : 0;
   const effectiveCustomerRecovered =
-    ledgerTotals.customerRecovered ||
-    Number(safe.customerPaymentReceived || 0);
+    ledgerTotals.customerRecovered || Number(safe.customerPaymentReceived || 0);
   const customerOutstanding = receiptVisible
     ? Math.max(0, receiptBase - effectiveCustomerRecovered)
     : 0;
@@ -778,7 +812,10 @@ export const buildInsurancePaymentTimeline = (record) => {
       date: latestSubventionNrRow?.date || null,
     });
   }
-  if (effectiveSubventionRefund > 0 && effectiveSubventionRefund !== effectiveSubventionNr) {
+  if (
+    effectiveSubventionRefund > 0 &&
+    effectiveSubventionRefund !== effectiveSubventionNr
+  ) {
     subventionRows.push({
       label: "Subvention Refund",
       amount: effectiveSubventionRefund,
@@ -844,7 +881,8 @@ export const shouldShowInsuranceChannelBadge = (ctx = {}) => {
   const partner = String(ctx.channelPartnerName || "").trim();
   const channelNo = String(ctx.channelDealerNo || "").trim();
   if (!partner) return false;
-  if (ctx.isIndirectSource) return Boolean(String(ctx.sourceDetailsName || "").trim());
+  if (ctx.isIndirectSource)
+    return Boolean(String(ctx.sourceDetailsName || "").trim());
   return Boolean(channelNo);
 };
 
@@ -854,7 +892,9 @@ export const resolveInsuranceChannelContext = (record) => {
   const source =
     sourceRaw || (hasDisplayValue(r.sourceName) ? "Indirect" : "Direct");
   const isIndirectSource = source.toLowerCase() === "indirect";
-  const policyDoneByRaw = String(r.policyDoneBy || r.policy_done_by || "").trim();
+  const policyDoneByRaw = String(
+    r.policyDoneBy || r.policy_done_by || "",
+  ).trim();
   const policyDoneByLower = policyDoneByRaw.toLowerCase();
   const brokerName = String(r.brokerName || "").trim();
   const showroomName = String(r.showroomName || "").trim();
@@ -906,7 +946,9 @@ export const normalizeUsedCarFlowLabel = (value) => {
 export const getPolicyOriginType = (record = {}) => {
   const policyCategoryKey = String(
     record.policyCategory || record.policyTypeSelector || "",
-  ).trim().toLowerCase();
+  )
+    .trim()
+    .toLowerCase();
   const isExtendedWarranty =
     policyCategoryKey === "extended warranty" ||
     policyCategoryKey === "ew policy";
@@ -920,8 +962,8 @@ export const getPolicyOriginType = (record = {}) => {
   );
   const persistedClassification = normalizeUsedCarFlowLabel(
     record.policyOriginType ||
-    record.journeyClassification ||
-    record.journeyType,
+      record.journeyClassification ||
+      record.journeyType,
   );
 
   if (vehicleType === "used car") {
@@ -946,4 +988,3 @@ export const getPolicyOriginType = (record = {}) => {
 
   return persistedClassification || usedCarType || "";
 };
-

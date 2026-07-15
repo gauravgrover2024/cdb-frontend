@@ -85,6 +85,24 @@ const digits10 = (v) =>
     .replace(/\D/g, "")
     .slice(0, 10);
 
+const normalizeForMatch = (v) => String(v || "").trim().toLowerCase();
+
+// The backend search endpoint matches across name/mobile/PAN/city/etc., so
+// name-only fields (Customer Name, Company Name) re-filter to rows whose own
+// name actually contains what was typed, instead of showing every match.
+const buildNameOnlyOptions = (results, query, getCustomerId, nameField) => {
+  const q = normalizeForMatch(query);
+  const pool = q
+    ? results.filter((c) =>
+        normalizeForMatch(c?.[nameField] || c?.name || c?.fullName).includes(q),
+      )
+    : results;
+  return pool
+    .slice(0, 12)
+    .map((c) => buildCustomerOption(c, getCustomerId))
+    .filter(Boolean);
+};
+
 const buildCustomerOption = (c, getCustomerId) => {
   const id = getCustomerId(c);
   if (!id) return null;
@@ -310,6 +328,18 @@ const Step1CustomerInfo = ({
     .slice(0, 12)
     .map((c) => buildCustomerOption(c, getCustomerId))
     .filter(Boolean);
+  const customerNameOptions = buildNameOnlyOptions(
+    customerSearchResults,
+    formData.customerName,
+    getCustomerId,
+    "customerName",
+  );
+  const companyNameOptions = buildNameOnlyOptions(
+    customerSearchResults,
+    formData.companyName,
+    getCustomerId,
+    "companyName",
+  );
   const policyDoneBy = String(formData.policyDoneBy || "Autocredits India LLP");
   const nomineeDobLabel = (() => {
     if (!formData.nomineeDob) return "DOB";
@@ -526,6 +556,20 @@ const Step1CustomerInfo = ({
               </div>
             ) : null}
 
+            {/* Channel / Dealer No. — auto-filled from Broker selection */}
+            {policyDoneBy === "Broker" ? (
+              <div className={fieldWrapClass}>
+                <CleanField label="Channel / Dealer No.">
+                  <Input
+                    size="large"
+                    readOnly
+                    value={formData.channelDealerNo}
+                    placeholder="Auto-filled on broker selection"
+                  />
+                </CleanField>
+              </div>
+            ) : null}
+
             {/* Showroom Name — shown when policyDoneBy = Showroom */}
             {policyDoneBy === "Showroom" ? (
               <div className={fieldWrapClass}>
@@ -549,6 +593,20 @@ const Step1CustomerInfo = ({
                 {showErrors && step1Errors.showroomName ? (
                   <p className="mt-1 text-[11px] text-red-500">{step1Errors.showroomName}</p>
                 ) : null}
+              </div>
+            ) : null}
+
+            {/* Channel / Dealer No. — auto-filled from Showroom selection */}
+            {policyDoneBy === "Showroom" ? (
+              <div className={fieldWrapClass}>
+                <CleanField label="Channel / Dealer No.">
+                  <Input
+                    size="large"
+                    readOnly
+                    value={formData.channelDealerNo}
+                    placeholder="Auto-filled on showroom selection"
+                  />
+                </CleanField>
               </div>
             ) : null}
 
@@ -784,7 +842,7 @@ const Step1CustomerInfo = ({
                           if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
                           setField("companyName", v);
                         }}
-                        options={customerOptions}
+                        options={companyNameOptions}
                         onSelect={(customerId) => {
                           const selected = resolveSelectedCustomer(
                             customerId,
@@ -792,7 +850,7 @@ const Step1CustomerInfo = ({
                             getCustomerId,
                           );
                           if (selected) {
-                            applyCustomerToForm(selected, { overwrite: true });
+                            applyCustomerToForm(selected, { overwrite: false });
                             setCustomerDataLoaded(true);
                           }
                         }}
@@ -856,7 +914,7 @@ const Step1CustomerInfo = ({
                         if (/^[a-f0-9]{24}$/i.test(v.trim())) return;
                         setField("customerName", v);
                       }}
-                      options={customerOptions}
+                      options={customerNameOptions}
                       onSelect={(customerId) => {
                         const selected = resolveSelectedCustomer(
                           customerId,
@@ -873,7 +931,7 @@ const Step1CustomerInfo = ({
                             selected?.fullName ||
                             "";
                           if (fullName) setField("customerName", fullName);
-                          applyCustomerToForm(selected, { overwrite: true });
+                          applyCustomerToForm(selected, { overwrite: false });
                           setCustomerDataLoaded(true);
                         }
                       }}
@@ -947,7 +1005,7 @@ const Step1CustomerInfo = ({
                           .replace(/\D/g, "")
                           .slice(-10);
                         if (mobile10) setField("mobile", mobile10);
-                        applyCustomerToForm(selected, { overwrite: true });
+                        applyCustomerToForm(selected, { overwrite: false });
                         setCustomerDataLoaded(true);
                       }
                     }}

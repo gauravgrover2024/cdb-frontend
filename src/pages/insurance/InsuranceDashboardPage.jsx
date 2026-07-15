@@ -27,6 +27,7 @@ import "../../components/insurance/insurance-forms.css";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
+import { startNewInsuranceCase } from "../../utils/startNewInsuranceCase";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
 import InsuranceDocumentsModal from "../../components/insurance/InsuranceDocumentsModal";
 import PremiumBreakupCard from "../../components/insurance/PremiumBreakupCard";
@@ -2272,7 +2273,7 @@ const InsuranceDashboardPage = () => {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.97 }}
-                onClick={() => navigate("/insurance/new")}
+                onClick={() => startNewInsuranceCase(navigate, "insurance-dashboard")}
                 className="px-5 py-2.5 rounded-lg font-bold text-white flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 transition-colors shadow-sm"
               >
                 <Plus size={16} />

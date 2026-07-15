@@ -65,8 +65,6 @@ export const mapCustomerToInsuranceFields = (raw) => {
       ? raw.alternateMobiles
       : [];
 
-  const { referenceName, referencePhone } = extractReferenceFromCustomer(raw);
-
   return {
     customerId: raw._id || raw.id || raw.customerId || "",
     customerName,
@@ -97,8 +95,6 @@ export const mapCustomerToInsuranceFields = (raw) => {
       raw.nomineeRelation || raw.nomineeRelationship || "",
     ).trim(),
     nomineeDob: raw.nomineeDob || raw.nomineeDateOfBirth || "",
-    referenceName,
-    referencePhone,
   };
 };
 

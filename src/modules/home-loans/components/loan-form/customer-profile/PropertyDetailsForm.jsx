@@ -35,6 +35,25 @@ const PropertyDetailsForm = () => {
     form.setFieldValue("typeOfLoan", undefined);
   };
 
+  // Personal Loan is individual-only and unsecured — clear out any
+  // company/GST/vehicle data left over from a previous loan-type selection
+  // so it doesn't leak in as stale state (e.g. "Non individual" fields or
+  // GST showing up for a Personal Loan case).
+  const handleLoanTypeChange = (value) => {
+    if (propertyType === "Unsecured" && value === "Personal Loan") {
+      form.setFieldsValue({
+        applicantType: "Individual",
+        customerType: "Individual",
+        companyType: undefined,
+        gstNumber: undefined,
+        isMSME: undefined,
+        businessNature: undefined,
+        companyPartners: undefined,
+        hasCoApplicant: false,
+      });
+    }
+  };
+
   return (
     <div className="space-y-4 p-2">
       <Row gutter={[16, 16]}>
@@ -63,6 +82,7 @@ const PropertyDetailsForm = () => {
               placeholder={propertyType ? "Select loan type" : "Select property type first"}
               options={loanTypeOptions}
               disabled={!propertyType}
+              onChange={handleLoanTypeChange}
               className="h-10 rounded-lg w-full"
             />
           </Form.Item>

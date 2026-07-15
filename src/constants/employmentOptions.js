@@ -40,6 +40,20 @@ export const COMPANY_TYPE_OPTIONS = [
   "Other",
 ];
 
+// Constitution types treated as a "Firm" (partnership/proprietorship-style
+// entity) rather than a registered company. Firm applicants get multiple
+// co-applicants enabled (partners/proprietors typically co-sign personally),
+// unlike Pvt Ltd/Public Ltd companies which use Authorised Signatory instead.
+export const FIRM_CONSTITUTION_TYPES = [
+  "Partnership",
+  "Proprietorship",
+  "Sole Proprietorship",
+  "LLP",
+];
+
+export const isFirmConstitution = (companyType) =>
+  FIRM_CONSTITUTION_TYPES.includes(String(companyType || "").trim());
+
 // Nature of Business – combined list for all forms
 export const BUSINESS_NATURE_OPTIONS = [
   "Automobiles",

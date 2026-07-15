@@ -15,6 +15,7 @@ import { useAuth } from "../../context/AuthContext";
 import { FEATURE_ACCESS } from "../../hooks/useRBAC";
 import { startNewLoanCase } from "../../modules/loans/utils/startNewLoanCase";
 import { startNewLoanCase as startNewHomeLoanCase } from "../../modules/home-loans/utils/startNewLoanCase";
+import { startNewInsuranceCase } from "../../utils/startNewInsuranceCase";
 import PayoutSetupModal from "../payout/PayoutSetupModal";
 import { openNewCaseConfirmation } from "./NewCaseConfirmation";
 import { showUnsavedChangesModal } from "./UnsavedChangesModal";
@@ -476,6 +477,34 @@ const Header = () => {
     if (path === "__payout_setup__") {
       setIsPayoutModalOpen(true);
       setMobileMenuOpen(false);
+      return;
+    }
+
+    // ── New insurance case — always a fresh start ────────────────────────────
+    // Clears any stale sessionStorage draft so a new case never silently
+    // restores a previous, unrelated in-progress case (even if the nav link
+    // is clicked while already on the new-case form).
+    if (path === "/insurance/new") {
+      if (isOnInsuranceForm && window.__isInsuranceFormDirty) {
+        showUnsavedChangesModal({
+          onSave: () => {
+            window.dispatchEvent(
+              new CustomEvent("SAVE_AND_NAVIGATE_INSURANCE", {
+                detail: {
+                  afterSave: () =>
+                    startNewInsuranceCase(navigate, "global-header"),
+                },
+              }),
+            );
+          },
+          onDiscard: () => startNewInsuranceCase(navigate, "global-header"),
+          onCancel: () => {},
+        });
+      } else {
+        startNewInsuranceCase(navigate, "global-header");
+      }
+      setMobileMenuOpen(false);
+      setProfileOpen(false);
       return;
     }
 

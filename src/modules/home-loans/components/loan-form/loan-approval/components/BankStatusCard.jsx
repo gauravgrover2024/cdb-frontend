@@ -297,13 +297,8 @@ const BankStatusCard = ({
     ),
   );
 
-  // vehicle + price + rate/fee/tenure + extra fields
-  const vehicleMake = form?.getFieldValue("vehicleMake");
-  const vehicleModel = form?.getFieldValue("vehicleModel");
-  const vehicleVariant = form?.getFieldValue("vehicleVariant");
+  // price + rate/fee/tenure + extra fields
   const exShowroomPrice = form?.getFieldValue("exShowroomPrice");
-  const loanType = form?.getFieldValue("typeOfLoan");
-  const isNewCar = loanType === "New Car";
 
   const [tenureMonths, setTenureMonths] = useState(
     Number(bank.tenure) ||
@@ -808,60 +803,7 @@ const BankStatusCard = ({
             </div>
           )}
 
-          {/* Make / Model / Variant */}
-          <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
-            <div>
-              <label className="text-xs text-muted-foreground">Make</label>
-              <input
-                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                value={vehicleMake || ""}
-                readOnly={readOnly}
-                onChange={(e) =>
-                  form?.setFieldsValue({ vehicleMake: e.target.value })
-                }
-                placeholder="Enter make"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Model</label>
-              <input
-                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                value={vehicleModel || ""}
-                readOnly={readOnly}
-                onChange={(e) =>
-                  form?.setFieldsValue({ vehicleModel: e.target.value })
-                }
-                placeholder="Enter model"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-muted-foreground">Variant</label>
-              <input
-                className="w-full mt-1 bg-background border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground"
-                value={vehicleVariant || ""}
-                readOnly={readOnly}
-                onChange={(e) =>
-                  form?.setFieldsValue({ vehicleVariant: e.target.value })
-                }
-                placeholder="Enter variant"
-              />
-            </div>
-          </div>
-
-          {/* Ex-showroom */}
-          {isNewCar && (
-            <div>
-              <label className="text-xs text-muted-foreground">
-                Ex-Showroom Price
-              </label>
-              <div className="w-full mt-1 border rounded-md px-3 py-2 text-sm bg-muted/40">
-                ₹{" "}
-                {exShowroomPrice
-                  ? Number(exShowroomPrice).toLocaleString("en-IN")
-                  : "-"}
-              </div>
-            </div>
-          )}
+          {/* Make / Model / Variant / Ex-Showroom Price are car-loan-only fields and don't apply to home loans */}
 
           {/* Loan Amount (breakup) */}
           {ExpandedLoanAmount}

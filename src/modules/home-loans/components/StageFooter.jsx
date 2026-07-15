@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
-import { DatePicker } from "antd";
+import { DatePicker, Tooltip } from "antd";
 import dayjs from "dayjs";
 import Icon from "../../../components/AppIcon";
 import Button from "../../../components/ui/Button";
@@ -404,16 +404,26 @@ const StageFooter = ({
                 <Icon name="ArrowRight" size={16} style={{ marginLeft: 6 }} />
               </Button>
             ) : (
-              <Button
-                variant="default"
-                size="sm"
-                onClick={handleDisburseLoan}
-                disabled={!canDisburse}
-                className="bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+              <Tooltip
+                title={
+                  canDisburse
+                    ? undefined
+                    : "Disburse Loan is locked until at least one bank in the comparison list is marked Approved, Accepted or Sanctioned. Add/update a bank's status in the Approval step to unlock this and the steps after it (Post-File, Delivery, Payout)."
+                }
               >
-                <Icon name="CreditCard" size={16} style={{ marginRight: 6 }} />
-                Disburse Loan
-              </Button>
+                <span>
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={handleDisburseLoan}
+                    disabled={!canDisburse}
+                    className="bg-emerald-600 dark:bg-emerald-600 hover:bg-emerald-700 dark:hover:bg-emerald-700 text-white border-none shadow-lg shadow-emerald-600/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Icon name="CreditCard" size={16} style={{ marginRight: 6 }} />
+                    Disburse Loan
+                  </Button>
+                </span>
+              </Tooltip>
             )}
           </>
         );

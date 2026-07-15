@@ -15,8 +15,9 @@ import {
   AutoComplete,
   Skeleton,
   Checkbox,
+  Button,
 } from "antd";
-import { CarOutlined } from "@ant-design/icons";
+import { CarOutlined, DeleteOutlined, PlusCircleOutlined } from "@ant-design/icons";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
 import { useVehicleRegistrationLookup } from "../../../../../hooks/useVehicleRegistrationLookup";
 import useShowroomAutoSuggest from "../../../../../hooks/useShowroomAutoSuggest";
@@ -80,10 +81,116 @@ const normalizeFuelTypeValue = (value) => {
  * Copy-paste safe.
  */
 
+// Unsecured loans (Business Loan, Personal Loan, CGTMSE Limit, OD/CC Limit,
+// DLOD) have no financed vehicle/property, so instead of the vehicle pricing
+// stack they get a plain loan amount plus a free-form breakup (e.g. working
+// capital, machinery, stock) that the user can add/remove line items for.
+const UnsecuredLoanAmountSection = () => {
+  const form = Form.useFormInstance();
+  const breakupRows = Form.useWatch("unsecuredLoanBreakup", form) || [];
+  const breakupTotal = breakupRows.reduce(
+    (sum, row) => sum + (Number(row?.amount) || 0),
+    0,
+  );
+
+  return (
+    <div className="mt-4 rounded-2xl border border-border/60 bg-muted/20 p-4">
+      <Row gutter={[16, 12]}>
+        <Col xs={24} md={8}>
+          <Form.Item
+            label="Loan Amount Required"
+            name="unsecuredLoanAmount"
+            rules={[{ required: true, message: "Enter the loan amount required" }]}
+          >
+            <InputNumber
+              min={0}
+              style={{ width: "100%" }}
+              placeholder="Enter loan amount"
+              formatter={(value) => (value ? `₹ ${Number(value).toLocaleString("en-IN")}` : "")}
+              parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
+            />
+          </Form.Item>
+        </Col>
+        <Col xs={24} md={8}>
+          <Form.Item label="Purpose of Loan" name="purposeOfLoan">
+            <Input placeholder="e.g. Working capital, machinery purchase" />
+          </Form.Item>
+        </Col>
+      </Row>
+
+      <div className="mb-3 mt-2 flex items-center justify-between">
+        <div>
+          <div className="text-sm font-semibold text-foreground">Loan Amount Breakup</div>
+          <div className="text-xs text-muted-foreground">
+            Break the loan amount into line items (e.g. Working Capital, Machinery, Stock)
+          </div>
+        </div>
+        {breakupRows.length > 0 && (
+          <div className="text-xs font-medium text-muted-foreground">
+            Total: ₹ {breakupTotal.toLocaleString("en-IN")}
+          </div>
+        )}
+      </div>
+
+      <Form.List name="unsecuredLoanBreakup">
+        {(fields, { add, remove }) => (
+          <div className="space-y-3">
+            {fields.map((field) => (
+              <div
+                key={field.key}
+                className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-xl border border-border bg-background p-3"
+              >
+                <div className="md:col-span-6">
+                  <Form.Item
+                    {...field}
+                    label="Label"
+                    name={[field.name, "label"]}
+                    className="mb-0"
+                  >
+                    <Input placeholder="e.g. Working Capital" />
+                  </Form.Item>
+                </div>
+                <div className="md:col-span-5">
+                  <Form.Item
+                    {...field}
+                    label="Amount"
+                    name={[field.name, "amount"]}
+                    className="mb-0"
+                  >
+                    <InputNumber min={0} style={{ width: "100%" }} placeholder="Amount" />
+                  </Form.Item>
+                </div>
+                <div className="md:col-span-1 flex items-end justify-end">
+                  <Button
+                    type="text"
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={() => remove(field.name)}
+                  />
+                </div>
+              </div>
+            ))}
+
+            <Button
+              type="dashed"
+              icon={<PlusCircleOutlined />}
+              onClick={() => add({ label: "", amount: undefined })}
+            >
+              Add Breakup Line
+            </Button>
+          </div>
+        )}
+      </Form.List>
+    </div>
+  );
+};
+
 const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
   const form = Form.useFormInstance();
   const selectedBrandForShowroom = Form.useWatch("vehicleMake", form);
   const loanType = Form.useWatch("typeOfLoan", form);
+  const propertyType = Form.useWatch("propertyType", form);
+  const isUnsecuredLoan = propertyType === "Unsecured";
   const lastAutofillVehicleKeyRef = useRef("");
   const [fetchingRegistrationPincode, setFetchingRegistrationPincode] =
     useState(false);
@@ -544,8 +651,8 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
       <Row gutter={24}>
         <Col span={isNewCar ? 15 : 24}>
             <Row gutter={[16, 12]}>
-              {/* Make / Model / Variant / Fuel — COMMON to all types */}
-              {(isUsedCar || isCashIn || isRefinance) && (
+              {/* Make / Model / Variant / Fuel — COMMON to all types, except Unsecured loans (no financed vehicle) */}
+              {!isUnsecuredLoan && (isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={6}>
                   <Form.Item label="Vehicle Regd Number" name="vehicleRegNo">
                     <AutoComplete
@@ -569,9 +676,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Form.Item>
                 </Col>
               )}
+              {!isUnsecuredLoan && (
+              <>
               <Col xs={24} md={6}>
                 <Form.Item label="Make" name="vehicleMake">
-                  <Select 
+                  <Select
                     placeholder="Select Make" 
                     allowClear 
                     showSearch
@@ -696,13 +805,16 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Select>
                 </Form.Item>
               </Col>
-              {(isUsedCar || isCashIn || isRefinance) && (
+              </>
+              )}
+              {!isUnsecuredLoan && (isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={6}>
                   <Form.Item label="Bought In (Year)" name="boughtInYear">
                     <Input placeholder="e.g. 2020" />
                   </Form.Item>
                 </Col>
               )}
+              {!isUnsecuredLoan && (
               <Col xs={24} md={6}>
                 <Form.Item label="Fuel Type" name="vehicleFuelType">
                   <Select placeholder="Select Fuel Type" allowClear>
@@ -714,6 +826,8 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Select>
                 </Form.Item>
               </Col>
+              )}
+              {!isUnsecuredLoan && (
               <Col xs={24}>
                 <Form.Item className="mb-1">
                   <Checkbox
@@ -726,39 +840,45 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Checkbox>
                 </Form.Item>
               </Col>
-              {(loadingMakes || loadingModels || loadingVariants) && (
+              )}
+              {!isUnsecuredLoan && (loadingMakes || loadingModels || loadingVariants) && (
                 <Col xs={24}>
                   <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2 text-[11px] font-medium text-muted-foreground dark:border-zinc-700 dark:bg-slate-900/50">
                     Loading master data for vehicle dropdowns...
                   </div>
                 </Col>
               )}
-              {/* Type of Loan */}
-              <Col xs={24} md={8}>
-                <Form.Item label="Type of Loan" name="typeOfLoan">
-                  <Select placeholder="Select Type of Loan" disabled>
-                    <Option value="New Car">New Car</Option>
-                    <Option value="Used Car">Used Car</Option>
-                    <Option value="Car Cash-in">Car Cash-in</Option>
-                    <Option value="Refinance">Refinance</Option>
-                  </Select>
-                </Form.Item>
-              </Col>
+              {/* Type of Loan — not applicable to unsecured loans, which use
+                  their own Business Loan/Personal Loan/etc. type selector. */}
+              {!isUnsecuredLoan && (
+                <Col xs={24} md={8}>
+                  <Form.Item label="Type of Loan" name="typeOfLoan">
+                    <Select placeholder="Select Type of Loan" disabled>
+                      <Option value="New Car">New Car</Option>
+                      <Option value="Used Car">Used Car</Option>
+                      <Option value="Car Cash-in">Car Cash-in</Option>
+                      <Option value="Refinance">Refinance</Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              )}
 
-              <Col xs={24} md={8}>
-                <Form.Item
-                  label="Usage"
-                  name="usage"
-                  rules={[{ required: true, message: "Select usage" }]}
-                >
-                  <Select placeholder="Select Vehicle Usage">
-                    <Select.Option value="Private">Private</Select.Option>
-                    <Select.Option value="Commercial">Commercial</Select.Option>
-                  </Select>
-                </Form.Item>
-              </Col>
+              {!isUnsecuredLoan && (
+                <Col xs={24} md={8}>
+                  <Form.Item
+                    label="Usage"
+                    name="usage"
+                    rules={[{ required: true, message: "Select usage" }]}
+                  >
+                    <Select placeholder="Select Vehicle Usage">
+                      <Select.Option value="Private">Private</Select.Option>
+                      <Select.Option value="Commercial">Commercial</Select.Option>
+                    </Select>
+                  </Form.Item>
+                </Col>
+              )}
 
-              {(isUsedCar || isCashIn || isRefinance) && (
+              {!isUnsecuredLoan && (isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={8}>
                   <Form.Item label="Valuation" name="valuation">
                     <InputNumber
@@ -767,6 +887,15 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       placeholder="Enter valuation amount"
                     />
                   </Form.Item>
+                </Col>
+              )}
+
+              {/* Unsecured loans (Business Loan, Personal Loan, etc.) have no
+                  financed vehicle/property, so they get a plain loan amount
+                  plus a free-form breakup instead of the vehicle pricing stack. */}
+              {isUnsecuredLoan && (
+                <Col xs={24}>
+                  <UnsecuredLoanAmountSection />
                 </Col>
               )}
 
