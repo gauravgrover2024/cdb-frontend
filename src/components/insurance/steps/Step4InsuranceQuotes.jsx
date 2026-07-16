@@ -39,9 +39,14 @@ const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
 
 const inrInputProps = {
-  formatter: (value) => {
+  formatter: (value, info) => {
     const raw = `${value ?? ""}`.replace(/[^\d.-]/g, "");
     if (!raw) return "";
+    // While the user is actively typing, don't rewrite the display string —
+    // reinserting thousand-separator commas on every keystroke resets the
+    // cursor position and scrambles the digits being typed (antd's fix:
+    // https://ant.design/components/input-number — `info.userTyping`).
+    if (info?.userTyping) return raw;
     const [whole, decimals] = raw.split(".");
     const formattedWhole = new Intl.NumberFormat("en-IN").format(
       Number(whole || 0),
@@ -813,7 +818,10 @@ const Step4InsuranceQuotes = ({
   const [acceptedQuoteModalOpen, setAcceptedQuoteModalOpen] =
     React.useState(false);
   const [selectedQuoteIds, setSelectedQuoteIds] = React.useState([]);
-  const canAddQuote = Boolean(String(quoteDraft.insuranceCompany || "").trim());
+  const canAddQuote =
+    Boolean(String(quoteDraft.insuranceCompany || "").trim()) &&
+    Boolean(String(quoteDraft.coverageType || "").trim()) &&
+    Boolean(String(quoteDraft.policyDuration || "").trim());
   const odAmt = Number(quoteComputed?.odAmt || 0);
   const tpAmt = Number(quoteComputed?.tpAmt || 0);
   const addOnsTotal = Number(quoteComputed?.addOnsTotal || 0);

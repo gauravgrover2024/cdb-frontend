@@ -209,6 +209,18 @@ const Step1CustomerInfo = ({
     setField("channelDealerNo", String(value || "").trim());
   };
 
+  const applyDealerContactDetails = (channel) => {
+    if (!channel) return;
+    if (channel.address) setField("dealerChannelAddress", channel.address);
+
+    const mobileVal = String(channel.mobile || channel.contactNumber || "");
+    if (mobileVal) {
+      let digits = mobileVal.replace(/\D/g, "");
+      if (digits.length >= 10) digits = digits.slice(-10);
+      setField("dealerMobile", digits);
+    }
+  };
+
   const applyChannelFromMaster = (channel) => {
     if (!channel) return;
     const channelId = String(channel.channelId || "").trim();
@@ -219,6 +231,7 @@ const Step1CustomerInfo = ({
 
     if (channelType.includes("broker")) {
       setField("brokerName", channelName);
+      applyDealerContactDetails(channel);
       if (onPolicyDoneByChange) onPolicyDoneByChange("Broker");
       else setField("policyDoneBy", "Broker");
       return;
@@ -226,14 +239,7 @@ const Step1CustomerInfo = ({
 
     if (channelType.includes("dealer") || sourceMode === "Indirect") {
       setField("dealerChannelName", channelName);
-      if (channel.address) setField("dealerChannelAddress", channel.address);
-      
-      const mobileVal = String(channel.mobile || channel.contactNumber || "");
-      if (mobileVal) {
-        let digits = mobileVal.replace(/\D/g, "");
-        if (digits.length >= 10) digits = digits.slice(-10);
-        setField("dealerMobile", digits);
-      }
+      applyDealerContactDetails(channel);
 
       if (channel.commissionRate != null && channel.commissionRate !== "") {
         setField("payoutApplicable", "Yes");
@@ -252,16 +258,19 @@ const Step1CustomerInfo = ({
     if (doneBy === "broker") {
       const broker = getBrokerByName(formData.brokerName);
       if (broker?.channelId) applyChannelDealerNo(broker.channelId);
+      applyDealerContactDetails(broker);
       return;
     }
     if (doneBy === "showroom") {
       const showroom = getShowroomByName(formData.showroomName);
       if (showroom?.showroomId) applyChannelDealerNo(showroom.showroomId);
+      applyDealerContactDetails(showroom);
       return;
     }
     if (sourceMode === "Indirect") {
       const partner = getPartnerByName(formData.dealerChannelName);
       if (partner?.channelId) applyChannelDealerNo(partner.channelId);
+      applyDealerContactDetails(partner);
     }
   };
 
@@ -313,6 +322,7 @@ const Step1CustomerInfo = ({
     setPendingChange(null);
     setConfirmOpen(false);
   }, []);
+
 
   const primaryName = isCompany
     ? formData.companyName || "Company details"
@@ -530,103 +540,136 @@ const Step1CustomerInfo = ({
               ) : null}
             </div>
 
-            {/* Broker Name — shown when policyDoneBy = Broker */}
+            {/* Broker Name + Dealer contact — shown when policyDoneBy = Broker, all in one line */}
             {policyDoneBy === "Broker" ? (
-              <div className={fieldWrapClass}>
-                <CleanField label="Broker Name" required>
-                  <AutoComplete
-                    size="large"
-                    allowClear
-                    value={formData.brokerName}
-                    options={brokerOptions}
-                    onSearch={searchBrokers}
-                    onSelect={(val, option) => {
-                      const p = option?.partner;
-                      setField("brokerName", p?.name || val || "");
-                      applyChannelDealerNo(p?.channelId || "");
-                    }}
-                    onChange={(val) => setField("brokerName", val)}
-                    placeholder="Type 3+ chars — broker name"
-                    status={showErrors && step1Errors.brokerName ? "error" : ""}
-                  />
-                </CleanField>
-                {showErrors && step1Errors.brokerName ? (
-                  <p className="mt-1 text-[11px] text-red-500">{step1Errors.brokerName}</p>
-                ) : null}
+              <div className={`${fieldWrapClass} sm:col-span-2 lg:col-span-3`}>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <CleanField label="Broker Name" required>
+                      <AutoComplete
+                        size="large"
+                        allowClear
+                        value={formData.brokerName}
+                        options={brokerOptions}
+                        onSearch={searchBrokers}
+                        onSelect={(val, option) => {
+                          const p = option?.partner;
+                          setField("brokerName", p?.name || val || "");
+                          applyChannelDealerNo(p?.channelId || "");
+                          applyDealerContactDetails(p);
+                        }}
+                        onChange={(val) => setField("brokerName", val)}
+                        placeholder="Type 3+ chars — broker name"
+                        status={showErrors && step1Errors.brokerName ? "error" : ""}
+                      />
+                    </CleanField>
+                    {showErrors && step1Errors.brokerName ? (
+                      <p className="mt-1 text-[11px] text-red-500">{step1Errors.brokerName}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <CleanField label="Dealer / Channel Mobile">
+                      <Input
+                        size="large"
+                        allowClear
+                        value={formData.dealerMobile}
+                        onChange={(e) =>
+                          setField(
+                            "dealerMobile",
+                            String(e?.target?.value || "")
+                              .replace(/\D/g, "")
+                              .slice(0, 10),
+                          )
+                        }
+                        maxLength={10}
+                        placeholder="Dealer / Channel mobile"
+                      />
+                    </CleanField>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <CleanField label="Dealer / Channel Address">
+                      <Input
+                        size="large"
+                        allowClear
+                        value={formData.dealerChannelAddress}
+                        onChange={(e) =>
+                          setField("dealerChannelAddress", e?.target?.value || "")
+                        }
+                        placeholder="Dealer / Channel address"
+                      />
+                    </CleanField>
+                  </div>
+                </div>
               </div>
             ) : null}
 
-            {/* Channel / Dealer No. — auto-filled from Broker selection */}
-            {policyDoneBy === "Broker" ? (
-              <div className={fieldWrapClass}>
-                <CleanField label="Channel / Dealer No.">
-                  <Input
-                    size="large"
-                    readOnly
-                    value={formData.channelDealerNo}
-                    placeholder="Auto-filled on broker selection"
-                  />
-                </CleanField>
-              </div>
-            ) : null}
-
-            {/* Showroom Name — shown when policyDoneBy = Showroom */}
+            {/* Showroom Name + Dealer contact — shown when policyDoneBy = Showroom, all in one line */}
             {policyDoneBy === "Showroom" ? (
-              <div className={fieldWrapClass}>
-                <CleanField label="Showroom Name" required>
-                  <AutoComplete
-                    size="large"
-                    allowClear
-                    value={formData.showroomName}
-                    options={showroomOptions}
-                    onSearch={searchShowrooms}
-                    onSelect={(val, option) => {
-                      const s = option?.showroom;
-                      setField("showroomName", s?.name || val || "");
-                      applyChannelDealerNo(s?.showroomId || "");
-                    }}
-                    onChange={(val) => setField("showroomName", val)}
-                    placeholder="Type 3+ chars — showroom name"
-                    status={showErrors && step1Errors.showroomName ? "error" : ""}
-                  />
-                </CleanField>
-                {showErrors && step1Errors.showroomName ? (
-                  <p className="mt-1 text-[11px] text-red-500">{step1Errors.showroomName}</p>
-                ) : null}
+              <div className={`${fieldWrapClass} sm:col-span-2 lg:col-span-3`}>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
+                  <div className="min-w-0 flex-1">
+                    <CleanField label="Showroom Name" required>
+                      <AutoComplete
+                        size="large"
+                        allowClear
+                        value={formData.showroomName}
+                        options={showroomOptions}
+                        onSearch={searchShowrooms}
+                        onSelect={(val, option) => {
+                          const s = option?.showroom;
+                          setField("showroomName", s?.name || val || "");
+                          applyChannelDealerNo(s?.showroomId || "");
+                          applyDealerContactDetails(s);
+                        }}
+                        onChange={(val) => setField("showroomName", val)}
+                        placeholder="Type 3+ chars — showroom name"
+                        status={showErrors && step1Errors.showroomName ? "error" : ""}
+                      />
+                    </CleanField>
+                    {showErrors && step1Errors.showroomName ? (
+                      <p className="mt-1 text-[11px] text-red-500">{step1Errors.showroomName}</p>
+                    ) : null}
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <CleanField label="Dealer / Channel Mobile">
+                      <Input
+                        size="large"
+                        allowClear
+                        value={formData.dealerMobile}
+                        onChange={(e) =>
+                          setField(
+                            "dealerMobile",
+                            String(e?.target?.value || "")
+                              .replace(/\D/g, "")
+                              .slice(0, 10),
+                          )
+                        }
+                        maxLength={10}
+                        placeholder="Dealer / Channel mobile"
+                      />
+                    </CleanField>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <CleanField label="Dealer / Channel Address">
+                      <Input
+                        size="large"
+                        allowClear
+                        value={formData.dealerChannelAddress}
+                        onChange={(e) =>
+                          setField("dealerChannelAddress", e?.target?.value || "")
+                        }
+                        placeholder="Dealer / Channel address"
+                      />
+                    </CleanField>
+                  </div>
+                </div>
               </div>
             ) : null}
 
-            {/* Channel / Dealer No. — auto-filled from Showroom selection */}
-            {policyDoneBy === "Showroom" ? (
-              <div className={fieldWrapClass}>
-                <CleanField label="Channel / Dealer No.">
-                  <Input
-                    size="large"
-                    readOnly
-                    value={formData.channelDealerNo}
-                    placeholder="Auto-filled on showroom selection"
-                  />
-                </CleanField>
-              </div>
-            ) : null}
-
-            {/* Channel / Dealer Number — hidden from UI (kept for data compatibility) */}
-            {/* <div className={fieldWrapClass}>
-              <CleanField label="Channel / Dealer Number">
-                <AutoComplete
-                  size="large"
-                  allowClear
-                  value={formData.channelDealerNo}
-                  options={channelMasterOptions}
-                  onSearch={searchChannelMaster}
-                  onSelect={(_, option) => applyChannelFromMaster(option?.channel)}
-                  onChange={(val) => setField("channelDealerNo", val)}
-                  placeholder="Type 3+ chars — ID, name, mobile"
-                  notFoundContent={channelMasterNotFound}
-                  style={{ width: "100%" }}
-                />
-              </CleanField>
-            </div> */}
           </div>
 
           {/* ── Source ── */}
@@ -1531,11 +1574,19 @@ const Step1CustomerInfo = ({
                   label="Policy Done By"
                   value={formData.policyDoneBy}
                 />
-                {formData.channelDealerNo ? (
-                  <SummaryRow
-                    label="Channel / Dealer No."
-                    value={formData.channelDealerNo}
-                  />
+                {formData.dealerMobile ||
+                formData.dealerChannelAddress ||
+                formData.channelDealerNo ? (
+                  <>
+                    <SummaryRow
+                      label="Dealer / Channel Mobile"
+                      value={formData.dealerMobile}
+                    />
+                    <SummaryRow
+                      label="Dealer / Channel Address"
+                      value={formData.dealerChannelAddress}
+                    />
+                  </>
                 ) : null}
                 {formData.policyDoneBy === "Broker" ? (
                   <SummaryRow label="Broker Name" value={formData.brokerName} />

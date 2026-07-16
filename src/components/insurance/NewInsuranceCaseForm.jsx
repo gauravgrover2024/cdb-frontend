@@ -934,7 +934,26 @@ const NewInsuranceCaseForm = ({
   const [quoteDraft, setQuoteDraft] = useState(initialQuoteDraft);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
-  const [showErrors, setShowErrors] = useState(false);
+  // Tracks which step numbers should currently display their validation
+  // errors. Per-step (not a single global flag) so fixing/leaving one step
+  // never leaves another, untouched step showing red errors on arrival.
+  const [errorSteps, setErrorSteps] = useState(() => new Set());
+  const markStepError = useCallback((stepNumber) => {
+    setErrorSteps((prev) => {
+      if (prev.has(stepNumber)) return prev;
+      const next = new Set(prev);
+      next.add(stepNumber);
+      return next;
+    });
+  }, []);
+  const clearStepError = useCallback((stepNumber) => {
+    setErrorSteps((prev) => {
+      if (!prev.has(stepNumber)) return prev;
+      const next = new Set(prev);
+      next.delete(stepNumber);
+      return next;
+    });
+  }, []);
   const [planFeaturesModal, setPlanFeaturesModal] = useState({
     open: false,
     row: null,
@@ -2483,7 +2502,7 @@ const NewInsuranceCaseForm = ({
           setStep(savedDraft.step || 1);
           setSubmitted(false);
           setCaseReference("");
-          setShowErrors(false);
+          setErrorSteps(new Set());
           message.success("Restored unsaved insurance draft.");
           return;
         }
@@ -2501,7 +2520,7 @@ const NewInsuranceCaseForm = ({
       setInsuranceDbId(null);
       setSubmitted(false);
       setCaseReference("");
-      setShowErrors(false);
+      setErrorSteps(new Set());
       return;
     }
     const derivedSource = String(
@@ -2742,9 +2761,9 @@ const NewInsuranceCaseForm = ({
   const step1DisplayErrors = useMemo(
     () => ({
       ...step1Errors,
-      ...(showErrors ? step1StrictErrors : {}),
+      ...(errorSteps.has(1) ? step1StrictErrors : {}),
     }),
-    [step1Errors, step1StrictErrors, showErrors],
+    [step1Errors, step1StrictErrors, errorSteps],
   );
   const step2Errors = useMemo(() => validateStep2(formData), [formData]);
   const step3Errors = useMemo(() => validateStep3(formData), [formData]);
@@ -3450,19 +3469,28 @@ const NewInsuranceCaseForm = ({
 
       const movingForward = nextStep > step;
       if (movingForward) {
-        setShowErrors(true);
-        if (!handleStepValidation()) return false;
+        if (!handleStepValidation()) {
+          markStepError(step);
+          return false;
+        }
         if (step === 1 && !(await confirmCrmCustomerChanges())) return false;
       }
 
       const saved = await persistNow({ silent: true });
       if (movingForward && !saved) return false;
 
+      clearStepError(step);
       setStep(nextStep);
-      setShowErrors(false);
       return true;
     },
-    [confirmCrmCustomerChanges, handleStepValidation, persistNow, step],
+    [
+      confirmCrmCustomerChanges,
+      handleStepValidation,
+      persistNow,
+      step,
+      markStepError,
+      clearStepError,
+    ],
   );
 
   const goNext = useCallback(async () => {
@@ -3577,7 +3605,7 @@ const NewInsuranceCaseForm = ({
           payoutPercentage: initialFormState.payoutPercentage,
         }));
       }
-      setShowErrors(false);
+      clearStepError(step);
     };
 
     Modal.confirm({
@@ -3755,6 +3783,8 @@ const NewInsuranceCaseForm = ({
 
   const addQuote = () => {
     if (!quoteDraft.insuranceCompany.trim()) return;
+    if (!String(quoteDraft.coverageType || "").trim()) return;
+    if (!String(quoteDraft.policyDuration || "").trim()) return;
     const normalizedQuotePayload = {
       ...quoteDraft,
       totalIdv: quoteComputed.totalIdv,
@@ -3791,7 +3821,7 @@ const NewInsuranceCaseForm = ({
       );
       setEditingQuoteId(null);
       resetQuoteDraft();
-      setShowErrors(false);
+      clearStepError(step);
       return;
     }
 
@@ -3802,14 +3832,14 @@ const NewInsuranceCaseForm = ({
     };
     setQuotes((prev) => [...prev, newQuote]);
     resetQuoteDraft();
-    setShowErrors(false);
+    clearStepError(step);
     schedulePersist(300);
   };
 
   const acceptQuote = async (id) => {
     const previousAcceptedId = acceptedQuoteId;
     setAcceptedQuoteId(id);
-    setShowErrors(false);
+    clearStepError(step);
     const q = quotes.find((x) => String(getQuoteRowId(x)) === String(id));
     if (!q) return;
 
@@ -4024,13 +4054,19 @@ const NewInsuranceCaseForm = ({
     const lastStep = visibleSteps[visibleSteps.length - 1]?.originalStep;
     if (step !== lastStep) return;
     if (finalSubmitErrors.length) {
-      setShowErrors(true);
-      if (Object.keys(step1StrictErrors).length) setStep(1);
-      else if (Object.keys(step2Errors).length) setStep(2);
-      else if (!shouldSkipStep(3) && Object.keys(step3Errors).length)
+      if (Object.keys(step1StrictErrors).length) {
+        markStepError(1);
+        setStep(1);
+      } else if (Object.keys(step2Errors).length) {
+        markStepError(2);
+        setStep(2);
+      } else if (!shouldSkipStep(3) && Object.keys(step3Errors).length) {
+        markStepError(3);
         setStep(3);
-      else if (!shouldSkipStep(4) && (!quotes.length || !acceptedQuoteId)) {
-        setStep(shouldSkipStep(4) ? 6 : 4);
+      } else if (!shouldSkipStep(4) && (!quotes.length || !acceptedQuoteId)) {
+        const targetStep = shouldSkipStep(4) ? 6 : 4;
+        markStepError(targetStep);
+        setStep(targetStep);
       } else if (
         !String(formData.newInsuranceCompany || "").trim() ||
         !String(formData.newPolicyType || "").trim() ||
@@ -4038,6 +4074,7 @@ const NewInsuranceCaseForm = ({
         !String(formData.newIssueDate || "").trim() ||
         !String(formData.newPolicyStartDate || "").trim()
       ) {
+        markStepError(6);
         setStep(6);
       }
       message.error(finalSubmitErrors[0], 8);
@@ -4072,7 +4109,7 @@ const NewInsuranceCaseForm = ({
   }, [visibleSteps, step]);
 
   const stepErrorToast = useMemo(() => {
-    if (!showErrors) return null;
+    if (!errorSteps.has(step)) return null;
     if (step === 1 && Object.keys(step1Errors).length) {
       return {
         key: "insurance-step-validation",
@@ -4115,7 +4152,7 @@ const NewInsuranceCaseForm = ({
     }
     return null;
   }, [
-    showErrors,
+    errorSteps,
     step,
     step1Errors,
     step2Errors,
@@ -4190,7 +4227,7 @@ const NewInsuranceCaseForm = ({
             setField={setField}
             handleChange={handleChange}
             modifiedCrmFields={modifiedCrmFields}
-            showErrors={showErrors}
+            showErrors={errorSteps.has(1)}
             step1Errors={step1DisplayErrors}
             isCompany={isCompany}
             employeeOptions={employeeOptions}
@@ -4214,7 +4251,7 @@ const NewInsuranceCaseForm = ({
             formData={formData}
             setField={setField}
             handleChange={handleChange}
-            showErrors={showErrors}
+            showErrors={errorSteps.has(2)}
             step2Errors={step2Errors}
             isNewCar={isNewCar}
             isExtendedWarranty={isExtendedWarranty}
@@ -4247,7 +4284,7 @@ const NewInsuranceCaseForm = ({
             formData={formData}
             setField={setField}
             handleChange={handleChange}
-            showErrors={showErrors}
+            showErrors={errorSteps.has(3)}
             step3Errors={step3Errors}
             handlePreviousPolicyStartOrDuration={
               handlePreviousPolicyStartOrDuration
@@ -4265,7 +4302,7 @@ const NewInsuranceCaseForm = ({
             quoteRows={quoteRows}
             acceptedQuoteId={acceptedQuoteId}
             acceptedQuote={acceptedQuote}
-            showErrors={showErrors}
+            showErrors={errorSteps.has(4)}
             addQuote={addQuote}
             acceptQuote={acceptQuote}
             deleteQuote={deleteQuote}

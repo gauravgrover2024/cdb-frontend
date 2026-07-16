@@ -24,6 +24,7 @@ import {
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
+import { calculateSuggestedNcb } from "../../../utils/ncbCalculator";
 
 const shellStyle = "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
@@ -523,24 +524,27 @@ const Step3PreviousPolicy = ({
 
   const showStandaloneAgeWarning = false;
 
-  const suggestedNcb = React.useMemo(() => {
-    const regDateRaw = String(formData.dateOfReg || "").trim();
-    if (!regDateRaw) return 0;
-    const regDate = dayjs(regDateRaw);
-    if (!regDate.isValid()) return 0;
-
-    const asOfRaw = String(formData.previousPolicyStartDate || "").trim();
-    const asOfDate = asOfRaw ? dayjs(asOfRaw) : dayjs();
-    if (!asOfDate.isValid()) return 0;
-
-    const vehicleAgeYears = asOfDate.diff(regDate, "year", true);
-    if (vehicleAgeYears <= 1) return 0;
-    if (vehicleAgeYears <= 2) return 20;
-    if (vehicleAgeYears <= 3) return 25;
-    if (vehicleAgeYears <= 4) return 35;
-    if (vehicleAgeYears <= 5) return 45;
-    return 50;
-  }, [formData.dateOfReg, formData.previousPolicyStartDate]);
+  const suggestedNcb = React.useMemo(
+    () =>
+      calculateSuggestedNcb({
+        purchaseDate: formData.dateOfReg || formData.manufactureYear,
+        renewalDate: formData.previousPolicyStartDate,
+        // "Claim Last Year" describes the policy period being entered here,
+        // not what preceded it — it drives the *next* renewal's NCB (Step 4),
+        // not this previous policy's own suggested value.
+        policyLapsed:
+          String(formData.usedCarFlowType || "").trim() ===
+          "Policy Already Expired",
+        previousNcbDiscount: formData.previousNcbDiscount,
+      }),
+    [
+      formData.dateOfReg,
+      formData.manufactureYear,
+      formData.previousPolicyStartDate,
+      formData.usedCarFlowType,
+      formData.previousNcbDiscount,
+    ],
+  );
 
   const toggleAddon = (addon) => {
     setQuoteDraft((prev) => {

@@ -19,7 +19,6 @@ import {
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
-import PremiumBreakupCard from "../PremiumBreakupCard";
 import { formatPolicyDuration } from "../../../utils/insurancePolicyDisplay";
 
 const shellStyle =
@@ -44,6 +43,37 @@ const CleanField = ({ label, required, hint, children, extra }) => (
     {children}
     {hint ? <div className={microHintClass}>{hint}</div> : null}
     {extra ? <div className="mt-1">{extra}</div> : null}
+  </div>
+);
+
+const BreakupRow = ({ label, value, bold, muted, indent }) => (
+  <div
+    className={`flex items-center justify-between py-1.5 ${
+      bold ? "mt-1 border-t border-slate-100 pt-2.5" : ""
+    } ${indent ? "pl-3" : ""}`}
+  >
+    <span
+      className={`text-[12px] ${
+        bold
+          ? "font-bold text-slate-800"
+          : muted
+            ? "text-slate-500"
+            : "text-slate-500"
+      }`}
+    >
+      {label}
+    </span>
+    <span
+      className={`tabular-nums text-[12px] ${
+        bold
+          ? "font-black text-slate-900"
+          : muted
+            ? "text-slate-500"
+            : "font-semibold text-slate-700"
+      }`}
+    >
+      {value}
+    </span>
   </div>
 );
 
@@ -191,11 +221,9 @@ const Step5NewPolicyDetails = ({
 }) => {
   const [showAllAcceptedAddons, setShowAllAcceptedAddons] =
     React.useState(false);
-  const [isPolicyStartDateManual, setIsPolicyStartDateManual] =
-    React.useState(false);
-  const hasManualPolicyStartDate =
-    isPolicyStartDateManual &&
-    Boolean(String(formData.newPolicyStartDate || "").trim());
+  const hasPolicyStartDate = Boolean(
+    String(formData.newPolicyStartDate || "").trim(),
+  );
   const isExtendedWarranty =
     String(formData.policyCategory || "").trim() === "Extended Warranty";
   const isNewCar = String(formData.vehicleType || "").trim() === "New Car";
@@ -233,15 +261,17 @@ const Step5NewPolicyDetails = ({
   );
 
   const acceptedOdAmount = Number(
-    acceptedQuoteBreakup?.odAmt || acceptedQuote?.odAmount || 0,
+    acceptedQuoteBreakup?.odAmt ||
+      acceptedQuote?.odAmount ||
+      formData.newOwnDamageAmount ||
+      0,
   );
 
   const acceptedTpAmount = Number(
-    acceptedQuoteBreakup?.tpAmt || acceptedQuote?.thirdPartyAmount || 0,
-  );
-
-  const acceptedNcbAmount = Number(
-    acceptedQuoteBreakup?.ncbReferenceAmount || 0,
+    acceptedQuoteBreakup?.tpAmt ||
+      acceptedQuote?.thirdPartyAmount ||
+      formData.newThirdPartyAmount ||
+      0,
   );
 
   const companyInitial = getInitial(acceptedCompany);
@@ -263,7 +293,13 @@ const Step5NewPolicyDetails = ({
   const acceptedAddOnsTotal =
     acceptedQuoteBreakup?.addOnsTotal !== undefined
       ? Number(acceptedQuoteBreakup?.addOnsTotal || 0)
-      : includedAddons.reduce((sum, item) => sum + Number(item.amt || 0), 0);
+      : includedAddons.length > 0
+        ? includedAddons.reduce((sum, item) => sum + Number(item.amt || 0), 0)
+        : Number(formData.newAddOnsTotal || 0);
+
+  const visibleAcceptedAddons = showAllAcceptedAddons
+    ? includedAddons
+    : includedAddons.slice(0, 4);
 
   const durationSelectOptions =
     formData.newPolicyType === "Comprehensive"
@@ -333,9 +369,71 @@ const Step5NewPolicyDetails = ({
     );
   }, [formData.newPolicyStartDate, derivedYears.tpYears]);
 
+  // Self-heal: some existing cases had their accepted quote's coverage type /
+  // duration / NCB / OD & TP amounts never copied into these editable
+  // fields (e.g. accepted before that copy logic existed). Backfill them
+  // from the live accepted quote so the form doesn't show blank/stale
+  // required fields while the summary card above (driven by the same
+  // accepted quote) is already showing the correct data.
   React.useEffect(() => {
     if (isExtendedWarranty) return;
-    const shouldAutoCompute = hasManualPolicyStartDate;
+    if (!acceptedQuote) return;
+
+    const coverageType = String(acceptedQuote?.coverageType || "").trim();
+    if (coverageType && formData.newPolicyType !== coverageType) {
+      setField("newPolicyType", coverageType);
+    }
+
+    const policyDuration = String(acceptedQuote?.policyDuration || "").trim();
+    if (policyDuration && formData.newInsuranceDuration !== policyDuration) {
+      setField("newInsuranceDuration", policyDuration);
+    }
+
+    const nextNcb = Number(acceptedQuote?.ncbDiscount || 0);
+    if (Number(formData.newNcbDiscount || 0) !== nextNcb) {
+      setField("newNcbDiscount", nextNcb);
+    }
+
+    if (
+      acceptedOdAmount > 0 &&
+      Number(formData.newOwnDamageAmount || 0) !== acceptedOdAmount
+    ) {
+      setField("newOwnDamageAmount", acceptedOdAmount);
+      setField("newBasicOwnDamageAmount", acceptedOdAmount);
+    }
+
+    if (
+      acceptedTpAmount > 0 &&
+      Number(formData.newThirdPartyAmount || 0) !== acceptedTpAmount
+    ) {
+      setField("newThirdPartyAmount", acceptedTpAmount);
+      setField("newBasicThirdPartyAmount", acceptedTpAmount);
+    }
+
+    if (
+      acceptedAddOnsTotal > 0 &&
+      Number(formData.newAddOnsTotal || 0) !== acceptedAddOnsTotal
+    ) {
+      setField("newAddOnsTotal", acceptedAddOnsTotal);
+    }
+  }, [
+    acceptedQuote,
+    acceptedOdAmount,
+    acceptedTpAmount,
+    acceptedAddOnsTotal,
+    formData.newPolicyType,
+    formData.newInsuranceDuration,
+    formData.newNcbDiscount,
+    formData.newOwnDamageAmount,
+    formData.newThirdPartyAmount,
+    formData.newAddOnsTotal,
+    isExtendedWarranty,
+    setField,
+  ]);
+
+  React.useEffect(() => {
+    if (isExtendedWarranty) return;
+    const shouldAutoCompute = hasPolicyStartDate;
     if (!shouldAutoCompute) {
       if (formData.newOdExpiryDate !== "") setField("newOdExpiryDate", "");
       if (formData.newTpExpiryDate !== "") setField("newTpExpiryDate", "");
@@ -386,7 +484,7 @@ const Step5NewPolicyDetails = ({
     formData.newPolicyType,
     formData.newPolicyStartDate,
     formData.newTpExpiryDate,
-    hasManualPolicyStartDate,
+    hasPolicyStartDate,
     isExtendedWarranty,
     setField,
   ]);
@@ -441,13 +539,6 @@ const Step5NewPolicyDetails = ({
     isExtendedWarranty,
     setField,
   ]);
-
-  React.useEffect(() => {
-    if (isExtendedWarranty) return;
-    if (!String(formData.newPolicyStartDate || "").trim()) {
-      setIsPolicyStartDateManual(false);
-    }
-  }, [formData.newPolicyStartDate, isExtendedWarranty]);
 
   const amountInputProps = {
     formatter: formatAmountInput,
@@ -755,7 +846,6 @@ const Step5NewPolicyDetails = ({
                       setField("newInsuranceDuration", "");
                       setField("newOdExpiryDate", "");
                       setField("newTpExpiryDate", "");
-                      setIsPolicyStartDateManual(false);
                     }}
                     options={[
                       { label: "Comprehensive", value: "Comprehensive" },
@@ -818,7 +908,6 @@ const Step5NewPolicyDetails = ({
                     }
                     onChange={(d) => {
                       const next = d ? d.format("YYYY-MM-DD") : "";
-                      setIsPolicyStartDateManual(Boolean(next));
                       if (!next) {
                         setField("newOdExpiryDate", "");
                         setField("newTpExpiryDate", "");
@@ -863,7 +952,7 @@ const Step5NewPolicyDetails = ({
                       allowClear
                       type="text"
                       value={
-                        hasManualPolicyStartDate
+                        formData.newOdExpiryDate
                           ? formatDisplayDate(formData.newOdExpiryDate)
                           : ""
                       }
@@ -886,7 +975,7 @@ const Step5NewPolicyDetails = ({
                       allowClear
                       type="text"
                       value={
-                        hasManualPolicyStartDate
+                        formData.newTpExpiryDate
                           ? formatDisplayDate(formData.newTpExpiryDate)
                           : ""
                       }
@@ -995,7 +1084,30 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Total Premium (₹)" required>
+                <CleanField
+                  label="Total Premium (₹)"
+                  required
+                  extra={
+                    acceptedPremium > 0 &&
+                    Number(formData.newTotalPremium || 0) !== acceptedPremium ? (
+                      <span className="text-[12px] text-slate-500">
+                        Suggested (from accepted quote):{" "}
+                        <span className="font-semibold text-slate-700">
+                          {formatCurrency(acceptedPremium)}
+                        </span>
+                        <button
+                          type="button"
+                          className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                          onClick={() =>
+                            setField("newTotalPremium", acceptedPremium)
+                          }
+                        >
+                          Use suggested
+                        </button>
+                      </span>
+                    ) : null
+                  }
+                >
                   <InputNumber
                     size="large"
                     min={0}
@@ -1154,24 +1266,106 @@ const Step5NewPolicyDetails = ({
 
               <div className="mx-5 border-t border-slate-100" />
 
-              <PremiumBreakupCard
-                breakup={{
-                  ownDamage: acceptedOdAmount,
-                  basicOwnDamage: acceptedOdAmount,
-                  ncbPercent: acceptedNcb,
-                  ncbAmount: acceptedNcbAmount,
-                  thirdParty: acceptedTpAmount,
-                  basicThirdParty: acceptedTpAmount,
-                  addOnsTotal: acceptedAddOnsTotal,
-                  coverageType: formData.newPolicyType,
-                }}
-                formatCurrency={formatCurrency}
-                includedAddons={includedAddons}
-                showAllAddons={showAllAcceptedAddons}
-                onToggleAddons={() => setShowAllAcceptedAddons((p) => !p)}
-                totalAmount={acceptedPremium}
-                coverageType={formData.newPolicyType}
-              />
+              <div className="px-5 pt-5 pb-3">
+                <p className="m-0 mb-3 text-sm font-black text-slate-800">
+                  Premium Breakup
+                </p>
+
+                {formData.newPolicyType !== "Third Party" && (
+                  <>
+                    <BreakupRow
+                      label="Own Damage"
+                      value={formatCurrency(acceptedOdAmount)}
+                      bold
+                    />
+                    <BreakupRow
+                      label="Basic Own Damage"
+                      value={formatCurrency(acceptedOdAmount)}
+                      indent
+                      muted
+                    />
+
+                    <BreakupRow
+                      label="NCB %"
+                      value={`${acceptedNcb}%`}
+                      indent
+                      muted
+                    />
+                  </>
+                )}
+
+                {formData.newPolicyType !== "Stand Alone OD" && (
+                  <>
+                    <BreakupRow
+                      label="Third Party"
+                      value={formatCurrency(acceptedTpAmount)}
+                      bold
+                    />
+                    <BreakupRow
+                      label="Basic Third Party"
+                      value={formatCurrency(acceptedTpAmount)}
+                      indent
+                      muted
+                    />
+                  </>
+                )}
+
+                {formData.newPolicyType !== "Third Party" &&
+                  includedAddons.length > 0 && (
+                    <>
+                      <BreakupRow
+                        label="Add Ons"
+                        value={formatCurrency(acceptedAddOnsTotal)}
+                        bold
+                      />
+                      {visibleAcceptedAddons.map(({ name }) => (
+                        <BreakupRow
+                          key={name}
+                          label={name}
+                          value="included"
+                          indent
+                          muted
+                        />
+                      ))}
+                      {includedAddons.length > 4 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setShowAllAcceptedAddons((p) => !p)
+                          }
+                          className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-slate-600 transition-colors hover:text-slate-700 cursor-pointer"
+                        >
+                          <span
+                            className={`inline-block transition-transform duration-200 ${
+                              showAllAcceptedAddons ? "rotate-180" : ""
+                            }`}
+                          >
+                            ▾
+                          </span>
+                          {showAllAcceptedAddons
+                            ? "Show Less"
+                            : `+${includedAddons.length - 4} More Add-ons`}
+                        </button>
+                      )}
+                    </>
+                  )}
+              </div>
+
+              <div className="mx-5 border-t border-dashed border-slate-200" />
+
+              <div className="px-5 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-black text-slate-800">
+                    Total Amount
+                  </span>
+                  <span className="text-xl font-black tabular-nums text-slate-900">
+                    {formatCurrency(acceptedPremium)}
+                  </span>
+                </div>
+                <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400">
+                  Prices are inclusive of GST
+                </p>
+              </div>
             </div>
 
             <div className={`${shellStyle} p-4`}>
@@ -1199,11 +1393,7 @@ const Step5NewPolicyDetails = ({
                   <MiniDateCard
                     icon={<InfoCircleOutlined />}
                     label="OD Expiry"
-                    value={
-                      hasManualPolicyStartDate
-                        ? formatDisplayDate(formData.newOdExpiryDate)
-                        : "—"
-                    }
+                    value={formatDisplayDate(formData.newOdExpiryDate)}
                     tone="slate"
                   />
                 )}
@@ -1211,11 +1401,7 @@ const Step5NewPolicyDetails = ({
                   <MiniDateCard
                     icon={<BankOutlined />}
                     label="TP Expiry"
-                    value={
-                      hasManualPolicyStartDate
-                        ? formatDisplayDate(formData.newTpExpiryDate)
-                        : "—"
-                    }
+                    value={formatDisplayDate(formData.newTpExpiryDate)}
                     tone="slate"
                   />
                 )}
