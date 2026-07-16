@@ -2621,7 +2621,134 @@ export default function AciV2ChatExperienceStyles() {
       }
 
       .aci-reference-shortlist-header p {
+        max-width: 560px;
+        margin: 5px 0 0;
+        display: block;
+        color: #69788f;
+        font-size: 9.5px;
+        line-height: 1.35;
+        font-weight: 560;
+        letter-spacing: 0 !important;
+      }
+
+      .aci-reference-shortlist-toolbar {
+        min-width: 0;
+        margin: 2px 0 7px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        flex-wrap: wrap;
+      }
+
+      .aci-reference-shortlist-toolbar .aci-reference-shortlist-filter-menu > summary,
+      .aci-reference-shortlist-toolbar > button {
+        min-height: 34px;
+        padding: 4px 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        flex: 0 0 auto;
+        border: 1px solid #d9e0ea;
+        border-radius: 999px;
+        color: #26344c;
+        background: #fff;
+        font: inherit;
+        font-size: 9.5px;
+        line-height: 1;
+        font-weight: 720;
+        letter-spacing: 0 !important;
+        box-shadow: none;
+      }
+
+      .aci-reference-shortlist-toolbar .aci-reference-shortlist-filter-menu > summary > svg,
+      .aci-reference-shortlist-toolbar > button > svg {
+        color: #536176;
+        flex: 0 0 auto;
+      }
+
+      .aci-reference-shortlist-filter-menu {
+        position: relative;
+        flex: 0 0 auto;
+      }
+
+      .aci-reference-shortlist-filter-menu > summary {
+        list-style: none;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .aci-reference-shortlist-filter-menu > summary::-webkit-details-marker {
         display: none;
+      }
+
+      .aci-reference-shortlist-filter-menu > summary strong {
+        color: #182338;
+        font-weight: 780;
+      }
+
+      .aci-reference-shortlist-filter-menu[open] > summary {
+        border-color: #b9c5d6;
+        background: #f8fafc;
+      }
+
+      .aci-reference-shortlist-filter-menu[open] > summary > svg:last-child {
+        transform: rotate(180deg);
+      }
+
+      .aci-reference-shortlist-filter-menu > div {
+        position: absolute;
+        top: calc(100% + 6px);
+        left: 0;
+        z-index: 20;
+        min-width: 142px;
+        padding: 5px;
+        display: grid;
+        gap: 2px;
+        border: 1px solid #d9e0ea;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, .98);
+        box-shadow: 0 18px 40px -24px rgba(15, 23, 42, .38);
+      }
+
+      .aci-reference-shortlist-filter-menu > div button {
+        width: 100%;
+        min-height: 34px;
+        padding: 7px 9px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border: 0;
+        border-radius: 8px;
+        color: #344054;
+        background: transparent;
+        font: inherit;
+        font-size: 10px;
+        font-weight: 680;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .aci-reference-shortlist-filter-menu > div button:hover,
+      .aci-reference-shortlist-filter-menu > div button:focus-visible,
+      .aci-reference-shortlist-filter-menu > div button.is-active {
+        color: #111827;
+        background: #f2f4f7;
+        outline: none;
+      }
+
+      .aci-reference-shortlist-toolbar > button {
+        cursor: pointer;
+        transition: border-color 160ms ease, background 160ms ease;
+      }
+
+      .aci-reference-shortlist-toolbar > button:hover,
+      .aci-reference-shortlist-toolbar > button:focus-visible {
+        border-color: #c6d0de;
+        color: #111827;
+        background: #f8fafc;
+        outline: none;
       }
 
       .aci-reference-shortlist-header .aci-carousel-controls {
@@ -2845,7 +2972,7 @@ export default function AciV2ChatExperienceStyles() {
         margin-top: 0;
         padding: 10px;
         display: grid;
-        grid-template-columns: minmax(0, 1fr) auto 18px;
+        grid-template-columns: minmax(0, 1fr) auto auto;
         align-items: center;
         gap: 10px;
         border: 1px solid #d7e4f8;
@@ -2921,14 +3048,26 @@ export default function AciV2ChatExperienceStyles() {
         white-space: nowrap;
       }
 
-      .aci-reference-shortlist-model > .aci-reference-shortlist-summary .aci-reference-shortlist-summary-arrow {
-        width: 18px;
-        height: 18px;
-        padding: 0;
+      .aci-reference-shortlist-model > .aci-reference-shortlist-summary .aci-reference-shortlist-summary-open {
+        display: inline-flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 2px;
         justify-self: end;
+        color: #43536c;
+        font-size: 9px;
+        line-height: 1;
+        font-weight: 720;
+        white-space: nowrap;
+      }
+
+      .aci-reference-shortlist-model > .aci-reference-shortlist-summary .aci-reference-shortlist-summary-open svg {
+        width: 15px;
+        height: 15px;
+        padding: 0;
         border: 0;
         border-radius: 0;
-        color: var(--aci-shortlist-blue);
+        color: #64748b;
         background: transparent;
       }
 
@@ -2958,9 +3097,9 @@ export default function AciV2ChatExperienceStyles() {
         justify-content: space-between;
         gap: 13px;
         flex: 0 0 auto;
-        border: 1px solid #d0e0fa;
+        border: 1px solid #d9e0ea;
         border-radius: 999px;
-        color: #102555;
+        color: #182338;
         background: rgba(255, 255, 255, .92);
         font: inherit;
         font-size: 11px;
@@ -2974,9 +3113,9 @@ export default function AciV2ChatExperienceStyles() {
 
       .aci-reference-shortlist-actions button:hover,
       .aci-reference-shortlist-actions button:focus-visible {
-        border-color: #abc8f7;
-        color: var(--aci-shortlist-blue);
-        background: #f6f9ff;
+        border-color: #c6d0de;
+        color: #111827;
+        background: #f8fafc;
         outline: none;
       }
 
@@ -2990,15 +3129,15 @@ export default function AciV2ChatExperienceStyles() {
         height: 31px;
         padding: 8px;
         border-radius: 50%;
-        color: var(--aci-shortlist-blue);
-        background: #f2f7ff;
+        color: #34435a;
+        background: #f3f5f8;
       }
 
       .aci-reference-shortlist-actions button > svg:last-child {
         width: 21px;
         height: 21px;
         padding: 4px;
-        color: var(--aci-shortlist-blue);
+        color: #64748b;
         background: transparent;
       }
 
@@ -3013,6 +3152,17 @@ export default function AciV2ChatExperienceStyles() {
 
         .aci-reference-shortlist-header p {
           max-width: 270px;
+        }
+
+        .aci-reference-shortlist-toolbar {
+          flex-wrap: nowrap;
+          overflow-x: auto;
+          padding-bottom: 2px;
+          scrollbar-width: none;
+        }
+
+        .aci-reference-shortlist-toolbar::-webkit-scrollbar {
+          display: none;
         }
 
         .aci-reference-shortlist-card .aci-recommendation-grid {
@@ -3084,11 +3234,18 @@ export default function AciV2ChatExperienceStyles() {
         }
 
         .aci-reference-shortlist-actions {
+          width: 100%;
           padding-bottom: 2px;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr);
+          gap: 7px;
+          overflow: visible;
         }
 
         .aci-reference-shortlist-actions button {
+          width: 100%;
           min-height: 43px;
+          padding-right: 10px;
         }
       }
 

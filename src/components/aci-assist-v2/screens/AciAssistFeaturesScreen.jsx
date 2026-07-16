@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
-  BadgeIndianRupee,
   Bell,
   Camera,
   Car,
@@ -20,7 +19,6 @@ import {
   ShieldCheck,
   Sparkles,
   Wand2,
-  Wind,
   Armchair,
   Smartphone,
 } from "lucide-react";
@@ -430,18 +428,6 @@ const getHeroKeySpecs = ({ quickSpecs = [], availableFeatures = [] }) => {
     .slice(0, 4);
 };
 
-const uniqueByVariantId = (items = []) => {
-  const seen = new Set();
-  return items.filter((item) => {
-    const key =
-      item?.id ||
-      normalizeKey(item?.label || item?.variant || item?.variantName || "");
-    if (!key || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
-
 const sortVariantsByBudgetPrice = (variants = []) =>
   [...variants].sort((a, b) => {
     const ap = getVariantBudgetPrice(a) || Number.MAX_SAFE_INTEGER;
@@ -449,45 +435,6 @@ const sortVariantsByBudgetPrice = (variants = []) =>
     if (ap !== bp) return ap - bp;
     return cleanText(a.label).localeCompare(cleanText(b.label));
   });
-
-const getBudgetFocusedVariants = ({
-  variants = [],
-  budgetMax = 0,
-  selectedVariantId = "",
-  mobile = false,
-}) => {
-  if (!variants.length) return [];
-
-  const sorted = sortVariantsByBudgetPrice(variants);
-  const selected = variants.find((variant) => variant.id === selectedVariantId);
-
-  if (!budgetMax) {
-    return uniqueByVariantId([selected, ...sorted])
-      .filter(Boolean)
-      .slice(0, mobile ? 4 : 8);
-  }
-
-  const inBudget = sorted.filter((variant) => {
-    const price = getVariantBudgetPrice(variant);
-    return price > 0 && price <= budgetMax;
-  });
-  const firstAboveBudget = sorted.find((variant) => {
-    const price = getVariantBudgetPrice(variant);
-    return price > budgetMax;
-  });
-
-  const visible = uniqueByVariantId([
-    selected,
-    ...inBudget,
-    firstAboveBudget,
-  ]).filter(Boolean);
-
-  if (!mobile) return visible;
-
-  return uniqueByVariantId([selected, ...inBudget.slice(-2), firstAboveBudget])
-    .filter(Boolean)
-    .slice(0, 4);
-};
 
 const getVehicleTitle = (vehicle = {}, widget = {}) => {
   const display = cleanText(vehicle.displayName || widget.vehicle?.displayName);
@@ -603,6 +550,46 @@ const featuresFromFeatureMap = (featuresByKey = {}, selectedVariant = {}) => {
     .filter(Boolean);
 };
 
+const featureMatchesVariantList = (item = {}, selectedVariant = {}) => {
+  if (!item || typeof item !== "object") return true;
+
+  const listedVariants = asArray(
+    item.variants || item.availableVariants || item.variantNames,
+  )
+    .map((value) => normalizeKey(value?.variant || value?.name || value))
+    .filter(Boolean);
+  if (!listedVariants.length) return true;
+
+  const selectedVariantKeys = [
+    selectedVariant.label,
+    selectedVariant.variant,
+    selectedVariant.variantName,
+    selectedVariant.fullName,
+  ]
+    .map(normalizeKey)
+    .filter(Boolean);
+  if (!selectedVariantKeys.length) return false;
+
+  const isExactOrSuffixPhrase = (left = "", right = "") => {
+    if (left === right) return true;
+    const leftTokens = left.split(" ");
+    const rightTokens = right.split(" ");
+    const suffix = (tokens, length) => tokens.slice(-length).join(" ");
+
+    return (
+      suffix(leftTokens, rightTokens.length) === right ||
+      suffix(rightTokens, leftTokens.length) === left
+    );
+  };
+
+  return listedVariants.some(
+    (variantKey) =>
+      selectedVariantKeys.some((selectedVariantKey) =>
+        isExactOrSuffixPhrase(selectedVariantKey, variantKey),
+      ),
+  );
+};
+
 const normalizeFeature = (item = {}, index = 0, selectedVariant = {}) => {
   if (typeof item === "string") {
     const name = cleanText(item);
@@ -630,6 +617,12 @@ const normalizeFeature = (item = {}, index = 0, selectedVariant = {}) => {
     typeof item.values === "object" &&
     !Array.isArray(item.values);
   const variantValue = getMatrixValueForVariant(item, selectedVariant);
+  const hasListedVariants = Boolean(
+    asArray(item.variants || item.availableVariants || item.variantNames).length,
+  );
+  const listedVariantAvailability = hasListedVariants
+    ? featureMatchesVariantList(item, selectedVariant)
+    : undefined;
   const name = cleanText(
     item.name ||
       item.label ||
@@ -659,7 +652,11 @@ const normalizeFeature = (item = {}, index = 0, selectedVariant = {}) => {
       : undefined) ??
     (hasVariantMatrix
       ? false
-      : (item.available ?? item.present ?? item.included ?? item.isAvailable));
+      : (listedVariantAvailability ??
+        item.available ??
+        item.present ??
+        item.included ??
+        item.isAvailable));
   const available =
     explicitAvailable === false || isUnavailableValue(value) ? false : true;
 
@@ -1064,6 +1061,7 @@ const getVariantFeatureRows = ({ widget, selectedVariant }) => {
       firstArray(selectedVariant?.featureGroups, selectedVariant?.groups),
     ),
   )
+    .filter((item) => featureMatchesVariantList(item, selectedVariant))
     .map((item, index) => normalizeFeature(item, index, selectedVariant))
     .filter(Boolean);
 
@@ -1091,6 +1089,7 @@ const getVariantFeatureRows = ({ widget, selectedVariant }) => {
       ),
     ),
   )
+    .filter((item) => featureMatchesVariantList(item, selectedVariant))
     .map((item, index) => normalizeFeature(item, index, selectedVariant))
     .filter(Boolean);
 
@@ -1263,67 +1262,6 @@ const featureMatchesSearch = (feature = {}, query = "") => {
   return haystack.includes(needle);
 };
 
-const getFeatureIdentityKeys = (feature = {}) =>
-  [
-    feature.featureKey,
-    feature.key,
-    feature.id,
-    feature.slug,
-    feature.name,
-    feature.label,
-    feature.displayName,
-  ]
-    .map((value) => normalizeLookupKey(value))
-    .filter(Boolean);
-
-const getRawVariantFeatures = (variant = {}) => [
-  ...featuresFromFeatureMap(variant.featuresByKey, variant),
-  ...firstArray(
-    variant.features,
-    variant.featureList,
-    variant.searchableFeatures,
-    variant.rows,
-    variant.items,
-    featureRowsFromGroups(firstArray(variant.featureGroups, variant.groups)),
-  ),
-];
-
-const getComparableVariantFeatures = (variant = {}) =>
-  getRawVariantFeatures(variant)
-    .map((item, index) => normalizeFeature(item, index, variant))
-    .filter(Boolean);
-
-const getFeatureStartVariant = (
-  feature = {},
-  variants = [],
-  selectedVariantId = "",
-) => {
-  if (!feature || feature.available) return null;
-
-  const featureKeys = new Set(getFeatureIdentityKeys(feature));
-  if (!featureKeys.size) return null;
-
-  for (const variant of variants) {
-    if (!variant || variant.id === selectedVariantId) continue;
-
-    const candidate = getComparableVariantFeatures(variant).find((item) => {
-      if (!item?.available) return false;
-      return getFeatureIdentityKeys(item).some((key) => featureKeys.has(key));
-    });
-
-    if (candidate) {
-      return {
-        id: variant.id,
-        label:
-          variant.label || variant.variant || variant.variantName || "Variant",
-        priceLabel: getVariantPriceLabel(variant),
-      };
-    }
-  }
-
-  return null;
-};
-
 const fireFeatureAction = (
   onAction,
   {
@@ -1410,45 +1348,6 @@ function StatusBadge({ variant, compact = false }) {
       <i />
       {isCurrent ? "Current" : "Older"}
     </span>
-  );
-}
-
-function VariantRail({
-  variants = [],
-  selectedVariantId,
-  setSelectedVariantId,
-  budgetMax = 0,
-  mobile = false,
-}) {
-  if (!variants.length) return null;
-
-  const visibleVariants = getBudgetFocusedVariants({
-    variants,
-    budgetMax,
-    selectedVariantId,
-    mobile,
-  });
-
-  return (
-    <div className={`afi-variant-rail ${mobile ? "mobile" : ""}`}>
-      {visibleVariants.map((variant) => {
-        const active = variant.id === selectedVariantId;
-        const price = getVariantPriceLabel(variant);
-
-        return (
-          <button
-            key={variant.id}
-            type="button"
-            className={active ? "active" : ""}
-            onClick={() => setSelectedVariantId(variant.id)}
-            title={variant.label}
-          >
-            <span>{variant.label}</span>
-            <small>{price || "Price pending"}</small>
-          </button>
-        );
-      })}
-    </div>
   );
 }
 
@@ -1540,20 +1439,6 @@ function SearchBox({
         placeholder={placeholder}
       />
     </label>
-  );
-}
-
-function HeroMetric({ icon: Icon, label, value }) {
-  if (!value && value !== 0) return null;
-
-  return (
-    <div className="afi-hero-metric">
-      <span>
-        <Icon size={17} strokeWidth={1.9} />
-      </span>
-      <small>{label}</small>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
@@ -1746,33 +1631,6 @@ function FeatureSections({
             <EmptyFeatures mobile={mobile} />
           )}
         </AnimatePresence>
-      </div>
-    </motion.section>
-  );
-}
-
-function QuickSpecs({ specs = [], mobile = false }) {
-  if (!specs.length) return null;
-
-  return (
-    <motion.section
-      variants={fadeUp}
-      className={`afi-card afi-specs-card ${mobile ? "mobile" : ""}`}
-    >
-      <div className="afi-card-head">
-        <div>
-          <span>Snapshot</span>
-          <h3>Quick specs</h3>
-        </div>
-        <Gauge size={17} />
-      </div>
-      <div className="afi-spec-grid">
-        {specs.slice(0, mobile ? 6 : 10).map((spec) => (
-          <div key={spec.id || `${spec.label}-${spec.value}`}>
-            <small>{spec.label}</small>
-            <strong>{spec.value || "—"}</strong>
-          </div>
-        ))}
       </div>
     </motion.section>
   );
@@ -2029,85 +1887,6 @@ function BudgetRangeBar({
   );
 }
 
-function SearchQuickResults({
-  query = "",
-  filteredFeatures = [],
-  visibleFeatureGroups = [],
-  mobile = false,
-}) {
-  const cleanQuery = cleanText(query);
-  if (!cleanQuery) return null;
-
-  const groupsWithResults = visibleFeatureGroups.filter(
-    (group) => group.features?.length,
-  );
-  const topMatches = filteredFeatures.slice(0, mobile ? 4 : 6);
-
-  return (
-    <motion.div
-      variants={fadeUp}
-      initial="hidden"
-      animate="visible"
-      className={`afi-search-preview ${mobile ? "mobile" : ""}`}
-    >
-      <div className="afi-search-preview-head">
-        <span>Instant results</span>
-        <strong>
-          {filteredFeatures.length} matches across{" "}
-          {groupsWithResults.length || 1} groups
-        </strong>
-      </div>
-
-      {topMatches.length ? (
-        <div className="afi-search-preview-list">
-          {topMatches.map((feature) => {
-            const meta =
-              CATEGORY_META[normalizeCategoryId(feature.category)] ||
-              CATEGORY_META.other;
-            const Icon = meta.Icon || Sparkles;
-            const value = cleanText(feature.displayValue || feature.value);
-
-            return (
-              <div
-                key={`preview-${feature.id}`}
-                className="afi-search-preview-item"
-              >
-                <span>
-                  <Icon size={14} strokeWidth={2} />
-                </span>
-                <div>
-                  <strong>{feature.name}</strong>
-                  <small>
-                    {meta.label}
-                    {value && !/^(yes|available)$/i.test(value)
-                      ? ` · ${value}`
-                      : ""}
-                  </small>
-                </div>
-                {feature.available ? (
-                  <CircleCheck
-                    size={17}
-                    fill="#075df6"
-                    stroke="white"
-                    strokeWidth={2.1}
-                  />
-                ) : (
-                  <CircleMinus size={17} strokeWidth={2} />
-                )}
-              </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="afi-search-preview-empty">
-          No feature matched “{cleanQuery}”. Try sunroof, airbags, ADAS,
-          touchscreen, cruise control.
-        </div>
-      )}
-    </motion.div>
-  );
-}
-
 function FeatureControlDeck({
   variants,
   selectedVariantId,
@@ -2161,7 +1940,6 @@ function DesktopLayout(props) {
     features,
     filteredFeatures,
     visibleFeatureGroups,
-    quickSpecs,
     heroKeySpecs,
     highlights,
     budgetMin,
@@ -2301,10 +2079,8 @@ function MobileLayout(props) {
     setQuery,
     tabs,
     activeTab,
-    features,
     filteredFeatures,
     visibleFeatureGroups,
-    quickSpecs,
     heroKeySpecs,
     highlights,
     budgetMin,

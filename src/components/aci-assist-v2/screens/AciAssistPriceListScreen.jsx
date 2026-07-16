@@ -11,6 +11,7 @@ import {
   Info,
   MapPin,
   Settings2,
+  UserRound,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
@@ -1307,7 +1308,11 @@ function DesktopHeader({ data, onAction }) {
           className="avatar-button"
           onClick={() => firePriceAction("Profile", {}, onAction)}
         >
-          <img src={data?.avatarUrl} alt="Profile" />
+          {data?.avatarUrl ? (
+            <img src={data.avatarUrl} alt="Profile" />
+          ) : (
+            <UserRound size={19} aria-hidden="true" />
+          )}
         </button>
       </div>
     </motion.header>
@@ -1878,7 +1883,11 @@ function MobileHeader({ data, onAction }) {
           className="mobile-avatar"
           onClick={() => firePriceAction("Profile", {}, onAction)}
         >
-          <img src={data?.avatarUrl} alt="Profile" />
+          {data?.avatarUrl ? (
+            <img src={data.avatarUrl} alt="Profile" />
+          ) : (
+            <UserRound size={20} aria-hidden="true" />
+          )}
         </button>
       </div>
     </header>

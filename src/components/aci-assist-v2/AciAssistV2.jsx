@@ -46,6 +46,7 @@ const INITIAL_SESSION_CONTEXT = {
   customerStage: "discovery",
   customerJourney: {},
   leadContext: {},
+  researchByVehicle: {},
 };
 
 const SESSION_MEMORY_KEY = "aci-assist-v2-vehicle-memory";
@@ -54,15 +55,20 @@ const getVehicleMemoryKey = (vehicle = {}) =>
   String(getVehicleId(vehicle) || getVehicleModelKey(vehicle) || "").trim();
 
 const readVehicleMemory = () => {
-  if (typeof window === "undefined") return { recent: [], saved: [] };
+  if (typeof window === "undefined") {
+    return { recent: [], saved: [], researchByVehicle: {} };
+  }
   try {
     const parsed = JSON.parse(window.sessionStorage.getItem(SESSION_MEMORY_KEY) || "{}");
     return {
       recent: toArray(parsed.recent).map(normalizeVehicle).filter(Boolean).slice(0, 5),
       saved: toArray(parsed.saved).map(normalizeVehicle).filter(Boolean).slice(0, 12),
+      researchByVehicle: isObject(parsed.researchByVehicle)
+        ? parsed.researchByVehicle
+        : {},
     };
   } catch {
-    return { recent: [], saved: [] };
+    return { recent: [], saved: [], researchByVehicle: {} };
   }
 };
 
@@ -73,10 +79,79 @@ const rememberVehicleInList = (list = [], vehicle, limit = 5) => {
   return [normalized, ...list.filter((item) => getVehicleMemoryKey(item) !== key)].slice(0, limit);
 };
 
+const normalizeResearchTopic = (action = {}) => {
+  const explicit = firstValue(
+    action.payload?.researchTopic,
+    action.researchTopic,
+  );
+  if (explicit) return String(explicit).trim().toLowerCase();
+
+  const canvasType = normalizeV2CanvasType(action.canvasType || "");
+  if (/price|pricelist/.test(canvasType)) return "prices";
+  if (/color|colour/.test(canvasType)) return "colors";
+  if (/emi|finance|monthly_budget/.test(canvasType)) return "emi";
+  if (/feature/.test(canvasType)) return "features";
+  if (/comparison|compare|recommendation|similar/.test(canvasType)) {
+    return "comparison";
+  }
+  if (/quotation|quote|lead_capture/.test(canvasType)) return "quotation";
+  if (/offer/.test(canvasType)) return "offers";
+  if (/overview/.test(canvasType)) return "overview";
+  return "";
+};
+
+const addResearchVisit = (
+  researchByVehicle = {},
+  vehicle = {},
+  topic = "",
+  canvasType = "",
+) => {
+  const vehicleKey = getVehicleMemoryKey(vehicle);
+  const normalizedTopic = String(topic || "").trim().toLowerCase();
+  if (!vehicleKey || !normalizedTopic) return researchByVehicle;
+
+  const previousVehicle = isObject(researchByVehicle[vehicleKey])
+    ? researchByVehicle[vehicleKey]
+    : {};
+  const previousTopics = isObject(previousVehicle.topics)
+    ? previousVehicle.topics
+    : {};
+  const previousTopic = isObject(previousTopics[normalizedTopic])
+    ? previousTopics[normalizedTopic]
+    : {};
+  const now = new Date().toISOString();
+
+  return {
+    ...researchByVehicle,
+    [vehicleKey]: {
+      ...previousVehicle,
+      vehicleKey,
+      vehicle: normalizeVehicle(vehicle),
+      updatedAt: now,
+      topics: {
+        ...previousTopics,
+        [normalizedTopic]: {
+          ...previousTopic,
+          topic: normalizedTopic,
+          canvasType: normalizeV2CanvasType(canvasType),
+          visits: Number(previousTopic.visits || 0) + 1,
+          lastViewedAt: now,
+          completed: true,
+        },
+      },
+    },
+  };
+};
+
 const isObject = (value) =>
   Boolean(value && typeof value === "object" && !Array.isArray(value));
 
 const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+const normalizeModelOnlyPrompt = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 const firstArray = (...values) => {
   for (const value of values) {
@@ -126,6 +201,12 @@ const normalizeBackendWidget = (backend = {}) => {
     backendData.variants,
     widgetData.variants,
   );
+  const modelGroups = firstArray(
+    backend.modelGroups,
+    backendData.modelGroups,
+    widget.modelGroups,
+    widgetData.modelGroups,
+  );
 
   return {
     ...widget,
@@ -143,6 +224,7 @@ const normalizeBackendWidget = (backend = {}) => {
     answer: firstValue(backend.answer, widget.answer),
     rows,
     items,
+    modelGroups,
     features,
     featureList: features,
     colors: firstArray(backend.colors, widget.colors, backendData.colors, widgetData.colors),
@@ -407,6 +489,9 @@ function AciV2FullCanvasShell({
   const ScreenComponent =
     ACI_V2_SCREEN_COMPONENTS[screen] ||
     ACI_V2_SCREEN_COMPONENTS[SCREEN.CAR_OVERVIEW];
+  const returnsToOverview =
+    safeCanvasWidget.__originScreen === SCREEN.CAR_OVERVIEW &&
+    screen !== SCREEN.CAR_OVERVIEW;
 
   const handleCanvasNewChat = () => {
     const payload = {
@@ -433,14 +518,14 @@ function AciV2FullCanvasShell({
   };
 
   return (
-    <main className="aci-full-canvas-shell">
+    <main className={`aci-full-canvas-shell aci-full-canvas-${screen}`}>
       <div className="aci-full-canvas-topbar">
         <AciV2PortalHeader
           compact
           onBack={onBack}
           onLogoClick={onBack}
-          logoLabel="Back to chat"
-          logoTitle="Back to chat"
+          logoLabel={returnsToOverview ? "Back to car overview" : "Back to chat"}
+          logoTitle={returnsToOverview ? "Back to car overview" : "Back to chat"}
           onNewChat={handleCanvasNewChat}
           onNotifications={() =>
             onAction?.({ id: "canvas-notifications", label: "Notifications" })
@@ -464,6 +549,7 @@ function AciV2FullCanvasShell({
 export default function AciAssistV2() {
   const requestSeqRef = useRef(0);
   const requestAbortRef = useRef(null);
+  const directCanvasSeqRef = useRef(0);
 
   const [screen, setScreen] = useState(SCREEN.HOME);
   const initialVehicleMemoryRef = useRef(null);
@@ -486,7 +572,10 @@ export default function AciAssistV2() {
   const [chatMessages, setChatMessages] = useState([]);
   const [isCanvasOpen, setIsCanvasOpen] = useState(false);
   const [cityPicker, setCityPicker] = useState(null);
-  const [sessionContext, setSessionContext] = useState(INITIAL_SESSION_CONTEXT);
+  const [sessionContext, setSessionContext] = useState(() => ({
+    ...INITIAL_SESSION_CONTEXT,
+    researchByVehicle: initialVehicleMemoryRef.current.researchByVehicle || {},
+  }));
 
   const homeData = useMemo(
     () => ({
@@ -513,9 +602,13 @@ export default function AciAssistV2() {
     if (typeof window === "undefined") return;
     window.sessionStorage.setItem(
       SESSION_MEMORY_KEY,
-      JSON.stringify({ recent: recentVehicles, saved: savedVehicles }),
+      JSON.stringify({
+        recent: recentVehicles,
+        saved: savedVehicles,
+        researchByVehicle: sessionContext.researchByVehicle || {},
+      }),
     );
-  }, [recentVehicles, savedVehicles]);
+  }, [recentVehicles, savedVehicles, sessionContext.researchByVehicle]);
 
   const dispatchBrowserEvent = useCallback((action) => {
     if (typeof window === "undefined") return;
@@ -597,7 +690,7 @@ export default function AciAssistV2() {
   const routeBackendResponse = useCallback(
     (action, backend = {}, targetVehicle = null) => {
       const widget = normalizeBackendWidget(backend);
-      const canvasType = normalizeV2CanvasType(
+      let canvasType = normalizeV2CanvasType(
         firstValue(
           backend.canvasType,
           backend.canvas_type,
@@ -615,6 +708,25 @@ export default function AciAssistV2() {
         backend.vehicle,
         widget.vehicle,
       );
+      const normalizedPrompt = normalizeModelOnlyPrompt(
+        getActionMessage(action, targetVehicle),
+      );
+      const overviewNames = backendVehicle
+        ? [
+            backendVehicle.model,
+            backendVehicle.fullModel,
+            backendVehicle.displayName,
+            [backendVehicle.make || backendVehicle.brand, backendVehicle.model]
+              .filter(Boolean)
+              .join(" "),
+          ]
+            .map(normalizeModelOnlyPrompt)
+            .filter(Boolean)
+        : [];
+
+      if (!canvasType && normalizedPrompt && overviewNames.includes(normalizedPrompt)) {
+        canvasType = "car_overview_canvas";
+      }
       const contextModelKey = getVehicleModelKey({
         model: contextPatch.anchorModel,
       });
@@ -673,15 +785,29 @@ export default function AciAssistV2() {
           }
         : contextPatch;
 
-      setSessionContext((previous) =>
-        mergeSessionContext(previous, {
+      setSessionContext((previous) => {
+        const merged = mergeSessionContext(previous, {
           ...scopedContextPatch,
           ...scopedIdentityPatch,
           selectedVehicle:
             scopedVehicle || scopedContextPatch.selectedVehicle || null,
           lastCanvasType: canvasType || previous.lastCanvasType,
-        }),
-      );
+        });
+        const researchTopic = normalizeResearchTopic({
+          ...action,
+          canvasType,
+        });
+
+        return {
+          ...merged,
+          researchByVehicle: addResearchVisit(
+            previous.researchByVehicle,
+            scopedVehicle,
+            researchTopic,
+            canvasType,
+          ),
+        };
+      });
       if (scopedVehicle) {
         setRecentVehicles((previous) => rememberVehicleInList(previous, scopedVehicle));
       }
@@ -730,6 +856,12 @@ export default function AciAssistV2() {
           widget,
           rows: firstArray(widget.data?.rows, backend.data?.rows, backend.rows, widget.rows),
           items: firstArray(backend.items, widget.items),
+          modelGroups: firstArray(
+            backend.modelGroups,
+            backend.data?.modelGroups,
+            widget.modelGroups,
+            widget.data?.modelGroups,
+          ),
           features: firstArray(
             backend.features,
             widget.features,
@@ -764,7 +896,7 @@ export default function AciAssistV2() {
         if (routedScreen && routedScreen !== SCREEN.HOME) {
           setScreen(routedScreen);
           setActiveCanvasPayload(widget);
-          setIsCanvasOpen(false);
+          setIsCanvasOpen(routedScreen === SCREEN.CAR_OVERVIEW);
           rememberAction(enrichedAction);
           return true;
         }
@@ -898,6 +1030,189 @@ export default function AciAssistV2() {
     [routeBackendResponse, selectedVehicle],
   );
 
+  const openDirectCanvasFromAction = useCallback(
+    (action, targetVehicle = null) => {
+      const canvasType = normalizeV2CanvasType(action.canvasType || "");
+      const routedScreen = resolveScreenFromCanvasType(canvasType);
+      if (!routedScreen || routedScreen === SCREEN.HOME) return false;
+
+      cancelActiveBackendRequest();
+
+      const scopedVehicle = mergeVehicle(
+        selectedVehicle,
+        targetVehicle || action.vehicle || action.contextPatch?.selectedVehicle,
+      );
+      const researchTopic = normalizeResearchTopic(action);
+      const requestId = directCanvasSeqRef.current + 1;
+      directCanvasSeqRef.current = requestId;
+      const rows = firstArray(
+        action.payload?.rows,
+        action.widget?.rows,
+        scopedVehicle?.variants,
+      );
+      const colors = firstArray(
+        action.payload?.colors,
+        action.widget?.colors,
+        scopedVehicle?.colors,
+      );
+      const seedWidget = withCanvasVehicleContext(
+        {
+          ...(isObject(action.widget) ? action.widget : {}),
+          ...(isObject(action.payload?.widget) ? action.payload.widget : {}),
+          __directCanvas: true,
+          __directRequestId: requestId,
+          __originScreen: SCREEN.CAR_OVERVIEW,
+          __rawCanvasType: canvasType,
+          canvasType,
+          intent: action.intent || "",
+          vehicle: scopedVehicle,
+          rows,
+          variants: rows,
+          variantOptions: rows,
+          colors,
+          contextPatch: {
+            ...(action.contextPatch || {}),
+            selectedVehicle: scopedVehicle,
+          },
+          data: {
+            ...(isObject(action.widget?.data) ? action.widget.data : {}),
+            vehicle: scopedVehicle,
+            selectedVehicle: scopedVehicle,
+            rows,
+            variants: rows,
+            colors,
+          },
+        },
+        scopedVehicle,
+      );
+
+      setScreen(routedScreen);
+      setActiveCanvasPayload(seedWidget);
+      setIsCanvasOpen(true);
+      setBackendError("");
+
+      setSessionContext((previous) => ({
+        ...mergeSessionContext(previous, {
+          ...(action.contextPatch || {}),
+          selectedVehicle: scopedVehicle || previous.selectedVehicle,
+          lastCanvasType: canvasType || previous.lastCanvasType,
+        }),
+        researchByVehicle: addResearchVisit(
+          previous.researchByVehicle,
+          scopedVehicle,
+          researchTopic,
+          canvasType,
+        ),
+      }));
+      if (scopedVehicle) {
+        setRecentVehicles((previous) =>
+          rememberVehicleInList(previous, scopedVehicle),
+        );
+      }
+      rememberAction({
+        ...action,
+        vehicle: scopedVehicle,
+        payload: {
+          ...(action.payload || {}),
+          directCanvas: true,
+          researchTopic,
+        },
+      });
+
+      const hasLocalScreenData =
+        (routedScreen === SCREEN.PRICELIST && rows.length) ||
+        (routedScreen === SCREEN.COLORS && colors.length) ||
+        (routedScreen === SCREEN.RECOMMENDATION && rows.length) ||
+        routedScreen === SCREEN.CAR_OVERVIEW;
+
+      if (!hasLocalScreenData) {
+        const controller = new AbortController();
+        requestAbortRef.current = controller;
+        const message = getActionMessage(action, scopedVehicle);
+
+        askAciAssistV2({
+          message,
+          context: buildContextForBackend(action, scopedVehicle),
+          signal: controller.signal,
+          // The backend's frontend-enriched feature response omits the
+          // per-variant coverage matrix required by the feature canvas.
+          source: routedScreen === SCREEN.FEATURES ? "" : undefined,
+        })
+          .then((backend) => {
+            if (controller.signal.aborted || directCanvasSeqRef.current !== requestId) {
+              return;
+            }
+
+            const hydrated = normalizeBackendWidget(backend);
+            setActiveCanvasPayload((current) => {
+              if (current?.__directRequestId !== requestId) return current;
+
+              const hydratedRows = firstArray(
+                hydrated.rows,
+                hydrated.variantOptions,
+                current.rows,
+              );
+              const hydratedColors = firstArray(hydrated.colors, current.colors);
+              const canonicalVariants = firstArray(
+                scopedVehicle?.variants,
+                hydrated.variantOptions,
+                hydrated.variants,
+                hydratedRows,
+              );
+
+              return withCanvasVehicleContext(
+                {
+                  ...current,
+                  ...hydrated,
+                  __directCanvas: true,
+                  __directRequestId: requestId,
+                  __originScreen: SCREEN.CAR_OVERVIEW,
+                  __rawCanvasType: canvasType,
+                  canvasType,
+                  vehicle: scopedVehicle,
+                  rows: hydratedRows,
+                  variants: canonicalVariants,
+                  variantOptions: canonicalVariants,
+                  colors: hydratedColors,
+                  data: {
+                    ...(current.data || {}),
+                    ...(hydrated.data || {}),
+                    vehicle: scopedVehicle,
+                    selectedVehicle: scopedVehicle,
+                    rows: hydratedRows,
+                    variants: canonicalVariants,
+                    variantOptions: canonicalVariants,
+                    colors: hydratedColors,
+                  },
+                },
+                scopedVehicle,
+              );
+            });
+          })
+          .catch((error) => {
+            if (error?.name !== "AbortError") {
+              setBackendError(
+                error?.message || "Some live details could not be refreshed.",
+              );
+            }
+          })
+          .finally(() => {
+            if (requestAbortRef.current === controller) {
+              requestAbortRef.current = null;
+            }
+          });
+      }
+
+      return true;
+    },
+    [
+      buildContextForBackend,
+      cancelActiveBackendRequest,
+      rememberAction,
+      selectedVehicle,
+    ],
+  );
+
   const toggleSaved = useCallback(
     (vehicle) => {
       const id = getVehicleId(vehicle);
@@ -952,7 +1267,10 @@ export default function AciAssistV2() {
         setIsCanvasOpen(false);
         setCityPicker(null);
         setChatMessages([]);
-        setSessionContext({ ...INITIAL_SESSION_CONTEXT });
+        setSessionContext((previous) => ({
+          ...INITIAL_SESSION_CONTEXT,
+          researchByVehicle: previous.researchByVehicle || {},
+        }));
         rememberAction(action);
         return;
       }
@@ -1090,6 +1408,15 @@ export default function AciAssistV2() {
         return;
       }
 
+      if (
+        action.payload?.directCanvas === true ||
+        action.directCanvas === true ||
+        action.navigationMode === "direct_canvas" ||
+        (screen === SCREEN.CAR_OVERVIEW && Boolean(action.canvasType))
+      ) {
+        if (openDirectCanvasFromAction(action, targetVehicle)) return;
+      }
+
       if (openBackendWidgetFromAction(action, targetVehicle)) {
         return;
       }
@@ -1109,7 +1436,9 @@ export default function AciAssistV2() {
       cancelActiveBackendRequest,
       activeCanvasPayload,
       openBackendWidgetFromAction,
+      openDirectCanvasFromAction,
       rememberAction,
+      screen,
       selectedVehicle,
       sendActionToBackend,
       sessionContext.anchorCity,
@@ -1120,7 +1449,14 @@ export default function AciAssistV2() {
     ],
   );
 
-  const shellHomeData = homeData;
+  const shellHomeData = useMemo(
+    () => ({
+      ...homeData,
+      sessionContext,
+      researchByVehicle: sessionContext.researchByVehicle || {},
+    }),
+    [homeData, sessionContext],
+  );
 
   const openCanvasFromMessage = useCallback(
     (message = {}) => {
@@ -1169,6 +1505,32 @@ export default function AciAssistV2() {
     setIsCanvasOpen(false);
     setChatMessages([]);
   }, [cancelActiveBackendRequest]);
+
+  const handleCanvasBack = useCallback(() => {
+    if (
+      activeCanvasPayload?.__originScreen === SCREEN.CAR_OVERVIEW &&
+      screen !== SCREEN.CAR_OVERVIEW
+    ) {
+      directCanvasSeqRef.current += 1;
+      requestAbortRef.current?.abort();
+      requestAbortRef.current = null;
+      setScreen(SCREEN.CAR_OVERVIEW);
+      setActiveCanvasPayload({
+        __directCanvas: true,
+        canvasType: "car_overview_canvas",
+        vehicle: selectedVehicle,
+        data: {
+          vehicle: selectedVehicle,
+          selectedVehicle,
+        },
+      });
+      setIsCanvasOpen(true);
+      setBackendError("");
+      return;
+    }
+
+    setIsCanvasOpen(false);
+  }, [activeCanvasPayload, screen, selectedVehicle]);
 
   return (
     <>
@@ -2020,6 +2382,20 @@ export default function AciAssistV2() {
   -webkit-backdrop-filter: blur(18px);
 }
 
+.aci-full-canvas-car_overview {
+  padding-top: 72px;
+}
+
+.aci-full-canvas-car_overview > .aci-full-canvas-topbar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 300;
+  padding: 7px 0;
+  background: rgba(248, 251, 255, 0.94);
+  border-bottom: 0;
+  box-shadow: 0 18px 42px -38px rgba(15, 23, 42, 0.42);
+}
+
 .aci-full-canvas-shell .desktop-header,
 .aci-full-canvas-shell .mobile-header,
 .aci-full-canvas-shell .aci-mobile-topbar,
@@ -2042,9 +2418,21 @@ export default function AciAssistV2() {
   padding-bottom: calc(154px + env(safe-area-inset-bottom)) !important;
 }
 
+.aci-full-canvas-car_overview {
+  padding-bottom: calc(72px + env(safe-area-inset-bottom));
+}
+
+.aci-full-canvas-car_overview .desktop-page {
+  padding-bottom: 24px !important;
+}
+
 @media (max-width: 900px) {
   .aci-full-canvas-shell {
     padding-bottom: calc(190px + env(safe-area-inset-bottom));
+  }
+
+  .aci-full-canvas-car_overview {
+    padding-bottom: calc(68px + env(safe-area-inset-bottom));
   }
 }
 
@@ -3547,7 +3935,7 @@ export default function AciAssistV2() {
           onAction={handleAciAction}
           savedIds={savedIds}
           onToggleSaved={toggleSaved}
-          onBack={() => setIsCanvasOpen(false)}
+          onBack={handleCanvasBack}
         />
       ) : (
         <AciV2ChatFirstShell
@@ -3587,7 +3975,8 @@ export default function AciAssistV2() {
               id: `change-city-${citySlug}`,
               label: `${cityName} prices`,
               query: `${getVehicleTitle(vehicle)} price in ${cityName}`,
-              type: "ask",
+              type:
+                screen === SCREEN.CAR_OVERVIEW ? "select_context" : "ask",
               vehicle: {
                 ...vehicle,
                 city: cityName,

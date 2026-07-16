@@ -1,7 +1,7 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  Bell,
+  Armchair,
   Calculator,
   Check,
   ChevronDown,
@@ -11,36 +11,118 @@ import {
   Gauge,
   IndianRupee,
   Palette,
-  Search,
+  Settings2,
   ShieldCheck,
   Sparkles,
-  Star,
-  Wallet,
   Scale,
+  SlidersHorizontal,
+  RefreshCw,
 } from "lucide-react";
 
 import { ACI_CANVAS_TYPES, ACI_INTENTS } from "../shared/aciV2Constants";
+import { makeAciAction } from "../data/homeScreenData";
 import {
-  buildVehicleQuickActions,
-  makeAciAction,
-} from "../data/homeScreenData";
-import {
-  AciAssistantOrb,
   AciComposer,
-  AciLogo,
-  AciSavedButton,
   AciVehicleVisual,
   emitAciAction,
   fadeUp,
   stagger,
 } from "../shared/AciAssistShared";
 import { buildVehicleContextPatch } from "../context/aciV2ContextManager";
+import {
+  fetchAciSimilarVehicles,
+  fetchAciVehicleHighlights,
+  fetchAciVehicleLiveSnapshot,
+} from "../services/aciAssistV2Api";
 
 const compact = (value) => String(value || "").trim();
 const toArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+const firstList = (...values) =>
+  values.map(toArray).find((value) => value.length) || [];
 const firstPresent = (...values) =>
   values.find((value) => compact(value).length > 0) || "";
 const hasValue = (value) => compact(value).length > 0;
+const isObject = (value) =>
+  Boolean(value && typeof value === "object" && !Array.isArray(value));
+
+const mergeVehicleSources = (...sources) => {
+  const validSources = sources.filter(isObject);
+  const merged = Object.assign({}, ...validSources);
+  const arrayFromLastSource = (key) =>
+    [...validSources]
+      .reverse()
+      .map((source) => source?.[key])
+      .find((value) => Array.isArray(value) && value.length) || [];
+
+  const variants = arrayFromLastSource("variants").map((variant) => ({
+    ...variant,
+    name: firstPresent(variant?.name, variant?.variant),
+    variant: firstPresent(variant?.variant, variant?.name),
+  }));
+  const colors = arrayFromLastSource("colors").filter((color) => {
+    const name = compact(
+      color?.name || color?.colorName || color?.label || color?.title,
+    ).toLowerCase();
+    const image = firstPresent(
+      color?.displayNormalizedImageUrl,
+      color?.normalizedImageUrl,
+      color?.imageUrl,
+      color?.image,
+    );
+
+    return Boolean(
+      name &&
+      !/^(display|default|image|exterior|colour|color|gallery)$/i.test(name) &&
+      image,
+    );
+  });
+  const fuels = [
+    ...new Set(
+      variants.map((variant) => compact(variant.fuel)).filter(Boolean),
+    ),
+  ];
+  const transmissions = [
+    ...new Set(
+      variants.map((variant) => compact(variant.transmission)).filter(Boolean),
+    ),
+  ];
+  const make = firstPresent(merged.make, merged.brand);
+  const model = firstPresent(merged.model, merged.name);
+  const imageUrl = firstPresent(
+    merged.heroImageUrl,
+    merged.displayNormalizedImageUrl,
+    merged.defaultNormalizedImageUrl,
+    merged.normalizedImageUrl,
+    merged.imageUrl,
+    merged.image,
+  );
+
+  return {
+    ...merged,
+    make,
+    brand: firstPresent(merged.brand, make),
+    model,
+    displayName: firstPresent(
+      merged.displayName,
+      merged.fullModel,
+      [make, model].filter(Boolean).join(" "),
+    ),
+    fullModel: firstPresent(
+      merged.fullModel,
+      [make, model].filter(Boolean).join(" "),
+    ),
+    imageUrl,
+    heroImageUrl: firstPresent(merged.heroImageUrl, imageUrl),
+    variants,
+    colors,
+    variantCount: merged.variantCount || variants.length || undefined,
+    fuelText: firstPresent(merged.fuelText, fuels.join(" / ")),
+    transmissionText: firstPresent(
+      merged.transmissionText,
+      transmissions.join(" / "),
+    ),
+  };
+};
 
 const getVehicleModel = (vehicle = {}) =>
   firstPresent(vehicle.model, vehicle.name, vehicle.displayName, "this car");
@@ -61,8 +143,43 @@ const getVehicleId = (vehicle = {}) =>
     getVehicleDisplayName(vehicle),
   );
 
+const formatCityName = (value) =>
+  compact(value)
+    .replace(/[-_]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const getVariantDisplayName = (variant = {}, vehicle = {}) => {
+  const rawName = firstPresent(variant.name, variant.variant, "Variant");
+  const prefixes = [
+    getVehicleDisplayName(vehicle),
+    [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" "),
+    vehicle.model,
+  ]
+    .filter(Boolean)
+    .sort((left, right) => right.length - left.length);
+
+  return (
+    prefixes.reduce((name, prefix) => {
+      const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return name.replace(new RegExp(`^${escaped}\\s+`, "i"), "").trim();
+    }, rawName) || rawName
+  );
+};
+
 const getCanvas = (key, fallback) => ACI_CANVAS_TYPES?.[key] || fallback;
 const getIntent = (key, fallback) => ACI_INTENTS?.[key] || fallback;
+const researchTopicForCanvas = (canvasType = "") => {
+  const value = compact(canvasType).toLowerCase();
+  if (/price/.test(value)) return "prices";
+  if (/color|colour/.test(value)) return "colors";
+  if (/emi|finance/.test(value)) return "emi";
+  if (/feature/.test(value)) return "features";
+  if (/compare|comparison|recommendation|similar/.test(value)) {
+    return "comparison";
+  }
+  if (/quotation|quote|lead/.test(value)) return "quotation";
+  return "overview";
+};
 
 const buildContextPatch = (vehicle = {}, extra = {}) => ({
   ...buildVehicleContextPatch({
@@ -93,7 +210,12 @@ const actionFor = ({
     canvasType,
     vehicle,
     contextPatch: buildContextPatch(vehicle),
-    payload,
+    payload: {
+      ...payload,
+      directCanvas: true,
+      researchTopic:
+        payload.researchTopic || researchTopicForCanvas(canvasType),
+    },
   });
 
 const priceListAction = (vehicle = {}) =>
@@ -162,7 +284,7 @@ const quotationAction = (vehicle = {}) =>
     vehicle,
   });
 
-const rivalsAction = (vehicle = {}) =>
+const rivalsAction = (vehicle = {}, rivals = []) =>
   actionFor({
     id: `${getVehicleId(vehicle)}-rivals`,
     label: "Find similar cars",
@@ -170,60 +292,50 @@ const rivalsAction = (vehicle = {}) =>
     intent: getIntent("RECOMMENDATIONS", "vehicle_recommendations"),
     canvasType: getCanvas("RECOMMENDATION", "recommendation_results_canvas"),
     vehicle,
+    payload: rivals.length
+      ? {
+          rows: rivals,
+          widget: {
+            rows: rivals,
+            resultMode: "rivals",
+            anchorVehicle: vehicle,
+            initialSortDirection: "relevance",
+          },
+        }
+      : {},
   });
 
-const buildOverviewActions = (vehicle = {}) => {
-  const knownActions = toArray(buildVehicleQuickActions(vehicle));
-  const byLabel = new Map(
-    knownActions.map((action) => [compact(action.label).toLowerCase(), action]),
-  );
-  const resolve = (label, fallback) =>
-    byLabel.get(label.toLowerCase()) || fallback(vehicle);
+const getVehicleResearch = (researchByVehicle = {}, vehicle = {}) => {
+  const directKeys = [
+    getVehicleId(vehicle),
+    [vehicle.make || vehicle.brand, vehicle.model].filter(Boolean).join(" "),
+    vehicle.model,
+  ]
+    .map((value) =>
+      compact(value)
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-"),
+    )
+    .filter(Boolean);
 
-  return [
-    {
-      id: "price",
-      icon: IndianRupee,
-      tone: "blue",
-      ...resolve("Price list", priceListAction),
-      label: "Price list",
-    },
-    {
-      id: "emi",
-      icon: Calculator,
-      tone: "blue",
-      ...resolve("Calculate EMI", emiAction),
-      label: "EMI",
-    },
-    {
-      id: "compare",
-      icon: Scale,
-      tone: "blue",
-      ...resolve("Compare", compareAction),
-      label: "Compare",
-    },
-    {
-      id: "colors",
-      icon: Palette,
-      tone: "blue",
-      ...resolve("Colors", colorsAction),
-      label: "Colors",
-    },
-    {
-      id: "features",
-      icon: Sparkles,
-      tone: "blue",
-      ...resolve("Features", featuresAction),
-      label: "Features",
-    },
-    {
-      id: "quote",
-      icon: FileText,
-      tone: "gold",
-      ...resolve("Get quotation", quotationAction),
-      label: "Get quotation",
-    },
-  ];
+  for (const [key, record] of Object.entries(researchByVehicle || {})) {
+    const normalizedKey = compact(key)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-");
+    if (directKeys.includes(normalizedKey)) return record;
+
+    const storedVehicle = record?.vehicle || {};
+    const sameModel =
+      compact(storedVehicle.model).toLowerCase() ===
+      compact(vehicle.model).toLowerCase();
+    const sameMake =
+      !compact(storedVehicle.make || storedVehicle.brand) ||
+      compact(storedVehicle.make || storedVehicle.brand).toLowerCase() ===
+        compact(vehicle.make || vehicle.brand).toLowerCase();
+    if (sameModel && sameMake) return record;
+  }
+
+  return {};
 };
 
 const vehicleChips = (vehicle = {}) =>
@@ -232,74 +344,6 @@ const vehicleChips = (vehicle = {}) =>
     vehicle.fuelText,
     vehicle.transmissionText,
   ].filter(hasValue);
-
-const vehicleHighlights = (vehicle = {}) => {
-  if (Array.isArray(vehicle.highlights) && vehicle.highlights.length) {
-    return vehicle.highlights
-      .filter(Boolean)
-      .map((item) => ({
-        icon: resolveOverviewIcon(item.label, item.icon),
-        value: item.value,
-        label: item.label,
-      }))
-      .filter((item) => hasValue(item.value) || hasValue(item.label));
-  }
-
-  return [
-    vehicle.variantCount
-      ? { icon: Star, value: vehicle.variantCount, label: "Variants" }
-      : null,
-    vehicle.fuelText
-      ? { icon: Fuel, value: vehicle.fuelText, label: "Fuel options" }
-      : null,
-    vehicle.transmissionText
-      ? { icon: Scale, value: vehicle.transmissionText, label: "Transmissions" }
-      : null,
-    vehicle.mileage
-      ? { icon: Gauge, value: vehicle.mileage, label: "Mileage" }
-      : null,
-    vehicle.safetyRating
-      ? { icon: Star, value: vehicle.safetyRating, label: "Safety" }
-      : null,
-    vehicle.bootSpace
-      ? { icon: Wallet, value: vehicle.bootSpace, label: "Boot space" }
-      : null,
-  ].filter(Boolean);
-};
-
-const vehicleFacts = (vehicle = {}) =>
-  [
-    vehicle.mileage
-      ? { icon: Gauge, label: "Mileage", value: vehicle.mileage }
-      : null,
-    vehicle.bootSpace
-      ? { icon: Wallet, label: "Boot Space", value: vehicle.bootSpace }
-      : null,
-    vehicle.safetyRating
-      ? { icon: ShieldCheck, label: "Safety", value: vehicle.safetyRating }
-      : null,
-  ].filter(Boolean);
-
-const resolveOverviewIcon = (label = "", provided) => {
-  if (typeof provided === "function") return provided;
-
-  const text = String(label || "").toLowerCase();
-  if (/price|rupee|ex-showroom|on-road/.test(text)) return IndianRupee;
-  if (/emi|loan|finance/.test(text)) return Calculator;
-  if (/compare|rival|similar/.test(text)) return Scale;
-  if (/color|colour|shade/.test(text)) return Palette;
-  if (/feature|spec|highlight/.test(text)) return Star;
-  if (/quote|quotation|document/.test(text)) return FileText;
-  if (/fuel|petrol|diesel|cng|electric|hybrid/.test(text)) return Fuel;
-  if (/transmission|manual|automatic|gear|dct|cvt|ivt|amt/.test(text))
-    return Scale;
-  if (/mileage|range|km/.test(text)) return Gauge;
-  if (/safety|airbag|ncap|rating/.test(text)) return ShieldCheck;
-  if (/boot|space|storage/.test(text)) return Wallet;
-  if (/variant|version|trim/.test(text)) return Star;
-
-  return Sparkles;
-};
 
 const formatVariantMeta = (variant = {}) =>
   [variant.fuel, variant.transmission].filter(hasValue).join(" · ");
@@ -314,38 +358,221 @@ const getVariantPrice = (variant = {}) =>
     variant.priceText,
   );
 
-function SliderDots({ count = 0, active = 0, max = 5 }) {
-  const visible = Math.min(Math.max(count, 0), max);
-  if (visible <= 1) return null;
+const parseVariantPrice = (value) => {
+  const text = compact(value).toLowerCase().replace(/,/g, "");
+  const amount = Number.parseFloat(text.replace(/[^0-9.]/g, ""));
+  if (!Number.isFinite(amount)) return Number.POSITIVE_INFINITY;
+  if (/\bcr|crore/.test(text)) return amount * 10000000;
+  if (/\bl|lakh/.test(text)) return amount * 100000;
+  return amount;
+};
 
-  return (
-    <div className="slider-dots" aria-hidden="true">
-      {Array.from({ length: visible }).map((_, index) => (
-        <span
-          key={index}
-          className={index === Math.min(active, visible - 1) ? "active" : ""}
-        />
-      ))}
-    </div>
+const selectRangeVariants = (variants = []) => {
+  const unique = [];
+  const seen = new Set();
+
+  toArray(variants).forEach((variant, sourceIndex) => {
+    const identity = compact(
+      firstPresent(variant.id, variant._id, variant.name, variant.variant),
+    ).toLowerCase();
+    if (!identity || seen.has(identity)) return;
+    seen.add(identity);
+    unique.push({
+      variant,
+      sourceIndex,
+      sortPrice: parseVariantPrice(getVariantPrice(variant)),
+    });
+  });
+
+  const priced = unique.filter((item) => Number.isFinite(item.sortPrice));
+  const ordered = (
+    priced.length >= Math.min(unique.length, 3) ? priced : unique
+  )
+    .slice()
+    .sort((left, right) => {
+      const leftHasPrice = Number.isFinite(left.sortPrice);
+      const rightHasPrice = Number.isFinite(right.sortPrice);
+      if (leftHasPrice && rightHasPrice && left.sortPrice !== right.sortPrice) {
+        return left.sortPrice - right.sortPrice;
+      }
+      if (leftHasPrice !== rightHasPrice) return leftHasPrice ? -1 : 1;
+      return left.sourceIndex - right.sourceIndex;
+    });
+
+  if (!ordered.length) return [];
+
+  const selectedIndexes = [
+    0,
+    Math.floor((ordered.length - 1) / 2),
+    ordered.length - 1,
+  ];
+  const tiers = ["Base", "Mid", "Top"];
+  const selected = [];
+
+  selectedIndexes.forEach((orderedIndex, tierIndex) => {
+    const item = ordered[orderedIndex];
+    if (!item || selected.some((entry) => entry.variant === item.variant))
+      return;
+    selected.push({ ...item.variant, _aciTier: tiers[tierIndex] });
+  });
+
+  return selected;
+};
+
+const getColorImage = (color = {}) =>
+  firstPresent(
+    color.displayNormalizedImageUrl,
+    color.normalizedImageUrl,
+    color.cleanImageUrl,
+    color.carImageUrl,
+    color.imageUrl,
+    color.image,
   );
-}
 
-function useSliderIndex(count) {
-  const ref = useRef(null);
-  const [active, setActive] = useState(0);
+const flattenFeatureGroups = (groups = []) =>
+  toArray(groups).flatMap((group) =>
+    firstList(group?.features, group?.items, group?.specs, group?.values),
+  );
 
-  const onScroll = () => {
-    const node = ref.current;
-    if (!node || count <= 1) return;
+const normalizeHighlight = (item, sourcePriority = 0) => {
+  if (typeof item === "string") {
+    const label = compact(item);
+    return label ? { label, value: "", sourcePriority } : null;
+  }
+  if (!isObject(item)) return null;
 
-    const maxScroll = Math.max(node.scrollWidth - node.clientWidth, 1);
-    const ratio = node.scrollLeft / maxScroll;
-    const next = Math.round(ratio * (Math.min(count, 5) - 1));
-    setActive(Math.max(0, Math.min(Math.min(count, 5) - 1, next)));
+  const availability = firstPresent(
+    item.available,
+    item.isAvailable,
+    item.availability,
+    item.status,
+  );
+  if (
+    availability === false ||
+    /^(no|false|not available|unavailable|not listed)$/i.test(
+      compact(availability),
+    )
+  ) {
+    return null;
+  }
+
+  const label = firstPresent(
+    item.label,
+    item.title,
+    item.name,
+    item.feature,
+    item.featureName,
+    item.spec,
+    item.key,
+  );
+  const value = firstPresent(
+    item.value,
+    item.displayValue,
+    item.text,
+    item.detail,
+    item.description,
+    item.summary,
+  );
+  if (!label) return null;
+
+  return {
+    label,
+    value: /^(yes|true|available)$/i.test(compact(value)) ? "" : value,
+    category: firstPresent(item.category, item.group, item.section),
+    sourcePriority,
   };
+};
 
-  return { ref, active, onScroll };
-}
+const highlightScore = ({ label = "", value = "", sourcePriority = 0 }) => {
+  const text = `${label} ${value}`.toLowerCase();
+  const weightedTerms = [
+    [/(forward collision|blind spot|lane keep|adaptive cruise|adas)/, 95],
+    [/(360 view camera|360 camera)/, 90],
+    [/(no\. of airbags|\bairbags?\b)/, 86],
+    [/(panoramic)/, 88],
+    [/(sunroof)/, 82],
+    [/(ventilated)/, 78],
+    [
+      /(touchscreen|wireless phone|apple carplay|android auto|bose|speakers?)/,
+      72,
+    ],
+    [/(electronic stability|anti-lock|\babs\b|tpms|hill assist)/, 68],
+    [/(cruise control|climate control)/, 60],
+    [/(mileage|engine displacement|max power|max torque)/, 54],
+    [/(boot space|ground clearance|seating capacity)/, 48],
+  ];
+  const relevance = weightedTerms.reduce(
+    (score, [pattern, weight]) =>
+      pattern.test(text) ? Math.max(score, weight) : score,
+    0,
+  );
+  return sourcePriority * 100 + relevance;
+};
+
+const getVehicleHighlights = (vehicle = {}) => {
+  const featureCandidates = [
+    ...toArray(vehicle.highlights).map((item) => [item, 4]),
+    ...toArray(vehicle.quickSpecs).map((item) => [item, 3]),
+    ...flattenFeatureGroups(vehicle.featureGroups).map((item) => [item, 2]),
+    ...toArray(vehicle.features).map((item) => [item, 1]),
+  ]
+    .map(([item, priority]) => normalizeHighlight(item, priority))
+    .filter(Boolean)
+    .sort((left, right) => highlightScore(right) - highlightScore(left));
+
+  const facts = [
+    vehicle.fuelText
+      ? { label: "Fuel choices", value: vehicle.fuelText, sourcePriority: 0 }
+      : null,
+    vehicle.transmissionText
+      ? {
+          label: "Transmission",
+          value: vehicle.transmissionText,
+          sourcePriority: 0,
+        }
+      : null,
+    vehicle.variantCount
+      ? {
+          label: "Variants",
+          value: `${vehicle.variantCount} current options`,
+          sourcePriority: 0,
+        }
+      : null,
+    toArray(vehicle.colors).length
+      ? {
+          label: "Exterior colors",
+          value: `${toArray(vehicle.colors).length} available`,
+          sourcePriority: 0,
+        }
+      : null,
+  ].filter(Boolean);
+
+  const seen = new Set();
+  const featureFamilies = new Set();
+  const categoryCounts = new Map();
+  return [...featureCandidates, ...facts]
+    .filter((item) => {
+      const key = compact(item.label).toLowerCase();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+
+      const family = [
+        ["sunroof", /sunroof|panoramic/],
+        ["camera", /camera/],
+        ["airbags", /airbags?/],
+        ["touchscreen", /touchscreen/],
+        ["cruise", /cruise/],
+      ].find(([, pattern]) => pattern.test(`${key} ${item.value}`))?.[0];
+      if (family && featureFamilies.has(family)) return false;
+      if (family) featureFamilies.add(family);
+
+      const category = compact(item.category).toLowerCase();
+      if (category && categoryCounts.get(category)) return false;
+      if (category) categoryCounts.set(category, 1);
+      return true;
+    })
+    .slice(0, 6);
+};
 
 function SkeletonLine({ width = "100%" }) {
   return <span className="skeleton-line" style={{ width }} />;
@@ -362,96 +589,7 @@ function SkeletonCard({ variant = "default" }) {
   );
 }
 
-function ColorOrb({ hex, name, selected }) {
-  const isLight = useMemo(() => {
-    const clean = String(hex || "#ffffff").replace("#", "");
-    const r = parseInt(clean.slice(0, 2), 16) || 255;
-    const g = parseInt(clean.slice(2, 4), 16) || 255;
-    const b = parseInt(clean.slice(4, 6), 16) || 255;
-    return (r * 299 + g * 587 + b * 114) / 1000 > 170;
-  }, [hex]);
-
-  return (
-    <div
-      className={`color-orb ${selected ? "selected" : ""} ${isLight ? "light" : "dark"}`}
-      style={{
-        background: `radial-gradient(circle at 32% 26%, rgba(255,255,255,.94), ${hex || "#ffffff"} 34%, ${hex || "#ffffff"} 62%, rgba(15,23,42,.38) 140%)`,
-      }}
-      title={name}
-    >
-      <span />
-      {selected ? (
-        <b>
-          <Check size={11} strokeWidth={3} />
-        </b>
-      ) : null}
-    </div>
-  );
-}
-
-function DesktopHeader({ data = {}, onAction }) {
-  return (
-    <motion.header
-      className="desktop-header"
-      initial={{ opacity: 0, y: -14 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.45 }}
-    >
-      <div className="desktop-header-left">
-        <AciLogo compact onAction={onAction} />
-      </div>
-
-      <div className="desktop-header-center">
-        <label className="desktop-search">
-          <Search size={18} />
-          <input placeholder="Search cars, prices, features, EMI, compare..." />
-          <button
-            type="button"
-            onClick={() => emitAciAction({ label: "Command search" }, onAction)}
-          >
-            ⌘ K
-          </button>
-        </label>
-      </div>
-
-      <div className="desktop-header-right">
-        <button
-          type="button"
-          className="bell-button"
-          onClick={() => emitAciAction({ label: "Notifications" }, onAction)}
-          aria-label="Notifications"
-        >
-          <Bell size={22} />
-          <i />
-        </button>
-
-        <button
-          type="button"
-          className="avatar-button"
-          onClick={() => emitAciAction({ label: "Profile" }, onAction)}
-          aria-label="Profile"
-        >
-          {data?.avatarUrl ? (
-            <img src={data.avatarUrl} alt="Profile" />
-          ) : (
-            <span />
-          )}
-        </button>
-
-        <button
-          type="button"
-          className="plain-button"
-          onClick={() => emitAciAction({ label: "Profile menu" }, onAction)}
-          aria-label="Profile menu"
-        >
-          <ChevronDown size={16} />
-        </button>
-      </div>
-    </motion.header>
-  );
-}
-
-function DesktopHero({ vehicle = {}, onAction, savedIds, onToggleSaved }) {
+function DesktopHero({ vehicle = {}, onAction }) {
   const chips = vehicleChips(vehicle);
   const title = getVehicleDisplayName(vehicle);
   const priceText = firstPresent(
@@ -466,56 +604,7 @@ function DesktopHero({ vehicle = {}, onAction, savedIds, onToggleSaved }) {
       variants={fadeUp}
     >
       <div className="hero-copy">
-        <div className="hero-badges">
-          <button
-            type="button"
-            className="soft-badge blue"
-            onClick={() =>
-              emitAciAction(
-                {
-                  label: "Selected car hub",
-                  query: title,
-                  intent: getIntent("OPEN_VEHICLE", "open_vehicle"),
-                  canvasType: getCanvas("CAR_OVERVIEW", "car_overview_canvas"),
-                  vehicle,
-                  contextPatch: buildContextPatch(vehicle),
-                },
-                onAction,
-              )
-            }
-          >
-            <ShieldCheck size={14} />
-            Selected car hub
-          </button>
-
-          <button
-            type="button"
-            className="soft-badge gold"
-            onClick={() =>
-              emitAciAction(
-                {
-                  label: "ACI Assist remembers this car",
-                  query: title,
-                  type: "context_info",
-                  vehicle,
-                  contextPatch: buildContextPatch(vehicle),
-                },
-                onAction,
-              )
-            }
-          >
-            <Sparkles size={14} />
-            ACI Assist remembers this car
-          </button>
-
-          <AciSavedButton
-            vehicle={vehicle}
-            saved={savedIds?.has?.(getVehicleId(vehicle))}
-            onToggleSaved={onToggleSaved}
-            className="soft-badge save-badge"
-            size={15}
-          />
-        </div>
+        <span className="overview-kicker">New car overview</span>
 
         <h1>{title}</h1>
 
@@ -537,7 +626,10 @@ function DesktopHero({ vehicle = {}, onAction, savedIds, onToggleSaved }) {
         >
           {firstPresent(
             vehicle.subtitle,
-            [vehicle.segment, vehicle.city ? `${vehicle.city} prices` : ""]
+            [
+              vehicle.segment,
+              vehicle.city ? `${formatCityName(vehicle.city)} prices` : "",
+            ]
               .filter(Boolean)
               .join(" · "),
             "New-car overview",
@@ -554,10 +646,9 @@ function DesktopHero({ vehicle = {}, onAction, savedIds, onToggleSaved }) {
                 onClick={() =>
                   emitAciAction(
                     {
+                      ...priceListAction(vehicle),
                       label: chip,
                       query: `${getVehicleModel(vehicle)} ${chip}`,
-                      vehicle,
-                      contextPatch: buildContextPatch(vehicle),
                     },
                     onAction,
                   )
@@ -572,9 +663,9 @@ function DesktopHero({ vehicle = {}, onAction, savedIds, onToggleSaved }) {
 
       <motion.div
         className="hero-car-stage"
-        initial={{ opacity: 0, x: 22 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.65 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.24 }}
       >
         <AciVehicleVisual
           vehicle={vehicle}
@@ -604,37 +695,66 @@ function DesktopHero({ vehicle = {}, onAction, savedIds, onToggleSaved }) {
         >
           View all variants <ChevronRight size={17} />
         </button>
+
+        <div className="price-card-facts">
+          {vehicle.variantCount ? (
+            <span>
+              <b>{vehicle.variantCount}</b> variants
+            </span>
+          ) : null}
+          {vehicle.fuelText ? (
+            <span>
+              <b>{vehicle.fuelText}</b> fuel options
+            </span>
+          ) : null}
+        </div>
       </aside>
     </motion.section>
   );
 }
 
-function DesktopActionStrip({ vehicle = {}, onAction }) {
-  const actions = buildOverviewActions(vehicle);
+function OverviewActionBar({ vehicle = {}, onAction, mobile = false }) {
+  const actions = [
+    {
+      icon: IndianRupee,
+      label: "Price list",
+      action: priceListAction(vehicle),
+    },
+    { icon: Calculator, label: "Calculate EMI", action: emiAction(vehicle) },
+    { icon: Scale, label: "Compare", action: compareAction(vehicle) },
+    { icon: Palette, label: "Colors", action: colorsAction(vehicle) },
+    { icon: Sparkles, label: "Features", action: featuresAction(vehicle) },
+    {
+      icon: FileText,
+      label: "Get quotation",
+      action: quotationAction(vehicle),
+    },
+  ];
 
   return (
-    <motion.section className="desktop-action-strip" variants={fadeUp}>
-      <h2>What do you want to do?</h2>
-
-      <div>
-        {actions.map((item) => {
-          const Icon = resolveOverviewIcon(item.label, item.icon);
-
-          return (
-            <button
-              type="button"
-              key={item.id}
-              className={`action-pill ${item.tone || "blue"}`}
-              onClick={() => emitAciAction(item, onAction)}
-            >
-              <Icon size={16} />
-              <span>{item.label}</span>
-              <ChevronRight size={14} />
-            </button>
-          );
-        })}
+    <motion.nav
+      className={`overview-action-bar ${mobile ? "is-mobile" : ""}`}
+      aria-label={`${getVehicleModel(vehicle)} research actions`}
+      variants={fadeUp}
+    >
+      <div className="overview-action-heading">
+        <span>Explore</span>
+        <strong>{getVehicleModel(vehicle)}</strong>
       </div>
-    </motion.section>
+      <div className="overview-action-list">
+        {actions.map(({ icon: Icon, label, action }) => (
+          <button
+            type="button"
+            key={action.id}
+            onClick={() => emitAciAction(action, onAction)}
+          >
+            <Icon size={17} strokeWidth={2} />
+            <span>{label}</span>
+            <ChevronRight size={14} strokeWidth={2.25} />
+          </button>
+        ))}
+      </div>
+    </motion.nav>
   );
 }
 
@@ -686,247 +806,148 @@ function EmptyState({ icon: Icon = Sparkles, title, text, action, onAction }) {
   );
 }
 
-function AssistantPanel({ vehicle = {}, onAction, mobile = false }) {
-  const suggestions = [
-    actionFor({
-      id: `${getVehicleId(vehicle)}-best-automatic`,
-      label: "Best automatic",
-      query: `Best automatic variants of ${getVehicleModel(vehicle)}`,
-      intent: getIntent("RECOMMENDATIONS", "vehicle_recommendations"),
-      canvasType: getCanvas("RECOMMENDATION", "recommendation_results_canvas"),
-      vehicle,
-    }),
-    vehicle.compareWith ? compareAction(vehicle) : rivalsAction(vehicle),
-    actionFor({
-      id: `${getVehicleId(vehicle)}-emi-under-20`,
-      label: "EMI under ₹20k",
-      query: `EMI options for ${getVehicleModel(vehicle)} under ₹20k`,
-      intent: getIntent("EMI", "vehicle_emi_calculator"),
-      canvasType: getCanvas("EMI", "emi_calculator_canvas"),
-      vehicle,
-    }),
-  ];
-
-  if (mobile) {
-    return (
-      <motion.section className="mobile-assistant-strip" variants={fadeUp}>
-        <AciAssistantOrb small />
-
-        <div>
-          <h3>
-            Need help choosing the right {getVehicleModel(vehicle)} variant?
-          </h3>
-
-          <div>
-            {suggestions.map((item) => (
-              <button
-                type="button"
-                key={item.id || item.label}
-                onClick={() => emitAciAction(item, onAction)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <ChevronRight size={19} />
-      </motion.section>
-    );
-  }
-
-  return (
-    <motion.section className="panel assistant-panel" variants={fadeUp}>
-      <div className="assistant-title">
-        <Sparkles size={17} />
-        <div>
-          <h3>ACI Assistant</h3>
-          <p>Your intelligent co-pilot</p>
-        </div>
-      </div>
-
-      <div className="assistant-dialogue">
-        <div className="chat-row">
-          <AciAssistantOrb small />
-          <div className="chat-bubble assistant">
-            <strong>
-              Hi! I’m <span>ACI Assist.</span>
-            </strong>
-            <br />
-            Ask me about price, EMI, features, colors or quotation for{" "}
-            {getVehicleModel(vehicle)}.
-          </div>
-        </div>
-
-        <div className="chat-bubble user">Help me choose the right variant</div>
-
-        <div className="chat-row">
-          <AciAssistantOrb small />
-          <div className="chat-bubble assistant">
-            Tell me your budget, city and driving use. I’ll shortlist the best
-            variants using live data.
-          </div>
-        </div>
-      </div>
-
-      <div className="assistant-suggestions">
-        {suggestions.map((item) => (
-          <button
-            type="button"
-            key={item.id || item.label}
-            onClick={() => emitAciAction(item, onAction)}
-          >
-            {item.label}
-          </button>
-        ))}
-      </div>
-    </motion.section>
-  );
-}
-
-function HighlightsPanel({ vehicle = {}, onAction, mobile = false }) {
-  const items = vehicleHighlights(vehicle);
-
-  if (mobile) {
-    return (
-      <motion.section className="mobile-stat-strip" variants={fadeUp}>
-        {items.length ? (
-          items.slice(0, 5).map((item) => {
-            const Icon = resolveOverviewIcon(item.label, item.icon);
-
-            return (
-              <button
-                type="button"
-                key={`${item.label}-${item.value}`}
-                onClick={() =>
-                  emitAciAction(
-                    {
-                      label: item.label,
-                      query: `${getVehicleModel(vehicle)} ${item.label}`,
-                      vehicle,
-                      contextPatch: buildContextPatch(vehicle),
-                    },
-                    onAction,
-                  )
-                }
-              >
-                <Icon size={24} />
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </button>
-            );
-          })
-        ) : (
-          <EmptyState
-            title="Highlights will appear here"
-            text="Ask ACI Assist to fetch live model specs."
-            action={featuresAction(vehicle)}
-            onAction={onAction}
-          />
-        )}
-      </motion.section>
-    );
-  }
-
-  return (
-    <motion.section className="panel highlights-panel" variants={fadeUp}>
-      <PanelHead
-        title="Variant highlights"
-        sub={`Key highlights across the ${getVehicleModel(vehicle)} range`}
-        action="View features"
-        actionOnClick={() => emitAciAction(featuresAction(vehicle), onAction)}
-      />
-
-      <div className="stats-grid">
-        {items.length ? (
-          items.slice(0, 6).map((item) => {
-            const Icon = resolveOverviewIcon(item.label, item.icon);
-
-            return (
-              <button
-                type="button"
-                className="stat-card"
-                key={`${item.label}-${item.value}`}
-                onClick={() =>
-                  emitAciAction(
-                    {
-                      label: item.label,
-                      query: `${getVehicleModel(vehicle)} ${item.label}`,
-                      vehicle,
-                      contextPatch: buildContextPatch(vehicle),
-                    },
-                    onAction,
-                  )
-                }
-              >
-                <Icon size={17} />
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </button>
-            );
-          })
-        ) : (
-          <EmptyState
-            title="Live highlights pending"
-            text="Specs will appear here once the backend sends model data."
-            action={featuresAction(vehicle)}
-            onAction={onAction}
-          />
-        )}
-      </div>
-    </motion.section>
-  );
-}
-
-function VariantCard({
-  variant = {},
+function ResearchPathPanel({
   vehicle = {},
   onAction,
-  savedIds,
-  onToggleSaved,
   mobile = false,
+  researchTopics = {},
 }) {
-  const variantId = firstPresent(
-    variant.id,
-    variant._id,
-    variant.name,
-    variant.variant,
-    "variant",
+  const colors = toArray(vehicle.colors);
+  const steps = [
+    {
+      icon: SlidersHorizontal,
+      eyebrow: "Choose a variant",
+      title: vehicle.variantCount
+        ? `Explore ${vehicle.variantCount} current variants`
+        : "Explore the current variants",
+      text: "Compare prices, fuel and transmission options.",
+      action: priceListAction(vehicle),
+    },
+    {
+      icon: Calculator,
+      eyebrow: "Plan the purchase",
+      title: "See the monthly EMI",
+      text: "Adjust down payment, tenure and interest rate.",
+      action: emiAction(vehicle),
+    },
+    {
+      icon: Scale,
+      eyebrow: "Check alternatives",
+      title: vehicle.compareWith
+        ? `Compare with ${getVehicleModel(vehicle.compareWith)}`
+        : "Find the closest rivals",
+      text: "Compare equivalent choices before deciding.",
+      action: vehicle.compareWith
+        ? compareAction(vehicle)
+        : rivalsAction(vehicle),
+    },
+    {
+      icon: Palette,
+      eyebrow: "Personalise it",
+      title: `Explore ${colors.length || "available"} colors`,
+      text: "See the real car image in each available shade.",
+      action: colorsAction(vehicle),
+    },
+    {
+      icon: Sparkles,
+      eyebrow: "Check equipment",
+      title: "See features that matter",
+      text: "Understand what changes across variants.",
+      action: featuresAction(vehicle),
+    },
+    {
+      icon: FileText,
+      eyebrow: "When you are ready",
+      title: "Get a dealer quotation",
+      text: "Confirm the exact city price and availability.",
+      action: quotationAction(vehicle),
+    },
+  ];
+  const decoratedSteps = steps.map((step) => ({
+    ...step,
+    topic:
+      step.action.payload?.researchTopic ||
+      researchTopicForCanvas(step.action.canvasType),
+  }));
+  const completed = decoratedSteps.filter(
+    (step) => researchTopics?.[step.topic]?.completed,
   );
-  const variantName = firstPresent(variant.name, variant.variant, "Variant");
-  const variantVehicle = {
-    ...vehicle,
-    id: `${getVehicleId(vehicle)}-${variantId}`,
-    displayName: `${getVehicleDisplayName(vehicle)} ${variantName}`,
-    variant: variantName,
-  };
-  const price = getVariantPrice(variant);
-  const meta = formatVariantMeta(variant);
+  const pending = decoratedSteps.filter(
+    (step) => !researchTopics?.[step.topic]?.completed,
+  );
+  const visibleSteps = (pending.length ? pending : decoratedSteps).slice(
+    0,
+    mobile ? 4 : 5,
+  );
 
   return (
-    <article className={`variant-card ${mobile ? "mobile-card" : ""}`}>
-      <div className="variant-image-zone">
-        {variant.tag ? (
-          <span className="variant-badge">{variant.tag}</span>
-        ) : null}
+    <motion.section
+      className={`panel research-path-panel ${mobile ? "mobile-research-path" : ""}`}
+      variants={fadeUp}
+    >
+      <PanelHead
+        title={
+          completed.length
+            ? "Your next best steps"
+            : "A clear path to your decision"
+        }
+        sub={
+          completed.length
+            ? `Based on ${completed.length} topic${completed.length === 1 ? "" : "s"} you already explored`
+            : `Useful next steps for ${getVehicleModel(vehicle)}`
+        }
+        hideAction
+      />
 
-        <AciSavedButton
-          vehicle={variantVehicle}
-          saved={savedIds?.has?.(getVehicleId(variantVehicle))}
-          onToggleSaved={onToggleSaved}
-          className="variant-heart"
-          size={17}
-        />
-
-        <AciVehicleVisual
-          vehicle={vehicle}
-          height={mobile ? 86 : 98}
-          className="variant-car-photo"
-          stage
-          stageVariant="compact"
-        />
+      <div
+        className="research-step-list"
+        data-count={visibleSteps.length}
+        style={{ "--research-step-count": visibleSteps.length }}
+      >
+        {visibleSteps.map(
+          ({ icon: Icon, eyebrow, title, text, action }, index) => (
+            <button
+              type="button"
+              key={action.id}
+              onClick={() => emitAciAction(action, onAction)}
+            >
+              <span className="research-step-index">{index + 1}</span>
+              <span className="research-step-icon">
+                <Icon size={18} />
+              </span>
+              <span className="research-step-copy">
+                <small>{eyebrow}</small>
+                <strong>{title}</strong>
+                <em>{text}</em>
+              </span>
+              <ChevronRight size={17} />
+            </button>
+          ),
+        )}
       </div>
 
+      {completed.length ? (
+        <div className="research-complete-row">
+          <Check size={14} />
+          <span>Researched:</span>
+          <strong>{completed.map((step) => step.eyebrow).join(" · ")}</strong>
+        </div>
+      ) : null}
+    </motion.section>
+  );
+}
+
+function VariantCard({ variant = {}, vehicle = {}, onAction }) {
+  const variantName = getVariantDisplayName(variant, vehicle);
+  const price = getVariantPrice(variant);
+  const meta = formatVariantMeta(variant);
+  const priceNote = vehicle.city
+    ? `On-road ${formatCityName(vehicle.city)}`
+    : variant.sub;
+  const tier = firstPresent(variant._aciTier, "Variant");
+
+  return (
+    <article className={`variant-card is-${tier.toLowerCase()}`}>
       <button
         type="button"
         className="variant-content"
@@ -946,53 +967,54 @@ function VariantCard({
           )
         }
       >
-        <h4>{variantName}</h4>
-        {meta ? <p>{meta}</p> : null}
-        {price ? <strong>{price}</strong> : <strong>Price loading</strong>}
-        {variant.sub ? <small>{variant.sub}</small> : null}
+        <span className="variant-tier">{tier}</span>
+        <span className="variant-title-row">
+          <h4>{variantName}</h4>
+          <ChevronRight size={16} />
+        </span>
+        <span className="variant-detail-row">
+          <span>
+            {meta ? <p>{meta}</p> : null}
+            {priceNote ? <small>{priceNote}</small> : null}
+          </span>
+          {price ? <strong>{price}</strong> : <strong>Price loading</strong>}
+        </span>
       </button>
-
-      {toArray(variant.meta).length ? (
-        <div className="variant-meta">
-          {toArray(variant.meta)
-            .slice(0, 2)
-            .map((item) => (
-              <button
-                type="button"
-                key={item}
-                onClick={() =>
-                  emitAciAction(
-                    {
-                      label: `${variantName} ${item}`,
-                      query: `${getVehicleModel(vehicle)} ${variantName} ${item}`,
-                      vehicle,
-                      contextPatch: buildContextPatch(vehicle, {
-                        anchorVariant: variantName,
-                      }),
-                    },
-                    onAction,
-                  )
-                }
-              >
-                <Gauge size={12} /> {item}
-              </button>
-            ))}
-        </div>
-      ) : null}
     </article>
   );
 }
 
-function PopularVariantsPanel({
-  vehicle = {},
-  onAction,
-  savedIds,
-  onToggleSaved,
-  mobile = false,
-}) {
+function PopularVariantsPanel({ vehicle = {}, onAction, mobile = false }) {
   const variants = toArray(vehicle.variants);
-  const visible = variants.slice(0, 3);
-  const slider = useSliderIndex(visible.length);
+  const visible = selectRangeVariants(variants);
+  const colors = useMemo(
+    () => toArray(vehicle.colors).filter((color) => getColorImage(color)),
+    [vehicle.colors],
+  );
+  const vehicleKey = getVehicleId(vehicle);
+  const [selectedColorId, setSelectedColorId] = useState("");
+
+  useEffect(() => {
+    setSelectedColorId(
+      firstPresent(colors[0]?.id, colors[0]?._id, colors[0]?.name),
+    );
+  }, [vehicleKey, colors]);
+
+  const activeColor =
+    colors.find(
+      (color) =>
+        firstPresent(color.id, color._id, color.name) === selectedColorId,
+    ) || colors[0];
+  const studioImage = firstPresent(
+    getColorImage(activeColor),
+    vehicle.heroImageUrl,
+    vehicle.imageUrl,
+  );
+  const studioVehicle = {
+    ...vehicle,
+    imageUrl: studioImage,
+    heroImageUrl: studioImage,
+  };
 
   return (
     <motion.section
@@ -1000,21 +1022,16 @@ function PopularVariantsPanel({
       variants={fadeUp}
     >
       <PanelHead
-        title="Popular variants"
-        sub={mobile ? "" : "Top picks from live variant data"}
-        action="View all"
+        title={`Find your ${getVehicleModel(vehicle)}`}
+        action={`View all ${vehicle.variantCount || variants.length || ""}`.trim()}
         actionOnClick={() => emitAciAction(priceListAction(vehicle), onAction)}
         hideAction={!mobile && !variants.length}
         onAction={onAction}
       />
 
       {visible.length ? (
-        <>
-          <div
-            className={`variant-card-grid ${mobile ? "mobile-slider" : ""}`}
-            ref={mobile ? slider.ref : null}
-            onScroll={mobile ? slider.onScroll : undefined}
-          >
+        <div className="variant-studio">
+          <div className="variant-card-grid">
             {visible.map((variant) => (
               <VariantCard
                 key={firstPresent(
@@ -1026,17 +1043,69 @@ function PopularVariantsPanel({
                 variant={variant}
                 vehicle={vehicle}
                 onAction={onAction}
-                savedIds={savedIds}
-                onToggleSaved={onToggleSaved}
-                mobile={mobile}
               />
             ))}
           </div>
 
-          {mobile ? (
-            <SliderDots count={visible.length} active={slider.active} />
+          <div className="variant-studio-visual" aria-live="polite">
+            <motion.div
+              key={firstPresent(
+                activeColor?.id,
+                activeColor?.name,
+                studioImage,
+              )}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <AciVehicleVisual
+                vehicle={studioVehicle}
+                height={mobile ? 184 : 258}
+                className="variant-studio-photo"
+                stage
+                stageVariant="hero"
+              />
+            </motion.div>
+          </div>
+
+          {colors.length ? (
+            <aside className="variant-color-rail">
+              <span className="color-rail-kicker">Choose a color</span>
+              <strong>
+                {firstPresent(activeColor?.name, "Exterior color")}
+              </strong>
+              <div className="variant-color-swatches">
+                {colors.map((color) => {
+                  const colorId = firstPresent(color.id, color._id, color.name);
+                  const isActive = colorId === selectedColorId;
+                  return (
+                    <button
+                      type="button"
+                      key={colorId}
+                      className={isActive ? "is-active" : ""}
+                      aria-label={`Show ${color.name}`}
+                      aria-pressed={isActive}
+                      title={color.name}
+                      onClick={() => setSelectedColorId(colorId)}
+                    >
+                      <span
+                        style={{ backgroundColor: color.hex || "#cbd5e1" }}
+                      />
+                      {isActive ? <Check size={12} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <button
+                type="button"
+                className="view-all-colors"
+                onClick={() => emitAciAction(colorsAction(vehicle), onAction)}
+              >
+                All colors <ChevronRight size={14} />
+              </button>
+            </aside>
           ) : null}
-        </>
+        </div>
       ) : (
         <div className="variant-skeleton-grid">
           <SkeletonCard variant="vehicle" />
@@ -1055,77 +1124,47 @@ function PopularVariantsPanel({
   );
 }
 
-function ColorsPanel({ vehicle = {}, onAction, mobile = false }) {
-  const colors = toArray(vehicle.colors);
-  const [selected, setSelected] = useState(0);
-  const active = colors[selected] || colors[0] || null;
-  const slider = useSliderIndex(colors.length);
+function HighlightsPanel({ vehicle = {}, onAction, mobile = false }) {
+  const highlights = getVehicleHighlights(vehicle);
+  const icons = [ShieldCheck, Sparkles, Gauge, Armchair, Fuel, Settings2];
 
   return (
     <motion.section
-      className={`panel colors-panel ${mobile ? "mobile-colors-panel" : ""}`}
+      className={`panel highlights-panel ${mobile ? "mobile-highlights-panel" : ""}`}
       variants={fadeUp}
     >
       <PanelHead
-        title="Colors"
-        sub={mobile ? "" : "Choose your perfect shade"}
-        action="View all"
-        actionOnClick={() => emitAciAction(colorsAction(vehicle), onAction)}
-        hideAction={!colors.length}
+        title={`${getVehicleModel(vehicle)} highlights`}
+        action="Explore features"
+        actionOnClick={() => emitAciAction(featuresAction(vehicle), onAction)}
         onAction={onAction}
       />
 
-      {colors.length ? (
-        <>
-          <div
-            className={`colors-row ${mobile ? "mobile-color-slider" : ""}`}
-            ref={mobile ? slider.ref : null}
-            onScroll={mobile ? slider.onScroll : undefined}
-          >
-            {colors.map((color, index) => (
+      {highlights.length ? (
+        <div className="highlight-card-grid">
+          {highlights.map((highlight, index) => {
+            const Icon = icons[index % icons.length];
+            return (
               <button
                 type="button"
-                key={`${color.name}-${color.hex || index}`}
-                onClick={() => {
-                  setSelected(index);
-                  emitAciAction(
-                    {
-                      label: color.name,
-                      query: `${getVehicleModel(vehicle)} ${color.name} color`,
-                      intent: getIntent("COLORS", "vehicle_colors"),
-                      canvasType: getCanvas("COLORS", "color_studio_canvas"),
-                      vehicle,
-                      payload: { color },
-                      contextPatch: buildContextPatch(vehicle),
-                    },
-                    onAction,
-                  );
-                }}
-                aria-label={color.name}
+                key={`${highlight.label}-${index}`}
+                className={`highlight-card tone-${(index % 6) + 1}`}
+                onClick={() => emitAciAction(featuresAction(vehicle), onAction)}
               >
-                <ColorOrb
-                  hex={color.hex}
-                  name={color.name}
-                  selected={color.name === active?.name}
-                />
+                <span>
+                  <Icon size={18} strokeWidth={2} />
+                </span>
+                <strong>{highlight.label}</strong>
+                {highlight.value ? <small>{highlight.value}</small> : null}
+                <ChevronRight size={14} />
               </button>
-            ))}
-          </div>
-
-          <div className="selected-color">
-            <strong>{active?.name}</strong>
-            {active?.tag ? <span>{active.tag}</span> : null}
-          </div>
-
-          {mobile ? (
-            <SliderDots count={colors.length} active={slider.active} />
-          ) : null}
-        </>
+            );
+          })}
+        </div>
       ) : (
         <EmptyState
-          title="Color gallery pending"
-          text="Load live colour options and images for this model."
-          action={colorsAction(vehicle)}
+          title="Explore the equipment"
+          action={featuresAction(vehicle)}
           onAction={onAction}
         />
       )}
@@ -1133,298 +1172,179 @@ function ColorsPanel({ vehicle = {}, onAction, mobile = false }) {
   );
 }
 
-function ComparePanel({ vehicle = {}, onAction, mobile = false }) {
-  const compareWith = vehicle?.compareWith || null;
-  const rivalName =
-    compareWith?.model ||
-    compareWith?.displayName ||
-    compareWith?.name ||
-    "";
-
-  const findRivalsAction = {
-    id: `${vehicle?.id || vehicle?.model || "vehicle"}-find-rivals`,
-    label: `Find rivals for ${vehicle?.model || "this car"}`,
-    query: `Suggest cars similar to ${vehicle?.model || vehicle?.displayName || "this car"}`,
-    intent: ACI_INTENTS.RECOMMENDATIONS,
-    canvasType: ACI_CANVAS_TYPES.RECOMMENDATIONS || "recommendation_results_canvas",
-    vehicle,
-    contextPatch: buildVehicleContextPatch({ vehicle }),
+function RivalCard({ vehicle = {}, rival = {}, onAction, priority = false }) {
+  const rivalTitle = getVehicleDisplayName(rival);
+  const compare = {
+    id: `${getVehicleId(vehicle) || vehicle.model}-compare-${rival.model}`,
+    label: `Compare with ${rivalTitle}`,
+    query: `Compare ${getVehicleDisplayName(vehicle)} with ${rivalTitle}`,
+    intent: ACI_INTENTS.COMPARISON,
+    canvasType: ACI_CANVAS_TYPES.COMPARISON,
+    vehicle: { ...vehicle, compareWith: rival },
+    contextPatch: buildContextPatch(vehicle),
+    payload: { directCanvas: true, researchTopic: "comparison" },
   };
 
-  const compareAction = compareWith
-    ? {
-        id: `${vehicle?.id || vehicle?.model || "vehicle"}-compare-${rivalName}`,
-        label: `Compare with ${rivalName}`,
-        query: `Compare ${vehicle?.model || vehicle?.displayName || "this car"} with ${rivalName}`,
-        intent: ACI_INTENTS.COMPARISON,
-        canvasType: ACI_CANVAS_TYPES.COMPARISON,
-        vehicle,
-        contextPatch: buildVehicleContextPatch({ vehicle }),
-      }
-    : findRivalsAction;
-
-  const facts = [
-    vehicle?.mileage ? { icon: Gauge, top: "Mileage", bottom: vehicle.mileage } : null,
-    vehicle?.bootSpace ? { icon: Wallet, top: "Boot Space", bottom: vehicle.bootSpace } : null,
-    vehicle?.safetyRating ? { icon: ShieldCheck, top: "Safety", bottom: vehicle.safetyRating } : null,
-  ].filter(Boolean);
-
-  if (mobile) {
-    return (
-      <motion.section className="panel mobile-compare-panel" variants={fadeUp}>
-        <button
-          type="button"
-          className={`mobile-compare-row ${!compareWith ? "no-rival" : ""}`}
-          onClick={() => emitAciAction(compareAction, onAction)}
-        >
-          <span>
-            <Scale size={26} />
-          </span>
-
-          <div>
-            <h3>
-              {compareWith
-                ? `Compare ${vehicle?.model || "Car"} with ${rivalName}`
-                : `Find rivals for ${vehicle?.model || "this car"}`}
-            </h3>
-            <p>
-              {compareWith
-                ? "Price, features, mileage and EMI side-by-side"
-                : "Let ACI Assist suggest similar cars from live data"}
-            </p>
-          </div>
-
-          <div className="mobile-compare-cars">
-            <AciVehicleVisual vehicle={vehicle} height={48} stage stageVariant="compact" />
-            <b>{compareWith ? "VS" : "AI"}</b>
-            {compareWith ? (
-              <AciVehicleVisual vehicle={compareWith} height={48} stage stageVariant="compact" />
-            ) : (
-              <span className="compare-placeholder">?</span>
-            )}
-          </div>
-        </button>
-      </motion.section>
-    );
-  }
-
-  if (!compareWith) {
-    return (
-      <motion.section className="panel compare-panel compare-empty-panel" variants={fadeUp}>
-        <PanelHead
-          title={`Find rivals for ${vehicle?.model || "this car"}`}
-          sub="Segment rivals, budget matches and feature alternatives"
-          action="Find rivals"
-          actionOnClick={() => emitAciAction(findRivalsAction, onAction)}
-        />
-
-        <div className="compare-empty-state">
-          <span>
-            <Scale size={28} />
-          </span>
-
-          <div>
-            <h4>No rival selected yet</h4>
-            <p>
-              ACI Assist can find similar cars using body type, price band,
-              fuel, transmission and features once live rival data is available.
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => emitAciAction(findRivalsAction, onAction)}
-          >
-            Find similar cars <ChevronRight size={15} />
-          </button>
-        </div>
-      </motion.section>
-    );
-  }
-
   return (
-    <motion.section className="panel compare-panel" variants={fadeUp}>
-      <PanelHead
-        title={`Compare with ${rivalName}`}
-        sub={`See how ${vehicle?.model || "this car"} compares`}
-        action="View comparison"
-        actionOnClick={() => emitAciAction(compareAction, onAction)}
-      />
-
-      <div className="compare-cars">
-        <button
-          type="button"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: vehicle?.displayName || vehicle?.model,
-                query: vehicle?.displayName || vehicle?.model,
-                vehicle,
-              },
-              onAction,
-            )
-          }
-        >
-          <div>
+    <article className="rival-card">
+      <button
+        type="button"
+        className="rival-overview-button"
+        onClick={() => emitAciAction(compare, onAction)}
+      >
+        <div className="rival-pair-visual">
+          <div className="rival-visual is-anchor">
             <AciVehicleVisual
               vehicle={vehicle}
-              height={74}
-              className="compare-creta-photo"
+              height={96}
+              stage
+              stageVariant="compact"
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
             />
           </div>
-          <strong>{vehicle?.model || "Selected car"} {vehicle?.selectedVariant || ""}</strong>
-          <b>{vehicle?.startingOnRoadPrice || vehicle?.priceRange || "—"}</b>
-          <small>On-road {vehicle?.city || "Delhi"}</small>
-        </button>
-
-        <span>VS</span>
-
-        <button
-          type="button"
-          onClick={() =>
-            emitAciAction(
-              {
-                label: compareWith?.displayName || rivalName,
-                query: compareWith?.displayName || rivalName,
-                vehicle: compareWith,
-              },
-              onAction,
-            )
-          }
-        >
-          <div>
-            <AciVehicleVisual vehicle={compareWith} height={74} />
+          <span className="rival-pair-vs">vs</span>
+          <div className="rival-visual is-rival">
+            <AciVehicleVisual
+              vehicle={rival}
+              height={96}
+              stage
+              stageVariant="compact"
+              loading={priority ? "eager" : "lazy"}
+              fetchPriority={priority ? "high" : "auto"}
+            />
           </div>
-          <strong>{rivalName} {compareWith?.variant || ""}</strong>
-          <b>{compareWith?.price || "—"}</b>
-          <small>On-road {vehicle?.city || "Delhi"}</small>
-        </button>
-      </div>
+        </div>
+        <small>Side-by-side</small>
+        <strong>
+          {getVehicleModel(vehicle)} <span>vs</span> {rival.model}
+        </strong>
+        <p>
+          {rival.model} from{" "}
+          <b>
+            {rival.exShowroomPrice ||
+              rival.startingOnRoadPrice ||
+              "Price unavailable"}
+          </b>
+        </p>
+      </button>
+      <button
+        type="button"
+        className="rival-compare-button"
+        onClick={() => emitAciAction(compare, onAction)}
+      >
+        Compare <Scale size={14} />
+      </button>
+    </article>
+  );
+}
 
-      {facts.length ? (
-        <div className="compare-facts">
-          {facts.map((item) => {
-            const Icon = item.icon;
+function RivalsPanel({
+  vehicle = {},
+  rivals = [],
+  rivalsStatus = "idle",
+  onAction,
+  mobile = false,
+}) {
+  const viewAllAction = rivalsAction(vehicle, rivals);
+  const hasRivals = rivals.length > 0;
 
-            return (
-              <button
-                type="button"
-                key={item.top}
-                onClick={() =>
-                  emitAciAction(
-                    {
-                      label: `${item.top} ${item.bottom}`,
-                      query: `${compareAction.query} ${item.top}`,
-                      intent: ACI_INTENTS.COMPARISON,
-                      canvasType: ACI_CANVAS_TYPES.COMPARISON,
-                      vehicle,
-                    },
-                    onAction,
-                  )
-                }
-              >
-                <Icon size={13} />
-                <span>
-                  <strong>{item.top}</strong>
-                  <em>{item.bottom}</em>
-                </span>
-              </button>
-            );
-          })}
+  return (
+    <motion.section
+      className={`panel rivals-panel ${mobile ? "mobile-rivals-panel" : ""}`}
+      variants={fadeUp}
+    >
+      <PanelHead
+        title={`Compare with ${getVehicleModel(vehicle)}`}
+        action="More comparisons"
+        actionOnClick={() => emitAciAction(viewAllAction, onAction)}
+      />
+
+      {rivalsStatus === "loading" && !hasRivals ? (
+        <div
+          className="rival-card-grid is-loading"
+          aria-label="Loading similar cars"
+        >
+          {Array.from({ length: mobile ? 2 : 3 }).map((_, index) => (
+            <SkeletonCard key={`rival-loading-${index}`} variant="rival" />
+          ))}
+        </div>
+      ) : hasRivals ? (
+        <div className="rival-card-grid" aria-live="polite">
+          {rivals.slice(0, mobile ? 5 : 3).map((rival, index) => (
+            <RivalCard
+              key={`${rival.make}-${rival.model}`}
+              vehicle={vehicle}
+              rival={rival}
+              onAction={onAction}
+              priority={index < (mobile ? 2 : 3)}
+            />
+          ))}
         </div>
       ) : (
-        <div className="compare-empty-specs">
-          Live comparison facts will appear when backend sends specs.
-        </div>
+        <EmptyState
+          icon={Scale}
+          title="Live rivals are still loading"
+          text="Open the full list to continue exploring similar cars."
+          action={viewAllAction}
+          onAction={onAction}
+        />
       )}
     </motion.section>
   );
 }
 
 function DesktopPage({
-  data = {},
   vehicle = {},
+  rivals = [],
+  rivalsStatus,
   onAction,
-  savedIds,
-  onToggleSaved,
+  snapshotStatus,
+  onRetrySnapshot,
+  researchTopics,
 }) {
   return (
-    <>
-      <DesktopHeader data={data} onAction={onAction} />
+    <motion.main
+      className="desktop-page"
+      variants={stagger}
+      initial="hidden"
+      animate="visible"
+    >
+      <DesktopHero vehicle={vehicle} onAction={onAction} />
+      <OverviewActionBar vehicle={vehicle} onAction={onAction} />
+      {snapshotStatus === "error" ? (
+        <button
+          type="button"
+          className="overview-refresh-notice"
+          onClick={onRetrySnapshot}
+        >
+          <RefreshCw size={15} />
+          Refresh live vehicle data
+        </button>
+      ) : null}
 
-      <motion.main
-        className="desktop-page"
-        variants={stagger}
-        initial="hidden"
-        animate="visible"
-      >
-        <DesktopHero
+      <section className="desktop-grid">
+        <PopularVariantsPanel vehicle={vehicle} onAction={onAction} />
+        <HighlightsPanel vehicle={vehicle} onAction={onAction} />
+        <ResearchPathPanel
           vehicle={vehicle}
           onAction={onAction}
-          savedIds={savedIds}
-          onToggleSaved={onToggleSaved}
+          researchTopics={researchTopics}
         />
-        <DesktopActionStrip vehicle={vehicle} onAction={onAction} />
-
-        <section className="desktop-grid">
-          <AssistantPanel vehicle={vehicle} onAction={onAction} />
-
-          <div className="column">
-            <HighlightsPanel vehicle={vehicle} onAction={onAction} />
-            <PopularVariantsPanel
-              vehicle={vehicle}
-              onAction={onAction}
-              savedIds={savedIds}
-              onToggleSaved={onToggleSaved}
-            />
-          </div>
-
-          <div className="column">
-            <ColorsPanel vehicle={vehicle} onAction={onAction} />
-            <ComparePanel vehicle={vehicle} onAction={onAction} />
-          </div>
-        </section>
-
-        <AciComposer
+        <RivalsPanel
+          vehicle={vehicle}
+          rivals={rivals}
+          rivalsStatus={rivalsStatus}
           onAction={onAction}
-          selectedVehicle={vehicle}
-          placeholder={`Type ${getVehicleModel(vehicle)}, price, EMI, compare, quote...`}
         />
-      </motion.main>
-    </>
-  );
-}
+      </section>
 
-function MobileHeader({ data = {}, onAction }) {
-  return (
-    <header className="mobile-header">
-      <AciLogo mobile compact onAction={onAction} />
-
-      <div>
-        <button
-          type="button"
-          className="mobile-bell"
-          onClick={() => emitAciAction({ label: "Notifications" }, onAction)}
-          aria-label="Notifications"
-        >
-          <Bell size={27} />
-          <i />
-        </button>
-
-        <button
-          type="button"
-          className="mobile-avatar"
-          onClick={() => emitAciAction({ label: "Profile" }, onAction)}
-          aria-label="Profile"
-        >
-          {data?.avatarUrl ? (
-            <img src={data.avatarUrl} alt="Profile" />
-          ) : (
-            <span />
-          )}
-        </button>
-      </div>
-    </header>
+      <AciComposer
+        onAction={onAction}
+        selectedVehicle={vehicle}
+        placeholder={`Ask about ${getVehicleModel(vehicle)}...`}
+      />
+    </motion.main>
   );
 }
 
@@ -1438,24 +1358,10 @@ function MobileHero({ vehicle = {}, onAction }) {
 
   return (
     <motion.section className="mobile-overview-hero" variants={fadeUp}>
-      <button
-        type="button"
-        className="mobile-memory-chip"
-        onClick={() =>
-          emitAciAction(
-            {
-              label: "ACI Assist remembers this car",
-              query: getVehicleDisplayName(vehicle),
-              vehicle,
-              contextPatch: buildContextPatch(vehicle),
-            },
-            onAction,
-          )
-        }
-      >
-        <Sparkles size={16} />
-        ACI Assist remembers this car
-      </button>
+      <span className="mobile-memory-chip overview-kicker">
+        <ShieldCheck size={15} />
+        New car overview
+      </span>
 
       <div className="mobile-hero-grid">
         <div>
@@ -1463,7 +1369,9 @@ function MobileHero({ vehicle = {}, onAction }) {
           <p>
             {firstPresent(
               vehicle.subtitle,
-              vehicle.city ? `${vehicle.city} prices` : "New-car overview",
+              vehicle.city
+                ? `${formatCityName(vehicle.city)} prices`
+                : "New-car overview",
             )}
           </p>
 
@@ -1476,10 +1384,9 @@ function MobileHero({ vehicle = {}, onAction }) {
                   onClick={() =>
                     emitAciAction(
                       {
+                        ...priceListAction(vehicle),
                         label: chip,
                         query: `${getVehicleModel(vehicle)} ${chip}`,
-                        vehicle,
-                        contextPatch: buildContextPatch(vehicle),
                       },
                       onAction,
                     )
@@ -1521,40 +1428,14 @@ function MobileHero({ vehicle = {}, onAction }) {
   );
 }
 
-function MobileActions({ vehicle = {}, onAction }) {
-  const actions = buildOverviewActions(vehicle);
-
-  return (
-    <motion.section className="mobile-action-block" variants={fadeUp}>
-      <h2>What would you like to do?</h2>
-
-      <div>
-        {actions.map((item) => {
-          const Icon = resolveOverviewIcon(item.label, item.icon);
-
-          return (
-            <button
-              type="button"
-              key={item.id}
-              className={item.tone || "blue"}
-              onClick={() => emitAciAction(item, onAction)}
-            >
-              <Icon size={23} />
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </motion.section>
-  );
-}
-
 function MobilePage({
-  data = {},
   vehicle = {},
+  rivals = [],
+  rivalsStatus,
   onAction,
-  savedIds,
-  onToggleSaved,
+  snapshotStatus,
+  onRetrySnapshot,
+  researchTopics,
 }) {
   return (
     <motion.main
@@ -1563,26 +1444,39 @@ function MobilePage({
       initial="hidden"
       animate="visible"
     >
-      <MobileHeader data={data} onAction={onAction} />
       <MobileHero vehicle={vehicle} onAction={onAction} />
-      <MobileActions vehicle={vehicle} onAction={onAction} />
-      <AssistantPanel vehicle={vehicle} onAction={onAction} mobile />
-      <PopularVariantsPanel
+      <OverviewActionBar vehicle={vehicle} onAction={onAction} mobile />
+      {snapshotStatus === "error" ? (
+        <button
+          type="button"
+          className="overview-refresh-notice"
+          onClick={onRetrySnapshot}
+        >
+          <RefreshCw size={15} />
+          Refresh live vehicle data
+        </button>
+      ) : null}
+      <PopularVariantsPanel vehicle={vehicle} onAction={onAction} mobile />
+      <HighlightsPanel vehicle={vehicle} onAction={onAction} mobile />
+      <ResearchPathPanel
         vehicle={vehicle}
         onAction={onAction}
-        savedIds={savedIds}
-        onToggleSaved={onToggleSaved}
+        mobile
+        researchTopics={researchTopics}
+      />
+      <RivalsPanel
+        vehicle={vehicle}
+        rivals={rivals}
+        rivalsStatus={rivalsStatus}
+        onAction={onAction}
         mobile
       />
-      <HighlightsPanel vehicle={vehicle} onAction={onAction} mobile />
-      <ColorsPanel vehicle={vehicle} onAction={onAction} mobile />
-      <ComparePanel vehicle={vehicle} onAction={onAction} mobile />
 
       <AciComposer
         mobile
         onAction={onAction}
         selectedVehicle={vehicle}
-        placeholder={`Ask ACI Assist about ${getVehicleModel(vehicle)}...`}
+        placeholder={`Ask about ${getVehicleModel(vehicle)}...`}
       />
     </motion.main>
   );
@@ -1591,30 +1485,266 @@ function MobilePage({
 export default function AciAssistCarOverviewScreen({
   data = {},
   vehicle,
+  widget,
   onAction,
-  savedIds = new Set(),
-  onToggleSaved,
 }) {
-  const selectedVehicle = vehicle || data?.selectedVehicle || {};
+  const [liveSnapshot, setLiveSnapshot] = useState(null);
+  const [snapshotStatus, setSnapshotStatus] = useState("idle");
+  const [snapshotRequest, setSnapshotRequest] = useState(0);
+  const [similarVehicles, setSimilarVehicles] = useState([]);
+  const [similarStatus, setSimilarStatus] = useState("idle");
+  const [liveFeatures, setLiveFeatures] = useState([]);
+
+  const baseVehicle = useMemo(() => {
+    const widgetData = isObject(widget?.data) ? widget.data : {};
+    const widgetVehicle =
+      widget?.vehicle ||
+      widget?.selectedVehicle ||
+      widgetData.vehicle ||
+      widgetData.selectedVehicle ||
+      null;
+    const supplemental = {
+      variants: toArray(
+        widgetData.rows ||
+          widget?.rows ||
+          widgetData.variants ||
+          widget?.variants,
+      ),
+      colors: toArray(widgetData.colors || widget?.colors),
+      highlights: firstList(
+        widgetData.highlights,
+        widget?.highlights,
+        data?.highlights,
+      ),
+      quickSpecs: firstList(
+        widgetData.quickSpecs,
+        widget?.quickSpecs,
+        data?.quickSpecs,
+      ),
+      features: firstList(
+        widgetData.features,
+        widgetData.featureList,
+        widget?.features,
+        widget?.featureList,
+        data?.features,
+        data?.featureList,
+      ),
+      featureGroups: firstList(
+        widgetData.featureGroups,
+        widgetData.groups,
+        widget?.featureGroups,
+        widget?.groups,
+        data?.featureGroups,
+        data?.groups,
+      ),
+    };
+
+    return mergeVehicleSources(
+      data?.selectedVehicle,
+      data?.vehicle,
+      widgetVehicle,
+      supplemental,
+      vehicle,
+    );
+  }, [data, vehicle, widget]);
+
+  const snapshotKey = [
+    firstPresent(baseVehicle.make, baseVehicle.brand),
+    baseVehicle.model,
+    firstPresent(baseVehicle.citySlug, baseVehicle.city, data?.city, "Delhi"),
+  ]
+    .map(compact)
+    .join("|");
+
+  useEffect(() => {
+    const make = firstPresent(baseVehicle.make, baseVehicle.brand);
+    const model = baseVehicle.model;
+    const city = firstPresent(
+      baseVehicle.citySlug,
+      baseVehicle.city,
+      data?.city,
+      "Delhi",
+    );
+
+    if (!make || !model) {
+      setSnapshotStatus("error");
+      setLiveSnapshot(null);
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setSnapshotStatus("loading");
+
+    fetchAciVehicleLiveSnapshot({
+      make,
+      model,
+      city,
+      signal: controller.signal,
+    })
+      .then((snapshot) => {
+        if (controller.signal.aborted) return;
+        if (!snapshot?.ok || !snapshot.vehicle) {
+          setSnapshotStatus("error");
+          return;
+        }
+        setLiveSnapshot(snapshot);
+        setSnapshotStatus("ready");
+      })
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        setSnapshotStatus("error");
+      });
+
+    return () => controller.abort();
+  }, [baseVehicle, data?.city, snapshotKey, snapshotRequest]);
+
+  const selectedVehicle = useMemo(() => {
+    const liveVehicle = liveSnapshot?.vehicle || {};
+    const rows = toArray(liveSnapshot?.rows);
+    const colors = toArray(liveSnapshot?.colors);
+    const merged = mergeVehicleSources(baseVehicle, liveVehicle, {
+      variants: rows.length ? rows : liveVehicle.variants,
+      colors: colors.length ? colors : liveVehicle.colors,
+    });
+    return {
+      ...merged,
+      imageUrl: merged.imageUrl,
+      heroImageUrl: firstPresent(merged.heroImageUrl, merged.imageUrl),
+    };
+  }, [baseVehicle, liveSnapshot]);
+
+  const highlightVariant = useMemo(() => {
+    const range = selectRangeVariants(selectedVehicle.variants);
+    return range[range.length - 1] || selectedVehicle.variants?.[0] || null;
+  }, [selectedVehicle.variants]);
+  const highlightKey = [
+    firstPresent(selectedVehicle.make, selectedVehicle.brand),
+    selectedVehicle.model,
+    firstPresent(highlightVariant?.variant, highlightVariant?.name),
+  ]
+    .map(compact)
+    .join("|");
+
+  useEffect(() => {
+    const make = firstPresent(selectedVehicle.make, selectedVehicle.brand);
+    const model = selectedVehicle.model;
+    const variant = firstPresent(
+      highlightVariant?.variant,
+      highlightVariant?.name,
+    );
+    setLiveFeatures([]);
+    if (!make || !model || !variant) return undefined;
+
+    const controller = new AbortController();
+    fetchAciVehicleHighlights({
+      make,
+      model,
+      variant,
+      signal: controller.signal,
+    })
+      .then((features) => {
+        if (!controller.signal.aborted) setLiveFeatures(toArray(features));
+      })
+      .catch((error) => {
+        if (error?.name !== "AbortError" && !controller.signal.aborted) {
+          setLiveFeatures([]);
+        }
+      });
+
+    return () => controller.abort();
+  }, [highlightKey, highlightVariant, selectedVehicle]);
+
+  const overviewVehicle = useMemo(
+    () =>
+      mergeVehicleSources(
+        selectedVehicle,
+        liveFeatures.length ? { features: liveFeatures } : {},
+      ),
+    [liveFeatures, selectedVehicle],
+  );
+
+  const similarVehiclesKey = [
+    firstPresent(selectedVehicle.make, selectedVehicle.brand),
+    selectedVehicle.model,
+    firstPresent(
+      selectedVehicle.citySlug,
+      selectedVehicle.city,
+      data?.city,
+      "Delhi",
+    ),
+    selectedVehicle.exShowroomPrice,
+    selectedVehicle.startingOnRoadPrice,
+  ]
+    .map(compact)
+    .join("|");
+
+  useEffect(() => {
+    const make = firstPresent(selectedVehicle.make, selectedVehicle.brand);
+    const model = selectedVehicle.model;
+    const city = firstPresent(
+      selectedVehicle.citySlug,
+      selectedVehicle.city,
+      data?.city,
+      "Delhi",
+    );
+
+    if (!make || !model || snapshotStatus === "loading") {
+      return undefined;
+    }
+
+    const controller = new AbortController();
+    setSimilarStatus("loading");
+    setSimilarVehicles([]);
+
+    fetchAciSimilarVehicles({
+      vehicle: selectedVehicle,
+      city,
+      limit: 8,
+      signal: controller.signal,
+    })
+      .then((rows) => {
+        if (controller.signal.aborted) return;
+        setSimilarVehicles(toArray(rows));
+        setSimilarStatus("ready");
+      })
+      .catch((error) => {
+        if (error?.name === "AbortError") return;
+        setSimilarVehicles([]);
+        setSimilarStatus("error");
+      });
+
+    return () => controller.abort();
+  }, [data?.city, selectedVehicle, similarVehiclesKey, snapshotStatus]);
+
+  const researchRecord = useMemo(
+    () => getVehicleResearch(data?.researchByVehicle, selectedVehicle),
+    [data?.researchByVehicle, selectedVehicle],
+  );
+  const researchTopics = researchRecord?.topics || {};
 
   return (
     <div className="aci-page aci-car-overview-page">
       <CarOverviewScreenStyles />
+      <CarOverviewRedesignStyles />
 
       <DesktopPage
-        data={data}
-        vehicle={selectedVehicle}
+        vehicle={overviewVehicle}
+        rivals={similarVehicles}
+        rivalsStatus={similarStatus}
         onAction={onAction}
-        savedIds={savedIds}
-        onToggleSaved={onToggleSaved}
+        snapshotStatus={snapshotStatus}
+        onRetrySnapshot={() => setSnapshotRequest((value) => value + 1)}
+        researchTopics={researchTopics}
       />
 
       <MobilePage
-        data={data}
-        vehicle={selectedVehicle}
+        vehicle={overviewVehicle}
+        rivals={similarVehicles}
+        rivalsStatus={similarStatus}
         onAction={onAction}
-        savedIds={savedIds}
-        onToggleSaved={onToggleSaved}
+        snapshotStatus={snapshotStatus}
+        onRetrySnapshot={() => setSnapshotRequest((value) => value + 1)}
+        researchTopics={researchTopics}
       />
     </div>
   );
@@ -3030,6 +3160,2380 @@ function CarOverviewScreenStyles() {
       }
 
       /* ACI_CAR_OVERVIEW_FINAL_TIGHTEN_END */
+
+      /* Focused car research workspace */
+      .aci-car-overview-page,
+      .aci-car-overview-page * {
+        letter-spacing: 0 !important;
+      }
+
+      .aci-car-overview-page {
+        padding-bottom: 0;
+        background: #f7f9fc;
+      }
+
+      .desktop-header,
+      .desktop-page {
+        width: min(100%, 1280px);
+      }
+
+      .desktop-header {
+        min-height: 68px;
+        padding: 10px 28px 6px;
+        grid-template-columns: 210px minmax(340px, 620px) 210px;
+      }
+
+      .desktop-search {
+        height: 48px;
+        border-radius: 16px;
+        box-shadow: 0 12px 32px -28px rgba(15,23,42,.34);
+      }
+
+      .desktop-search button {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        color: #fff;
+        background: #0f5ff1;
+      }
+
+      .desktop-search button:disabled {
+        color: #94a3b8;
+        background: #f1f5f9;
+      }
+
+      .desktop-page {
+        padding: 10px 28px 38px;
+        gap: 12px;
+      }
+
+      .desktop-overview-hero {
+        min-height: 300px;
+        border-radius: 24px;
+        padding: 28px 30px;
+        grid-template-columns: minmax(310px, 1fr) minmax(330px, .92fr) 238px;
+        gap: 16px;
+      }
+
+      .hero-copy h1,
+      .mobile-hero-grid h1,
+      .desktop-action-strip h2,
+      .panel-head h3 {
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+
+      .hero-copy h1 {
+        font-size: 52px;
+        line-height: .98;
+        font-weight: 780;
+      }
+
+      .hero-badges { margin-bottom: 17px; }
+      .hero-subtitle { margin-top: 14px; font-size: 15px; }
+      .hero-chips { margin-top: 17px; gap: 8px; }
+      .hero-chips button { height: 34px; border-radius: 11px; padding-inline: 13px; }
+      .hero-car-stage { min-height: 230px; }
+      .hero-car-photo { height: 230px; }
+
+      .price-card {
+        padding: 20px 18px;
+        border-radius: 18px;
+        background: #fff;
+      }
+
+      .price-card strong { font-size: 31px; }
+      .price-card button { height: 44px; border-radius: 13px; }
+
+      .desktop-action-strip {
+        min-height: 68px;
+        border-radius: 20px;
+        padding: 12px 20px;
+        grid-template-columns: 210px 1fr;
+      }
+
+      .desktop-action-strip h2 { font-size: 17px; font-weight: 730; }
+      .action-pill { height: 38px; min-width: 105px; border-radius: 12px; }
+      .action-pill:hover { transform: none; border-color: #9fbff7; }
+
+      .desktop-grid {
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 12px;
+        align-items: start;
+      }
+
+      .panel { border-radius: 20px; }
+      .variants-panel,
+      .highlights-panel,
+      .colors-panel,
+      .compare-panel,
+      .research-path-panel {
+        height: auto;
+      }
+
+      .desktop-grid > .variants-panel { grid-column: 1 / span 8; min-height: 374px; }
+      .desktop-grid > .research-path-panel { grid-column: 9 / -1; min-height: 374px; }
+      .desktop-grid > .highlights-panel { grid-column: 1 / span 8; min-height: 196px; }
+      .desktop-grid > .colors-panel { grid-column: 9 / -1; min-height: 196px; }
+      .desktop-grid > .compare-panel { grid-column: 1 / -1; min-height: 0; }
+
+      .desktop-grid > .compare-empty-panel .compare-empty-state {
+        min-height: 104px;
+        margin-top: 14px;
+        padding: 14px 16px;
+        grid-template-columns: 58px minmax(0, 1fr) auto;
+        grid-template-rows: 1fr;
+        gap: 16px;
+        text-align: left;
+      }
+
+      .desktop-grid > .compare-empty-panel .compare-empty-state > span {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+      }
+
+      .desktop-grid > .compare-empty-panel .compare-empty-state h4 {
+        margin: 0 0 5px;
+        font-size: 15px;
+      }
+
+      .desktop-grid > .compare-empty-panel .compare-empty-state button {
+        margin-top: 0;
+      }
+
+      .panel-head h3 { font-size: 18px; line-height: 1.15; font-weight: 750; }
+      .panel-head p { margin-top: 4px; }
+
+      .research-proof-row {
+        margin-top: 16px;
+        padding: 12px 0;
+        border-top: 1px solid #e5eaf2;
+        border-bottom: 1px solid #e5eaf2;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .research-proof-row span {
+        min-width: 0;
+        padding: 0 9px;
+        border-right: 1px solid #e5eaf2;
+        color: #64748b;
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        font-size: 10px;
+        line-height: 1.2;
+        text-transform: uppercase;
+        font-weight: 700;
+      }
+
+      .research-proof-row span:first-child { padding-left: 0; }
+      .research-proof-row span:last-child { border-right: 0; }
+      .research-proof-row strong { color: #0f172a; font-size: 14px; text-transform: none; }
+
+      .research-step-list {
+        margin-top: 8px;
+        display: grid;
+      }
+
+      .research-step-list > button {
+        width: 100%;
+        min-height: 72px;
+        padding: 10px 0;
+        border: 0;
+        border-bottom: 1px solid #e8edf4;
+        background: transparent;
+        color: #64748b;
+        display: grid;
+        grid-template-columns: 22px 38px minmax(0, 1fr) 20px;
+        align-items: center;
+        gap: 9px;
+        text-align: left;
+      }
+
+      .research-step-list > button:last-child { border-bottom: 0; }
+      .research-step-list > button:hover .research-step-copy strong { color: #0f5ff1; }
+
+      .research-step-index {
+        color: #94a3b8;
+        font-size: 10px;
+        font-weight: 800;
+      }
+
+      .research-step-icon {
+        width: 36px;
+        height: 36px;
+        border: 1px solid #dbe6f8;
+        border-radius: 11px;
+        background: #f6f9ff;
+        color: #0f5ff1;
+        display: grid;
+        place-items: center;
+      }
+
+      .research-step-copy {
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .research-step-copy small { color: #64748b; font-size: 9px; text-transform: uppercase; font-weight: 750; }
+      .research-step-copy strong { color: #0f172a; font-size: 12.5px; line-height: 1.2; font-weight: 750; }
+      .research-step-copy em { color: #64748b; font-size: 10.5px; line-height: 1.25; font-style: normal; font-weight: 520; }
+
+      .overview-refresh-notice {
+        min-height: 40px;
+        border: 1px solid #f5d0a8;
+        border-radius: 12px;
+        background: #fffaf3;
+        color: #9a5d16;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 7px;
+        font-size: 12px;
+        font-weight: 720;
+      }
+
+      .aci-car-overview-page button:focus-visible,
+      .aci-car-overview-page input:focus-visible {
+        outline: 3px solid rgba(37,99,235,.24);
+        outline-offset: 2px;
+      }
+
+      @media (max-width: 1180px) {
+        .mobile-page {
+          gap: 14px;
+          padding-bottom: calc(28px + env(safe-area-inset-bottom)) !important;
+        }
+
+        .mobile-overview-hero {
+          min-height: 360px !important;
+          border-radius: 22px;
+        }
+
+        .mobile-hero-grid h1 {
+          font-size: 36px !important;
+          line-height: 1;
+          font-weight: 780;
+        }
+
+        .mobile-action-block h2 { font-size: 21px; font-weight: 750; }
+        .mobile-action-block h2 {
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .mobile-action-block button { border-radius: 16px; }
+        .mobile-variants-panel,
+        .mobile-colors-panel,
+        .mobile-compare-panel,
+        .mobile-research-path { border-radius: 20px; }
+
+        .mobile-research-path { min-height: 0; }
+        .mobile-research-path .research-proof-row { margin-top: 13px; }
+        .mobile-research-path .research-step-list > button { min-height: 68px; }
+        .mobile-research-path .research-step-copy em { display: none; }
+      }
+
+      @media (max-width: 460px) {
+        .mobile-page {
+          padding-bottom: calc(24px + env(safe-area-inset-bottom)) !important;
+        }
+
+        .mobile-overview-hero { min-height: 348px !important; }
+        .mobile-price-card { grid-template-columns: minmax(0, 1fr) 126px !important; }
+        .mobile-price-card strong { font-size: 25px; }
+        .mobile-price-card button { width: auto; font-size: 12px; }
+      }
+
+      /* Product-detail refinement: fewer containers, clearer research progression. */
+      .aci-car-overview-page {
+        background: #fff;
+      }
+
+      .desktop-page {
+        width: min(100%, 1240px);
+        padding: 6px 28px 30px;
+        gap: 0;
+      }
+
+      .overview-hero {
+        min-height: 302px;
+        border: 0;
+        border-bottom: 1px solid #e4e9f1;
+        border-radius: 0;
+        padding: 28px 0 24px;
+        background: #fff;
+        box-shadow: none;
+        grid-template-columns: minmax(280px, .9fr) minmax(380px, 1.15fr) 220px;
+        gap: 28px;
+      }
+
+      .overview-hero::before,
+      .overview-hero::after { display: none; }
+
+      .hero-copy h1 {
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: clamp(38px, 4vw, 55px);
+        line-height: 1;
+        letter-spacing: 0;
+        font-weight: 780;
+      }
+
+      .hero-car-stage {
+        min-height: 248px;
+        border-radius: 18px;
+        background: #f6f8fb;
+        box-shadow: inset 0 0 0 1px #edf1f6;
+      }
+
+      .hero-car-photo {
+        width: 110%;
+        height: 248px;
+      }
+
+      .price-card {
+        align-self: stretch;
+        min-height: 0;
+        border: 0;
+        border-left: 1px solid #e4e9f1;
+        border-radius: 0;
+        padding: 28px 0 18px 24px;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .price-card button {
+        border-radius: 10px;
+        box-shadow: none;
+      }
+
+      .desktop-action-strip {
+        min-height: 74px;
+        margin: 0;
+        padding: 14px 0;
+        border: 0;
+        border-bottom: 1px solid #e4e9f1;
+        border-radius: 0;
+        background: #fff;
+        box-shadow: none;
+      }
+
+      .action-strip-heading {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 750;
+      }
+
+      .action-strip-heading small {
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .desktop-action-strip .action-pill {
+        height: 38px;
+        border: 0;
+        border-radius: 0;
+        padding: 0 16px;
+        background: transparent;
+        box-shadow: none;
+        color: #25324a;
+      }
+
+      .desktop-action-strip .action-pill + .action-pill {
+        border-left: 1px solid #e4e9f1;
+      }
+
+      .desktop-action-strip .action-pill:hover {
+        background: #f5f7fa;
+        color: #0758f8;
+      }
+
+      .desktop-grid {
+        margin-top: 0;
+        gap: 0 28px;
+      }
+
+      .desktop-grid > .panel {
+        min-height: 0;
+        padding: 26px 0;
+        border: 0;
+        border-bottom: 1px solid #e4e9f1;
+        border-radius: 0;
+        background: #fff;
+        box-shadow: none;
+      }
+
+      .desktop-grid > .research-path-panel {
+        grid-column: 1 / -1;
+        order: 1;
+      }
+
+      .desktop-grid > .variants-panel {
+        grid-column: 1 / -1;
+        order: 2;
+      }
+
+      .desktop-grid > .highlights-panel {
+        grid-column: 1 / span 7;
+        order: 3;
+      }
+
+      .desktop-grid > .colors-panel {
+        grid-column: 8 / -1;
+        order: 3;
+      }
+
+      .desktop-grid > .compare-panel {
+        grid-column: 1 / -1;
+        order: 4;
+      }
+
+      .research-path-panel .panel-head {
+        align-items: end;
+      }
+
+      .research-path-panel .research-proof-row {
+        margin-top: 18px;
+        padding: 0;
+        border: 0;
+        width: min(100%, 430px);
+      }
+
+      .research-step-list {
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: repeat(var(--research-step-count, 3), minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .research-step-list[data-count="1"] {
+        grid-template-columns: minmax(0, 390px);
+      }
+
+      .research-step-list > button {
+        min-height: 96px;
+        padding: 14px;
+        border: 1px solid #dde4ee;
+        border-radius: 14px;
+        grid-template-columns: 36px minmax(0, 1fr) 20px;
+        gap: 12px;
+        background: #fff;
+      }
+
+      .research-step-list > button:hover {
+        border-color: #b9c8df;
+        background: #f8fafc;
+      }
+
+      .research-step-index { display: none; }
+      .research-step-icon { border-radius: 10px; }
+      .research-step-copy strong { font-size: 13px; }
+      .research-step-copy em { font-size: 11px; }
+
+      .research-complete-row {
+        margin-top: 14px;
+        color: #64748b;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 11px;
+      }
+
+      .research-complete-row svg { color: #15803d; }
+      .research-complete-row strong { color: #334155; font-weight: 650; }
+
+      .variant-card {
+        border-radius: 14px;
+        box-shadow: none;
+      }
+
+      .variant-heart { display: none; }
+
+      .stat-card {
+        border: 0;
+        border-right: 1px solid #e4e9f1;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      .stat-card:last-child { border-right: 0; }
+
+      .colors-row { justify-content: flex-start; gap: 14px; }
+      .color-orb { width: 42px; height: 42px; }
+
+      .desktop-grid > .rivals-panel {
+        grid-column: 1 / -1;
+        order: 4;
+      }
+
+      .rivals-panel .panel-head {
+        align-items: end;
+      }
+
+      .rival-card-grid {
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .rival-card {
+        min-width: 0;
+        min-height: 244px;
+        border: 1px solid #dde4ee;
+        border-radius: 14px;
+        background: #fff;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: minmax(0, 1fr) 42px;
+        transition: border-color 180ms ease, box-shadow 180ms ease;
+      }
+
+      .rival-card:hover {
+        border-color: #b9c8df;
+        box-shadow: 0 14px 34px -30px rgba(15,23,42,.42);
+      }
+
+      .rival-overview-button {
+        min-width: 0;
+        grid-column: 1 / -1;
+        border: 0;
+        padding: 12px 12px 9px;
+        background: transparent;
+        color: #0f172a;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: auto 116px auto auto;
+        align-items: end;
+        gap: 2px 10px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .rival-match {
+        grid-column: 1 / -1;
+        justify-self: start;
+        min-height: 24px;
+        padding: 0 9px;
+        border: 1px solid #dce7f8;
+        border-radius: 999px;
+        background: #f5f8fd;
+        color: #3d5578;
+        display: inline-flex;
+        align-items: center;
+        font-size: 9.5px;
+        line-height: 1;
+        font-weight: 720;
+      }
+
+      .rival-visual {
+        grid-column: 1 / -1;
+        width: 100%;
+        height: 116px;
+        border-radius: 11px;
+        background: #f6f8fb;
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+        box-shadow: inset 0 0 0 1px #edf1f6;
+      }
+
+      .rival-visual > * {
+        width: 100%;
+        max-width: 100%;
+      }
+
+      .rival-overview-button small {
+        grid-column: 1;
+        color: #64748b;
+        font-size: 9.5px;
+        line-height: 1.2;
+        font-weight: 650;
+      }
+
+      .rival-overview-button strong {
+        grid-column: 1;
+        min-width: 0;
+        color: #0f172a;
+        font-size: 16px;
+        line-height: 1.18;
+        font-weight: 760;
+        overflow-wrap: anywhere;
+      }
+
+      .rival-overview-button p {
+        grid-column: 2;
+        grid-row: 3 / span 2;
+        align-self: end;
+        margin: 0;
+        color: #64748b;
+        display: flex;
+        flex-direction: column;
+        align-items: end;
+        gap: 2px;
+        font-size: 9px;
+        line-height: 1.2;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .rival-overview-button p b {
+        color: #0f172a;
+        font-size: 13px;
+        font-weight: 760;
+      }
+
+      .rival-compare-button {
+        grid-column: 1 / -1;
+        width: 100%;
+        min-height: 42px;
+        border: 0;
+        border-top: 1px solid #edf1f6;
+        padding: 0 12px;
+        background: transparent;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 10.5px;
+        font-weight: 720;
+        cursor: pointer;
+      }
+
+      .rival-compare-button:hover {
+        background: #f8fafc;
+        color: #0758f8;
+      }
+
+      .rival-card-grid .skeleton-card.rival {
+        min-height: 244px;
+        border-radius: 14px;
+      }
+
+      @media (max-width: 1180px) {
+        .aci-car-overview-page { background: #fff; }
+
+        .mobile-page {
+          width: min(100%, 430px);
+          max-width: 430px;
+          padding: 4px 18px calc(28px + env(safe-area-inset-bottom));
+          gap: 0;
+          background: #fff;
+          box-shadow: none;
+        }
+
+        .mobile-overview-hero {
+          min-height: 0 !important;
+          padding: 22px 0 18px;
+          border: 0;
+          border-bottom: 1px solid #e4e9f1;
+          border-radius: 0;
+          background: #fff;
+          box-shadow: none;
+        }
+
+        .mobile-memory-chip {
+          height: auto;
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+          font-size: 10px;
+          text-transform: uppercase;
+        }
+
+        .mobile-hero-grid h1 {
+          font-size: 34px !important;
+          letter-spacing: 0;
+        }
+
+        .mobile-hero-car {
+          min-height: 154px;
+          margin: 2px 0 0;
+          border-radius: 16px;
+          background: #f6f8fb;
+          box-shadow: inset 0 0 0 1px #edf1f6;
+          overflow: hidden;
+        }
+
+        .mobile-hero-car-photo { width: 110%; height: 154px; }
+
+        .mobile-price-card {
+          min-height: 74px;
+          padding: 14px 0 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+        }
+
+        .mobile-price-card button {
+          height: 42px;
+          border-radius: 10px;
+          box-shadow: none;
+        }
+
+        .mobile-action-block {
+          padding: 20px 0;
+          border-bottom: 1px solid #e4e9f1;
+          gap: 12px;
+        }
+
+        .mobile-action-block h2 { padding: 0; font-size: 17px; }
+        .mobile-action-block > div { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+
+        .mobile-action-block button {
+          height: 48px;
+          border: 0;
+          border-bottom: 1px solid #edf1f6;
+          border-radius: 0;
+          background: transparent;
+          color: #25324a;
+          flex-direction: row;
+          justify-content: flex-start;
+          padding: 0 6px;
+          gap: 8px;
+        }
+
+        .mobile-action-block button:nth-child(odd) { border-right: 1px solid #edf1f6; }
+        .mobile-action-block button svg { width: 17px; height: 17px; color: #0758f8; }
+
+        .mobile-page > .panel,
+        .mobile-page > .mobile-stat-strip {
+          min-height: 0;
+          padding: 22px 0;
+          border: 0;
+          border-bottom: 1px solid #e4e9f1;
+          border-radius: 0;
+          background: #fff;
+          box-shadow: none;
+        }
+
+        .mobile-page > .mobile-stat-strip {
+          display: grid;
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .mobile-research-path .research-step-list {
+          grid-template-columns: 1fr;
+          gap: 0;
+        }
+
+        .mobile-research-path .research-step-list > button {
+          min-height: 66px;
+          padding: 10px 0;
+          border: 0;
+          border-bottom: 1px solid #edf1f6;
+          border-radius: 0;
+          background: transparent;
+        }
+
+        .mobile-research-path .research-step-list > button:last-child { border-bottom: 0; }
+        .mobile-research-path .research-step-copy em { display: block; }
+
+        .mobile-variants-panel .variant-card { border-radius: 12px; }
+        .mobile-colors-panel .colors-row { overflow-x: auto; padding-bottom: 4px; }
+
+        .mobile-rivals-panel .panel-head {
+          align-items: end;
+        }
+
+        .rival-card-grid {
+          width: 100%;
+          margin-top: 14px;
+          padding: 0 34px 4px 0;
+          display: flex;
+          gap: 10px;
+          overflow-x: auto;
+          overscroll-behavior-inline: contain;
+          scroll-snap-type: x mandatory;
+          scroll-padding-inline: 0;
+          scrollbar-width: none;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .rival-card-grid::-webkit-scrollbar { display: none; }
+
+        .rival-card {
+          flex: 0 0 100%;
+          min-height: 236px;
+          scroll-snap-align: start;
+          scroll-snap-stop: always;
+        }
+
+        .rival-overview-button {
+          grid-template-rows: auto 110px auto auto;
+        }
+
+        .rival-visual { height: 110px; }
+
+        .rival-card-grid .skeleton-card.rival {
+          flex: 0 0 100%;
+          min-height: 236px;
+          scroll-snap-align: start;
+        }
+      }
 `}</style>
+  );
+}
+
+function CarOverviewRedesignStyles() {
+  return (
+    <style>{`
+      /* 2026 overview redesign: a single product-detail system. */
+      .aci-page.aci-car-overview-page {
+        --overview-ink: #111827;
+        --overview-muted: #64748b;
+        --overview-line: #dfe5ee;
+        --overview-soft: #f3f6fa;
+        --overview-blue: #075ee8;
+        min-height: 100vh;
+        padding-bottom: 112px;
+        background: #f6f8fb;
+        color: var(--overview-ink);
+      }
+
+      body:has(.aci-car-overview-page) .aci-v2-portal-header,
+      body:has(.aci-car-overview-page) .aci-v2-portal-header.is-compact {
+        width: min(calc(100% - 40px), 1240px);
+      }
+
+      .aci-page.aci-car-overview-page .desktop-page {
+        width: min(calc(100% - 40px), 1240px);
+        margin: 0 auto;
+        padding: 18px 0 40px;
+        gap: 14px;
+      }
+
+      .aci-page.aci-car-overview-page .mobile-page { display: none; }
+
+      .aci-page.aci-car-overview-page .overview-hero {
+        min-height: 344px;
+        padding: 30px;
+        border: 1px solid #e1e7ef;
+        border-radius: 24px;
+        background: #fff;
+        box-shadow: 0 20px 55px -46px rgba(15, 23, 42, .55);
+        display: grid;
+        grid-template-columns: minmax(270px, .86fr) minmax(410px, 1.28fr) 246px;
+        align-items: stretch;
+        gap: 24px;
+        overflow: hidden;
+      }
+
+      .aci-page.aci-car-overview-page .overview-hero::before,
+      .aci-page.aci-car-overview-page .overview-hero::after { display: none; }
+
+      .aci-page.aci-car-overview-page .hero-copy {
+        min-width: 0;
+        align-self: center;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .aci-page.aci-car-overview-page .overview-kicker {
+        margin: 0 0 14px;
+        color: var(--overview-blue);
+        font-size: 11px;
+        line-height: 1;
+        font-weight: 780;
+        letter-spacing: 0;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .hero-copy h1 {
+        max-width: 330px;
+        margin: 0;
+        color: #0b1533;
+        font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 48px;
+        line-height: .98;
+        font-weight: 790;
+        letter-spacing: 0;
+        text-wrap: balance;
+      }
+
+      .aci-page.aci-car-overview-page .hero-subtitle {
+        min-height: 34px;
+        margin-top: 15px;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #526077;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .hero-subtitle:hover { color: var(--overview-blue); }
+
+      .aci-page.aci-car-overview-page .hero-chips {
+        margin-top: 16px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 7px;
+      }
+
+      .aci-page.aci-car-overview-page .hero-chips button,
+      .aci-page.aci-car-overview-page .mobile-hero-chips button {
+        min-height: 30px;
+        padding: 0 10px;
+        border: 1px solid #dce3ec;
+        border-radius: 7px;
+        background: #fff;
+        color: #334155;
+        font-size: 11px;
+        font-weight: 650;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .hero-chips button:hover {
+        border-color: #aebfd9;
+        background: #f7f9fc;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-stage {
+        position: relative;
+        min-height: 282px;
+        border-radius: 18px;
+        background: #f1f4f8;
+        box-shadow: inset 0 0 0 1px #e7ebf1;
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-stage::after {
+        content: "";
+        position: absolute;
+        left: 11%;
+        right: 11%;
+        bottom: 28px;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(39, 55, 78, .1);
+        filter: blur(9px);
+      }
+
+      .aci-page.aci-car-overview-page .hero-stage-label,
+      .aci-page.aci-car-overview-page .hero-stage-caption {
+        position: absolute;
+        z-index: 2;
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 700;
+      }
+
+      .aci-page.aci-car-overview-page .hero-stage-label { top: 16px; left: 17px; text-transform: uppercase; }
+      .aci-page.aci-car-overview-page .hero-stage-caption { right: 17px; bottom: 14px; }
+
+      .aci-page.aci-car-overview-page .hero-car-photo {
+        position: relative;
+        z-index: 1;
+        width: 112%;
+        height: 266px;
+      }
+
+      .aci-page.aci-car-overview-page .price-card {
+        align-self: stretch;
+        min-height: 0;
+        padding: 24px 0 4px 24px;
+        border: 0;
+        border-left: 1px solid #e3e8ef;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > p {
+        margin: 0;
+        color: #64748b;
+        font-size: 10px;
+        line-height: 1.2;
+        font-weight: 760;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > strong {
+        margin-top: 9px;
+        color: #0b1533;
+        font-size: 31px;
+        line-height: 1;
+        font-weight: 790;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > span {
+        margin-top: 8px;
+        color: #64748b;
+        font-size: 11px;
+        font-weight: 600;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > button {
+        width: 100%;
+        min-height: 44px;
+        margin-top: 22px;
+        border: 0;
+        border-radius: 8px;
+        padding: 0 14px;
+        background: var(--overview-blue);
+        color: #fff;
+        box-shadow: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 12px;
+        font-weight: 730;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > button:hover { background: #064fc2; }
+
+      .aci-page.aci-car-overview-page .price-card-facts {
+        margin-top: auto;
+        padding-top: 18px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .aci-page.aci-car-overview-page .price-card-facts span {
+        color: #64748b;
+        font-size: 10px;
+        font-weight: 600;
+      }
+
+      .aci-page.aci-car-overview-page .price-card-facts b {
+        color: #25324a;
+        font-weight: 750;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-bar {
+        min-height: 70px;
+        padding: 0 16px 0 22px;
+        border: 1px solid #e1e7ef;
+        border-radius: 14px;
+        background: #fff;
+        box-shadow: 0 16px 42px -40px rgba(15, 23, 42, .5);
+        display: grid;
+        grid-template-columns: 128px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-heading {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-heading span {
+        color: #94a3b8;
+        font-size: 9px;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-heading strong {
+        color: #16213d;
+        font-size: 14px;
+        font-weight: 750;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-list {
+        min-width: 0;
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-list button {
+        min-width: 0;
+        min-height: 40px;
+        padding: 0 11px;
+        border: 0;
+        border-left: 1px solid #e8ecf2;
+        background: transparent;
+        color: #334155;
+        display: grid;
+        grid-template-columns: 19px minmax(0, 1fr) 14px;
+        align-items: center;
+        gap: 7px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-list button svg:first-child { color: #46617f; }
+      .aci-page.aci-car-overview-page .overview-action-list button svg:last-child { color: #94a3b8; }
+      .aci-page.aci-car-overview-page .overview-action-list button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; font-weight: 680; }
+      .aci-page.aci-car-overview-page .overview-action-list button:hover { background: #f7f9fc; color: var(--overview-blue); }
+
+      .aci-page.aci-car-overview-page .desktop-grid {
+        margin-top: 6px;
+        display: grid;
+        grid-template-columns: repeat(12, minmax(0, 1fr));
+        gap: 18px;
+        align-items: start;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .panel {
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .variants-panel { grid-column: 1 / span 8; order: 1; }
+      .aci-page.aci-car-overview-page .desktop-grid > .research-path-panel { grid-column: 9 / -1; order: 1; }
+      .aci-page.aci-car-overview-page .desktop-grid > .rivals-panel { grid-column: 1 / -1; order: 2; }
+
+      .aci-page.aci-car-overview-page .panel-head {
+        min-height: 48px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .aci-page.aci-car-overview-page .panel-head h3 { margin: 0; color: #111b36; font-size: 19px; line-height: 1.15; font-weight: 760; }
+      .aci-page.aci-car-overview-page .panel-head p { margin: 4px 0 0; color: #7a879b; font-size: 11px; line-height: 1.3; font-weight: 550; }
+      .aci-page.aci-car-overview-page .panel-head > button { min-height: 30px; padding: 0; border: 0; background: transparent; color: #3b526f; display: inline-flex; align-items: center; gap: 3px; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+      .aci-page.aci-car-overview-page .panel-head > button:hover { color: var(--overview-blue); }
+
+      .aci-page.aci-car-overview-page .variant-card-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0;
+        min-height: 228px;
+        border: 1px solid #dee5ee;
+        border-radius: 14px;
+        background: #fff;
+        overflow: hidden;
+      }
+
+      .aci-page.aci-car-overview-page .variant-card {
+        min-width: 0;
+        min-height: 228px;
+        border: 0;
+        border-right: 1px solid #e3e8ef;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
+        display: flex;
+        flex-direction: column;
+        transition: background 160ms ease;
+      }
+
+      .aci-page.aci-car-overview-page .variant-card:last-child { border-right: 0; }
+      .aci-page.aci-car-overview-page .variant-card:hover { background: #f8fafc; }
+      .aci-page.aci-car-overview-page .variant-card.is-mid { background: #f4f7fb; }
+      .aci-page.aci-car-overview-page .variant-card.is-mid:hover { background: #eef3f9; }
+
+      .aci-page.aci-car-overview-page .variant-content {
+        min-width: 0;
+        flex: 1;
+        padding: 18px;
+        border: 0;
+        background: transparent;
+        color: #111827;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .variant-tier {
+        min-height: 24px;
+        padding: 0 8px;
+        border: 1px solid #d9e1eb;
+        border-radius: 6px;
+        color: #64748b;
+        display: inline-flex;
+        align-items: center;
+        font-size: 9px;
+        font-weight: 760;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .variant-card.is-mid .variant-tier {
+        border-color: #b9cae4;
+        background: #fff;
+        color: #315477;
+      }
+
+      .aci-page.aci-car-overview-page .variant-title-row {
+        width: 100%;
+        margin-top: 18px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 18px;
+        align-items: start;
+        gap: 8px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-title-row svg { margin-top: 2px; color: #94a3b8; }
+      .aci-page.aci-car-overview-page .variant-content h4 { width: 100%; margin: 0; color: #111b36; font-size: 16px; line-height: 1.2; font-weight: 760; overflow-wrap: anywhere; }
+
+      .aci-page.aci-car-overview-page .variant-detail-row {
+        width: 100%;
+        margin-top: auto;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 10px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-detail-row > span { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+      .aci-page.aci-car-overview-page .variant-content p { margin: 0; color: #66758a; font-size: 10px; line-height: 1.25; font-weight: 620; }
+      .aci-page.aci-car-overview-page .variant-content strong { flex: 0 0 auto; margin: 0; padding: 0; color: var(--overview-blue); font-size: 17px; line-height: 1; font-weight: 790; white-space: nowrap; }
+      .aci-page.aci-car-overview-page .variant-content small { margin: 0; color: #8a96a8; font-size: 9px; line-height: 1.2; font-weight: 550; }
+
+      .aci-page.aci-car-overview-page .research-path-panel {
+        min-height: 338px !important;
+        padding: 18px !important;
+        border: 1px solid #dee5ee !important;
+        border-radius: 14px !important;
+        background: #fff !important;
+      }
+
+      .aci-page.aci-car-overview-page .research-path-panel .panel-head { margin-bottom: 4px; }
+      .aci-page.aci-car-overview-page .research-step-list { margin-top: 6px; display: grid; grid-template-columns: 1fr; gap: 0; }
+
+      .aci-page.aci-car-overview-page .research-step-list > button {
+        width: 100%;
+        min-height: 54px;
+        padding: 8px 0;
+        border: 0;
+        border-bottom: 1px solid #e8edf3;
+        border-radius: 0;
+        background: transparent;
+        color: #778399;
+        display: grid;
+        grid-template-columns: 34px minmax(0, 1fr) 17px;
+        align-items: center;
+        gap: 10px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .research-step-list > button:last-child { border-bottom: 0; }
+      .aci-page.aci-car-overview-page .research-step-list > button:hover .research-step-copy strong { color: var(--overview-blue); }
+      .aci-page.aci-car-overview-page .research-step-index { display: none; }
+      .aci-page.aci-car-overview-page .research-step-icon { width: 32px; height: 32px; border: 1px solid #dce4ee; border-radius: 8px; background: #f5f7fa; color: #3f5876; display: grid; place-items: center; }
+      .aci-page.aci-car-overview-page .research-step-icon svg { width: 15px; height: 15px; }
+      .aci-page.aci-car-overview-page .research-step-copy { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+      .aci-page.aci-car-overview-page .research-step-copy small { color: #9aa5b5; font-size: 8px; line-height: 1.2; font-weight: 720; text-transform: uppercase; }
+      .aci-page.aci-car-overview-page .research-step-copy strong { color: #26344d; font-size: 11.5px; line-height: 1.25; font-weight: 720; }
+      .aci-page.aci-car-overview-page .research-step-copy em { display: none; }
+      .aci-page.aci-car-overview-page .research-complete-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid #e8edf3; color: #718096; display: flex; align-items: center; gap: 5px; font-size: 9px; }
+
+      .aci-page.aci-car-overview-page .highlights-panel {
+        min-height: 188px !important;
+        padding: 18px !important;
+        border: 1px solid #dee5ee !important;
+        border-radius: 14px !important;
+        background: #fff !important;
+      }
+
+      .aci-page.aci-car-overview-page .stats-grid {
+        min-height: 88px;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .aci-page.aci-car-overview-page .stat-card {
+        min-width: 0;
+        min-height: 82px;
+        padding: 8px 10px;
+        border: 0;
+        border-right: 1px solid #e7ebf1;
+        border-radius: 0;
+        background: transparent;
+        color: #526077;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 4px;
+        text-align: left;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .stat-card:last-child { border-right: 0; }
+      .aci-page.aci-car-overview-page .stat-card svg { color: #506a89; }
+      .aci-page.aci-car-overview-page .stat-card strong { max-width: 100%; color: #17233d; font-size: 13px; line-height: 1.15; font-weight: 750; overflow-wrap: anywhere; }
+      .aci-page.aci-car-overview-page .stat-card span { color: #8a96a8; font-size: 9px; font-weight: 620; }
+
+      .aci-page.aci-car-overview-page .colors-row {
+        min-height: 62px;
+        justify-content: flex-start;
+        gap: 12px;
+        overflow-x: auto;
+        scrollbar-width: none;
+      }
+
+      .aci-page.aci-car-overview-page .colors-row::-webkit-scrollbar { display: none; }
+      .aci-page.aci-car-overview-page .colors-row > button { border: 0; padding: 3px; background: transparent; cursor: pointer; }
+      .aci-page.aci-car-overview-page .color-orb { width: 40px; height: 40px; }
+      .aci-page.aci-car-overview-page .selected-color { margin-top: 9px; display: flex; align-items: center; gap: 8px; }
+      .aci-page.aci-car-overview-page .selected-color strong { color: #27354f; font-size: 11px; font-weight: 720; }
+
+      .aci-page.aci-car-overview-page .rivals-panel {
+        margin-top: 0;
+        padding: 18px !important;
+        border: 1px solid #dee5ee !important;
+        border-radius: 14px !important;
+        background: #fff !important;
+      }
+
+      .aci-page.aci-car-overview-page .rival-card-grid {
+        margin-top: 0;
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .aci-page.aci-car-overview-page .rival-card {
+        min-width: 0;
+        min-height: 238px;
+        border: 1px solid #dee5ee;
+        border-radius: 12px;
+        background: #fff;
+        overflow: hidden;
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) 42px;
+        box-shadow: none;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .aci-page.aci-car-overview-page .rival-card:hover { border-color: #b9c6d8; box-shadow: 0 18px 34px -30px rgba(15, 23, 42, .5); }
+      .aci-page.aci-car-overview-page .rival-overview-button { min-width: 0; padding: 11px 12px 10px; border: 0; background: transparent; color: #111827; display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto 112px auto auto; align-items: end; gap: 2px 10px; text-align: left; cursor: pointer; }
+      .aci-page.aci-car-overview-page .rival-match { grid-column: 1 / -1; justify-self: start; min-height: 22px; padding: 0 8px; border: 1px solid #dce4ee; border-radius: 6px; background: #f6f8fa; color: #526077; display: inline-flex; align-items: center; font-size: 9px; font-weight: 680; }
+      .aci-page.aci-car-overview-page .rival-visual { grid-column: 1 / -1; width: 100%; height: 112px; border-radius: 8px; background: #f1f4f8; overflow: hidden; display: grid; place-items: center; box-shadow: none; }
+      .aci-page.aci-car-overview-page .rival-overview-button small { grid-column: 1; color: #7f8b9d; font-size: 9px; font-weight: 620; }
+      .aci-page.aci-car-overview-page .rival-overview-button strong { grid-column: 1; min-width: 0; color: #14203b; font-size: 16px; line-height: 1.15; font-weight: 760; overflow-wrap: anywhere; }
+      .aci-page.aci-car-overview-page .rival-overview-button p { grid-column: 2; grid-row: 3 / span 2; align-self: end; margin: 0; color: #8a96a8; display: flex; flex-direction: column; align-items: flex-end; gap: 1px; font-size: 9px; font-weight: 600; white-space: nowrap; }
+      .aci-page.aci-car-overview-page .rival-overview-button p b { color: #17233d; font-size: 13px; font-weight: 750; }
+      .aci-page.aci-car-overview-page .rival-compare-button { width: 100%; min-height: 42px; border: 0; border-top: 1px solid #e8edf3; padding: 0 12px; background: transparent; color: #3c4c65; display: flex; align-items: center; justify-content: space-between; font-size: 10.5px; font-weight: 700; cursor: pointer; }
+      .aci-page.aci-car-overview-page .rival-compare-button:hover { background: #f7f9fc; color: var(--overview-blue); }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .variants-panel {
+        grid-column: 1 / -1;
+        order: 1;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .highlights-panel {
+        grid-column: 1 / span 5;
+        order: 2;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .research-path-panel {
+        grid-column: 6 / -1;
+        order: 2;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .rivals-panel {
+        order: 3;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio {
+        min-height: 316px;
+        border: 1px solid #dce4ee;
+        border-radius: 14px;
+        background: #fff;
+        overflow: hidden;
+        display: grid;
+        grid-template-columns: minmax(270px, .92fr) minmax(360px, 1.25fr) minmax(166px, .55fr);
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card-grid {
+        min-height: 0;
+        padding: 13px;
+        border: 0;
+        border-radius: 0;
+        background: #f7f9fc;
+        display: grid;
+        grid-template-columns: 1fr;
+        grid-template-rows: repeat(3, minmax(0, 1fr));
+        gap: 8px;
+        overflow: visible;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card {
+        min-height: 0;
+        border: 1px solid #dde5ef;
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 8px 20px -22px rgba(15, 23, 42, .7);
+        overflow: hidden;
+        transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card:hover {
+        border-color: #aebfd5;
+        background: #fff;
+        box-shadow: 0 14px 28px -24px rgba(28, 52, 84, .55);
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card.is-mid {
+        border-color: #9ebbe5;
+        background: #eef5ff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card.is-mid:hover {
+        background: #e8f1ff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-content {
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        grid-template-rows: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 5px 10px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-tier {
+        min-height: 20px;
+        padding: 0 7px;
+        border: 0;
+        border-radius: 5px;
+        background: #eef1f5;
+        color: #59677c;
+        font-size: 8px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .is-mid .variant-tier {
+        border: 0;
+        background: #d9e9ff;
+        color: #174f9d;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .is-top .variant-tier {
+        background: #fff0d2;
+        color: #845a09;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-title-row {
+        margin: 0;
+        grid-column: 2;
+        grid-row: 1;
+        align-items: center;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-title-row svg {
+        margin: 0;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-content h4 {
+        font-size: 13px;
+        line-height: 1.15;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-detail-row {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        margin: 0;
+        align-items: end;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-content p {
+        font-size: 9px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-content small {
+        font-size: 8px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-content strong {
+        font-size: 14px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-visual {
+        min-width: 0;
+        min-height: 316px;
+        padding: 18px;
+        background: #edf5ff;
+        display: grid;
+        place-items: center;
+        overflow: hidden;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-visual > div {
+        width: 100%;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo {
+        width: 112%;
+        height: 258px;
+        margin-left: -6%;
+        border: 0;
+        border-radius: 0;
+        background: #edf5ff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo .aci-car-stage-image {
+        transform: scale(1.32) translateY(2px);
+        transform-origin: 50% 68%;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-rail {
+        min-width: 0;
+        padding: 22px 16px 16px;
+        border-left: 1px solid #e7e0d2;
+        background: #fff9ec;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .aci-page.aci-car-overview-page .color-rail-kicker {
+        color: #99712c;
+        font-size: 8px;
+        line-height: 1.2;
+        font-weight: 780;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-rail > strong {
+        min-height: 34px;
+        margin-top: 5px;
+        color: #17213a;
+        font-size: 13px;
+        line-height: 1.25;
+        font-weight: 740;
+        overflow-wrap: anywhere;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-swatches {
+        width: 100%;
+        margin-top: 16px;
+        display: grid;
+        grid-template-columns: repeat(3, 34px);
+        gap: 10px;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-swatches button {
+        position: relative;
+        width: 34px;
+        height: 34px;
+        padding: 3px;
+        border: 1px solid transparent;
+        border-radius: 50%;
+        background: transparent;
+        color: #fff;
+        cursor: pointer;
+        transition: border-color 160ms ease, box-shadow 160ms ease;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-swatches button > span {
+        width: 100%;
+        height: 100%;
+        border: 1px solid rgba(15, 23, 42, .14);
+        border-radius: 50%;
+        box-shadow: inset 0 1px 2px rgba(255,255,255,.55);
+        display: block;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-swatches button > svg {
+        position: absolute;
+        right: -2px;
+        bottom: -2px;
+        width: 16px;
+        height: 16px;
+        padding: 2px;
+        border-radius: 50%;
+        background: var(--overview-blue);
+        box-shadow: 0 0 0 2px #fff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-swatches button.is-active {
+        border-color: var(--overview-blue);
+        box-shadow: 0 0 0 2px #fff, 0 0 0 3px var(--overview-blue);
+      }
+
+      .aci-page.aci-car-overview-page .view-all-colors {
+        min-height: 32px;
+        margin-top: auto;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: #654b1c;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 720;
+        cursor: pointer;
+      }
+
+      .aci-page.aci-car-overview-page .highlights-panel {
+        min-height: 326px !important;
+        padding: 18px !important;
+        border: 1px solid #dee5ee !important;
+        border-radius: 14px !important;
+        background: #fff !important;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card {
+        position: relative;
+        min-width: 0;
+        min-height: 72px;
+        padding: 10px 26px 10px 10px;
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: #1c2942;
+        display: grid;
+        grid-template-columns: 28px minmax(0, 1fr);
+        grid-template-rows: auto auto;
+        align-items: center;
+        gap: 2px 8px;
+        text-align: left;
+        cursor: pointer;
+        transition: border-color 160ms ease, filter 160ms ease;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card:hover {
+        border-color: rgba(15, 23, 42, .16);
+        filter: saturate(1.04);
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card > span {
+        grid-row: 1 / span 2;
+        width: 28px;
+        height: 28px;
+        border-radius: 7px;
+        background: rgba(255,255,255,.72);
+        display: grid;
+        place-items: center;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card > strong {
+        min-width: 0;
+        font-size: 10.5px;
+        line-height: 1.2;
+        font-weight: 740;
+        overflow-wrap: anywhere;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card > small {
+        min-width: 0;
+        color: #5c687b;
+        font-size: 8.5px;
+        line-height: 1.2;
+        font-weight: 580;
+        overflow-wrap: anywhere;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card > svg {
+        position: absolute;
+        right: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #7d8796;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card.tone-1 { background: #e9f6f1; color: #155e4b; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-2 { background: #fff3d8; color: #72510d; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-3 { background: #eaf2ff; color: #234f8a; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-4 { background: #fff0f2; color: #834153; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-5 { background: #eef6e8; color: #3d672d; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-6 { background: #f2efff; color: #5a4b8a; }
+
+      .aci-page.aci-car-overview-page .research-path-panel {
+        min-height: 326px !important;
+      }
+
+      .aci-page.aci-car-overview-page .rival-overview-button {
+        grid-template-rows: 112px auto auto;
+      }
+
+      /* Product-stage refinement: white surfaces, colored type and tighter rhythm. */
+      .aci-page.aci-car-overview-page .desktop-page {
+        padding-top: 14px;
+        gap: 10px;
+      }
+
+      .aci-page.aci-car-overview-page .overview-hero {
+        min-height: 312px;
+        padding: 22px 24px;
+        border-color: #d9e2ee;
+        border-radius: 18px;
+        box-shadow: 0 18px 44px -38px rgba(15, 35, 68, .48);
+        grid-template-columns: minmax(250px, .76fr) minmax(450px, 1.48fr) 220px;
+        gap: 14px;
+      }
+
+      .aci-page.aci-car-overview-page .overview-kicker {
+        color: #087767;
+      }
+
+      .aci-page.aci-car-overview-page .hero-copy h1 {
+        color: #102c63;
+        font-size: 46px;
+      }
+
+      .aci-page.aci-car-overview-page .hero-copy {
+        position: relative;
+        z-index: 2;
+        padding-left: 14px;
+      }
+
+      .aci-page.aci-car-overview-page .hero-copy::before {
+        content: "";
+        position: absolute;
+        top: 2px;
+        bottom: 2px;
+        left: 0;
+        width: 3px;
+        border-radius: 3px;
+        background: #1766d8;
+      }
+
+      .aci-page.aci-car-overview-page .hero-chips button:nth-child(1) { color: #087767; }
+      .aci-page.aci-car-overview-page .hero-chips button:nth-child(2) { color: #a34a10; }
+
+      .aci-page.aci-car-overview-page .hero-car-stage {
+        min-height: 268px;
+        border-radius: 12px;
+        background: #fff;
+        box-shadow: none;
+        overflow: visible;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-stage::before {
+        display: none;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-stage::after {
+        z-index: 2;
+        left: 17%;
+        right: 17%;
+        bottom: 20px;
+        height: 24px;
+        border-radius: 50%;
+        background: rgba(26, 43, 67, .14);
+        filter: blur(10px);
+        pointer-events: none;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-photo {
+        width: 100%;
+        height: 268px;
+        border: 0;
+        border-radius: 0;
+        background: #fff;
+        overflow: visible;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-photo .aci-car-image-stage {
+        border: 0;
+        background: transparent;
+        overflow: visible;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-photo .aci-car-stage-glow,
+      .aci-page.aci-car-overview-page .hero-car-photo .aci-car-stage-ground {
+        display: none;
+      }
+
+      .aci-page.aci-car-overview-page .hero-car-photo .aci-car-stage-image {
+        transform: scale(1.27) translateY(15px);
+        transform-origin: 50% 78%;
+      }
+
+      .aci-page.aci-car-overview-page .price-card {
+        padding: 20px 0 3px 20px;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > p {
+        color: #087767;
+      }
+
+      .aci-page.aci-car-overview-page .price-card > strong {
+        color: var(--overview-blue);
+      }
+
+      .aci-page.aci-car-overview-page .price-card-facts b {
+        color: #a34a10;
+      }
+
+      .aci-page.aci-car-overview-page .overview-action-bar {
+        min-height: 62px;
+        border-radius: 12px;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid {
+        margin-top: 2px;
+        gap: 12px;
+      }
+
+      .aci-page.aci-car-overview-page .panel-head {
+        min-height: 40px;
+        margin-bottom: 8px;
+      }
+
+      .aci-page.aci-car-overview-page .desktop-grid > .variants-panel {
+        padding: 16px !important;
+        border: 1px solid #dce4ee !important;
+        border-radius: 16px !important;
+        background: #fff !important;
+        box-shadow: 0 16px 38px -38px rgba(15, 35, 68, .42) !important;
+      }
+
+      .aci-page.aci-car-overview-page .variants-panel .panel-head h3 {
+        color: #0d438f;
+      }
+
+      .aci-page.aci-car-overview-page .variants-panel .panel-head > button {
+        color: #087767;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio {
+        min-height: 342px;
+        border: 0;
+        border-top: 1px solid #e3e9f1;
+        border-radius: 0;
+        grid-template-columns: minmax(286px, .84fr) minmax(460px, 1.62fr) minmax(168px, .5fr);
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card-grid {
+        padding: 13px 13px 13px 0;
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card,
+      .aci-page.aci-car-overview-page .variant-studio .variant-card.is-mid,
+      .aci-page.aci-car-overview-page .variant-studio .variant-card.is-mid:hover {
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-card.is-mid {
+        border-color: #7fa9e6;
+        box-shadow: inset 3px 0 0 #1766d8;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-tier,
+      .aci-page.aci-car-overview-page .variant-studio .is-mid .variant-tier,
+      .aci-page.aci-car-overview-page .variant-studio .is-top .variant-tier {
+        background: transparent;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio .variant-tier { color: #087767; }
+      .aci-page.aci-car-overview-page .variant-studio .is-mid .variant-tier { color: #1766d8; }
+      .aci-page.aci-car-overview-page .variant-studio .is-top .variant-tier { color: #a34a10; }
+
+      .aci-page.aci-car-overview-page .variant-studio-visual {
+        min-height: 342px;
+        padding: 0 8px;
+        border-left: 1px solid #edf0f5;
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo {
+        width: 100%;
+        height: 330px;
+        margin-left: 0;
+        background: #fff;
+        overflow: visible;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo .aci-car-image-stage {
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        overflow: visible;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo .aci-car-stage-glow {
+        display: none;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo .aci-car-stage-ground {
+        bottom: 9%;
+        width: 72%;
+        opacity: .72;
+      }
+
+      .aci-page.aci-car-overview-page .variant-studio-photo .aci-car-stage-image {
+        transform: scale(1.78) translateY(6px);
+        transform-origin: 50% 72%;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-rail {
+        padding: 20px 13px 14px;
+        border-left-color: #e3e9f1;
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .color-rail-kicker,
+      .aci-page.aci-car-overview-page .view-all-colors {
+        color: #1766d8;
+      }
+
+      .aci-page.aci-car-overview-page .variant-color-rail > strong {
+        color: #087767;
+      }
+
+      .aci-page.aci-car-overview-page .highlights-panel,
+      .aci-page.aci-car-overview-page .research-path-panel {
+        min-height: 302px !important;
+        padding: 16px !important;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card-grid {
+        gap: 6px;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card,
+      .aci-page.aci-car-overview-page .highlight-card.tone-1,
+      .aci-page.aci-car-overview-page .highlight-card.tone-2,
+      .aci-page.aci-car-overview-page .highlight-card.tone-3,
+      .aci-page.aci-car-overview-page .highlight-card.tone-4,
+      .aci-page.aci-car-overview-page .highlight-card.tone-5,
+      .aci-page.aci-car-overview-page .highlight-card.tone-6 {
+        min-height: 68px;
+        border-color: #e4e9f0;
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .highlight-card.tone-1 { color: #087767; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-2 { color: #a34a10; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-3 { color: #1766d8; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-4 { color: #a13f65; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-5 { color: #4f7a2e; }
+      .aci-page.aci-car-overview-page .highlight-card.tone-6 { color: #6a51a3; }
+
+      .aci-page.aci-car-overview-page .highlight-card > span {
+        background: transparent;
+      }
+
+      .aci-page.aci-car-overview-page .rivals-panel {
+        padding: 16px !important;
+      }
+
+      .aci-page.aci-car-overview-page .rivals-panel .panel-head h3 {
+        color: #087767;
+      }
+
+      .aci-page.aci-car-overview-page .rival-card {
+        min-height: 220px;
+        border-radius: 10px;
+        grid-template-rows: minmax(0, 1fr) 38px;
+      }
+
+      .aci-page.aci-car-overview-page .rival-overview-button {
+        padding: 10px 12px 8px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        grid-template-rows: 104px auto auto;
+        gap: 3px 10px;
+      }
+
+      .aci-page.aci-car-overview-page .rival-pair-visual {
+        grid-column: 1 / -1;
+        width: 100%;
+        height: 104px;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 24px minmax(0, 1fr);
+        align-items: center;
+        gap: 2px;
+      }
+
+      .aci-page.aci-car-overview-page .rival-pair-vs {
+        width: 24px;
+        height: 24px;
+        border: 1px solid #d9e2ed;
+        border-radius: 50%;
+        background: #fff;
+        color: #708096;
+        display: grid;
+        place-items: center;
+        font-size: 8px;
+        font-weight: 760;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .rival-visual {
+        grid-column: auto;
+        width: 100%;
+        height: 96px;
+        border-radius: 0;
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .rival-visual .aci-car-image-stage {
+        border: 0;
+        border-radius: 0;
+        background: #fff;
+      }
+
+      .aci-page.aci-car-overview-page .rival-visual .aci-car-stage-glow,
+      .aci-page.aci-car-overview-page .rival-visual .aci-car-stage-skeleton {
+        display: none;
+      }
+
+      .aci-page.aci-car-overview-page .rival-visual .aci-car-stage-image {
+        transform: scale(1.15);
+      }
+
+      .aci-page.aci-car-overview-page .rival-overview-button small {
+        grid-column: 1;
+        grid-row: 2;
+        color: #1766d8;
+        text-transform: uppercase;
+      }
+
+      .aci-page.aci-car-overview-page .rival-overview-button strong {
+        grid-column: 1 / -1;
+        grid-row: 3;
+        font-size: 15px;
+      }
+
+      .aci-page.aci-car-overview-page .rival-overview-button strong span {
+        color: #8a96a8;
+        font-size: 10px;
+        font-weight: 650;
+      }
+
+      .aci-page.aci-car-overview-page .rival-overview-button p {
+        grid-column: 2;
+        grid-row: 2;
+        align-self: center;
+        color: #758296;
+      }
+
+      .aci-page.aci-car-overview-page .rival-compare-button {
+        min-height: 38px;
+        color: #1766d8;
+      }
+
+      .aci-page.aci-car-overview-page button:focus-visible {
+        outline: 3px solid rgba(7, 94, 232, .22);
+        outline-offset: 2px;
+      }
+
+      @media (max-width: 1180px) {
+        body:has(.aci-car-overview-page) .aci-v2-portal-header,
+        body:has(.aci-car-overview-page) .aci-v2-portal-header.is-compact {
+          width: min(calc(100% - 20px), 430px);
+        }
+
+        .aci-page.aci-car-overview-page { padding-bottom: 98px; background: #fff; }
+        .aci-page.aci-car-overview-page .desktop-page { display: none; }
+        .aci-page.aci-car-overview-page .mobile-page {
+          width: min(100%, 430px);
+          max-width: 430px;
+          margin: 0 auto;
+          padding: 8px 16px 36px;
+          background: #fff;
+          box-shadow: none;
+          display: flex;
+          flex-direction: column;
+          gap: 0;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-overview-hero {
+          min-height: 0 !important;
+          padding: 22px 0 18px;
+          border: 0;
+          border-bottom: 1px solid #e3e8ef;
+          border-radius: 0;
+          background: #fff;
+          box-shadow: none;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-memory-chip {
+          height: auto;
+          margin: 0 0 12px;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          box-shadow: none;
+          color: var(--overview-blue);
+          font-size: 9px;
+          font-weight: 760;
+          text-transform: uppercase;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-memory-chip svg { display: none; }
+        .aci-page.aci-car-overview-page .mobile-hero-grid { display: grid; grid-template-columns: 1fr; gap: 12px; }
+        .aci-page.aci-car-overview-page .mobile-hero-grid h1 { margin: 0; color: #0b1533; font-family: Inter, ui-sans-serif, system-ui, sans-serif; font-size: 34px !important; line-height: 1; letter-spacing: 0; font-weight: 790; }
+        .aci-page.aci-car-overview-page .mobile-hero-grid p { margin: 8px 0 0; color: #64748b; font-size: 12px; font-weight: 600; }
+        .aci-page.aci-car-overview-page .mobile-hero-chips { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px; }
+        .aci-page.aci-car-overview-page .mobile-hero-car { min-height: 168px; margin: 0; border-radius: 14px; background: #fff; box-shadow: inset 0 0 0 1px #e7ebf1; overflow: hidden; }
+        .aci-page.aci-car-overview-page .mobile-hero-car-photo { width: 108%; height: 168px; }
+        .aci-page.aci-car-overview-page .mobile-hero-car-photo .aci-car-image-stage { border: 0; background: transparent; }
+        .aci-page.aci-car-overview-page .mobile-hero-car-photo .aci-car-stage-glow { display: none; }
+        .aci-page.aci-car-overview-page .mobile-hero-car-photo .aci-car-stage-image { transform: scale(1.32) translateY(5px); transform-origin: 50% 72%; }
+
+        .aci-page.aci-car-overview-page .mobile-price-card {
+          min-height: 76px;
+          margin-top: 12px;
+          padding: 0;
+          border: 0;
+          border-radius: 0;
+          background: transparent;
+          box-shadow: none;
+          display: grid;
+          grid-template-columns: minmax(0, 1fr) 128px;
+          align-items: end;
+          gap: 12px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-price-card p { margin: 0 0 4px; color: #8a96a8; font-size: 9px; font-weight: 700; text-transform: uppercase; }
+        .aci-page.aci-car-overview-page .mobile-price-card strong { color: #101b36; font-size: 24px; line-height: 1; font-weight: 790; }
+        .aci-page.aci-car-overview-page .mobile-price-card span { margin-top: 4px; color: #7b8799; font-size: 9px; }
+        .aci-page.aci-car-overview-page .mobile-price-card button { width: 100%; min-height: 42px; border: 0; border-radius: 8px; background: var(--overview-blue); color: #fff; display: flex; align-items: center; justify-content: center; gap: 4px; font-size: 11px; font-weight: 700; }
+
+        .aci-page.aci-car-overview-page .overview-action-bar.is-mobile {
+          width: 100%;
+          min-height: 0;
+          padding: 18px 0;
+          border: 0;
+          border-bottom: 1px solid #e3e8ef;
+          border-radius: 0;
+          background: #fff;
+          box-shadow: none;
+          display: block;
+        }
+
+        .aci-page.aci-car-overview-page .overview-action-heading { margin-bottom: 10px; flex-direction: row; align-items: baseline; gap: 5px; }
+        .aci-page.aci-car-overview-page .overview-action-heading span { font-size: 10px; }
+        .aci-page.aci-car-overview-page .overview-action-heading strong { font-size: 16px; }
+        .aci-page.aci-car-overview-page .overview-action-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+        .aci-page.aci-car-overview-page .overview-action-list button { min-height: 62px; padding: 9px; border: 1px solid #e0e6ee; border-radius: 9px; background: #fff; display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 5px; }
+        .aci-page.aci-car-overview-page .overview-action-list button span { width: 100%; font-size: 10px; white-space: normal; }
+        .aci-page.aci-car-overview-page .overview-action-list button svg:last-child { display: none; }
+
+        .aci-page.aci-car-overview-page .mobile-page > .panel,
+        .aci-page.aci-car-overview-page .mobile-page > .mobile-stat-strip {
+          min-height: 0;
+          padding: 20px 0 !important;
+          border: 0 !important;
+          border-bottom: 1px solid #e3e8ef !important;
+          border-radius: 0 !important;
+          background: #fff !important;
+          box-shadow: none !important;
+        }
+
+        .aci-page.aci-car-overview-page .panel-head { min-height: 42px; margin-bottom: 10px; }
+        .aci-page.aci-car-overview-page .panel-head h3 { font-size: 17px; }
+        .aci-page.aci-car-overview-page .panel-head p { display: none; }
+
+        .aci-page.aci-car-overview-page .mobile-research-path .research-step-list { display: grid; grid-template-columns: 1fr; gap: 0; }
+        .aci-page.aci-car-overview-page .mobile-research-path .research-step-list > button { min-height: 58px; }
+        .aci-page.aci-car-overview-page .mobile-research-path .research-step-copy em { display: block; color: #8a96a8; font-size: 9px; font-style: normal; }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-card-grid {
+          min-height: 0;
+          grid-template-columns: 1fr;
+          border-radius: 12px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-card {
+          min-height: 116px;
+          border-right: 0;
+          border-bottom: 1px solid #e3e8ef;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-card:last-child {
+          border-bottom: 0;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-content {
+          padding: 13px 14px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-title-row {
+          margin-top: 9px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-content h4 {
+          font-size: 14px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-detail-row {
+          margin-top: 12px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-content strong {
+          font-size: 15px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-studio {
+          min-height: 0;
+          border-radius: 12px;
+          display: flex;
+          flex-direction: column;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-studio-visual {
+          order: 1;
+          min-height: 184px;
+          padding: 8px 14px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-studio-photo {
+          width: 100%;
+          height: 184px;
+          margin-left: 0;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-studio-photo .aci-car-stage-image {
+          transform: scale(1.7) translateY(2px);
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-color-rail {
+          order: 2;
+          min-height: 88px;
+          padding: 12px 13px;
+          border-top: 1px solid #eadfca;
+          border-left: 0;
+          display: grid;
+          grid-template-columns: minmax(92px, 1fr) minmax(0, 2fr) auto;
+          grid-template-rows: auto auto;
+          align-items: center;
+          gap: 2px 10px;
+        }
+
+        .aci-page.aci-car-overview-page .variant-color-rail > strong {
+          min-height: 0;
+          margin: 0;
+          grid-column: 1;
+          grid-row: 2;
+          font-size: 11px;
+        }
+
+        .aci-page.aci-car-overview-page .variant-color-swatches {
+          margin: 0;
+          grid-column: 2;
+          grid-row: 1 / span 2;
+          display: flex;
+          gap: 7px;
+          overflow-x: auto;
+          scrollbar-width: none;
+        }
+
+        .aci-page.aci-car-overview-page .variant-color-swatches::-webkit-scrollbar {
+          display: none;
+        }
+
+        .aci-page.aci-car-overview-page .variant-color-swatches button {
+          flex: 0 0 30px;
+          width: 30px;
+          height: 30px;
+        }
+
+        .aci-page.aci-car-overview-page .view-all-colors {
+          grid-column: 3;
+          grid-row: 1 / span 2;
+          margin: 0;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-card-grid {
+          order: 3;
+          min-height: 0;
+          padding: 10px;
+          border-top: 1px solid #e3e8ef;
+          border-radius: 0;
+          display: grid;
+          gap: 7px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-card {
+          min-height: 86px;
+          border: 1px solid #dde5ef;
+          border-radius: 8px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-content {
+          padding: 9px 10px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-title-row,
+        .aci-page.aci-car-overview-page .mobile-variants-panel .variant-detail-row {
+          margin: 0;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-highlights-panel .highlight-card-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 7px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-highlights-panel .highlight-card {
+          min-height: 88px;
+          padding: 10px 22px 10px 9px;
+          grid-template-columns: 26px minmax(0, 1fr);
+          gap: 3px 7px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-highlights-panel .highlight-card > span {
+          width: 26px;
+          height: 26px;
+        }
+
+        .aci-page.aci-car-overview-page .mobile-stat-strip { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+        .aci-page.aci-car-overview-page .mobile-stat-strip button { min-width: 0; min-height: 82px; padding: 8px; border: 0; border-right: 1px solid #e7ebf1; background: transparent; color: #536177; display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; }
+        .aci-page.aci-car-overview-page .mobile-stat-strip button:last-child { border-right: 0; }
+        .aci-page.aci-car-overview-page .mobile-stat-strip strong { max-width: 100%; color: #17233d; font-size: 12px; overflow-wrap: anywhere; }
+        .aci-page.aci-car-overview-page .mobile-stat-strip span { color: #8a96a8; font-size: 9px; }
+        .aci-page.aci-car-overview-page .rival-card-grid {
+          width: 100%;
+          padding: 0 30px 3px 0;
+          display: flex;
+          gap: 10px;
+          overflow-x: auto;
+          scroll-snap-type: x mandatory;
+          scrollbar-width: none;
+        }
+
+        .aci-page.aci-car-overview-page .rival-card-grid::-webkit-scrollbar { display: none; }
+        .aci-page.aci-car-overview-page .rival-card { flex: 0 0 88%; min-height: 236px; scroll-snap-align: start; scroll-snap-stop: always; }
+      }
+
+      @media (max-width: 390px) {
+        .aci-page.aci-car-overview-page .mobile-page { padding-inline: 13px; }
+        .aci-page.aci-car-overview-page .mobile-hero-grid h1 { font-size: 31px !important; }
+        .aci-page.aci-car-overview-page .mobile-price-card { grid-template-columns: minmax(0, 1fr) 118px; }
+        .aci-page.aci-car-overview-page .overview-action-list button { min-height: 58px; padding: 7px; }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        .aci-page.aci-car-overview-page *,
+        .aci-page.aci-car-overview-page *::before,
+        .aci-page.aci-car-overview-page *::after {
+          scroll-behavior: auto !important;
+          transition-duration: .01ms !important;
+          animation-duration: .01ms !important;
+          animation-iteration-count: 1 !important;
+        }
+      }
+    `}</style>
   );
 }

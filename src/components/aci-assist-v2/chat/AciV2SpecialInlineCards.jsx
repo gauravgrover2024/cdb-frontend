@@ -5,6 +5,7 @@ import {
   Car,
   CarFront,
   Check,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Fuel,
@@ -17,7 +18,11 @@ import {
   Sparkles,
   Trophy,
 } from "lucide-react";
-import { fetchAciVehicleLiveSnapshot } from "../services/aciAssistV2Api";
+import {
+  fetchAciVehicleFuelProfile,
+  fetchAciVehicleImage,
+  fetchAciVehicleLiveSnapshot,
+} from "../services/aciAssistV2Api";
 
 const asArray = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
 
@@ -267,10 +272,29 @@ export function AciV2CompoundInlineCard({ blocks = [], onOpen }) {
   );
 }
 
+const firstRecommendationList = (...values) => {
+  for (const value of values) {
+    const rows = asArray(value);
+    if (rows.length) return rows;
+  }
+  return [];
+};
+
 const recommendationRows = (message = {}, widget = {}) =>
-  asArray(widget.rows || message.rows || widget.items || message.items)
-    .filter((row) => clean(row.fullModel || row.displayName || row.model))
-    .slice(0, 8);
+  firstRecommendationList(
+    widget.modelGroups,
+    widget.data?.modelGroups,
+    message.modelGroups,
+    message.data?.modelGroups,
+    widget.fullModelGroups,
+    widget.data?.fullModelGroups,
+    message.fullModelGroups,
+    message.data?.fullModelGroups,
+    widget.rows,
+    message.rows,
+    widget.items,
+    message.items,
+  ).filter((row) => clean(row.fullModel || row.displayName || row.model));
 
 const recommendationName = (row = {}) =>
   clean(
@@ -282,25 +306,190 @@ const recommendationName = (row = {}) =>
 
 const vehicleSource = (row = {}) => row.vehicle || row.selectedVehicle || row;
 
+const FUEL_LABELS = {
+  petrol: "Petrol",
+  diesel: "Diesel",
+  cng: "CNG",
+  electric: "Electric",
+  hybrid: "Hybrid",
+};
+
+const fuelCategoryFromText = (value = "") => {
+  const text = clean(value).toLowerCase();
+  if (/\b(?:electric|bev|ev)\b/.test(text)) return "electric";
+  if (/\b(?:hybrid|mhev|hev)\b/.test(text)) return "hybrid";
+  if (/\bcng\b/.test(text)) return "cng";
+  if (/\bdiesel\b/.test(text)) return "diesel";
+  if (/\b(?:petrol|gasoline)\b/.test(text)) return "petrol";
+  return "";
+};
+
+const recommendationFuelCategories = (row = {}, fuelProfile = null) => {
+  const source = vehicleSource(row);
+  const variant = asArray(row.variants || source.variants)[0] || {};
+  const listedFuels = asArray(
+    row.fuelTypes || row.fuels || source.fuelTypes || source.fuels,
+  )
+    .map(fuelCategoryFromText)
+    .filter(Boolean);
+  if (listedFuels.length) return [...new Set(listedFuels)];
+
+  const qualifyingFuels = asArray(
+    row.qualifyingVariants || source.qualifyingVariants,
+  )
+    .map((item) => fuelCategoryFromText(item.fuelType || item.fuel || item.variant))
+    .filter(Boolean);
+  if (qualifyingFuels.length) return [...new Set(qualifyingFuels)];
+
+  const explicitFuel = fuelCategoryFromText([
+    row.fuelType,
+    row.fuel,
+    source.fuelType,
+    source.fuel,
+    variant.fuelType,
+    variant.fuel,
+    row.startsFromVariant,
+    row.bestUnderBudgetVariant,
+    recommendationName(row),
+  ].filter(Boolean).join(" "));
+  if (explicitFuel) return [explicitFuel];
+
+  const requestedVariant = modelKey(firstText(
+    row.startsFromVariant,
+    row.bestUnderBudgetVariant,
+    typeof row.variant === "string" ? row.variant : "",
+    typeof source.variant === "string" ? source.variant : "",
+  ));
+  const profileVariants = asArray(fuelProfile?.variants);
+  const matchedVariant = requestedVariant
+    ? profileVariants.find((item) => {
+      const candidate = modelKey(item.variant);
+      return candidate === requestedVariant ||
+        candidate.includes(requestedVariant) ||
+        requestedVariant.includes(candidate);
+    })
+    : null;
+  const matchedFuel = fuelCategoryFromText(matchedVariant?.fuel);
+  if (matchedFuel) return [matchedFuel];
+
+  const profileFuels = [
+    ...new Set(asArray(fuelProfile?.fuels).map(fuelCategoryFromText).filter(Boolean)),
+  ];
+  if (profileFuels.length) return profileFuels;
+  return ["petrol"];
+};
+
+const rowForFuel = (row = {}, fuelCategory = "petrol") => {
+  const source = vehicleSource(row);
+  const compactFuelOption = asArray(row.fuelOptions || source.fuelOptions).find(
+    (option) => fuelCategoryFromText(option.fuelType || option.fuel) === fuelCategory,
+  );
+  if (compactFuelOption) {
+    return {
+      ...row,
+      fuelType: FUEL_LABELS[fuelCategory] || compactFuelOption.fuelType,
+      startsFromVariant: compactFuelOption.startsFromVariant || row.startsFromVariant,
+      startsFromPrice: compactFuelOption.startsFromPrice || row.startsFromPrice,
+      startsFromPriceLabel: compactFuelOption.startsFromPriceLabel || row.startsFromPriceLabel,
+      bestUnderBudgetVariant: compactFuelOption.bestUnderBudgetVariant || row.bestUnderBudgetVariant,
+      bestUnderBudgetPrice: compactFuelOption.bestUnderBudgetPrice || row.bestUnderBudgetPrice,
+      bestUnderBudgetPriceLabel: compactFuelOption.bestUnderBudgetPriceLabel || row.bestUnderBudgetPriceLabel,
+    };
+  }
+  const qualifying = asArray(row.qualifyingVariants || source.qualifyingVariants)
+    .filter((variant) => fuelCategoryFromText(
+      variant.fuelType || variant.fuel || variant.variant,
+    ) === fuelCategory)
+    .sort((left, right) => (
+      numericPrice(left.exShowroomPrice || left.exShowroom || left.price) -
+      numericPrice(right.exShowroomPrice || right.exShowroom || right.price)
+    ));
+  if (!qualifying.length) return row;
+
+  const first = qualifying[0];
+  const last = qualifying[qualifying.length - 1];
+  return {
+    ...row,
+    fuelType: FUEL_LABELS[fuelCategory] || first.fuelType || first.fuel,
+    startsFromVariant: first.variant || first.variantName || row.startsFromVariant,
+    startsFromPrice: first.exShowroomPrice || first.exShowroom || first.price || row.startsFromPrice,
+    startsFromPriceLabel: first.exShowroomPriceLabel || row.startsFromPriceLabel,
+    bestUnderBudgetVariant: last.variant || last.variantName || row.bestUnderBudgetVariant,
+    bestUnderBudgetPrice: last.exShowroomPrice || last.exShowroom || last.price || row.bestUnderBudgetPrice,
+    bestUnderBudgetPriceLabel: last.exShowroomPriceLabel || row.bestUnderBudgetPriceLabel,
+    qualifyingVariants: qualifying,
+  };
+};
+
+const requestedFuelCategory = (message = {}, widget = {}) => {
+  const filters = widget.filters || widget.data?.filters || message.filters || {};
+  const text = clean([
+    filters.fuel,
+    filters.fuelType,
+    widget.query,
+    widget.originalQuery,
+    widget.userQuery,
+    message.query,
+    message.originalQuery,
+    message.userQuery,
+  ].filter(Boolean).join(" ")).toLowerCase();
+  if (/\b(?:electric|bev|ev)\b/.test(text)) return "electric";
+  if (/\b(?:hybrid|mhev|hev)\b/.test(text)) return "hybrid";
+  if (/\bcng\b/.test(text)) return "cng";
+  if (/\bdiesel\b/.test(text)) return "diesel";
+  if (/\b(?:petrol|gasoline)\b/.test(text)) return "petrol";
+  return "petrol";
+};
+
+const isTaxiProduct = (row = {}) => {
+  const source = vehicleSource(row);
+  const flags = [
+    row.isTaxi,
+    row.isCommercial,
+    row.commercialOnly,
+    source.isTaxi,
+    source.isCommercial,
+    source.commercialOnly,
+  ];
+  if (flags.some(Boolean)) return true;
+  const text = clean([
+    recommendationName(row),
+    row.segment,
+    row.category,
+    row.productType,
+    row.usageType,
+    source.segment,
+    source.category,
+    source.productType,
+    source.usageType,
+  ].filter(Boolean).join(" ")).toLowerCase();
+  return /\b(?:taxi|cab|fleet|commercial|xpres(?:-t)?|tour\s+[hmstv0-9]+)\b/.test(text);
+};
+
 const LIVE_VEHICLE_CACHE_TTL_MS = 10 * 60 * 1000;
 const LIVE_VEHICLE_CACHE_LIMIT = 100;
 const liveVehicleCache = new Map();
 const liveVehiclePending = new Map();
 
-const liveVehicleRequestKey = ({ make = "", model = "", city = "" } = {}) =>
-  [make, model, city].map(modelKey).join(":");
+const liveVehicleRequestKey = ({ make = "", model = "", city = "", requireDetails = false } = {}) =>
+  [requireDetails ? "details" : "image", make, model, requireDetails ? city : ""]
+    .map(modelKey)
+    .join(":");
 
-const fetchCachedLiveVehicle = async ({ make, model, city }) => {
-  const key = liveVehicleRequestKey({ make, model, city });
+const fetchCachedLiveVehicle = async ({ make, model, city, requireDetails = false }) => {
+  const key = liveVehicleRequestKey({ make, model, city, requireDetails });
   const cached = liveVehicleCache.get(key);
   if (cached && Date.now() - cached.savedAt < LIVE_VEHICLE_CACHE_TTL_MS) {
     return cached.vehicle;
   }
   if (liveVehiclePending.has(key)) return liveVehiclePending.get(key);
 
-  const request = fetchAciVehicleLiveSnapshot({ make, model, city })
-    .then((snapshot) => {
-      const vehicle = snapshot?.vehicle || null;
+  const request = (requireDetails
+    ? fetchAciVehicleLiveSnapshot({ make, model, city }).then((snapshot) => snapshot?.vehicle || null)
+    : fetchAciVehicleImage({ make, model }).then((imageUrl) => imageUrl
+      ? { make, model, city, imageUrl, heroImageUrl: imageUrl }
+      : null))
+    .then((vehicle) => {
       if (vehicle) {
         liveVehicleCache.delete(key);
         liveVehicleCache.set(key, { savedAt: Date.now(), vehicle });
@@ -336,30 +525,85 @@ const useLiveVehicleMap = (rows = [], city = "New Delhi", requireDetails = false
     });
     if (!missing.length) return undefined;
 
-    Promise.all(
-      missing.map(async (row) => {
-        const source = vehicleSource(row);
-        const vehicle = await fetchCachedLiveVehicle({
-          make: source.make || source.brand || row.make || row.brand,
-          model: source.model || row.model,
-          city: source.city || row.city || city,
-        });
-        return [modelKey(recommendationName(source) || recommendationName(row)), vehicle];
-      }),
-    ).then((entries) => {
+    const loadRows = async (rowsToLoad) => {
+      const entries = await Promise.all(
+        rowsToLoad.map(async (row) => {
+          const source = vehicleSource(row);
+          const vehicle = await fetchCachedLiveVehicle({
+            make: source.make || source.brand || row.make || row.brand,
+            model: source.model || row.model,
+            city: source.city || row.city || city,
+            requireDetails,
+          });
+          return [modelKey(recommendationName(source) || recommendationName(row)), vehicle];
+        }),
+      );
       if (!active) return;
       setLiveVehicles((current) => ({
         ...current,
         ...Object.fromEntries(entries.filter(([, vehicle]) => vehicle)),
       }));
-    });
+    };
+
+    const immediateCount = requireDetails ? missing.length : Math.min(2, missing.length);
+    void loadRows(missing.slice(0, immediateCount));
+    const deferredTimer = missing.length > immediateCount
+      ? window.setTimeout(() => {
+        void loadRows(missing.slice(immediateCount));
+      }, 180)
+      : null;
 
     return () => {
       active = false;
+      if (deferredTimer) window.clearTimeout(deferredTimer);
     };
   }, [city, requireDetails, rows]);
 
   return liveVehicles;
+};
+
+const useVehicleFuelProfiles = (rows = [], city = "New Delhi") => {
+  const [profiles, setProfiles] = useState({});
+
+  useEffect(() => {
+    let active = true;
+    const controllers = [];
+    const loadRows = async (rowsToLoad) => {
+      const entries = await Promise.all(rowsToLoad.map(async (row) => {
+        const source = vehicleSource(row);
+        const controller = new AbortController();
+        controllers.push(controller);
+        const profile = await fetchAciVehicleFuelProfile({
+          make: source.make || source.brand || row.make || row.brand,
+          model: source.model || row.model,
+          city: source.city || row.city || city,
+          signal: controller.signal,
+        }).catch(() => null);
+        return [modelKey(recommendationName(source) || recommendationName(row)), profile];
+      }));
+      if (!active) return;
+      setProfiles((current) => ({
+        ...current,
+        ...Object.fromEntries(entries.filter(([, profile]) => profile)),
+      }));
+    };
+
+    const immediateCount = Math.min(2, rows.length);
+    void loadRows(rows.slice(0, immediateCount));
+    const deferredTimer = rows.length > immediateCount
+      ? window.setTimeout(() => {
+        void loadRows(rows.slice(immediateCount));
+      }, 160)
+      : null;
+
+    return () => {
+      active = false;
+      if (deferredTimer) window.clearTimeout(deferredTimer);
+      controllers.forEach((controller) => controller.abort());
+    };
+  }, [city, rows]);
+
+  return profiles;
 };
 
 const recommendationFacts = (row = {}, liveVehicle = {}) => {
@@ -460,19 +704,71 @@ export function AciV2RecommendationInlineCard({
   widget = {},
   actions = [],
   onAction,
+  onOpen,
 }) {
   const rows = useMemo(() => recommendationRows(message, widget), [message, widget]);
+  const passengerRows = useMemo(() => rows.filter((row) => !isTaxiProduct(row)), [rows]);
+  const rowsNeedingFuelProfiles = useMemo(() => passengerRows.filter((row) => {
+    const source = vehicleSource(row);
+    return !asArray(
+      row.fuelTypes ||
+        row.fuels ||
+        row.fuelOptions ||
+        row.qualifyingVariants ||
+        source.fuelTypes ||
+        source.fuels ||
+        source.fuelOptions ||
+        source.qualifyingVariants,
+    ).length && !fuelCategoryFromText([
+      row.fuelType,
+      row.fuel,
+      source.fuelType,
+      source.fuel,
+    ].filter(Boolean).join(" "));
+  }), [passengerRows]);
+  const fuelProfiles = useVehicleFuelProfiles(rowsNeedingFuelProfiles, widget.city || "New Delhi");
+  const rowFuelCategories = useMemo(() => Object.fromEntries(passengerRows.map((row, index) => {
+    const rowKey = row.vehicleId || row.modelId || modelKey(recommendationName(row)) || String(index);
+    const profile = fuelProfiles[modelKey(recommendationName(vehicleSource(row)) || recommendationName(row))];
+    return [rowKey, recommendationFuelCategories(row, profile)];
+  })), [fuelProfiles, passengerRows]);
+  const preferredFuel = useMemo(
+    () => requestedFuelCategory(message, widget),
+    [message, widget],
+  );
+  const fuelOptions = useMemo(() => {
+    const available = new Set(Object.values(rowFuelCategories).flat());
+    return Object.entries(FUEL_LABELS)
+      .filter(([value]) => available.has(value))
+      .map(([value, label]) => ({ value, label }));
+  }, [rowFuelCategories]);
+  const defaultFuel = fuelOptions.some((option) => option.value === preferredFuel)
+    ? preferredFuel
+    : fuelOptions[0]?.value || "petrol";
   const trackRef = useRef(null);
   const swipeRef = useRef({ x: 0, index: 0, target: null, settleTimer: null });
   const [carousel, setCarousel] = useState({ index: 0, visible: 3, max: 0 });
   const [sortDirection, setSortDirection] = useState("asc");
-  const liveVehicles = useLiveVehicleMap(rows, widget.city || "New Delhi");
-  const displayRows = useMemo(() => [...rows].sort((left, right) => {
+  const [activeFuel, setActiveFuel] = useState(defaultFuel);
+  const filteredRows = useMemo(
+    () => passengerRows.filter((row, index) => {
+      const rowKey = row.vehicleId || row.modelId || modelKey(recommendationName(row)) || String(index);
+      return (rowFuelCategories[rowKey] || ["petrol"]).includes(activeFuel);
+    }),
+    [activeFuel, passengerRows, rowFuelCategories],
+  );
+  const rankedRows = useMemo(() => filteredRows.map((row) => rowForFuel(row, activeFuel)).sort((left, right) => {
     const leftPrice = numericPrice(left.startsFromPrice || left.bestUnderBudgetPrice || left.exShowroomPrice);
     const rightPrice = numericPrice(right.startsFromPrice || right.bestUnderBudgetPrice || right.exShowroomPrice);
     const difference = (leftPrice || Number.MAX_SAFE_INTEGER) - (rightPrice || Number.MAX_SAFE_INTEGER);
     return sortDirection === "asc" ? difference : -difference;
-  }), [rows, sortDirection]);
+  }), [activeFuel, filteredRows, sortDirection]);
+  const displayRows = useMemo(() => rankedRows.slice(0, 8), [rankedRows]);
+  const liveVehicles = useLiveVehicleMap(displayRows, widget.city || "New Delhi");
+
+  useEffect(() => {
+    setActiveFuel(defaultFuel);
+  }, [defaultFuel, rows]);
 
   useEffect(() => {
     const track = trackRef.current;
@@ -500,19 +796,62 @@ export function AciV2RecommendationInlineCard({
       setCarousel((current) => ({ ...current, index: 0 }));
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [sortDirection]);
+  }, [activeFuel, sortDirection]);
 
   useEffect(() => () => window.clearTimeout(swipeRef.current.settleTimer), []);
 
-  if (!rows.length) return null;
+  if (!passengerRows.length || !displayRows.length) return null;
   const filters = widget.filters || widget.data?.filters || message.filters || {};
   const feature = clean(widget.featureName || widget.feature || widget.data?.featureName);
   const budget = Number(filters.budgetMax || filters.maxBudget || filters.maxPrice || 0);
   const isSuv = /suv/i.test(filters.bodyType || filters.bodyStyle || "");
-  const bodyLabel = rows.length === 1
+  const bodyLabel = filteredRows.length === 1
     ? (isSuv ? "SUV" : "car")
     : (isSuv ? "SUVs" : "cars");
-  const title = `${displayRows.length} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`;
+  const fuelLabel = FUEL_LABELS[activeFuel] || "Petrol";
+  const isTopEight = filteredRows.length >= 8;
+  const title = `${isTopEight ? "Top 8" : displayRows.length} ${fuelLabel.toLowerCase()} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`;
+  const subtitle = filteredRows.length > 8
+      ? `Showing the top 8 of ${filteredRows.length} ${fuelLabel.toLowerCase()} passenger-car matches.`
+      : `${filteredRows.length} ${fuelLabel.toLowerCase()} passenger-car ${filteredRows.length === 1 ? "match" : "matches"} available.`;
+
+  const openAllCars = () => {
+    const fullListWidget = {
+      ...widget,
+      canvasType: "vehicle_recommendation_results_canvas",
+      title: `${rankedRows.length} ${fuelLabel.toLowerCase()} ${bodyLabel}${budget ? ` under ${formatPrice(budget)}` : ""}`,
+      answer: `All ${rankedRows.length} matching passenger-car options, ordered by ${sortDirection === "asc" ? "lowest" : "highest"} ex-showroom price.`,
+      rows: passengerRows,
+      items: passengerRows,
+      initialFuel: activeFuel,
+      initialSortDirection: sortDirection,
+      filters: { ...filters, fuelType: fuelLabel },
+      data: {
+        ...(widget.data || {}),
+        rows: passengerRows,
+        items: passengerRows,
+        initialFuel: activeFuel,
+        initialSortDirection: sortDirection,
+        filters: {
+          ...(widget.data?.filters || filters),
+          fuelType: fuelLabel,
+        },
+      },
+    };
+    const canvasMessage = {
+      canvasType: "vehicle_recommendation_results_canvas",
+      widget: fullListWidget,
+    };
+    if (onOpen) onOpen(canvasMessage);
+    else onAction?.({
+      id: `open-all-${activeFuel}-cars`,
+      label: `View all ${fuelLabel.toLowerCase()} cars`,
+      type: "open_canvas",
+      canvasType: "vehicle_recommendation_results_canvas",
+      widget: fullListWidget,
+      payload: { widget: fullListWidget },
+    });
+  };
 
   const measureCarousel = () => {
     const track = trackRef.current;
@@ -594,12 +933,17 @@ export function AciV2RecommendationInlineCard({
   };
 
   return (
-    <section className="aci-recommendation-card aci-reference-shortlist-card" aria-label="Recommended cars">
+    <section
+      className="aci-recommendation-card aci-reference-shortlist-card"
+      aria-label="Recommended cars"
+      data-result-count={rows.length}
+      data-full-result-count={asArray(widget.modelGroups || widget.data?.modelGroups).length}
+    >
       <header className="aci-reference-shortlist-header">
         <div>
           <span>Shortlist</span>
           <h3>{title}</h3>
-          <p>{feature ? `Each price starts at the first variant with ${feature}.` : "Current new-car options, sorted by starting price."}</p>
+          <p>{subtitle}</p>
         </div>
         {displayRows.length > carousel.visible ? (
           <div className="aci-carousel-controls">
@@ -613,6 +957,48 @@ export function AciV2RecommendationInlineCard({
           </div>
         ) : null}
       </header>
+      <div className="aci-reference-shortlist-toolbar" aria-label="Shortlist filters">
+        <details className="aci-reference-shortlist-filter-menu">
+          <summary aria-label="Filter shortlist by fuel">
+            <Fuel size={14} aria-hidden="true" />
+            <span>Fuel</span>
+            <strong>{fuelLabel}</strong>
+            <ChevronDown size={13} aria-hidden="true" />
+          </summary>
+          <div role="menu" aria-label="Fuel options">
+            {fuelOptions.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                role="menuitemradio"
+                aria-checked={option.value === activeFuel}
+                className={option.value === activeFuel ? "is-active" : ""}
+                onClick={(event) => {
+                  setActiveFuel(option.value);
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                }}
+              >
+                <span>{option.label}</span>
+                {option.value === activeFuel ? <Check size={14} aria-hidden="true" /> : null}
+              </button>
+            ))}
+          </div>
+        </details>
+        <button
+          type="button"
+          aria-label={`Sort price ${sortDirection === "asc" ? "high to low" : "low to high"}`}
+          onClick={() => setSortDirection((current) => current === "asc" ? "desc" : "asc")}
+        >
+          <ArrowDownUp size={14} />
+          <span>Price: {sortDirection === "asc" ? "Low to high" : "High to low"}</span>
+        </button>
+        {rankedRows.length > 8 ? (
+          <button type="button" onClick={openAllCars}>
+            <ListChecks size={14} />
+            <span>View all {rankedRows.length}</span>
+          </button>
+        ) : null}
+      </div>
       <div
         className="aci-recommendation-grid"
         ref={trackRef}
@@ -622,6 +1008,8 @@ export function AciV2RecommendationInlineCard({
       >
         {displayRows.map((row, index) => {
           const name = recommendationName(row);
+          const rowKey = row.vehicleId || row.modelId || modelKey(name) || String(index);
+          const rowFuel = activeFuel;
           const source = vehicleSource(row);
           const liveVehicle = liveVehicles[modelKey(name)] || {};
           const facts = recommendationFacts(row, liveVehicle);
@@ -636,8 +1024,26 @@ export function AciV2RecommendationInlineCard({
             row.startsFromPrice || row.bestUnderBudgetPrice || row.exShowroomPrice;
           const priceLabel = row.startsFromPriceLabel || formatPrice(price);
           const variant = clean(row.startsFromVariant || row.bestUnderBudgetVariant || row.variant);
+          const overviewVehicle = {
+            ...source,
+            ...liveVehicle,
+            make: facts.make || row.make || row.brand,
+            brand: facts.make || row.make || row.brand,
+            model: row.model || source.model || facts.model,
+            fullModel: name,
+            displayName: name,
+            selectedVariant: variant,
+            imageUrl,
+            normalizedImageUrl: imageUrl,
+            exShowroomPrice: priceLabel,
+            fuelText: facts.fuel || FUEL_LABELS[rowFuel],
+            transmission: facts.transmission,
+            bodyType: facts.bodyType,
+          };
           const factChips = [
-            facts.fuel ? { label: facts.fuel, Icon: Fuel } : null,
+            (facts.fuel || FUEL_LABELS[rowFuel])
+              ? { label: facts.fuel || FUEL_LABELS[rowFuel], Icon: Fuel }
+              : null,
             facts.transmission ? { label: facts.transmission, Icon: Settings2 } : null,
             facts.bodyType ? { label: facts.bodyType, Icon: Car } : null,
           ].filter(Boolean);
@@ -645,13 +1051,13 @@ export function AciV2RecommendationInlineCard({
           return (
             <article
               className={`aci-recommendation-model aci-reference-shortlist-model${index === 0 ? " is-leading" : ""}`}
-              key={row.vehicleId || row.modelId || modelKey(name) || index}
+              key={rowKey}
               style={{ "--aci-item-index": index }}
             >
               <div className="aci-recommendation-visual">
                 <span className="aci-reference-shortlist-rank" aria-label={`Rank ${index + 1}`}>{index + 1}</span>
                 {imageUrl ? (
-                  <CarVisual imageUrl={imageUrl} name={name} priority={index === 0} />
+                  <CarVisual imageUrl={imageUrl} name={name} priority={index < Math.max(2, carousel.visible)} />
                 ) : (
                   <CarFront size={34} strokeWidth={1.5} aria-hidden="true" />
                 )}
@@ -671,21 +1077,30 @@ export function AciV2RecommendationInlineCard({
               <button
                 type="button"
                 className="aci-reference-shortlist-summary"
-                aria-label={`View ${name} variants`}
-                onClick={() => onAction?.({
-                  id: `recommendation-variants-${modelKey(name)}`,
-                  label: `See ${row.model || name} variants`,
-                  query: feature
-                    ? `Show ${name} variants with ${feature}`
-                    : `Show ${name} variants${budget ? ` under ${formatPrice(budget)}` : ""}`,
-                  type: "ask",
-                  vehicle: {
-                    ...liveVehicle,
-                    make: row.make || row.brand,
-                    model: row.model,
-                    fullModel: name,
-                  },
-                })}
+                aria-label={`Open ${name} car overview`}
+                title="Open car overview"
+                onClick={() => {
+                  const canvasMessage = {
+                    canvasType: "car_overview_canvas",
+                    vehicle: overviewVehicle,
+                    widget: {
+                      canvasType: "car_overview_canvas",
+                      vehicle: overviewVehicle,
+                      contextPatch: { selectedVehicle: overviewVehicle },
+                    },
+                  };
+                  if (onOpen) onOpen(canvasMessage);
+                  else onAction?.({
+                    id: `open-overview-${modelKey(name)}`,
+                    label: `Open ${name} overview`,
+                    query: name,
+                    type: "open_canvas",
+                    intent: "open_vehicle",
+                    canvasType: "car_overview_canvas",
+                    vehicle: overviewVehicle,
+                    contextPatch: { selectedVehicle: overviewVehicle },
+                  });
+                }}
               >
                 <div className="aci-reference-shortlist-summary-identity">
                   {facts.make ? <small>{facts.make}</small> : null}
@@ -700,7 +1115,9 @@ export function AciV2RecommendationInlineCard({
                     <strong>{priceLabel}</strong>
                   </div>
                 ) : null}
-                <ChevronRight className="aci-reference-shortlist-summary-arrow" size={16} aria-hidden="true" />
+                <span className="aci-reference-shortlist-summary-open">
+                  Overview <ChevronRight size={15} aria-hidden="true" />
+                </span>
               </button>
             </article>
           );
@@ -715,15 +1132,6 @@ export function AciV2RecommendationInlineCard({
             </button>
           );
         })}
-        <button
-          type="button"
-          aria-label={`Sort price ${sortDirection === "asc" ? "high to low" : "low to high"}`}
-          onClick={() => setSortDirection((current) => current === "asc" ? "desc" : "asc")}
-        >
-          <ArrowDownUp size={16} />
-          <span>Price: {sortDirection === "asc" ? "Low to high" : "High to low"}</span>
-          <ChevronRight size={14} />
-        </button>
       </footer>
     </section>
   );

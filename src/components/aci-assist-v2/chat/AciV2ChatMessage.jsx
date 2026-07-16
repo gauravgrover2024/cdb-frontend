@@ -158,6 +158,7 @@ function AciV2ChatMessage({
             widget={widget}
             actions={journeyPresentation.actions}
             onAction={onAction}
+            onOpen={onOpenCanvas}
           />
         ) : null}
 

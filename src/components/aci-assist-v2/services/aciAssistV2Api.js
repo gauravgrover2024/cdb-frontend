@@ -7,11 +7,16 @@ const PUBLIC_AUTOCOMPLETE_ENDPOINT = "/api/ai-agent/public-autocomplete";
 const PUBLIC_PRICING_CITIES_ENDPOINT = "/api/ai-agent/public-pricing-cities";
 const VEHICLE_MEDIA_ENDPOINT = "/api/vehicles/media";
 const VEHICLE_VARIANTS_ENDPOINT = "/api/vehicles/distinct/variants-with-price";
+const VEHICLE_FEATURES_ENDPOINT = "/api/features/by-selection";
 const VEHICLE_MODELS_ENDPOINT = "/api/vehicles/distinct/models";
 const POPULAR_CARS_ENDPOINT = "/api/vehicles/popular-cars";
 const LIVE_SNAPSHOT_TTL_MS = 1000 * 60 * 10;
 const LIVE_SNAPSHOT_CACHE_VERSION = "model-hero-v4";
 const liveSnapshotMemory = new Map();
+const liveVehicleImageMemory = new Map();
+const liveVehicleFuelMemory = new Map();
+const similarVehiclesMemory = new Map();
+const vehicleHighlightsMemory = new Map();
 const POPULAR_CARS_TTL_MS = 1000 * 60 * 10;
 const POPULAR_CARS_CACHE_VERSION = "hero-v2";
 const popularCarsMemory = new Map();
@@ -26,7 +31,8 @@ const throwIfAborted = (signal) => {
   if (signal?.aborted) throw createAbortError();
 };
 
-const toSafeList = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+const toSafeList = (value) =>
+  Array.isArray(value) ? value.filter(Boolean) : [];
 
 const firstSafeList = (...values) => {
   for (const value of values) {
@@ -36,7 +42,6 @@ const firstSafeList = (...values) => {
 
   return [];
 };
-
 
 const cleanJoin = (base = "", path = "") => {
   if (!base) return path;
@@ -333,7 +338,9 @@ const formatCompactAmount = (value) => {
 };
 
 const normalizeHex = (value = "") => {
-  const hex = String(value || "").trim().replace(/^#/, "");
+  const hex = String(value || "")
+    .trim()
+    .replace(/^#/, "");
   if (!hex) return "";
   if (/^[0-9a-f]{3}$/i.test(hex)) {
     return `#${hex
@@ -347,9 +354,13 @@ const normalizeHex = (value = "") => {
 };
 
 const canonicalVehicleKey = ({ make = "", model = "", city = "" } = {}) =>
-  `${LIVE_SNAPSHOT_CACHE_VERSION}|${String(make || "").trim().toLowerCase()}|${String(model || "")
+  `${LIVE_SNAPSHOT_CACHE_VERSION}|${String(make || "")
     .trim()
-    .toLowerCase()}|${String(city || "").trim().toLowerCase()}`;
+    .toLowerCase()}|${String(model || "")
+    .trim()
+    .toLowerCase()}|${String(city || "")
+    .trim()
+    .toLowerCase()}`;
 
 const normalizeModelLookupText = (value = "") =>
   String(value || "")
@@ -457,12 +468,15 @@ const sourceImageModelCandidatesFromUrl = (value = "", make = "") => {
 };
 
 const tokensStartWith = (tokens = [], prefix = []) =>
-  prefix.length > 0 &&
-  prefix.every((token, index) => tokens[index] === token);
+  prefix.length > 0 && prefix.every((token, index) => tokens[index] === token);
 
 const findTokenSequence = (tokens = [], sequence = [], fromIndex = 0) => {
   if (!sequence.length) return -1;
-  for (let index = fromIndex; index <= tokens.length - sequence.length; index += 1) {
+  for (
+    let index = fromIndex;
+    index <= tokens.length - sequence.length;
+    index += 1
+  ) {
     if (sequence.every((token, offset) => tokens[index + offset] === token)) {
       return index;
     }
@@ -502,13 +516,17 @@ const imageUrlModelScope = (value = "", requestedModel = "", make = "") => {
   const modelKey = stripMakePrefix(requestedModel, make);
   if (!value || !modelKey) return "unknown";
 
-  const normalizedAssetModel = modelCandidateFromNormalizedAssetUrl(value, make);
+  const normalizedAssetModel = modelCandidateFromNormalizedAssetUrl(
+    value,
+    make,
+  );
   if (normalizedAssetModel) {
     return normalizedAssetModel === modelKey ? "exact" : "mismatch";
   }
 
   const sourceCandidates = sourceImageModelCandidatesFromUrl(value, make);
-  if (sourceCandidates.some((candidate) => candidate === modelKey)) return "exact";
+  if (sourceCandidates.some((candidate) => candidate === modelKey))
+    return "exact";
   if (
     sourceCandidates.some(
       (candidate) =>
@@ -526,7 +544,11 @@ const imageUrlModelScope = (value = "", requestedModel = "", make = "") => {
   return "unknown";
 };
 
-const selectImageForRequestedModel = (row = {}, requestedModel = "", make = "") => {
+const selectImageForRequestedModel = (
+  row = {},
+  requestedModel = "",
+  make = "",
+) => {
   const candidates = [
     row.normalizedImageUrl,
     row.cleanImageUrl,
@@ -601,7 +623,8 @@ const rowMatchesRequestedModel = (
 
   if (strict) {
     const sourceImageModels = collectSourceImageModelCandidates(row, make);
-    if (sourceImageModels.some((candidate) => candidate === requestedModel)) return true;
+    if (sourceImageModels.some((candidate) => candidate === requestedModel))
+      return true;
     if (
       sourceImageModels.some((candidate) =>
         isSpecificModelSlugConflict(candidate, requestedModel),
@@ -664,7 +687,13 @@ const normalizeLiveVariant = (row = {}, index = 0, city = "Delhi") => {
     ...row,
     id: row._id || row.id || `${name}-${index}`,
     model: row.model || row.modelName || row.model_name || "",
-    rawModel: row.rawModel || row.raw_model || row.model || row.modelName || row.model_name || "",
+    rawModel:
+      row.rawModel ||
+      row.raw_model ||
+      row.model ||
+      row.modelName ||
+      row.model_name ||
+      "",
     name,
     variant: name,
     fuel,
@@ -697,8 +726,7 @@ const normalizeLiveColor = (
     row.clean_image_url ||
     row.normalizedImagePngUrl ||
     "";
-  const rawImageUrl =
-    row.image_url || row.imageUrl || row.car_image_url || "";
+  const rawImageUrl = row.image_url || row.imageUrl || row.car_image_url || "";
   const displayImage =
     selectImageForRequestedModel(row, requestedModel, make) ||
     getDisplayCarImage({
@@ -717,7 +745,8 @@ const normalizeLiveColor = (
         row.color_hex || row.hex || row.hexCode || row.colorHex || "",
       ) || "#2563EB",
     normalizedImageUrl,
-    cleanImageUrl: row.cleanImageUrl || row.clean_image_url || normalizedImageUrl,
+    cleanImageUrl:
+      row.cleanImageUrl || row.clean_image_url || normalizedImageUrl,
     imageUrl: displayImage || rawImageUrl,
     carImageUrl: displayImage || rawImageUrl,
     sourceImageUrl: rawImageUrl,
@@ -733,8 +762,9 @@ const queryString = (params = {}) => {
   return search.toString();
 };
 
-const uniqueNonEmpty = (items = []) =>
-  [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
+const uniqueNonEmpty = (items = []) => [
+  ...new Set(items.map((item) => String(item || "").trim()).filter(Boolean)),
+];
 
 const resolveApiBaseCandidates = () => {
   const envBase = process.env.REACT_APP_API_BASE_URL || "";
@@ -817,7 +847,13 @@ const fetchJsonSafe = async (url, token = "", signal) => {
   return response.json();
 };
 
-const normalizeBrandCard = ({ brand = "", model = "", city = "Delhi", variants = [], media = [] } = {}) => {
+const normalizeBrandCard = ({
+  brand = "",
+  model = "",
+  city = "Delhi",
+  variants = [],
+  media = [],
+} = {}) => {
   const rows = Array.isArray(variants) ? variants : [];
   const values = rows
     .map((item) =>
@@ -857,8 +893,13 @@ const normalizeBrandCard = ({ brand = "", model = "", city = "Delhi", variants =
     displayName: `${brand} ${model}`.trim(),
     city,
     imageUrl,
-    normalizedImageUrl: imageRow?.normalizedImageUrl || imageRow?.cleanImageUrl || "",
-    sourceImageUrl: imageRow?.sourceImageUrl || imageRow?.image_url || imageRow?.imageUrl || "",
+    normalizedImageUrl:
+      imageRow?.normalizedImageUrl || imageRow?.cleanImageUrl || "",
+    sourceImageUrl:
+      imageRow?.sourceImageUrl ||
+      imageRow?.image_url ||
+      imageRow?.imageUrl ||
+      "",
     startingOnRoadPrice: formatCompactAmount(minOnRoad),
     priceRange: formatCompactAmount(minOnRoad),
     variantCount: rows.length || undefined,
@@ -866,32 +907,31 @@ const normalizeBrandCard = ({ brand = "", model = "", city = "Delhi", variants =
   };
 };
 
-export 
-const isStableAciBackendContract = (value) => {
+export const isStableAciBackendContract = (value) => {
   if (!isObject(value)) return false;
 
   const hasContractSignal = Boolean(
     value.intent ||
-      value.displayMode ||
-      value.canvasType ||
-      value.inlineType ||
-      value.contextSnapshot ||
-      value.contextPatch ||
-      value.sourceTransparency ||
-      value.runtimeResultsMeta,
+    value.displayMode ||
+    value.canvasType ||
+    value.inlineType ||
+    value.contextSnapshot ||
+    value.contextPatch ||
+    value.sourceTransparency ||
+    value.runtimeResultsMeta,
   );
 
   const hasPayloadSignal = Boolean(
     value.widget ||
-      value.widgets ||
-      value.rows ||
-      value.items ||
-      value.features ||
-      value.colors ||
-      value.variants ||
-      value.data?.rows ||
-      value.data?.features ||
-      value.data?.variants,
+    value.widgets ||
+    value.rows ||
+    value.items ||
+    value.features ||
+    value.colors ||
+    value.variants ||
+    value.data?.rows ||
+    value.data?.features ||
+    value.data?.variants,
   );
 
   return hasContractSignal && hasPayloadSignal;
@@ -902,7 +942,9 @@ const preserveStableAciBackendContract = (body = {}) => {
 
   const widget =
     (isObject(body.widget) && body.widget) ||
-    (Array.isArray(body.widgets) && isObject(body.widgets[0]) && body.widgets[0]) ||
+    (Array.isArray(body.widgets) &&
+      isObject(body.widgets[0]) &&
+      body.widgets[0]) ||
     {};
 
   const rowCandidates = [
@@ -930,12 +972,11 @@ const preserveStableAciBackendContract = (body = {}) => {
     rowCandidates
       .slice()
       .sort((left, right) => right.length - left.length)[0] || [];
-  const rows =
-    bestRowCandidate.length
-      ? bestRowCandidate
-      : featureRowFallbacks
-          .slice()
-          .sort((left, right) => right.length - left.length)[0] || [];
+  const rows = bestRowCandidate.length
+    ? bestRowCandidate
+    : featureRowFallbacks
+        .slice()
+        .sort((left, right) => right.length - left.length)[0] || [];
 
   const enrichedWidget = {
     ...widget,
@@ -945,8 +986,20 @@ const preserveStableAciBackendContract = (body = {}) => {
     inlineType: body.inlineType || widget.inlineType || "",
     title: body.title || widget.title,
     answer: body.answer || widget.answer,
-    rows: rows.length >= toSafeList(widget.rows).length ? rows : toSafeList(widget.rows),
-    items: rows.length >= toSafeList(widget.items).length ? rows : toSafeList(widget.items),
+    rows:
+      rows.length >= toSafeList(widget.rows).length
+        ? rows
+        : toSafeList(widget.rows),
+    items:
+      rows.length >= toSafeList(widget.items).length
+        ? rows
+        : toSafeList(widget.items),
+    modelGroups: firstSafeList(
+      body.modelGroups,
+      body.data?.modelGroups,
+      widget.modelGroups,
+      widget.data?.modelGroups,
+    ),
     features: firstSafeList(
       widget.features,
       widget.featureList,
@@ -975,9 +1028,23 @@ const preserveStableAciBackendContract = (body = {}) => {
       body.data?.features,
       body.data?.searchableFeatures,
     ),
-    variants: firstSafeList(widget.variantOptions, widget.variants, body.variants, body.data?.variants),
-    variantOptions: firstSafeList(widget.variantOptions, body.variantOptions, body.data?.variantOptions, widget.variants),
-    matchedVariants: firstSafeList(widget.matchedVariants, body.matchedVariants, body.data?.matchedVariants),
+    variants: firstSafeList(
+      widget.variantOptions,
+      widget.variants,
+      body.variants,
+      body.data?.variants,
+    ),
+    variantOptions: firstSafeList(
+      widget.variantOptions,
+      body.variantOptions,
+      body.data?.variantOptions,
+      widget.variants,
+    ),
+    matchedVariants: firstSafeList(
+      widget.matchedVariants,
+      body.matchedVariants,
+      body.data?.matchedVariants,
+    ),
     featureGroups: firstSafeList(
       widget.featureGroups,
       widget.groups,
@@ -988,8 +1055,16 @@ const preserveStableAciBackendContract = (body = {}) => {
       body.data?.featureGroups,
       body.data?.groups,
     ),
-    quickSpecs: firstSafeList(widget.quickSpecs, body.quickSpecs, body.data?.quickSpecs),
-    highlights: firstSafeList(widget.highlights, body.highlights, body.data?.highlights),
+    quickSpecs: firstSafeList(
+      widget.quickSpecs,
+      body.quickSpecs,
+      body.data?.quickSpecs,
+    ),
+    highlights: firstSafeList(
+      widget.highlights,
+      body.highlights,
+      body.data?.highlights,
+    ),
     vehicle: widget.vehicle || body.vehicle || body.data?.vehicle || null,
     data: {
       ...(widget.data || {}),
@@ -1003,18 +1078,29 @@ const preserveStableAciBackendContract = (body = {}) => {
     widgets: [enrichedWidget],
     rows,
     items: firstSafeList(body.items, rows),
-    features: firstSafeList(body.features, body.data?.features, enrichedWidget.features),
+    features: firstSafeList(
+      body.features,
+      body.data?.features,
+      enrichedWidget.features,
+    ),
     featureGroups: firstSafeList(
       body.featureGroups,
       body.data?.featureGroups,
       enrichedWidget.featureGroups,
     ),
-    variants: firstSafeList(body.variants, body.data?.variants, enrichedWidget.variantOptions, enrichedWidget.variants),
+    variants: firstSafeList(
+      body.variants,
+      body.data?.variants,
+      enrichedWidget.variantOptions,
+      enrichedWidget.variants,
+    ),
     actions: firstSafeList(body.actions, enrichedWidget.actions),
-    leadingQuestions: firstSafeList(body.leadingQuestions, enrichedWidget.leadingQuestions),
+    leadingQuestions: firstSafeList(
+      body.leadingQuestions,
+      enrichedWidget.leadingQuestions,
+    ),
   };
 };
-
 
 const normalizeAciBackendResponse = (raw) => {
   // PRESERVE_STABLE_ACI_BACKEND_CONTRACT_GUARD
@@ -1356,18 +1442,17 @@ const compactVehicleForChat = (vehicle = {}) => {
   const make = vehicle.make || vehicle.brand || "";
   const model = vehicle.model || vehicle.modelName || "";
 
-  if (
-    !make &&
-    !model &&
-    !vehicle.fullModel
-  ) {
+  if (!make && !model && !vehicle.fullModel) {
     return null;
   }
 
   return {
     make: compactText(make, 80),
     model: compactText(model, 100),
-    fullModel: compactText(vehicle.fullModel || [make, model].filter(Boolean).join(" "), 140),
+    fullModel: compactText(
+      vehicle.fullModel || [make, model].filter(Boolean).join(" "),
+      140,
+    ),
     makeKey: compactText(vehicle.makeKey, 120),
     modelKey: compactText(vehicle.modelKey, 160),
     shortModelKey: compactText(vehicle.shortModelKey, 120),
@@ -1408,8 +1493,12 @@ const compactAciContextStateForChat = (state = {}) => {
     },
     requested: {
       facts: isObject(state.requested?.facts) ? state.requested.facts : {},
-      features: Array.isArray(state.requested?.features) ? state.requested.features : [],
-      topics: Array.isArray(state.requested?.topics) ? state.requested.topics : [],
+      features: Array.isArray(state.requested?.features)
+        ? state.requested.features
+        : [],
+      topics: Array.isArray(state.requested?.topics)
+        ? state.requested.topics
+        : [],
       specAttributes: Array.isArray(state.requested?.specAttributes)
         ? state.requested.specAttributes
         : [],
@@ -1424,9 +1513,12 @@ const compactAciContextStateForChat = (state = {}) => {
       ? state.buyerGuidanceContext
       : {},
     anchors: {
-      primaryVehicle: compactVehicleForChat(state.anchors?.primaryVehicle || {}) || {},
+      primaryVehicle:
+        compactVehicleForChat(state.anchors?.primaryVehicle || {}) || {},
       comparisonTargets: Array.isArray(state.anchors?.comparisonTargets)
-        ? state.anchors.comparisonTargets.map(compactVehicleForChat).filter(Boolean)
+        ? state.anchors.comparisonTargets
+            .map(compactVehicleForChat)
+            .filter(Boolean)
         : [],
     },
     confidence: {
@@ -1437,8 +1529,12 @@ const compactAciContextStateForChat = (state = {}) => {
       resolutionSource: compactText(state.confidence?.resolutionSource, 100),
     },
     provenance: {
-      sources: Array.isArray(state.provenance?.sources) ? state.provenance.sources : [],
-      warnings: Array.isArray(state.provenance?.warnings) ? state.provenance.warnings : [],
+      sources: Array.isArray(state.provenance?.sources)
+        ? state.provenance.sources
+        : [],
+      warnings: Array.isArray(state.provenance?.warnings)
+        ? state.provenance.warnings
+        : [],
       isolation: compactText(state.provenance?.isolation, 100),
       updatedBy: compactText(state.provenance?.updatedBy, 120),
     },
@@ -1501,7 +1597,7 @@ const compactAciChatContext = (context = {}) => {
     : null;
 
   const durableContextState = compactAciContextStateForChat(
-      context.contextState ||
+    context.contextState ||
       context.aciContextState ||
       context.contextPatch?.contextState ||
       context.contextPatch?.aciContextState ||
@@ -1515,7 +1611,9 @@ const compactAciChatContext = (context = {}) => {
     selectedColor,
 
     anchorMake: compactText(
-      context.anchorMake || scopedSelectedVehicle?.make || scopedSelectedVehicle?.brand,
+      context.anchorMake ||
+        scopedSelectedVehicle?.make ||
+        scopedSelectedVehicle?.brand,
       80,
     ),
     anchorModel: compactText(
@@ -1560,7 +1658,12 @@ const compactAciChatContext = (context = {}) => {
   };
 };
 
-export async function askAciAssistV2({ message, context = {}, signal } = {}) {
+export async function askAciAssistV2({
+  message,
+  context = {},
+  signal,
+  source = "aci_assist_v2_frontend",
+} = {}) {
   const token = getAuthToken();
   const apiBase = process.env.REACT_APP_API_BASE_URL || API_BASE_URL || "";
   const privateEndpoint =
@@ -1582,7 +1685,7 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
     text: message,
     query: message,
     context: compactContext,
-    source: "aci_assist_v2_frontend",
+    ...(source ? { source } : {}),
   };
 
   const payloadText = JSON.stringify(payload);
@@ -1631,6 +1734,124 @@ export async function askAciAssistV2({ message, context = {}, signal } = {}) {
     console.log("ACI Assist V2 normalized backend:", normalized);
   }
   return normalized;
+}
+
+export async function fetchAciVehicleImage({
+  make = "",
+  model = "",
+  signal,
+} = {}) {
+  const normalizedMake = String(make || "").trim();
+  const normalizedModel = String(model || "").trim();
+  if (!normalizedMake || !normalizedModel) return "";
+
+  const key = canonicalVehicleKey({
+    make: normalizedMake,
+    model: normalizedModel,
+  });
+  const cached = liveVehicleImageMemory.get(key);
+  if (cached && Date.now() - cached.ts < LIVE_SNAPSHOT_TTL_MS) {
+    return cached.imageUrl;
+  }
+
+  const token = getAuthToken();
+  for (const apiBase of resolveApiBaseCandidates()) {
+    throwIfAborted(signal);
+    const mediaUrl = cleanJoin(
+      apiBase,
+      `${VEHICLE_MEDIA_ENDPOINT}?${queryString({
+        make: normalizedMake,
+        model: normalizedModel,
+      })}`,
+    );
+    const response = await fetchJsonSafe(mediaUrl, token, signal).catch(
+      () => null,
+    );
+    const mediaRows = Array.isArray(response?.data) ? response.data : [];
+    const scopedRows = filterRowsByExactModel(
+      mediaRows,
+      normalizedModel,
+      normalizedMake,
+      { strict: true },
+    );
+    const imageUrl = getDisplayCarImage(
+      scopedRows.find(
+        (item) =>
+          item?.heroImageUrl ||
+          item?.displayNormalizedImageUrl ||
+          item?.defaultNormalizedImageUrl,
+      ) ||
+        scopedRows[0] ||
+        {},
+    );
+    if (imageUrl) {
+      liveVehicleImageMemory.set(key, { ts: Date.now(), imageUrl });
+      return imageUrl;
+    }
+  }
+
+  return "";
+}
+
+export async function fetchAciVehicleFuelProfile({
+  make = "",
+  model = "",
+  city = "Delhi",
+  signal,
+} = {}) {
+  const normalizedMake = String(make || "").trim();
+  const normalizedModel = String(model || "").trim();
+  const normalizedCity = String(city || "Delhi").trim();
+  if (!normalizedMake || !normalizedModel) return null;
+
+  const key = canonicalVehicleKey({
+    make: normalizedMake,
+    model: normalizedModel,
+    city: normalizedCity,
+  });
+  const cached = liveVehicleFuelMemory.get(key);
+  if (cached && Date.now() - cached.ts < LIVE_SNAPSHOT_TTL_MS) {
+    return cached.profile;
+  }
+
+  const token = getAuthToken();
+  for (const apiBase of resolveApiBaseCandidates()) {
+    throwIfAborted(signal);
+    const variantsUrl = cleanJoin(
+      apiBase,
+      `${VEHICLE_VARIANTS_ENDPOINT}?${queryString({
+        make: normalizedMake,
+        model: normalizedModel,
+        city: normalizedCity,
+      })}`,
+    );
+    const response = await fetchJsonSafe(variantsUrl, token, signal).catch(
+      () => null,
+    );
+    const rows = filterRowsByExactModel(
+      Array.isArray(response?.data) ? response.data : [],
+      normalizedModel,
+      normalizedMake,
+    );
+    const variants = rows
+      .map((row) => ({
+        variant: String(
+          row.variant || row.variantName || row.name || "",
+        ).trim(),
+        fuel: String(row.fuel || row.fuel_type || row.fuelType || "").trim(),
+      }))
+      .filter((row) => row.variant && row.fuel);
+    if (variants.length) {
+      const profile = {
+        variants,
+        fuels: [...new Set(variants.map((row) => row.fuel))],
+      };
+      liveVehicleFuelMemory.set(key, { ts: Date.now(), profile });
+      return profile;
+    }
+  }
+
+  return null;
 }
 
 export async function fetchAciVehicleLiveSnapshot({
@@ -1732,7 +1953,9 @@ export async function fetchAciVehicleLiveSnapshot({
 
   const variantRows = scopedVariantRowsRaw
     .map((item, index) => normalizeLiveVariant(item, index, normalizedCity))
-    .filter((item) => item.variant && (item.exShowroomPrice || item.onRoadPrice));
+    .filter(
+      (item) => item.variant && (item.exShowroomPrice || item.onRoadPrice),
+    );
 
   const colors = scopedMediaRows
     .map((item, index) =>
@@ -1746,12 +1969,14 @@ export async function fetchAciVehicleLiveSnapshot({
       const keyName = `${String(item.name || "")
         .trim()
         .toLowerCase()}|${item.hex}`;
-      return list.findIndex((entry) => {
-        const entryKey = `${String(entry.name || "")
-          .trim()
-          .toLowerCase()}|${entry.hex}`;
-        return keyName === entryKey;
-      }) === index;
+      return (
+        list.findIndex((entry) => {
+          const entryKey = `${String(entry.name || "")
+            .trim()
+            .toLowerCase()}|${entry.hex}`;
+          return keyName === entryKey;
+        }) === index
+      );
     });
 
   const onRoadValues = variantRows
@@ -1782,7 +2007,8 @@ export async function fetchAciVehicleLiveSnapshot({
     ) ||
     getDisplayCarImage({
       variants: imageScopedVariantRows,
-      imageUrl: imageScopedVariantRows.find((item) => item.imageUrl)?.imageUrl || "",
+      imageUrl:
+        imageScopedVariantRows.find((item) => item.imageUrl)?.imageUrl || "",
     }) ||
     "";
 
@@ -1827,6 +2053,256 @@ export async function fetchAciVehicleLiveSnapshot({
   }
 
   return payload;
+}
+
+export async function fetchAciVehicleHighlights({
+  make = "",
+  model = "",
+  variant = "",
+  signal,
+} = {}) {
+  const normalizedMake = String(make || "").trim();
+  const normalizedModel = String(model || "").trim();
+  const normalizedVariant = String(variant || "").trim();
+  if (!normalizedMake || !normalizedModel || !normalizedVariant) return [];
+
+  const key = [normalizedMake, normalizedModel, normalizedVariant]
+    .map((value) => value.toLowerCase())
+    .join("|");
+  const cached = vehicleHighlightsMemory.get(key);
+  if (cached && Date.now() - cached.ts < LIVE_SNAPSHOT_TTL_MS) {
+    return cached.features;
+  }
+
+  const token = getAuthToken();
+  for (const apiBase of resolveApiBaseCandidates()) {
+    throwIfAborted(signal);
+    const url = cleanJoin(
+      apiBase,
+      `${VEHICLE_FEATURES_ENDPOINT}?${queryString({
+        make: normalizedMake,
+        model: normalizedModel,
+        variant: normalizedVariant,
+      })}`,
+    );
+    const response = await fetchJsonSafe(url, token, signal);
+    const features = toSafeList(response?.data);
+    if (!features.length) continue;
+
+    vehicleHighlightsMemory.set(key, { ts: Date.now(), features });
+    return features;
+  }
+
+  return [];
+}
+
+export async function fetchAciSimilarVehicles({
+  vehicle = {},
+  city = "Delhi",
+  limit = 5,
+  signal,
+} = {}) {
+  const make = String(vehicle.make || vehicle.brand || "").trim();
+  const model = String(vehicle.model || vehicle.modelName || "").trim();
+  const resolvedCity = String(
+    city || vehicle.city || vehicle.citySlug || "Delhi",
+  ).trim();
+
+  if (!make || !model) return [];
+
+  const cacheKey = canonicalVehicleKey({ make, model, city: resolvedCity });
+  const cached = similarVehiclesMemory.get(cacheKey);
+  if (cached && Date.now() - cached.ts < LIVE_SNAPSHOT_TTL_MS) {
+    return cached.vehicles.slice(0, limit);
+  }
+
+  const response = await askAciAssistV2({
+    message: `Suggest cars similar to ${make} ${model}`,
+    context: {
+      anchorMake: make,
+      anchorModel: model,
+      anchorCity: resolvedCity,
+      selectedVehicle: { make, brand: make, model, city: resolvedCity },
+    },
+    signal,
+  });
+  const widget =
+    (isObject(response?.widget) && response.widget) ||
+    (isObject(response?.widgets?.[0]) && response.widgets[0]) ||
+    {};
+  const candidates = firstSafeList(
+    widget.rows,
+    widget.items,
+    widget.modelGroups,
+    response?.rows,
+    response?.modelGroups,
+  );
+  const selectedKey = canonicalVehicleKey({ make, model });
+  const seen = new Set();
+  const scopedCandidates = candidates
+    .map((candidate, index) => {
+      const displayName = String(
+        candidate.displayName ||
+          candidate.fullModel ||
+          candidate.name ||
+          candidate.model ||
+          candidate.modelKey ||
+          "",
+      ).trim();
+      const words = displayName.split(/\s+/).filter(Boolean);
+      const candidateMake = String(
+        candidate.make || candidate.brand || words[0] || "",
+      ).trim();
+      const candidateModel = String(
+        candidate.model ||
+          candidate.modelName ||
+          words.slice(1).join(" ") ||
+          candidate.modelKey ||
+          "",
+      ).trim();
+      const key = canonicalVehicleKey({
+        make: candidateMake,
+        model: candidateModel,
+      });
+
+      if (!candidateMake || !candidateModel || !key || key === selectedKey) {
+        return null;
+      }
+      if (seen.has(key)) return null;
+      seen.add(key);
+
+      return {
+        ...candidate,
+        make: candidateMake,
+        brand: candidateMake,
+        model: candidateModel,
+        displayName: displayName || `${candidateMake} ${candidateModel}`.trim(),
+        similarityRank: index,
+      };
+    })
+    .filter(Boolean)
+    .slice(0, Math.max(limit + 2, 7));
+
+  const selectedPrice = parseAmount(
+    vehicle.exShowroomPrice ||
+      vehicle.startingOnRoadPrice ||
+      vehicle.priceRange ||
+      0,
+  );
+  const enriched = await Promise.all(
+    scopedCandidates.map(async (candidate) => {
+      const snapshot = await fetchAciVehicleLiveSnapshot({
+        make: candidate.make,
+        model: candidate.model,
+        city: resolvedCity,
+        signal,
+      }).catch((error) => {
+        if (error?.name === "AbortError") throw error;
+        return null;
+      });
+
+      if (!snapshot?.ok || !snapshot.rows?.length) return null;
+
+      const liveVehicle = snapshot.vehicle || {};
+      const rivalPrice = parseAmount(
+        liveVehicle.exShowroomPrice ||
+          liveVehicle.startingOnRoadPrice ||
+          liveVehicle.priceRange ||
+          0,
+      );
+      const priceGapRatio =
+        selectedPrice && rivalPrice
+          ? Math.abs(rivalPrice - selectedPrice) / selectedPrice
+          : 1;
+      const bodyType = String(
+        candidate.bodyType || candidate.bodyTypeKey || "SUV",
+      ).trim();
+      const relationType = String(candidate.relationType || "").toLowerCase();
+      const backendMatchLabel = String(candidate.matchLabel || "").trim();
+      const matchReason =
+        relationType === "direct_rival"
+          ? "Direct rival"
+          : relationType === "platform_twin"
+            ? "Closely related"
+            : relationType === "nearby_alternative"
+              ? "Worth a look"
+              : backendMatchLabel
+                ? backendMatchLabel
+                : Number(candidate.similarityScore || 0) >= 85
+                  ? "Strong match"
+                  : candidate.similarityRank === 0
+                    ? "Top alternative"
+                    : candidate.similarityRank <= 2
+                      ? "Close alternative"
+                      : priceGapRatio <= 0.2
+                        ? "Similar price band"
+                        : `Similar ${bodyType.replace(/-/g, " ")}`;
+      const relationPriority =
+        relationType === "direct_rival"
+          ? 0
+          : relationType === "platform_twin"
+            ? 0.25
+            : relationType === "nearby_alternative"
+              ? 0.5
+              : 0.75;
+      const sameMakePenalty =
+        candidate.make.toLowerCase() === make.toLowerCase() ? 0.45 : 0;
+      const similarityScore = Math.max(
+        0,
+        Math.min(Number(candidate.similarityScore || 0) / 100, 1),
+      );
+      const rivalScore =
+        relationPriority +
+        sameMakePenalty +
+        priceGapRatio * 0.2 +
+        (1 - similarityScore) * 0.35 +
+        candidate.similarityRank * 0.01;
+      const fuelTypes = [
+        ...new Set([
+          ...toSafeList(candidate.fuels || candidate.fuelTypes),
+          ...snapshot.rows
+            .map((row) => row.fuelType || row.fuel)
+            .filter(Boolean),
+        ]),
+      ];
+      const transmissions = [
+        ...new Set([
+          ...toSafeList(candidate.transmissions),
+          ...snapshot.rows
+            .map((row) => row.transmissionType || row.transmission)
+            .filter(Boolean),
+        ]),
+      ];
+
+      return {
+        ...candidate,
+        ...liveVehicle,
+        make: candidate.make,
+        brand: candidate.make,
+        model: candidate.model,
+        displayName: candidate.displayName,
+        bodyType,
+        matchReason,
+        priceGapRatio,
+        rivalScore,
+        fuels: fuelTypes,
+        fuelTypes,
+        transmissions,
+        variants: snapshot.rows,
+        colors: snapshot.colors,
+      };
+    }),
+  );
+  const vehicles = enriched
+    .filter(Boolean)
+    .sort((left, right) => left.rivalScore - right.rivalScore);
+
+  similarVehiclesMemory.set(cacheKey, {
+    ts: Date.now(),
+    vehicles,
+  });
+
+  return vehicles.slice(0, limit);
 }
 
 export async function fetchAciPopularCars({
@@ -1972,8 +2448,12 @@ export async function fetchAciBrandCatalog({
 
         throwIfAborted(signal);
 
-        const nextVariants = Array.isArray(variantsRes.value?.data) ? variantsRes.value.data : [];
-        const nextMedia = Array.isArray(mediaRes.value?.data) ? mediaRes.value.data : [];
+        const nextVariants = Array.isArray(variantsRes.value?.data)
+          ? variantsRes.value.data
+          : [];
+        const nextMedia = Array.isArray(mediaRes.value?.data)
+          ? mediaRes.value.data
+          : [];
 
         if (!variants.length) variants = nextVariants;
         if (!media.length) media = nextMedia;
@@ -2012,13 +2492,17 @@ export async function fetchAciAutocomplete({
   for (const apiBase of candidates) {
     throwIfAborted(signal);
     try {
-      const response = await fetch(cleanJoin(apiBase, PUBLIC_AUTOCOMPLETE_ENDPOINT), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ q, context, limit }),
-        signal,
-      });
-      if (!response.ok) throw new Error(`Autocomplete failed with ${response.status}`);
+      const response = await fetch(
+        cleanJoin(apiBase, PUBLIC_AUTOCOMPLETE_ENDPOINT),
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ q, context, limit }),
+          signal,
+        },
+      );
+      if (!response.ok)
+        throw new Error(`Autocomplete failed with ${response.status}`);
       const payload = await response.json();
       return {
         query: payload?.query || q,
@@ -2045,7 +2529,8 @@ export async function fetchAciPricingCities({ signal } = {}) {
         cleanJoin(apiBase, PUBLIC_PRICING_CITIES_ENDPOINT),
         { signal },
       );
-      if (!response.ok) throw new Error(`Pricing cities failed with ${response.status}`);
+      if (!response.ok)
+        throw new Error(`Pricing cities failed with ${response.status}`);
       const payload = await response.json();
       return toSafeList(payload?.rows);
     } catch (error) {
