@@ -1747,10 +1747,6 @@ const InsurancePreview = ({
                       value: data.dealerChannelName,
                     },
                     {
-                      label: "Channel / Dealer No.",
-                      value: data.dealerChannelNo,
-                    },
-                    {
                       label: "Dealer Mobile",
                       value: data.dealerMobile,
                     },
