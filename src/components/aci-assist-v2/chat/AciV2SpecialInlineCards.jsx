@@ -282,6 +282,26 @@ const firstRecommendationList = (...values) => {
 
 const recommendationRows = (message = {}, widget = {}) =>
   firstRecommendationList(
+    widget.previewModelGroups,
+    widget.data?.previewModelGroups,
+    message.previewModelGroups,
+    message.data?.previewModelGroups,
+    widget.rows,
+    message.rows,
+    widget.items,
+    message.items,
+    widget.modelGroups,
+    widget.data?.modelGroups,
+    message.modelGroups,
+    message.data?.modelGroups,
+    widget.fullModelGroups,
+    widget.data?.fullModelGroups,
+    message.fullModelGroups,
+    message.data?.fullModelGroups,
+  ).filter((row) => clean(row.fullModel || row.displayName || row.model));
+
+const fullRecommendationRows = (message = {}, widget = {}) =>
+  firstRecommendationList(
     widget.modelGroups,
     widget.data?.modelGroups,
     message.modelGroups,
@@ -327,6 +347,13 @@ const fuelCategoryFromText = (value = "") => {
 const recommendationFuelCategories = (row = {}, fuelProfile = null) => {
   const source = vehicleSource(row);
   const variant = asArray(row.variants || source.variants)[0] || {};
+  const hasFuelOptions = Object.prototype.hasOwnProperty.call(row, "fuelOptions") ||
+    Object.prototype.hasOwnProperty.call(source, "fuelOptions");
+  const optionFuels = asArray(row.fuelOptions || source.fuelOptions)
+    .map((item) => fuelCategoryFromText(item.fuelType || item.fuel || item.fuelKey))
+    .filter(Boolean);
+  if (hasFuelOptions) return [...new Set(optionFuels)];
+
   const listedFuels = asArray(
     row.fuelTypes || row.fuels || source.fuelTypes || source.fuels,
   )
@@ -394,6 +421,8 @@ const rowForFuel = (row = {}, fuelCategory = "petrol") => {
       bestUnderBudgetVariant: compactFuelOption.bestUnderBudgetVariant || row.bestUnderBudgetVariant,
       bestUnderBudgetPrice: compactFuelOption.bestUnderBudgetPrice || row.bestUnderBudgetPrice,
       bestUnderBudgetPriceLabel: compactFuelOption.bestUnderBudgetPriceLabel || row.bestUnderBudgetPriceLabel,
+      transmission: compactFuelOption.transmission || row.transmission,
+      transmissions: compactFuelOption.transmissions || row.transmissions,
     };
   }
   const qualifying = asArray(row.qualifyingVariants || source.qualifyingVariants)
@@ -422,7 +451,12 @@ const rowForFuel = (row = {}, fuelCategory = "petrol") => {
 };
 
 const requestedFuelCategory = (message = {}, widget = {}) => {
-  const filters = widget.filters || widget.data?.filters || message.filters || {};
+  const filters = {
+    ...(message.data?.filters || {}),
+    ...(message.filters || {}),
+    ...(widget.data?.filters || {}),
+    ...(widget.filters || {}),
+  };
   const text = clean([
     filters.fuel,
     filters.fuelType,
@@ -439,6 +473,29 @@ const requestedFuelCategory = (message = {}, widget = {}) => {
   if (/\bdiesel\b/.test(text)) return "diesel";
   if (/\b(?:petrol|gasoline)\b/.test(text)) return "petrol";
   return "petrol";
+};
+
+const requestedTransmissionCategory = (message = {}, widget = {}) => {
+  const filters = {
+    ...(message.data?.filters || {}),
+    ...(message.filters || {}),
+    ...(widget.data?.filters || {}),
+    ...(widget.filters || {}),
+  };
+  const text = clean([
+    filters.transmission,
+    filters.transmissionType,
+    filters.transmissionKey,
+    widget.query,
+    widget.originalQuery,
+    widget.userQuery,
+    message.query,
+    message.originalQuery,
+    message.userQuery,
+  ].filter(Boolean).join(" ")).toLowerCase();
+  if (/\b(?:automatic|auto|amt|cvt|dct|ivt|dsg|at)\b/.test(text)) return "automatic";
+  if (/\b(?:manual|mt)\b/.test(text)) return "manual";
+  return "";
 };
 
 const isTaxiProduct = (row = {}) => {
@@ -463,7 +520,7 @@ const isTaxiProduct = (row = {}) => {
     source.productType,
     source.usageType,
   ].filter(Boolean).join(" ")).toLowerCase();
-  return /\b(?:taxi|cab|fleet|commercial|xpres(?:-t)?|tour\s+[hmstv0-9]+)\b/.test(text);
+  return /\b(?:taxi|cab|fleet|commercial|cargo|goods?|pickup|pick[\s-]*up|tour|xpres(?:[\s-]*t)?|super\s+carry|dost|intra)\b/.test(text);
 };
 
 const LIVE_VEHICLE_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -708,6 +765,21 @@ export function AciV2RecommendationInlineCard({
 }) {
   const rows = useMemo(() => recommendationRows(message, widget), [message, widget]);
   const passengerRows = useMemo(() => rows.filter((row) => !isTaxiProduct(row)), [rows]);
+  const fullPassengerRows = useMemo(
+    () => fullRecommendationRows(message, widget).filter((row) => !isTaxiProduct(row)),
+    [message, widget],
+  );
+  const filters = useMemo(() => ({
+    ...(message.data?.filters || {}),
+    ...(message.filters || {}),
+    ...(widget.data?.filters || {}),
+    ...(widget.filters || {}),
+  }), [message, widget]);
+  const budgetTarget = Number(
+    filters.budgetTarget || filters.statedBudget || filters.maxBudget || filters.budgetMax || 0,
+  );
+  const budgetMax = Number(filters.budgetMax || filters.maxPrice || budgetTarget || 0);
+  const previewBudgetMin = Number(filters.previewBudgetMin || filters.budgetMin || 0);
   const rowsNeedingFuelProfiles = useMemo(() => passengerRows.filter((row) => {
     const source = vehicleSource(row);
     return !asArray(
@@ -736,33 +808,67 @@ export function AciV2RecommendationInlineCard({
     () => requestedFuelCategory(message, widget),
     [message, widget],
   );
+  const requestedTransmission = useMemo(
+    () => requestedTransmissionCategory(message, widget),
+    [message, widget],
+  );
   const fuelOptions = useMemo(() => {
-    const available = new Set(Object.values(rowFuelCategories).flat());
+    const available = new Set([
+      ...Object.values(rowFuelCategories).flat(),
+      ...fullPassengerRows.flatMap((row) => recommendationFuelCategories(row)),
+    ]);
     return Object.entries(FUEL_LABELS)
       .filter(([value]) => available.has(value))
       .map(([value, label]) => ({ value, label }));
-  }, [rowFuelCategories]);
+  }, [fullPassengerRows, rowFuelCategories]);
   const defaultFuel = fuelOptions.some((option) => option.value === preferredFuel)
     ? preferredFuel
     : fuelOptions[0]?.value || "petrol";
   const trackRef = useRef(null);
   const swipeRef = useRef({ x: 0, index: 0, target: null, settleTimer: null });
   const [carousel, setCarousel] = useState({ index: 0, visible: 3, max: 0 });
-  const [sortDirection, setSortDirection] = useState("asc");
+  const [sortDirection, setSortDirection] = useState("desc");
   const [activeFuel, setActiveFuel] = useState(defaultFuel);
-  const filteredRows = useMemo(
-    () => passengerRows.filter((row, index) => {
-      const rowKey = row.vehicleId || row.modelId || modelKey(recommendationName(row)) || String(index);
-      return (rowFuelCategories[rowKey] || ["petrol"]).includes(activeFuel);
+  const filteredRows = useMemo(() => {
+    const sourceRows = fullPassengerRows.length ? fullPassengerRows : passengerRows;
+    return sourceRows
+      .filter((row, index) => {
+        const rowKey = row.vehicleId || row.modelId || modelKey(recommendationName(row)) || String(index);
+        const categories = fullPassengerRows.length
+          ? recommendationFuelCategories(row)
+          : rowFuelCategories[rowKey] || ["petrol"];
+        return categories.includes(activeFuel);
+      })
+      .map((row) => rowForFuel(row, activeFuel))
+      .filter((row) => {
+        const price = numericPrice(
+          row.startsFromPrice || row.bestUnderBudgetPrice || row.exShowroomPrice,
+        );
+        return price > 0 &&
+          (!previewBudgetMin || price > previewBudgetMin) &&
+          (!budgetMax || price <= budgetMax);
+      });
+  }, [
+    activeFuel,
+    budgetMax,
+    fullPassengerRows,
+    passengerRows,
+    previewBudgetMin,
+    rowFuelCategories,
+  ]);
+  const fullFuelRows = useMemo(
+    () => fullPassengerRows.filter((row) => {
+      const categories = recommendationFuelCategories(row);
+      return !categories.length || categories.includes(activeFuel);
     }),
-    [activeFuel, passengerRows, rowFuelCategories],
+    [activeFuel, fullPassengerRows],
   );
-  const rankedRows = useMemo(() => filteredRows.map((row) => rowForFuel(row, activeFuel)).sort((left, right) => {
+  const rankedRows = useMemo(() => [...filteredRows].sort((left, right) => {
     const leftPrice = numericPrice(left.startsFromPrice || left.bestUnderBudgetPrice || left.exShowroomPrice);
     const rightPrice = numericPrice(right.startsFromPrice || right.bestUnderBudgetPrice || right.exShowroomPrice);
     const difference = (leftPrice || Number.MAX_SAFE_INTEGER) - (rightPrice || Number.MAX_SAFE_INTEGER);
     return sortDirection === "asc" ? difference : -difference;
-  }), [activeFuel, filteredRows, sortDirection]);
+  }), [filteredRows, sortDirection]);
   const displayRows = useMemo(() => rankedRows.slice(0, 8), [rankedRows]);
   const liveVehicles = useLiveVehicleMap(displayRows, widget.city || "New Delhi");
 
@@ -801,35 +907,43 @@ export function AciV2RecommendationInlineCard({
   useEffect(() => () => window.clearTimeout(swipeRef.current.settleTimer), []);
 
   if (!passengerRows.length || !displayRows.length) return null;
-  const filters = widget.filters || widget.data?.filters || message.filters || {};
   const feature = clean(widget.featureName || widget.feature || widget.data?.featureName);
-  const budget = Number(filters.budgetMax || filters.maxBudget || filters.maxPrice || 0);
   const isSuv = /suv/i.test(filters.bodyType || filters.bodyStyle || "");
   const bodyLabel = filteredRows.length === 1
     ? (isSuv ? "SUV" : "car")
     : (isSuv ? "SUVs" : "cars");
   const fuelLabel = FUEL_LABELS[activeFuel] || "Petrol";
+  const transmissionLabel = requestedTransmission
+    ? requestedTransmission[0].toUpperCase() + requestedTransmission.slice(1)
+    : "";
   const isTopEight = filteredRows.length >= 8;
-  const title = `${isTopEight ? "Top 8" : displayRows.length} ${fuelLabel.toLowerCase()} ${bodyLabel}${feature ? ` with ${feature}` : ""}${budget ? ` under ${formatPrice(budget)}` : ""}`;
+  const familyLabel = /family/i.test(filters.buyerUseCase || filters.useCase || filters.buyerIntent || "")
+    ? "family "
+    : "";
+  const title = `${isTopEight ? "Top 8" : displayRows.length} ${transmissionLabel ? `${transmissionLabel.toLowerCase()} ` : ""}${fuelLabel.toLowerCase()} ${familyLabel}${bodyLabel}${feature ? ` with ${feature}` : ""}${budgetTarget ? ` around ${formatPrice(budgetTarget)}` : ""}`;
+  const matchDescription = `${transmissionLabel ? `${transmissionLabel.toLowerCase()} ` : ""}${fuelLabel.toLowerCase()} passenger-car`;
+  const budgetBand = previewBudgetMin && budgetMax
+    ? `${formatPrice(previewBudgetMin)}–${formatPrice(budgetMax)}`
+    : "";
   const subtitle = filteredRows.length > 8
-      ? `Showing the top 8 of ${filteredRows.length} ${fuelLabel.toLowerCase()} passenger-car matches.`
-      : `${filteredRows.length} ${fuelLabel.toLowerCase()} passenger-car ${filteredRows.length === 1 ? "match" : "matches"} available.`;
+      ? `Showing 8 focused matches${budgetBand ? ` in the ${budgetBand} decision range` : ""}.`
+      : `${filteredRows.length} ${matchDescription} ${filteredRows.length === 1 ? "match" : "matches"}${budgetBand ? ` in the ${budgetBand} decision range` : ""}.`;
 
   const openAllCars = () => {
     const fullListWidget = {
       ...widget,
       canvasType: "vehicle_recommendation_results_canvas",
-      title: `${rankedRows.length} ${fuelLabel.toLowerCase()} ${bodyLabel}${budget ? ` under ${formatPrice(budget)}` : ""}`,
-      answer: `All ${rankedRows.length} matching passenger-car options, ordered by ${sortDirection === "asc" ? "lowest" : "highest"} ex-showroom price.`,
-      rows: passengerRows,
-      items: passengerRows,
+      title: `${fullFuelRows.length} ${fuelLabel.toLowerCase()} ${familyLabel}${bodyLabel}${budgetMax ? ` up to ${formatPrice(budgetMax)}` : ""}`,
+      answer: `All matching passenger-car options up to ${formatPrice(budgetMax)}, with budget and fuel controls.`,
+      rows: fullPassengerRows,
+      items: fullPassengerRows,
       initialFuel: activeFuel,
       initialSortDirection: sortDirection,
       filters: { ...filters, fuelType: fuelLabel },
       data: {
         ...(widget.data || {}),
-        rows: passengerRows,
-        items: passengerRows,
+        rows: fullPassengerRows,
+        items: fullPassengerRows,
         initialFuel: activeFuel,
         initialSortDirection: sortDirection,
         filters: {
@@ -937,7 +1051,7 @@ export function AciV2RecommendationInlineCard({
       className="aci-recommendation-card aci-reference-shortlist-card"
       aria-label="Recommended cars"
       data-result-count={rows.length}
-      data-full-result-count={asArray(widget.modelGroups || widget.data?.modelGroups).length}
+      data-full-result-count={fullPassengerRows.length}
     >
       <header className="aci-reference-shortlist-header">
         <div>
@@ -992,10 +1106,10 @@ export function AciV2RecommendationInlineCard({
           <ArrowDownUp size={14} />
           <span>Price: {sortDirection === "asc" ? "Low to high" : "High to low"}</span>
         </button>
-        {rankedRows.length > 8 ? (
+        {fullFuelRows.length > displayRows.length ? (
           <button type="button" onClick={openAllCars}>
             <ListChecks size={14} />
-            <span>View all {rankedRows.length}</span>
+            <span>View all {fullFuelRows.length}</span>
           </button>
         ) : null}
       </div>
@@ -1124,7 +1238,10 @@ export function AciV2RecommendationInlineCard({
         })}
       </div>
       <footer className="aci-reference-shortlist-actions" aria-label="Shortlist actions">
-        {asArray(actions).slice(0, 2).map((action) => {
+        {asArray(actions).filter((action) => {
+          const label = clean(action.label || action.query).toLowerCase();
+          return !(requestedTransmission === "automatic" && /automatic|auto|gearbox|transmission/.test(label));
+        }).slice(0, 2).map((action) => {
           const Icon = recommendationActionIcon(action);
           return (
             <button type="button" key={action.id || action.query || action.label} onClick={() => onAction?.(action)}>

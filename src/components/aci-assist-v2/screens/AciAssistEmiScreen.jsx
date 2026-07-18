@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Calculator, ChevronLeft, IndianRupee, Percent, Timer } from "lucide-react";
 import {
   AciComposer,
@@ -31,6 +31,9 @@ const getVehicleTitle = (vehicle = {}) =>
 const getDefaultPrice = (vehicle = {}, widget = {}) => {
   const rows = vehicle.variants || widget.rows || widget.variants || [];
   return (
+    parseMoney(widget.prefill?.carPrice || widget.data?.prefill?.carPrice) ||
+    parseMoney(widget.selectedVariant?.onRoadPrice || widget.data?.selectedVariant?.onRoadPrice) ||
+    parseMoney(widget.onRoadPrice || widget.data?.onRoadPrice) ||
     parseMoney(vehicle.startingOnRoadPrice || vehicle.priceRange) ||
     parseMoney(rows[0]?.onRoadPrice || rows[0]?.onRoad || rows[0]?.price) ||
     1000000
@@ -40,12 +43,59 @@ const getDefaultPrice = (vehicle = {}, widget = {}) => {
 export default function AciAssistEmiScreen({ vehicle = {}, widget = {}, onAction }) {
   const title = getVehicleTitle(vehicle);
   const defaultPrice = getDefaultPrice(vehicle, widget);
+  const prefill = widget.prefill || widget.data?.prefill || {};
+  const defaultDownPayment = parseMoney(prefill.downPayment) || Math.round(defaultPrice * 0.2);
+  const defaultInterest = Number(prefill.interestRate || prefill.interest || 9.5);
+  const defaultTenure = Number(prefill.tenureYears || prefill.tenure || 5);
   const [carPrice, setCarPrice] = useState(defaultPrice);
-  const [downPayment, setDownPayment] = useState(
-    Math.round(defaultPrice * 0.2),
-  );
-  const [interest, setInterest] = useState(9.5);
-  const [tenure, setTenure] = useState(5);
+  const [downPayment, setDownPayment] = useState(defaultDownPayment);
+  const [interest, setInterest] = useState(defaultInterest);
+  const [tenure, setTenure] = useState(defaultTenure);
+  const [activePlan, setActivePlan] = useState("current");
+
+  useEffect(() => {
+    setCarPrice(defaultPrice);
+    setDownPayment(defaultDownPayment);
+    setInterest(defaultInterest);
+    setTenure(defaultTenure);
+    setActivePlan("current");
+  }, [defaultDownPayment, defaultInterest, defaultPrice, defaultTenure]);
+
+  const plans = useMemo(() => [
+    {
+      id: "current",
+      label: "Current estimate",
+      detail: `${Math.round((defaultDownPayment / Math.max(defaultPrice, 1)) * 100)}% down · ${defaultTenure} years`,
+      downPayment: defaultDownPayment,
+      interest: defaultInterest,
+      tenure: defaultTenure,
+    },
+    {
+      id: "lower",
+      label: "Lower monthly EMI",
+      detail: "20% down · 7 years",
+      downPayment: Math.round(defaultPrice * 0.2),
+      interest: 9,
+      tenure: 7,
+    },
+    {
+      id: "faster",
+      label: "Faster repayment",
+      detail: "30% down · 3 years",
+      downPayment: Math.round(defaultPrice * 0.3),
+      interest: 8.5,
+      tenure: 3,
+    },
+  ], [defaultDownPayment, defaultInterest, defaultPrice, defaultTenure]);
+
+  const applyPlan = (plan) => {
+    setDownPayment(plan.downPayment);
+    setInterest(plan.interest);
+    setTenure(plan.tenure);
+    setActivePlan(plan.id);
+  };
+
+  const markCustom = () => setActivePlan("custom");
 
   const result = useMemo(() => {
     const principal = Math.max(0, carPrice - downPayment);
@@ -94,6 +144,27 @@ export default function AciAssistEmiScreen({ vehicle = {}, widget = {}, onAction
         </div>
 
         <div className="emi-controls">
+          <div className="emi-plan-picker" aria-label="EMI plan presets">
+            <div>
+              <span>Start with a plan</span>
+              <small>Every value remains editable</small>
+            </div>
+            {plans.map((plan) => (
+              <button
+                type="button"
+                key={plan.id}
+                className={activePlan === plan.id ? "active" : ""}
+                onClick={() => applyPlan(plan)}
+              >
+                <strong>{plan.label}</strong>
+                <span>{plan.detail}</span>
+              </button>
+            ))}
+          </div>
+          <div className="emi-manual-heading">
+            <strong>Manual calculator</strong>
+            <span>{activePlan === "custom" ? "Custom values" : "Edit this plan"}</span>
+          </div>
           <label>
             <span><IndianRupee size={16} /> On-road price</span>
             <input
@@ -101,7 +172,10 @@ export default function AciAssistEmiScreen({ vehicle = {}, widget = {}, onAction
               min="100000"
               step="10000"
               value={carPrice}
-              onChange={(event) => setCarPrice(Number(event.target.value) || 0)}
+              onChange={(event) => {
+                setCarPrice(Number(event.target.value) || 0);
+                markCustom();
+              }}
             />
           </label>
           <label>
@@ -112,9 +186,10 @@ export default function AciAssistEmiScreen({ vehicle = {}, widget = {}, onAction
               max={carPrice}
               step="10000"
               value={downPayment}
-              onChange={(event) =>
-                setDownPayment(Math.min(carPrice, Number(event.target.value) || 0))
-              }
+              onChange={(event) => {
+                setDownPayment(Math.min(carPrice, Number(event.target.value) || 0));
+                markCustom();
+              }}
             />
           </label>
           <label>
@@ -125,12 +200,18 @@ export default function AciAssistEmiScreen({ vehicle = {}, widget = {}, onAction
               max="30"
               step="0.1"
               value={interest}
-              onChange={(event) => setInterest(Number(event.target.value) || 0)}
+              onChange={(event) => {
+                setInterest(Number(event.target.value) || 0);
+                markCustom();
+              }}
             />
           </label>
           <label>
             <span><Timer size={16} /> Tenure</span>
-            <select value={tenure} onChange={(event) => setTenure(Number(event.target.value))}>
+            <select value={tenure} onChange={(event) => {
+              setTenure(Number(event.target.value));
+              markCustom();
+            }}>
               {[1, 2, 3, 4, 5, 6, 7].map((year) => (
                 <option key={year} value={year}>{year} year{year > 1 ? "s" : ""}</option>
               ))}
@@ -167,11 +248,22 @@ const emiStyles = `
   .emi-heading > span { display:block; margin-top:24px; color:#0758f8; font-size:11px; font-weight:800; text-transform:uppercase; }
   .emi-heading h1 { margin:7px 0 6px; font-size:34px; line-height:1.08; font-weight:780; letter-spacing:0; }
   .emi-heading p { margin:0; color:#64748b; font-size:14px; }
-  .emi-workspace { padding:28px 0; display:grid; grid-template-columns:1fr .85fr .9fr; gap:28px; align-items:start; }
+  .emi-workspace { padding:28px 0; display:grid; grid-template-columns:.9fr 1.08fr .92fr; gap:24px; align-items:start; }
   .emi-vehicle { min-height:320px; padding:22px; border-radius:16px; background:#f6f8fb; display:flex; flex-direction:column; justify-content:flex-end; box-shadow:inset 0 0 0 1px #e8edf4; }
   .emi-vehicle strong { font-size:22px; }
   .emi-vehicle span { margin-top:5px; color:#64748b; font-size:12px; }
   .emi-controls { display:grid; gap:14px; }
+  .emi-plan-picker { display:grid; grid-template-columns:1fr; gap:7px; padding-bottom:4px; }
+  .emi-plan-picker > div { display:flex; align-items:baseline; justify-content:space-between; gap:12px; margin-bottom:2px; }
+  .emi-plan-picker > div span { color:#0f172a; font-size:13px; font-weight:800; }
+  .emi-plan-picker > div small { color:#7c8aa0; font-size:10px; }
+  .emi-plan-picker button { min-height:52px; padding:9px 12px; border:1px solid #d9e1ec; border-radius:10px; background:#fff; display:flex; flex-direction:column; align-items:flex-start; justify-content:center; gap:3px; text-align:left; transition:border-color .18s ease, background .18s ease, box-shadow .18s ease; }
+  .emi-plan-picker button strong { color:#17213b; font-size:12px; }
+  .emi-plan-picker button span { color:#718096; font-size:10px; }
+  .emi-plan-picker button.active { border-color:#8bb4ff; background:#f4f8ff; box-shadow:inset 3px 0 0 #0758f8; }
+  .emi-manual-heading { margin-top:5px; padding-top:14px; border-top:1px solid #e8edf4; display:flex; justify-content:space-between; gap:10px; }
+  .emi-manual-heading strong { color:#0f172a; font-size:13px; }
+  .emi-manual-heading span { color:#0758f8; font-size:10px; font-weight:700; }
   .emi-controls label { display:grid; gap:7px; }
   .emi-controls label > span { color:#475569; display:flex; align-items:center; gap:7px; font-size:12px; font-weight:700; }
   .emi-controls input,.emi-controls select { width:100%; height:48px; padding:0 13px; border:1px solid #d9e1ec; border-radius:10px; background:#fff; color:#0f172a; font-size:15px; font-weight:650; outline:none; }

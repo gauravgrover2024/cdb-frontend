@@ -1213,6 +1213,234 @@ export default function AciAssistV2() {
     ],
   );
 
+  const refreshPricelistCity = useCallback(
+    async (action, targetVehicle = null) => {
+      const cityName = firstValue(
+        action.vehicle?.city,
+        action.contextPatch?.selectedVehicle?.city,
+        action.payload?.city,
+        action.contextPatch?.anchorCity,
+      );
+      const citySlug = firstValue(
+        action.vehicle?.citySlug,
+        action.contextPatch?.selectedVehicle?.citySlug,
+        action.payload?.citySlug,
+        action.contextPatch?.anchorCity,
+        cityName,
+      );
+      const cityVehicle = mergeVehicle(selectedVehicle, {
+        ...(targetVehicle || action.vehicle || {}),
+        city: cityName,
+        citySlug,
+      });
+
+      if (!cityVehicle || !cityName) return false;
+
+      cancelActiveBackendRequest();
+
+      const requestId = directCanvasSeqRef.current + 1;
+      directCanvasSeqRef.current = requestId;
+      const refreshAction = {
+        ...action,
+        intent: action.intent || "vehicle_pricelist",
+        canvasType: "pricelist_canvas",
+        vehicle: cityVehicle,
+        contextPatch: {
+          ...(action.contextPatch || {}),
+          selectedVehicle: cityVehicle,
+          anchorCity: citySlug,
+        },
+      };
+
+      setScreen(SCREEN.PRICELIST);
+      setIsCanvasOpen(true);
+      setBackendError("");
+      setIsBackendLoading(true);
+      setSessionContext((previous) =>
+        mergeSessionContext(previous, {
+          selectedVehicle: cityVehicle,
+          anchorCity: citySlug,
+          lastCanvasType: "pricelist_canvas",
+        }),
+      );
+      setRecentVehicles((previous) =>
+        rememberVehicleInList(previous, cityVehicle),
+      );
+      setActiveCanvasPayload((current) =>
+        withCanvasVehicleContext(
+          {
+            ...(current || {}),
+            __cityRefreshing: true,
+            __cityRefreshError: "",
+            __directRequestId: requestId,
+            __rawCanvasType: "pricelist_canvas",
+            canvasType: "pricelist_canvas",
+            intent: refreshAction.intent,
+            city: cityName,
+            citySlug,
+            selectedCity: cityName,
+            vehicle: cityVehicle,
+            contextPatch: {
+              ...(current?.contextPatch || {}),
+              selectedVehicle: cityVehicle,
+              anchorCity: citySlug,
+            },
+            data: {
+              ...(current?.data || {}),
+              city: cityName,
+              citySlug,
+              selectedCity: cityName,
+              vehicle: cityVehicle,
+              selectedVehicle: cityVehicle,
+            },
+          },
+          cityVehicle,
+        ),
+      );
+      rememberAction({
+        ...refreshAction,
+        label: `${cityName} prices`,
+        query: "",
+        source: "aci_v2_city_picker_in_place",
+      });
+
+      const controller = new AbortController();
+      requestAbortRef.current = controller;
+
+      try {
+        const backend = await askAciAssistV2({
+          message:
+            refreshAction.query ||
+            `${getVehicleTitle(cityVehicle)} price in ${cityName}`,
+          context: buildContextForBackend(refreshAction, cityVehicle),
+          signal: controller.signal,
+          source: "aci_assist_v2_city_refresh",
+        });
+
+        if (
+          controller.signal.aborted ||
+          directCanvasSeqRef.current !== requestId
+        ) {
+          return true;
+        }
+
+        const hydrated = normalizeBackendWidget(backend);
+        const hydratedRows = firstArray(
+          hydrated.rows,
+          hydrated.variantOptions,
+          hydrated.variants,
+          hydrated.data?.rows,
+          hydrated.data?.variantOptions,
+          hydrated.data?.variants,
+        );
+        const backendVehicle = firstVehicle(
+          hydrated.vehicle,
+          hydrated.data?.vehicle,
+          backend.vehicle,
+          backend.contextPatch?.selectedVehicle,
+        );
+        const refreshedVehicle = {
+          ...(mergeVehicle(cityVehicle, backendVehicle) || cityVehicle),
+          city: cityName,
+          citySlug,
+        };
+
+        if (!hydratedRows.length) {
+          throw new Error(`No live prices were returned for ${cityName}.`);
+        }
+
+        setSessionContext((previous) =>
+          mergeSessionContext(previous, {
+            selectedVehicle: refreshedVehicle,
+            anchorCity: citySlug,
+            lastCanvasType: "pricelist_canvas",
+          }),
+        );
+        setRecentVehicles((previous) =>
+          rememberVehicleInList(previous, refreshedVehicle),
+        );
+        setActiveCanvasPayload((current) => {
+          if (current?.__directRequestId !== requestId) return current;
+
+          const variants = firstArray(
+            hydrated.variantOptions,
+            hydrated.variants,
+            hydratedRows,
+          );
+
+          return withCanvasVehicleContext(
+            {
+              ...current,
+              ...hydrated,
+              __fromBackend: true,
+              __cityRefreshing: false,
+              __cityRefreshError: "",
+              __directRequestId: requestId,
+              __rawCanvasType: "pricelist_canvas",
+              canvasType: "pricelist_canvas",
+              city: cityName,
+              citySlug,
+              selectedCity: cityName,
+              vehicle: refreshedVehicle,
+              rows: hydratedRows,
+              variants,
+              variantOptions: variants,
+              contextPatch: {
+                ...(current?.contextPatch || {}),
+                ...(hydrated.contextPatch || {}),
+                selectedVehicle: refreshedVehicle,
+                anchorCity: citySlug,
+              },
+              data: {
+                ...(current?.data || {}),
+                ...(hydrated.data || {}),
+                city: cityName,
+                citySlug,
+                selectedCity: cityName,
+                vehicle: refreshedVehicle,
+                selectedVehicle: refreshedVehicle,
+                rows: hydratedRows,
+                variants,
+                variantOptions: variants,
+              },
+            },
+            refreshedVehicle,
+          );
+        });
+      } catch (error) {
+        if (error?.name === "AbortError") return true;
+
+        const readableError =
+          error?.message || `Could not refresh ${cityName} prices.`;
+        setBackendError(readableError);
+        setActiveCanvasPayload((current) =>
+          current?.__directRequestId === requestId
+            ? {
+                ...current,
+                __cityRefreshing: false,
+                __cityRefreshError: readableError,
+              }
+            : current,
+        );
+      } finally {
+        if (requestAbortRef.current === controller) {
+          requestAbortRef.current = null;
+        }
+        if (directCanvasSeqRef.current === requestId) {
+          setIsBackendLoading(false);
+        }
+      }
+
+      return true;
+    },
+    [
+      buildContextForBackend,
+      cancelActiveBackendRequest,
+      rememberAction,
+      selectedVehicle,
+    ],
+  );
+
   const toggleSaved = useCallback(
     (vehicle) => {
       const id = getVehicleId(vehicle);
@@ -1341,6 +1569,11 @@ export default function AciAssistV2() {
         selectedVehicle ||
         null;
 
+      if (action.type === "refresh_pricelist_city") {
+        await refreshPricelistCity(action, targetVehicle);
+        return;
+      }
+
       if (action.type === "change_city") {
         cancelActiveBackendRequest();
         const embeddedCities = firstArray(
@@ -1437,6 +1670,7 @@ export default function AciAssistV2() {
       activeCanvasPayload,
       openBackendWidgetFromAction,
       openDirectCanvasFromAction,
+      refreshPricelistCity,
       rememberAction,
       screen,
       selectedVehicle,
@@ -2365,6 +2599,7 @@ export default function AciAssistV2() {
 
 .aci-full-canvas-shell {
   min-height: 100dvh;
+  padding-top: 72px;
   padding-bottom: calc(140px + env(safe-area-inset-bottom));
   background:
     radial-gradient(circle at 0% 0%, rgba(7, 88, 248, 0.06), transparent 28%),
@@ -2372,21 +2607,6 @@ export default function AciAssistV2() {
 }
 
 .aci-full-canvas-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 250;
-  padding: 8px 0 8px;
-  background:
-    linear-gradient(180deg, rgba(248,251,255,0.96), rgba(248,251,255,0.72) 72%, transparent);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
-
-.aci-full-canvas-car_overview {
-  padding-top: 72px;
-}
-
-.aci-full-canvas-car_overview > .aci-full-canvas-topbar {
   position: fixed;
   inset: 0 0 auto;
   z-index: 300;
@@ -2394,6 +2614,16 @@ export default function AciAssistV2() {
   background: rgba(248, 251, 255, 0.94);
   border-bottom: 0;
   box-shadow: 0 18px 42px -38px rgba(15, 23, 42, 0.42);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.aci-full-canvas-car_overview {
+  padding-top: 0;
+}
+
+.aci-full-canvas-car_overview > .aci-full-canvas-topbar {
+  position: fixed;
 }
 
 .aci-full-canvas-shell .desktop-header,
@@ -3970,18 +4200,28 @@ export default function AciAssistV2() {
             const vehicle = cityPicker.vehicle || selectedVehicle || {};
             const cityName = city.city || city.citySlug;
             const citySlug = city.citySlug || cityName;
+            const staysOnPricelist =
+              screen === SCREEN.PRICELIST && isCanvasOpen;
             setCityPicker(null);
             handleAciAction({
               id: `change-city-${citySlug}`,
               label: `${cityName} prices`,
               query: `${getVehicleTitle(vehicle)} price in ${cityName}`,
-              type:
-                screen === SCREEN.CAR_OVERVIEW ? "select_context" : "ask",
+              type: staysOnPricelist
+                ? "refresh_pricelist_city"
+                : screen === SCREEN.CAR_OVERVIEW
+                  ? "select_context"
+                  : "ask",
+              intent: staysOnPricelist ? "vehicle_pricelist" : undefined,
+              canvasType: staysOnPricelist ? "pricelist_canvas" : undefined,
               vehicle: {
                 ...vehicle,
                 city: cityName,
                 citySlug,
               },
+              payload: staysOnPricelist
+                ? { city: cityName, citySlug, directCanvas: true }
+                : undefined,
               contextPatch: {
                 selectedVehicle: {
                   ...vehicle,

@@ -9,6 +9,7 @@ import {
   DatabaseZap,
   Fuel,
   Info,
+  LoaderCircle,
   MapPin,
   Settings2,
   UserRound,
@@ -634,7 +635,6 @@ const buildImageFrameStyle = (imageFrame, stageKey = "priceSide") => {
     (frame.translateXPct ??
       frame.translateXPercent ??
       frame.translateX ??
-      frame.x ??
       0);
 
   const y =
@@ -642,7 +642,6 @@ const buildImageFrameStyle = (imageFrame, stageKey = "priceSide") => {
     (frame.translateYPct ??
       frame.translateYPercent ??
       frame.translateY ??
-      frame.y ??
       (stageKey === "mobileHero" ? 6 : 8));
 
   const origin =
@@ -706,6 +705,11 @@ const pickFromText = (text, patterns, fallback = "") => {
   return fallback;
 };
 
+const firstKnownValue = (...values) =>
+  values
+    .map((value) => compactText(value))
+    .find((value) => value && !/^(?:n\.?a\.?|unknown|not available|not listed)$/i.test(value)) || "";
+
 const splitFuelTransmission = (row = {}) => {
   const explicit = [
     row.fuelTransmission,
@@ -720,10 +724,17 @@ const splitFuelTransmission = (row = {}) => {
     `${explicit} ${row.variant || ""} ${row.name || ""} ${row.title || ""}`.toLowerCase();
 
   const fuel = humanize(
-    row.fuel ||
-      row.fuelType ||
-      row.fuel_type ||
-      row.engineType ||
+    firstKnownValue(
+      row.fuel,
+      row.fuelType,
+      row.fuel_type,
+      row.engineType,
+      row.raw?.fuel,
+      row.raw?.fuelType,
+      row.raw?.fuel_type,
+      row.vehicle?.fuel,
+      row.vehicle?.fuelType,
+    ) ||
       pickFromText(
         text,
         [
@@ -737,23 +748,41 @@ const splitFuelTransmission = (row = {}) => {
       ),
   );
 
+  const explicitTransmission = firstKnownValue(
+    row.transmission,
+    row.transmissionType,
+    row.transmissionKey,
+    row.gearbox,
+    row.gearBox,
+    row.gear_box,
+    row.transmission_type,
+    row.raw?.transmission,
+    row.raw?.transmissionType,
+    row.raw?.transmissionKey,
+    row.raw?.gearbox,
+    row.raw?.gearBox,
+    row.raw?.gear_box,
+  );
+  const inferredTransmission = pickFromText(
+    text,
+    [
+      ["DCT", /\bdct\b/],
+      ["IVT", /\bivt\b/],
+      ["CVT", /\bcvt\b/],
+      ["AMT", /\bamt\b/],
+      ["Automatic", /automatic|\bat\b/],
+      ["Manual", /manual|\bmt\b/],
+    ],
+    "",
+  );
   const transmission = humanize(
-    row.transmission ||
-      row.transmissionType ||
-      row.gearbox ||
-      row.transmission_type ||
-      pickFromText(
-        text,
-        [
-          ["DCT", /\bdct\b/],
-          ["IVT", /\bivt\b/],
-          ["CVT", /\bcvt\b/],
-          ["AMT", /\bamt\b/],
-          ["Automatic", /automatic|\bat\b/],
-          ["Manual", /manual|\bmt\b/],
-        ],
-        "N.A.",
-      ),
+    explicitTransmission ||
+      inferredTransmission ||
+      (/electric/i.test(fuel)
+        ? "Automatic"
+        : /petrol|diesel|cng|hybrid/i.test(fuel) && compactText(row.variant)
+          ? "Manual"
+          : "N.A."),
   );
 
   return { fuel, transmission };
@@ -1260,6 +1289,53 @@ const calculateEmi = (amount) => {
     emi: roundedEmi,
     totalPayable,
     totalInterest: totalPayable - principal,
+  };
+};
+
+const buildDirectEmiPayload = ({ vehicle = {}, row = {}, parts = null } = {}) => {
+  const priceParts = parts || pricePartsFromRow(row);
+  const onRoadPrice = Number(priceParts.onRoad || row.onRoadPrice || 0);
+  const variant = row.variant || row.variantName || "";
+  const selectedVehicle = {
+    ...vehicle,
+    selectedVariant: variant,
+    variant,
+    startingOnRoadPrice: onRoadPrice,
+    onRoadPrice,
+  };
+  const prefill = {
+    carPrice: onRoadPrice,
+    downPayment: Math.round(onRoadPrice * 0.1),
+    interestRate: 8.75,
+    tenureYears: 3,
+  };
+
+  return {
+    vehicle: selectedVehicle,
+    variant,
+    selectedVariant: variant,
+    directCanvas: true,
+    navigationMode: "direct_canvas",
+    intent: ACI_INTENTS.EMI,
+    canvasType: ACI_CANVAS_TYPES.EMI,
+    query: `Calculate EMI for ${getVehicleTitle(vehicle)} ${variant}`,
+    rows: [row],
+    prefill,
+    widget: {
+      canvasType: ACI_CANVAS_TYPES.EMI,
+      intent: ACI_INTENTS.EMI,
+      vehicle: selectedVehicle,
+      selectedVariant: row,
+      rows: [row],
+      prefill,
+      returnCanvasType: ACI_CANVAS_TYPES.PRICELIST,
+      data: {
+        vehicle: selectedVehicle,
+        selectedVariant: row,
+        rows: [row],
+        prefill,
+      },
+    },
   };
 };
 
@@ -1847,13 +1923,11 @@ function SideSummary({
           onClick={() =>
             firePriceAction(
               "View EMI options",
-              {
+              buildDirectEmiPayload({
                 vehicle,
-                variant: selectedRow.variant,
-                intent: ACI_INTENTS.EMI,
-                canvasType: ACI_CANVAS_TYPES.EMI,
-                query: `Calculate EMI for ${getVehicleTitle(vehicle)} ${selectedRow.variant}`,
-              },
+                row: selectedRow,
+                parts: selectedParts,
+              }),
               onAction,
             )
           }
@@ -2102,13 +2176,7 @@ function MobileInlinePriceBreakup({ open, row, city, vehicle, onAction }) {
               onClick={() =>
                 firePriceAction(
                   "Calculate EMI",
-                  {
-                    vehicle,
-                    variant: row.variant,
-                    intent: ACI_INTENTS.EMI,
-                    canvasType: ACI_CANVAS_TYPES.EMI,
-                    query: `Calculate EMI for ${getVehicleTitle(vehicle)} ${row.variant}`,
-                  },
+                  buildDirectEmiPayload({ vehicle, row, parts }),
                   onAction,
                 )
               }
@@ -2591,8 +2659,36 @@ export default function AciAssistPriceListScreen({
   const maxPrice = priceValues.length ? Math.max(...priceValues) : 0;
 
   return (
-    <div className="aci-price-root">
+    <div
+      className={`aci-price-root ${widget?.__cityRefreshing ? "is-city-refreshing" : ""}`}
+      aria-busy={widget?.__cityRefreshing ? "true" : "false"}
+    >
       <AciPriceStyles />
+
+      <AnimatePresence>
+        {widget?.__cityRefreshing ? (
+          <motion.div
+            className="aci-price-city-status"
+            role="status"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            <LoaderCircle size={15} aria-hidden="true" />
+            Updating {humanize(city)} prices
+          </motion.div>
+        ) : widget?.__cityRefreshError ? (
+          <motion.div
+            className="aci-price-city-status is-error"
+            role="alert"
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+          >
+            {widget.__cityRefreshError}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <DesktopPage
         data={data}
@@ -2657,6 +2753,32 @@ function AciPriceStyles() {
   --shadow: 0 22px 62px -48px rgba(15,23,42,.48);
   --serif: Georgia, "Times New Roman", serif;
 }
+
+.aci-price-city-status {
+  position: fixed;
+  z-index: 120;
+  top: 76px;
+  left: 50%;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  max-width: calc(100vw - 32px);
+  transform: translateX(-50%);
+  border: 1px solid #dbe7fb;
+  border-radius: 999px;
+  padding: 0 13px;
+  background: rgba(255, 255, 255, .96);
+  box-shadow: 0 14px 34px -24px rgba(15, 23, 42, .48);
+  color: #334155;
+  font-size: 11.5px;
+  font-weight: 780;
+  white-space: nowrap;
+  backdrop-filter: blur(12px);
+}
+.aci-price-city-status svg { color: var(--blue); animation: aci-price-spin .8s linear infinite; }
+.aci-price-city-status.is-error { border-color: #fecaca; color: #b91c1c; }
+@keyframes aci-price-spin { to { transform: rotate(360deg); } }
 
 * { box-sizing: border-box; }
 button, input { font-family: inherit; }
@@ -3704,6 +3826,100 @@ td .on-road { color: var(--blue); }
 
   .mobile-hero-art {
     height: 120px !important;
+  }
+}
+
+/* Stable price-list geometry and bounded vehicle artwork. */
+@media (min-width: 1181px) {
+  .aci-price-root .price-desktop-header,
+  .aci-price-root .price-desktop-page {
+    width: min(calc(100% - 48px), 1180px) !important;
+  }
+
+  .aci-price-root .price-desktop-page {
+    height: calc(100dvh - 126px) !important;
+    padding: 8px 0 10px !important;
+    grid-template-columns: minmax(0, 866px) 298px !important;
+    gap: 16px !important;
+  }
+
+  .aci-price-root .price-desktop-main,
+  .aci-price-root .price-table-card,
+  .aci-price-root .price-table-wrap {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+  }
+
+  .aci-price-root .price-table-card {
+    height: 100% !important;
+    max-height: 100% !important;
+  }
+
+  .aci-price-root .price-table-wrap {
+    height: 100% !important;
+    overflow: auto !important;
+    scrollbar-gutter: stable !important;
+    overscroll-behavior: contain;
+  }
+
+  .aci-price-root .price-side {
+    width: 298px !important;
+    max-width: 298px !important;
+  }
+
+  .aci-price-root .selected-summary {
+    min-height: 286px !important;
+  }
+
+  .aci-price-root .selected-summary h4 {
+    min-height: 36px;
+    display: flex;
+    align-items: flex-end;
+  }
+}
+
+.aci-price-root .selected-summary .side-art,
+.aci-price-root .mobile-price-hero .mobile-hero-art {
+  overflow: hidden !important;
+  contain: paint;
+  isolation: isolate;
+}
+
+.aci-price-root .selected-summary .side-art {
+  height: 164px !important;
+  margin-top: 6px !important;
+  padding: 6px 8px 2px;
+  border-radius: 14px !important;
+}
+
+.aci-price-root .selected-summary .side-art .aci-car-image-stage,
+.aci-price-root .selected-summary .side-art .price-car-stage,
+.aci-price-root .mobile-price-hero .mobile-hero-art .aci-car-image-stage,
+.aci-price-root .mobile-price-hero .mobile-hero-art .price-car-stage {
+  overflow: hidden !important;
+  border-radius: inherit !important;
+}
+
+.aci-price-root .selected-summary .price-car-stage-image,
+.aci-price-root .mobile-price-hero .price-car-stage-image {
+  width: 94% !important;
+  max-width: 94% !important;
+  height: 94% !important;
+  max-height: 94% !important;
+  object-fit: contain !important;
+  object-position: center center !important;
+}
+
+@media (max-width: 1180px) {
+  .aci-price-root .mobile-price-hero .mobile-hero-art {
+    height: 132px !important;
+    padding: 4px;
+    border-radius: 12px;
+  }
+
+  .aci-price-root .mobile-variant-row {
+    min-height: 84px;
   }
 }
 

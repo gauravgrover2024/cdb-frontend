@@ -23,8 +23,9 @@ const toAmount = (value) => {
 const formatCompact = (value) => {
   const amount = Number(value || 0);
   if (!amount) return "";
-  if (amount >= 10000000) return `₹${(amount / 10000000).toFixed(2)}Cr`;
-  return `₹${(amount / 100000).toFixed(2)}L`;
+  const compactNumber = (number) => number.toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+  if (amount >= 10000000) return `₹${compactNumber(amount / 10000000)}Cr`;
+  return `₹${compactNumber(amount / 100000)}L`;
 };
 
 const cleanText = (value = "") =>
@@ -314,6 +315,7 @@ export default function AciAssistRecommendationScreen({
   onAction,
 }) {
   const sourceRows = useMemo(() => pickRows(widget || {}), [widget]);
+  const filters = widget?.filters || widget?.data?.filters || {};
   const availableFuelKeys = useMemo(() => {
     const keys = new Set(sourceRows.flatMap(rowFuelKeys));
     return Object.keys(FUEL_LABELS).filter((key) => key !== "mixed" && keys.has(key));
@@ -330,17 +332,44 @@ export default function AciAssistRecommendationScreen({
       : "mixed",
   );
   const [sortDirection, setSortDirection] = useState(
-    widget?.initialSortDirection || widget?.data?.initialSortDirection || "asc",
+    widget?.initialSortDirection || widget?.data?.initialSortDirection || "desc",
   );
-  const cards = useMemo(() => normalizeCards(widget || {}, vehicle || {}, activeFuel)
+  const normalizedCards = useMemo(
+    () => normalizeCards(widget || {}, vehicle || {}, activeFuel),
+    [activeFuel, vehicle, widget],
+  );
+  const priceLimits = useMemo(() => {
+    const prices = normalizedCards
+      .map((card) => card.priceValue)
+      .filter((price) => Number.isFinite(price) && price > 0 && price < Number.MAX_SAFE_INTEGER);
+    const step = 50000;
+    const dataMin = prices.length ? Math.min(...prices) : 0;
+    const dataMax = prices.length ? Math.max(...prices) : 0;
+    const configuredMax = Number(filters.budgetMax || filters.maxPrice || 0);
+    return {
+      min: dataMin ? Math.floor(dataMin / step) * step : 0,
+      max: Math.ceil((configuredMax || dataMax || step) / step) * step,
+      step,
+    };
+  }, [filters.budgetMax, filters.maxPrice, normalizedCards]);
+  const [priceRange, setPriceRange] = useState([priceLimits.min, priceLimits.max]);
+
+  useEffect(() => {
+    setPriceRange([priceLimits.min, priceLimits.max]);
+  }, [priceLimits.max, priceLimits.min]);
+
+  const cards = useMemo(() => normalizedCards
+    .filter((card) => card.priceValue >= priceRange[0] && card.priceValue <= priceRange[1])
     .sort((left, right) => sortDirection === "relevance"
       ? left.rank - right.rank
       : sortDirection === "asc"
         ? left.priceValue - right.priceValue
-        : right.priceValue - left.priceValue), [activeFuel, sortDirection, vehicle, widget]);
+        : right.priceValue - left.priceValue), [normalizedCards, priceRange, sortDirection]);
 
-  const filters = widget?.filters || widget?.data?.filters || {};
-  const budget = Number(filters.budgetMax || filters.maxBudget || filters.maxPrice || 0);
+  const budgetTarget = Number(
+    filters.budgetTarget || filters.statedBudget || filters.maxBudget || filters.budgetMax || 0,
+  );
+  const budget = Number(filters.budgetMax || filters.maxPrice || budgetTarget || 0);
   const bodyType = /suv/i.test(filters.bodyType || filters.bodyStyle || "") ? "SUVs" : "cars";
   const fuelLabel = FUEL_LABELS[activeFuel] || "Mixed";
   const isRivalMode = cleanText(
@@ -352,14 +381,14 @@ export default function AciAssistRecommendationScreen({
   );
   const title = isRivalMode
     ? `${cards.length} rivals${anchorModel ? ` to ${anchorModel}` : ""}`
-    : `${cards.length} ${activeFuel === "mixed" ? "matching" : fuelLabel.toLowerCase()} ${bodyType}${budget ? ` under ${formatCompact(budget)}` : ""}`;
+    : `${cards.length} ${activeFuel === "mixed" ? "matching" : fuelLabel.toLowerCase()} ${/family/i.test(filters.buyerUseCase || filters.useCase || "") ? "family " : ""}${bodyType}${budget ? ` up to ${formatCompact(budget)}` : ""}`;
   const subtitle = isRivalMode
     ? activeFuel === "mixed"
       ? "Live alternatives ranked by relationship, price overlap and configuration fit."
       : `Showing ${fuelLabel.toLowerCase()} rivals only. Change the fuel filter anytime.`
     : activeFuel === "mixed"
-      ? "All matching passenger-car options across available fuel types."
-      : `Showing ${fuelLabel.toLowerCase()} matches only. Change the fuel filter anytime.`;
+      ? `${budgetTarget ? `Built around your ${formatCompact(budgetTarget)} target. ` : ""}Adjust the budget range or fuel without starting a new search.`
+      : `Showing ${fuelLabel.toLowerCase()} matches only. Adjust the budget range anytime.`;
   const eyebrow = isRivalMode ? "Similar cars" : "All matching cars";
   const sortLabel = sortDirection === "relevance"
     ? "Recommended"
@@ -367,6 +396,9 @@ export default function AciAssistRecommendationScreen({
       ? "Price: Low to high"
       : "Price: High to low";
   const fuelFilters = ["mixed", ...availableFuelKeys];
+  const rangeSpan = Math.max(priceLimits.step, priceLimits.max - priceLimits.min);
+  const rangeStart = ((priceRange[0] - priceLimits.min) / rangeSpan) * 100;
+  const rangeEnd = ((priceRange[1] - priceLimits.min) / rangeSpan) * 100;
 
   return (
     <div className="aci-v2-reco-root">
@@ -384,6 +416,19 @@ export default function AciAssistRecommendationScreen({
         .aci-v2-reco-fuels button:hover,.aci-v2-reco-fuels button:focus-visible,.aci-v2-reco-sort:hover,.aci-v2-reco-sort:focus-visible{border-color:#aebfd7;background:#f8fafc;outline:none}
         .aci-v2-reco-fuels button.is-active{border-color:#b8c7da;color:#07194b;background:#f2f6fb}
         .aci-v2-reco-sort{flex:0 0 auto}
+        .aci-v2-reco-budget{margin:0 0 16px;padding:12px 14px;border:1px solid #d9e0ea;border-radius:12px;background:#fbfcfe}
+        .aci-v2-reco-budget-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+        .aci-v2-reco-budget-title{display:flex;align-items:center;gap:7px;color:#344054;font-size:11px;font-weight:760}
+        .aci-v2-reco-budget-values{display:flex;align-items:center;gap:6px;color:#07194b;font-size:12px;font-weight:800;white-space:nowrap}
+        .aci-v2-reco-budget-values i{width:14px;height:1px;background:#98a2b3}
+        .aci-v2-reco-range{position:relative;height:24px;margin-top:7px}
+        .aci-v2-reco-range::before{content:"";position:absolute;inset:11px 0 auto;height:3px;border-radius:999px;background:var(--aci-range-track,#dce3ec)}
+        .aci-v2-reco-range input{position:absolute;inset:0;width:100%;height:24px;margin:0;appearance:none;-webkit-appearance:none;background:transparent;pointer-events:none}
+        .aci-v2-reco-range input::-webkit-slider-runnable-track{height:3px;background:transparent}
+        .aci-v2-reco-range input::-moz-range-track{height:3px;background:transparent}
+        .aci-v2-reco-range input::-webkit-slider-thumb{width:17px;height:17px;margin-top:-7px;appearance:none;-webkit-appearance:none;border:4px solid #fff;border-radius:50%;background:#344054;box-shadow:0 0 0 1px #98a2b3;pointer-events:auto;cursor:pointer}
+        .aci-v2-reco-range input::-moz-range-thumb{width:10px;height:10px;border:4px solid #fff;border-radius:50%;background:#344054;box-shadow:0 0 0 1px #98a2b3;pointer-events:auto;cursor:pointer}
+        .aci-v2-reco-budget-scale{display:flex;justify-content:space-between;color:#98a2b3;font-size:9px;font-weight:650}
         .aci-v2-reco-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
         .aci-v2-reco-card{min-width:0;min-height:176px;padding:12px;display:grid;grid-template-columns:152px minmax(0,1fr);gap:12px;align-items:center;border:1px solid #d7e1ef;border-radius:16px;color:inherit;background:linear-gradient(180deg,#fff,#fafcff);font:inherit;text-align:left;cursor:pointer;box-shadow:none;transition:border-color 160ms ease,background 160ms ease}
         .aci-v2-reco-card:hover,.aci-v2-reco-card:focus-visible{border-color:#aebfd7;background:#f8fafc;outline:none}
@@ -436,13 +481,59 @@ export default function AciAssistRecommendationScreen({
             ? "Sort by price low to high"
             : `Sort price ${sortDirection === "asc" ? "high to low" : "low to high"}`}
           onClick={() => setSortDirection((current) => (
-            current === "relevance" ? "asc" : current === "asc" ? "desc" : "asc"
+            current === "relevance" ? "desc" : current === "asc" ? "desc" : "asc"
           ))}
         >
           <ArrowDownUp size={14} aria-hidden="true" />
           <span>{sortLabel}</span>
         </button>
       </div>
+
+      <section className="aci-v2-reco-budget" aria-label="Budget range">
+        <div className="aci-v2-reco-budget-head">
+          <span className="aci-v2-reco-budget-title">
+            <Settings2 size={14} aria-hidden="true" /> Budget range
+          </span>
+          <span className="aci-v2-reco-budget-values">
+            {formatCompact(priceRange[0])}<i />{formatCompact(priceRange[1])}
+          </span>
+        </div>
+        <div
+          className="aci-v2-reco-range"
+          style={{
+            "--aci-range-track": `linear-gradient(to right,#dce3ec 0%,#dce3ec ${rangeStart}%,#344054 ${rangeStart}%,#344054 ${rangeEnd}%,#dce3ec ${rangeEnd}%,#dce3ec 100%)`,
+          }}
+        >
+          <input
+            type="range"
+            min={priceLimits.min}
+            max={priceLimits.max}
+            step={priceLimits.step}
+            value={priceRange[0]}
+            aria-label="Minimum budget"
+            onChange={(event) => {
+              const next = Math.min(Number(event.target.value), priceRange[1] - priceLimits.step);
+              setPriceRange([next, priceRange[1]]);
+            }}
+          />
+          <input
+            type="range"
+            min={priceLimits.min}
+            max={priceLimits.max}
+            step={priceLimits.step}
+            value={priceRange[1]}
+            aria-label="Maximum budget"
+            onChange={(event) => {
+              const next = Math.max(Number(event.target.value), priceRange[0] + priceLimits.step);
+              setPriceRange([priceRange[0], next]);
+            }}
+          />
+        </div>
+        <div className="aci-v2-reco-budget-scale" aria-hidden="true">
+          <span>{formatCompact(priceLimits.min)}</span>
+          <span>{formatCompact(priceLimits.max)}</span>
+        </div>
+      </section>
 
       {cards.length ? (
         <div className="aci-v2-reco-list">
