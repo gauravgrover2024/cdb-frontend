@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import {
   Button,
+  DatePicker,
   Divider,
   Drawer,
   Input,
@@ -1111,13 +1112,20 @@ const Step7Payment = ({
 
         {!isSubventionNonTransactional ? (
           <FormField label="Date">
-            <Input allowClear
-              type="date"
+            <DatePicker
+              size="large"
+              allowClear
               disabled={isLocked}
-              value={paymentForm.date || dayjs().format("YYYY-MM-DD")}
-              onChange={(e) =>
-                setPaymentForm((p) => ({ ...p, date: e.target.value }))
+              value={dayjs(paymentForm.date || dayjs().format("YYYY-MM-DD"))}
+              onChange={(d) =>
+                setPaymentForm((p) => ({
+                  ...p,
+                  date: d ? d.format("YYYY-MM-DD") : "",
+                }))
               }
+              format={["DD/MM/YYYY", "D/M/YYYY"]}
+              style={{ width: "100%" }}
+              popupClassName="insurance-themed-calendar"
             />
           </FormField>
         ) : null}
@@ -1515,15 +1523,18 @@ const Step7Payment = ({
                     width: 120,
                     render: (d, row) =>
                       editingId === row._id ? (
-                        <Input allowClear
-                          type="date"
-                          value={editDraft?.date || ""}
-                          onChange={(e) =>
+                        <DatePicker
+                          allowClear
+                          value={editDraft?.date ? dayjs(editDraft.date) : null}
+                          onChange={(val) =>
                             setEditDraft((prev) => ({
                               ...(prev || {}),
-                              date: e.target.value,
+                              date: val ? val.format("YYYY-MM-DD") : "",
                             }))
                           }
+                          format={["DD/MM/YYYY", "D/M/YYYY"]}
+                          style={{ width: "100%" }}
+                          popupClassName="insurance-themed-calendar"
                         />
                       ) : (
                         <span className="text-[12px] text-slate-500">

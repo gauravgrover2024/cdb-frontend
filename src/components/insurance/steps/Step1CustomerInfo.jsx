@@ -75,6 +75,14 @@ const POLICY_DONE_BY_OPTIONS = [
   "Customer",
 ];
 
+const NOMINEE_RELATIONSHIP_OPTIONS = [
+  "Son",
+  "Daughter",
+  "Spouse",
+  "Father",
+  "Mother",
+].map((value) => ({ value }));
+
 const getPolicyTypePillLabel = (value) => {
   if (String(value || "").trim() === "Extended Warranty") return "EW Policy";
   return "Insurance";
@@ -1299,11 +1307,19 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Relationship">
-                      <Input size="large" allowClear
+                      <AutoComplete
+                        size="large"
+                        allowClear
                         value={formData.nomineeRelationship}
-                        onChange={handleChange("nomineeRelationship")}
-                        placeholder="Relationship"
-                       
+                        options={NOMINEE_RELATIONSHIP_OPTIONS.filter((opt) =>
+                          normalizeForMatch(opt.value).includes(
+                            normalizeForMatch(formData.nomineeRelationship),
+                          ),
+                        )}
+                        onSearch={(val) => setField("nomineeRelationship", val)}
+                        onChange={(val) => setField("nomineeRelationship", val)}
+                        onSelect={(val) => setField("nomineeRelationship", val)}
+                        placeholder="e.g. Son, Daughter, Spouse"
                       />
                     </CleanField>
                   </div>
@@ -1312,7 +1328,9 @@ const Step1CustomerInfo = ({
                 <Col span={24}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Date Of Birth">
-                      <DatePicker allowClear
+                      <DatePicker
+                        size="large"
+                        allowClear
                         value={
                           formData.nomineeDob
                             ? dayjs(formData.nomineeDob)
@@ -1321,11 +1339,10 @@ const Step1CustomerInfo = ({
                         onChange={(value) =>
                           setField(
                             "nomineeDob",
-                            value ? value.startOf("day").toISOString() : "",
+                            value ? value.format("YYYY-MM-DD") : "",
                           )
                         }
                         format={["DD/MM/YYYY", "D/M/YYYY"]}
-                        style={controlStyle}
                         placeholder="DD/MM/YYYY"
                         popupClassName="insurance-themed-calendar"
                       />

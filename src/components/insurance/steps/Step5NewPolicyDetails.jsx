@@ -586,12 +586,16 @@ const Step5NewPolicyDetails = ({
                 <Col xs={24} md={8}>
                   <div className={fieldWrapClass}>
                     <CleanField label="Date of Sale of Vehicle" required>
-                      <Input
+                      <DatePicker
                         size="large"
                         allowClear
-                        type="date"
-                        value={formData.dateOfSale}
-                        onChange={handleChange("dateOfSale")}
+                        value={formData.dateOfSale ? dayjs(formData.dateOfSale) : null}
+                        onChange={(d) =>
+                          setField("dateOfSale", d ? d.format("YYYY-MM-DD") : "")
+                        }
+                        format={["DD/MM/YYYY", "D/M/YYYY"]}
+                        style={{ width: "100%" }}
+                        popupClassName="insurance-themed-calendar"
                       />
                     </CleanField>
                   </div>
@@ -601,12 +605,18 @@ const Step5NewPolicyDetails = ({
                   <Col xs={24} md={8}>
                     <div className={fieldWrapClass}>
                       <CleanField label="Date of Purchase" required>
-                        <Input
+                        <DatePicker
                           size="large"
                           allowClear
-                          type="date"
-                          value={formData.dateOfPurchase}
-                          onChange={handleChange("dateOfPurchase")}
+                          value={
+                            formData.dateOfPurchase ? dayjs(formData.dateOfPurchase) : null
+                          }
+                          onChange={(d) =>
+                            setField("dateOfPurchase", d ? d.format("YYYY-MM-DD") : "")
+                          }
+                          format={["DD/MM/YYYY", "D/M/YYYY"]}
+                          style={{ width: "100%" }}
+                          popupClassName="insurance-themed-calendar"
                         />
                       </CleanField>
                     </div>
@@ -632,12 +642,20 @@ const Step5NewPolicyDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Policy Purchase Date" required>
-                    <Input
+                    <DatePicker
                       size="large"
                       allowClear
-                      type="date"
-                      value={formData.policyPurchaseDate}
-                      onChange={handleChange("policyPurchaseDate")}
+                      value={
+                        formData.policyPurchaseDate
+                          ? dayjs(formData.policyPurchaseDate)
+                          : null
+                      }
+                      onChange={(d) =>
+                        setField("policyPurchaseDate", d ? d.format("YYYY-MM-DD") : "")
+                      }
+                      format={["DD/MM/YYYY", "D/M/YYYY"]}
+                      style={{ width: "100%" }}
+                      popupClassName="insurance-themed-calendar"
                     />
                   </CleanField>
                 </div>
@@ -660,16 +678,22 @@ const Step5NewPolicyDetails = ({
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Policy Start Date" required>
-                    <Input
+                    <DatePicker
                       size="large"
                       allowClear
-                      type="date"
-                      value={formData.ewCommencementDate}
-                      onChange={(e) => {
-                        const value = e.target.value;
+                      value={
+                        formData.ewCommencementDate
+                          ? dayjs(formData.ewCommencementDate)
+                          : null
+                      }
+                      onChange={(d) => {
+                        const value = d ? d.format("YYYY-MM-DD") : "";
                         setField("ewCommencementDate", value);
                         setField("newPolicyStartDate", value);
                       }}
+                      format={["DD/MM/YYYY", "D/M/YYYY"]}
+                      style={{ width: "100%" }}
+                      popupClassName="insurance-themed-calendar"
                     />
                   </CleanField>
                 </div>

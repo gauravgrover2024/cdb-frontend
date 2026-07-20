@@ -122,6 +122,16 @@ const getAcceptedQuoteContext = (record) => {
 };
 
 const premiumNum = (c) => {
+  // newTotalPremium is the staff-confirmed final premium (Step 5 lets them
+  // override the quote's figure — e.g. after a GST/add-on correction), so it
+  // must win once set. Otherwise a finalized case can show a stale total
+  // that's lower than what was actually invoiced/paid.
+  const finalizedPremium = Number(
+    c?.newTotalPremium ?? c?.new_total_premium ?? 0,
+  );
+  if (Number.isFinite(finalizedPremium) && finalizedPremium > 0)
+    return finalizedPremium;
+
   const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(c);
   const acceptedPremium = Number(
     acceptedQuote?.totalPremium ??
@@ -132,9 +142,8 @@ const premiumNum = (c) => {
   );
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
-  const fallback = Number(
-    c?.newTotalPremium ?? c?.new_total_premium ?? c?.totalPremium ?? 0,
-  );
+
+  const fallback = Number(c?.totalPremium ?? 0);
   return Number.isFinite(fallback) ? fallback : 0;
 };
 
