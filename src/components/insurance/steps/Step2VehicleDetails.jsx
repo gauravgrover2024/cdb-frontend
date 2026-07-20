@@ -6,6 +6,7 @@ import {
   Checkbox,
   Col,
   Collapse,
+  DatePicker,
   Drawer,
   Empty,
   Input,
@@ -641,12 +642,16 @@ const Step2VehicleDetails = ({
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
                 <CleanField label="Date of Reg">
-                  <Input
+                  <DatePicker
                     size="large"
                     allowClear
-                    type="date"
-                    value={formData.dateOfReg}
-                    onChange={handleChange("dateOfReg")}
+                    value={formData.dateOfReg ? dayjs(formData.dateOfReg) : null}
+                    onChange={(d) =>
+                      setField("dateOfReg", d ? d.format("YYYY-MM-DD") : "")
+                    }
+                    format={["DD/MM/YYYY", "D/M/YYYY"]}
+                    style={{ width: "100%" }}
+                    popupClassName="insurance-themed-calendar"
                   />
                 </CleanField>
               </div>

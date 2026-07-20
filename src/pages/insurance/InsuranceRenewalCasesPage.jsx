@@ -22,6 +22,7 @@ import {
   Clock3,
   DollarSign,
   Eye,
+  LayoutGrid,
   ListChecks,
   NotebookPen,
   RefreshCw,
@@ -37,6 +38,7 @@ import {
 import {
   buildInsurancePaymentTimeline,
   cycleAdjustedDaysUntilExpiry,
+  getCycleAdjustedExpiryDate,
   getPolicyPulseExpiryDate,
   getPolicyPulseMeta,
   parsePolicyIncludedAddons,
@@ -46,7 +48,6 @@ import {
   getPolicyOriginType,
 } from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
-import { getEmployees } from "../../api/employees";
 import { useAuth } from "../../context/AuthContext";
 import InsurancePreview from "../../components/insurance/InsurancePreview";
 import PremiumBreakupCard from "../../components/insurance/PremiumBreakupCard";
@@ -177,7 +178,12 @@ const RenewalStatusActionPanel = ({ row, draft, onAction, onClose }) => {
   const customer = displayName;
   const reg = row?.registrationNumber || "—";
   const activePolicy = resolveActivePolicySnapshot(row);
-  const expiryLabel = activePolicy.expiryLabel || "—";
+  const cycleAdjustedExpiry = getCycleAdjustedExpiryDate(
+    getPolicyPulseExpiryDate(row),
+  );
+  const expiryLabel = cycleAdjustedExpiry
+    ? cycleAdjustedExpiry.format("DD MMM YYYY")
+    : activePolicy.expiryLabel || "—";
 
   return (
     <div className="renewal-status-panel">
@@ -379,7 +385,6 @@ const InsuranceRenewalCasesPage = () => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [cases, setCases] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -390,17 +395,11 @@ const InsuranceRenewalCasesPage = () => {
   const [windowFilter, setWindowFilter] = useState("all");
   const [policyStatusFilter, setPolicyStatusFilter] = useState("all");
   const [tierFilter, setTierFilter] = useState("all");
-  const [assignedFilter, setAssignedFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [activeTab, setActiveTab] = useState("all");
-  const [viewTab, setViewTab] = useState("renewal");
+  const [viewTab, setViewTab] = useState("all");
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
   const [selectedStatCard, setSelectedStatCard] = useState("all");
-  const [selectedIds, setSelectedIds] = useState([]);
-  const [assignModalOpen, setAssignModalOpen] = useState(false);
-  const [assigneeId, setAssigneeId] = useState("");
-  const [assigning, setAssigning] = useState(false);
   const [rowDrafts, setRowDrafts] = useState({});
   const [statusActionRow, setStatusActionRow] = useState(null);
   const [timelineRow, setTimelineRow] = useState(null);
@@ -414,7 +413,6 @@ const InsuranceRenewalCasesPage = () => {
   const onPolicyStatusChange = (value) => setPolicyStatusFilter(String(value || "all"));
   const onTierChange = (value) => setTierFilter(String(value || "all"));
   const onLeadStatusChange = (value) => setStatusFilter(String(value || "all"));
-  const onAssignedChange = (value) => setAssignedFilter(String(value || "all"));
   const [summary, setSummary] = useState({
     activeCases: 0,
     policiesPending: 0,
@@ -423,11 +421,15 @@ const InsuranceRenewalCasesPage = () => {
     renewed: 0,
     external: 0,
     highValue: 0,
-    nonAssigned: 0,
   });
 
   const handleStatCardClick = (cardKey) => {
-    if (cardKey === "renewal" || cardKey === "renewed" || cardKey === "external") {
+    if (
+      cardKey === "all" ||
+      cardKey === "renewal" ||
+      cardKey === "renewed" ||
+      cardKey === "external"
+    ) {
       setViewTab(cardKey);
       setSelectedStatCard("all");
       return;
@@ -436,6 +438,7 @@ const InsuranceRenewalCasesPage = () => {
   };
 
   const isCardActive = (key) => {
+    if (key === "all") return viewTab === "all" && selectedStatCard === "all";
     if (key === "renewal") return viewTab === "renewal" && selectedStatCard === "all";
     if (key === "renewed") return viewTab === "renewed" && selectedStatCard === "all";
     if (key === "external") return viewTab === "external" && selectedStatCard === "all";
@@ -443,6 +446,19 @@ const InsuranceRenewalCasesPage = () => {
   };
 
   const statCards = [
+    {
+      key: "all",
+      label: "All Cases",
+      count: Number(summary?.allCases || 0),
+      icon: LayoutGrid,
+      color: "text-slate-600",
+      bg: "bg-slate-100",
+      borderColor: "border-slate-200",
+      activeBg: "bg-slate-700 text-white border-slate-700 shadow-[0_4px_12px_rgba(51,65,85,0.25)]",
+      inactiveBg: "bg-slate-50 border-slate-200 text-slate-900 hover:bg-slate-100/50",
+      labelActive: "text-slate-200",
+      labelInactive: "text-slate-600/80",
+    },
     {
       key: "renewal",
       label: "Pending Renewals",
@@ -534,51 +550,19 @@ const InsuranceRenewalCasesPage = () => {
       labelActive: "text-teal-200",
       labelInactive: "text-teal-600/80",
     },
-    {
-      key: "nonAssigned",
-      label: "Non-Assigned",
-      count: Number(summary?.nonAssigned || 0),
-      icon: XCircle,
-      color: "text-cyan-600",
-      bg: "bg-cyan-50",
-      borderColor: "border-cyan-100",
-      activeBg: "bg-cyan-600 text-white border-cyan-600 shadow-[0_4px_12px_rgba(8,145,178,0.25)]",
-      inactiveBg: "bg-cyan-50 border-cyan-100 text-cyan-900 hover:bg-cyan-100/50",
-      labelActive: "text-cyan-200",
-      labelInactive: "text-cyan-600/80",
-    },
   ];
-
-  const role = String(user?.role || "").toLowerCase();
-  const isAdminLike = [
-    "superadmin",
-    "admin",
-    "team_lead",
-    "insurance_team_lead",
-  ].includes(role);
-  const canViewAllRenewals = [
-    "superadmin",
-    "admin",
-    "team_lead",
-    "insurance_team_lead",
-  ].includes(role);
-  const meId = String(user?._id || user?.id || "");
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [casesRes, employeesRes, summaryRes] = await Promise.all([
+      const [casesRes, summaryRes] = await Promise.all([
         insuranceApi.getRenewalCases({
           view: viewTab,
           window: windowFilter !== "all" ? windowFilter : undefined,
           status: policyStatusFilter !== "all" ? policyStatusFilter : undefined,
           tier: tierFilter !== "all" ? tierFilter : undefined,
           search: debouncedSearch || undefined,
-          ...(canViewAllRenewals
-            ? {}
-            : { assignedOnly: 1, assignedToId: meId }),
         }),
-        getEmployees(),
         insuranceApi.getRenewalSummary(),
       ]);
       const rows = Array.isArray(casesRes?.data)
@@ -589,47 +573,20 @@ const InsuranceRenewalCasesPage = () => {
       // Backend already applies renewal-window + workflow visibility.
       // Avoid re-filtering here, otherwise Renewed/External or edge rows can disappear.
       setCases(rows);
-      setEmployees(Array.isArray(employeesRes) ? employeesRes : []);
       setSummary(summaryRes?.data || {});
     } catch (err) {
       message.error(err?.message || "Failed to load renewal cases");
     } finally {
       setLoading(false);
     }
-  }, [canViewAllRenewals, meId, viewTab, windowFilter, policyStatusFilter, tierFilter, debouncedSearch]);
+  }, [viewTab, windowFilter, policyStatusFilter, tierFilter, debouncedSearch]);
 
   React.useEffect(() => {
     load();
   }, [load]);
 
-  const assigneeMap = useMemo(() => {
-    const map = new Map();
-    employees.forEach((emp) => {
-      const id = String(emp?._id || emp?.id || "");
-      if (!id) return;
-      map.set(id, emp);
-    });
-    return map;
-  }, [employees]);
-
   const filteredCases = useMemo(() => {
     let rows = [...cases];
-
-    if (activeTab === "non-assigned") {
-      rows = rows.filter((row) => !row?.renewalAssignedToId);
-    } else if (activeTab === "assigned") {
-      rows = rows.filter((row) => row?.renewalAssignedToId);
-    }
-
-    if (assignedFilter !== "all") {
-      if (assignedFilter === "none") {
-        rows = rows.filter((row) => !row?.renewalAssignedToId);
-      } else {
-        rows = rows.filter(
-          (row) => String(row?.renewalAssignedToId || "") === assignedFilter,
-        );
-      }
-    }
 
     if (statusFilter !== "all") {
       rows = rows.filter(
@@ -653,8 +610,6 @@ const InsuranceRenewalCasesPage = () => {
           const prevPremium = Number(row.previousTotalPremium || 0);
           return newPremium > 50000 || premium > 50000 || prevPremium > 50000;
         });
-      } else if (selectedStatCard === "nonAssigned") {
-        rows = rows.filter((row) => !row?.renewalAssignedToId);
       }
     }
 
@@ -686,41 +641,12 @@ const InsuranceRenewalCasesPage = () => {
       return aDate.valueOf() - bDate.valueOf();
     });
   }, [
-    activeTab,
-    assignedFilter,
     cases,
     statusFilter,
     selectedStatCard,
     vehicleTypeFilter,
     sourceFilter,
   ]);
-
-  const pendingCount = cases.length;
-  const nonAssignedCount = cases.filter(
-    (row) => !row?.renewalAssignedToId,
-  ).length;
-  const assignedToMeCount = cases.filter(
-    (row) => String(row?.renewalAssignedToId || "") === meId,
-  ).length;
-
-  const selectedAll =
-    filteredCases.length > 0 && selectedIds.length === filteredCases.length;
-
-  const toggleSelectAll = () => {
-    if (selectedAll) {
-      setSelectedIds([]);
-      return;
-    }
-    setSelectedIds(filteredCases.map((row) => getCaseId(row)));
-  };
-
-  const toggleSelect = (caseId) => {
-    setSelectedIds((prev) =>
-      prev.includes(caseId)
-        ? prev.filter((id) => id !== caseId)
-        : [...prev, caseId],
-    );
-  };
 
   const saveRowUpdate = async (row) => {
     const id = getCaseId(row);
@@ -753,29 +679,6 @@ const InsuranceRenewalCasesPage = () => {
       await load();
     } catch (err) {
       message.error(err?.message || "Failed to update lead");
-    }
-  };
-
-  const assignSelected = async () => {
-    if (!assigneeId || selectedIds.length === 0) return;
-    setAssigning(true);
-    try {
-      const assignee = assigneeMap.get(assigneeId);
-      await insuranceApi.assignRenewalCases({
-        caseIds: selectedIds,
-        assigneeId,
-        assigneeName: assignee?.name || "",
-        assignedBy: user?.name || "",
-      });
-      message.success("Renewal cases assigned");
-      setAssignModalOpen(false);
-      setAssigneeId("");
-      setSelectedIds([]);
-      await load();
-    } catch (err) {
-      message.error(err?.message || "Failed to assign cases");
-    } finally {
-      setAssigning(false);
     }
   };
 
@@ -904,13 +807,11 @@ const InsuranceRenewalCasesPage = () => {
     setWindowFilter("all");
     setPolicyStatusFilter("all");
     setTierFilter("all");
-    setAssignedFilter("all");
     setStatusFilter("all");
     setVehicleTypeFilter("all");
     setSourceFilter("all");
     setSelectedStatCard("all");
-    if (isAdminLike) setActiveTab("all");
-    setViewTab("renewal");
+    setViewTab("all");
   };
 
   return (
@@ -1079,38 +980,16 @@ const InsuranceRenewalCasesPage = () => {
           }
         `}</style>
         <div className="rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-                Insurance Workspace
-              </p>
-              <h2 className="mt-0.5 text-2xl font-black text-slate-900">
-                Renewal Dashboard
-              </h2>
-              <p className="mt-1 text-[13px] text-slate-500">
-                Pending renewals (expiry next 365 days or expired last 365 days)
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-2 rounded-2xl bg-white p-2 shadow-[0_2px_10px_rgba(148,163,184,0.12)] sm:grid-cols-3">
-              <div className="rounded-xl border border-slate-100 px-3 py-2 text-center">
-                <p className="text-[12px] text-slate-500">Pending</p>
-                <p className="text-[17px] font-extrabold text-slate-900">
-                  {pendingCount}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-100 px-3 py-2 text-center">
-                <p className="text-[12px] text-slate-500">Non-assigned</p>
-                <p className="text-[17px] font-extrabold text-amber-600">
-                  {nonAssignedCount}
-                </p>
-              </div>
-              <div className="rounded-xl border border-slate-100 px-3 py-2 text-center">
-                <p className="text-[12px] text-slate-500">Assigned to me</p>
-                <p className="text-[17px] font-extrabold text-blue-600">
-                  {assignedToMeCount}
-                </p>
-              </div>
-            </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              Insurance Workspace
+            </p>
+            <h2 className="mt-0.5 text-2xl font-black text-slate-900">
+              Renewal Dashboard
+            </h2>
+            <p className="mt-1 text-[13px] text-slate-500">
+              Pending renewals (expiry next 365 days or expired last 365 days)
+            </p>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-8">
             {statCards.map((card) => {
@@ -1221,22 +1100,6 @@ const InsuranceRenewalCasesPage = () => {
             </select>
             <select
               className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
-              value={assignedFilter}
-              onChange={(e) => onAssignedChange(e.target.value)}
-            >
-              <option value="all">Assigned: All</option>
-              <option value="none">Not Assigned</option>
-              {employees.map((emp) => {
-                const value = String(emp?._id || emp?.id || "");
-                return (
-                  <option key={value} value={value}>
-                    {emp?.name || emp?.email || "User"}
-                  </option>
-                );
-              })}
-            </select>
-            <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
               value={tierFilter}
               onChange={(e) => onTierChange(e.target.value)}
             >
@@ -1267,23 +1130,7 @@ const InsuranceRenewalCasesPage = () => {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              {isAdminLike && (
-                <>
-                  <Button onClick={toggleSelectAll}>
-                    {selectedAll ? "Deselect All" : "Select All"}
-                  </Button>
-                  <Button
-                    type="primary"
-                    disabled={selectedIds.length === 0}
-                    onClick={() => setAssignModalOpen(true)}
-                  >
-                    Assign Task ({selectedIds.length})
-                  </Button>
-                </>
-              )}
-            </div>
+          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
             <Button onClick={load} loading={loading}>
               Refresh
             </Button>
@@ -1294,13 +1141,23 @@ const InsuranceRenewalCasesPage = () => {
               const draft = rowDrafts[id] || {};
               const status =
                 draft.renewalLeadStatus ?? row.renewalLeadStatus ?? "New";
-              const assignedTo = row.renewalAssignedToName || "Not Assigned";
               const activePolicy = resolveActivePolicySnapshot(row);
               const days = cycleAdjustedDaysUntilExpiry(row);
-              const policyPulseTone = getPolicyPulseMeta(
-                days,
-                viewTab === "renewed",
+              // Show the same cycle-adjusted date the "Xd left / Expired Xd
+              // ago" badges are computed from, so the label never contradicts
+              // the badge (e.g. a stored expiry a year out otherwise reads as
+              // "Expiry: 12 Jul 2027 · Expired 8d ago").
+              const cycleAdjustedExpiry = getCycleAdjustedExpiryDate(
+                getPolicyPulseExpiryDate(row),
               );
+              const displayExpiryLabel = cycleAdjustedExpiry
+                ? cycleAdjustedExpiry.format("DD MMM YYYY")
+                : activePolicy.expiryLabel || "—";
+              const isRowRenewed =
+                viewTab === "renewed" ||
+                Boolean(row?.renewedToCaseId) ||
+                row?.renewalOutcome === "ALREADY_RENEWED";
+              const policyPulseTone = getPolicyPulseMeta(days, isRowRenewed);
               const comment = draft.renewalComment ?? row.renewalComment ?? "";
               const paymentTimeline = buildInsurancePaymentTimeline(row);
               const primaryPaymentRow = paymentTimeline[0] || {
@@ -1464,13 +1321,6 @@ const InsuranceRenewalCasesPage = () => {
                   >
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        {isAdminLike && (
-                          <input
-                            type="checkbox"
-                            checked={selectedIds.includes(id)}
-                            onChange={() => toggleSelect(id)}
-                          />
-                        )}
                         <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
                           {row.caseId || "—"}
                         </span>
@@ -1489,17 +1339,6 @@ const InsuranceRenewalCasesPage = () => {
                         </span>
                         <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-slate-100 text-slate-600">
                           {row.typesOfVehicle || "4W"}
-                        </span>
-                        <span
-                          className={`rounded-md px-2 py-0.5 text-xs font-semibold ${
-                            row?.renewalAssignedToId
-                              ? "bg-blue-100 text-blue-700"
-                              : "bg-slate-100 text-slate-700"
-                          }`}
-                        >
-                          {row?.renewalAssignedToId
-                            ? `Assigned: ${assignedTo}`
-                            : "Not Assigned"}
                         </span>
                         <span
                           className="rounded-md px-2 py-0.5 text-xs font-semibold"
@@ -1859,7 +1698,7 @@ const InsuranceRenewalCasesPage = () => {
                           </div>
                           <div className="space-y-1">
                             <p className="text-[11px] text-slate-500 truncate">
-                              Expiry: {activePolicy.expiryLabel || "—"}
+                              Expiry: {displayExpiryLabel}
                               {Number.isFinite(days)
                                 ? days < 0
                                   ? ` · Expired ${Math.abs(days)}d ago`
@@ -2062,7 +1901,7 @@ const InsuranceRenewalCasesPage = () => {
                         <div className="flex justify-between">
                           <span className="text-slate-600">Expiry</span>
                           <span className="font-semibold text-slate-900">
-                            {activePolicy.expiryLabel || "—"}
+                            {displayExpiryLabel}
                           </span>
                         </div>
                       </div>
@@ -2172,33 +2011,6 @@ const InsuranceRenewalCasesPage = () => {
           </div>
         </div>
       </div>
-
-      <Modal
-        open={assignModalOpen}
-        title="Assign Renewal Cases"
-        onCancel={() => setAssignModalOpen(false)}
-        onOk={assignSelected}
-        confirmLoading={assigning}
-        okText="Assign"
-      >
-        <Select
-          showSearch
-          size="large"
-          className="w-full"
-          placeholder="Search executive by name/email"
-          value={assigneeId || undefined}
-          onChange={setAssigneeId}
-          options={employees.map((emp) => ({
-            label: `${emp?.name || "User"} (${emp?.email || "no-email"})`,
-            value: String(emp?._id || emp?.id || ""),
-          }))}
-          filterOption={(input, option) =>
-            String(option?.label || "")
-              .toLowerCase()
-              .includes(input.toLowerCase())
-          }
-        />
-      </Modal>
 
       <Modal
         open={Boolean(timelineRow)}

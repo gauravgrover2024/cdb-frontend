@@ -1193,6 +1193,28 @@ const NewInsuranceCaseForm = ({
     });
   }, [modifiedCrmFields, formData]);
 
+  /**
+   * Confirm before an explicit save whenever any field — new or existing —
+   * has changed since the last save. Shows the CRM-specific wording when
+   * CRM-loaded customer fields were the ones edited; otherwise a generic
+   * "data changed" prompt. Applies uniformly across every step and every
+   * mode (create/edit/renewal). Resolves true to proceed with the save.
+   */
+  const confirmSaveChanges = useCallback(() => {
+    if (modifiedCrmFields.length) return confirmCrmCustomerChanges();
+    if (!isFormDirty) return Promise.resolve(true);
+    return new Promise((resolve) => {
+      Modal.confirm({
+        title: "Save changes?",
+        content: "This data has changed. Do you want to save these changes?",
+        okText: "Yes, save",
+        cancelText: "No",
+        onOk: () => resolve(true),
+        onCancel: () => resolve(false),
+      });
+    });
+  }, [modifiedCrmFields, confirmCrmCustomerChanges, isFormDirty]);
+
   const applyReferenceFromCustomer = useCallback((customer) => {
     if (!customer) return;
 
@@ -1312,10 +1334,11 @@ const NewInsuranceCaseForm = ({
     };
   }, []);
 
-  // Auto-fill Employee (Staff) with the logged-in user on a fresh case,
-  // without clobbering a value already loaded from an existing case.
+  // Auto-fill Employee (Staff) with the logged-in user whenever the field is
+  // still blank, without clobbering a value already loaded from an existing
+  // or renewed case.
   useEffect(() => {
-    if (!isCreateMode || !currentUser) return;
+    if (!currentUser) return;
     setFormData((prev) => {
       if (prev.employeeName) return prev;
       return {
@@ -1324,7 +1347,7 @@ const NewInsuranceCaseForm = ({
         employeeUserId: currentUser._id || currentUser.id || "",
       };
     });
-  }, [isCreateMode, currentUser]);
+  }, [currentUser]);
 
   useEffect(() => {
     let ignore = false;
@@ -2485,7 +2508,19 @@ const NewInsuranceCaseForm = ({
 
         const savedDraft = freshDraft ? null : loadInsuranceDraftFromSession();
         if (savedDraft && savedDraft.formData) {
-          setFormData({ ...initialFormState, ...savedDraft.formData });
+          setFormData({
+            ...initialFormState,
+            ...savedDraft.formData,
+            employeeName:
+              savedDraft.formData.employeeName ||
+              currentUser?.name ||
+              initialFormState.employeeName,
+            employeeUserId:
+              savedDraft.formData.employeeUserId ||
+              currentUser?._id ||
+              currentUser?.id ||
+              initialFormState.employeeUserId,
+          });
           setQuotes(savedDraft.quotes || []);
           setAcceptedQuoteId(savedDraft.acceptedQuoteId || null);
           setQuoteDraft({
@@ -2508,7 +2543,12 @@ const NewInsuranceCaseForm = ({
         }
       }
 
-      setFormData({ ...initialFormState });
+      setFormData({
+        ...initialFormState,
+        employeeName: currentUser?.name || initialFormState.employeeName,
+        employeeUserId:
+          currentUser?._id || currentUser?.id || initialFormState.employeeUserId,
+      });
       setQuotes([]);
       setAcceptedQuoteId(null);
       setQuoteDraft({
@@ -2532,6 +2572,15 @@ const NewInsuranceCaseForm = ({
     const mergedValues = normalizeFormDates({
       ...initialFormState,
       ...(initialValues || {}),
+      employeeName:
+        initialValues?.employeeName ||
+        currentUser?.name ||
+        initialFormState.employeeName,
+      employeeUserId:
+        initialValues?.employeeUserId ||
+        currentUser?._id ||
+        currentUser?.id ||
+        initialFormState.employeeUserId,
       policyCategory:
         initialValues?.policyCategory ||
         initialValues?.policyTypeSelector ||
@@ -2666,7 +2715,7 @@ const NewInsuranceCaseForm = ({
     if (initialValues?.currentStep)
       setStep(Number(initialValues.currentStep || 1));
     setInsuranceDbId(initialValues?._id || initialValues?.id || null);
-  }, [initialValues, normalizeFormDates]);
+  }, [initialValues, normalizeFormDates, currentUser]);
 
   useEffect(() => {
     const derivedAge = getAgeFromDob(formData.nomineeDob);
@@ -3648,6 +3697,7 @@ const NewInsuranceCaseForm = ({
   keyboardActionsRef.current = {
     goNext,
     persistNow,
+    confirmSaveChanges,
   };
 
   useEffect(() => {
@@ -3663,7 +3713,10 @@ const NewInsuranceCaseForm = ({
 
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
         event.preventDefault();
-        keyboardActionsRef.current.persistNow?.({ silent: false });
+        (async () => {
+          if (!(await keyboardActionsRef.current.confirmSaveChanges?.())) return;
+          keyboardActionsRef.current.persistNow?.({ silent: false });
+        })();
         return;
       }
 
@@ -3694,6 +3747,7 @@ const NewInsuranceCaseForm = ({
 
   useEffect(() => {
     const handleSaveAndNewInsurance = async () => {
+      if (!(await confirmSaveChanges())) return;
       const saved = await persistNow({ silent: false });
       if (!saved) return;
       navigate(`/insurance/new?fresh=${Date.now()}`);
@@ -3709,7 +3763,7 @@ const NewInsuranceCaseForm = ({
         handleSaveAndNewInsurance,
       );
     };
-  }, [navigate, persistNow]);
+  }, [navigate, persistNow, confirmSaveChanges]);
 
   // Generic "save then navigate" event dispatched by the Header when the user
   // chooses "Save Changes" in the unsaved-changes modal.
@@ -4080,7 +4134,7 @@ const NewInsuranceCaseForm = ({
       message.error(finalSubmitErrors[0], 8);
       return;
     }
-    if (!(await confirmCrmCustomerChanges())) return;
+    if (!(await confirmSaveChanges())) return;
     const saved = await persistNow({
       silent: true,
       patch: { status: "submitted" },
@@ -4319,7 +4373,10 @@ const NewInsuranceCaseForm = ({
             computeQuoteBreakupFromRow={computeQuoteBreakupFromRow}
             formatStoredOrComputedIdv={formatStoredOrComputedIdv}
             formatStoredOrComputedPremium={formatStoredOrComputedPremium}
-            onSaveDraft={() => persistNow({ silent: false })}
+            onSaveDraft={async () => {
+              if (!(await confirmSaveChanges())) return;
+              persistNow({ silent: false });
+            }}
             onResetQuoteDraft={resetQuoteDraft}
             isSaving={saving}
             planFeaturesModal={planFeaturesModal}
@@ -4408,7 +4465,10 @@ const NewInsuranceCaseForm = ({
               lastSavedAt,
               saveError,
             }}
-            onRetrySave={() => persistNow({ silent: false })}
+            onRetrySave={async () => {
+              if (!(await confirmSaveChanges())) return;
+              persistNow({ silent: false });
+            }}
           />
         );
       case 9:
@@ -4572,7 +4632,10 @@ const NewInsuranceCaseForm = ({
               totalSteps={visibleSteps.length}
               isLastStep={stepIndex === visibleSteps.length - 1}
               onNext={step === 9 ? handleSubmitFinal : goNext}
-              onSave={() => persistNow({ silent: false })}
+              onSave={async () => {
+                if (!(await confirmSaveChanges())) return;
+                persistNow({ silent: false });
+              }}
               onExit={handleSaveAndExit}
               onDiscard={handleDiscard}
               onClear={handleClearForm}

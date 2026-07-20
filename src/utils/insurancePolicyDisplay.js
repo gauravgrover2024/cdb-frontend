@@ -214,6 +214,16 @@ export const getAcceptedQuoteContext = (record) => {
 
 export const premiumNum = (record) => {
   const safe = coerceInsuranceRecord(record);
+  // newTotalPremium is the staff-confirmed final premium (Step 5 lets them
+  // override the quote's figure — e.g. after a GST/add-on correction), so it
+  // must win once set. Otherwise a finalized case can show a stale "Total
+  // Premium" that's lower than what was actually invoiced/paid.
+  const finalizedPremium = Number(
+    safe.newTotalPremium ?? safe.new_total_premium ?? 0,
+  );
+  if (Number.isFinite(finalizedPremium) && finalizedPremium > 0)
+    return finalizedPremium;
+
   const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(safe);
   const acceptedPremium = Number(
     acceptedQuote?.totalPremium ??
@@ -224,10 +234,8 @@ export const premiumNum = (record) => {
   );
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
-  const fallback = pickPolicyNumber(
-    safe.newTotalPremium ?? safe.new_total_premium,
-    safe.previousTotalPremium ?? safe.totalPremium,
-  );
+
+  const fallback = pickPolicyNumber(safe.previousTotalPremium ?? safe.totalPremium);
   return Number.isFinite(fallback) ? fallback : 0;
 };
 
@@ -695,7 +703,11 @@ export const parsePolicyIncludedAddons = (record, snapshot = null) => {
 
 export const buildInsurancePaymentTimeline = (record) => {
   const safe = coerceInsuranceRecord(record);
-  const premium = premiumNum(safe);
+  // Same fallback as resolveActivePolicySnapshot's totalPremium — without it,
+  // a case whose new/renewed policy premium isn't finalized yet shows ₹0
+  // here while the rest of the card correctly falls back to the previous
+  // policy's premium.
+  const premium = pickPolicyNumber(premiumNum(safe), safe.previousTotalPremium);
   const paymentLedger = (
     Array.isArray(safe.paymentHistory)
       ? safe.paymentHistory

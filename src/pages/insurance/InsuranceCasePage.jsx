@@ -4,6 +4,7 @@ import { Alert, Button, Spin, Typography } from "antd";
 import { ShieldCheck, Plus, PencilLine } from "lucide-react";
 import NewInsuranceCaseForm from "../../components/insurance/NewInsuranceCaseForm";
 import { insuranceApi } from "../../api/insurance";
+import { addOnCatalog } from "../../components/insurance/steps/allSteps";
 
 const { Text } = Typography;
 
@@ -17,6 +18,69 @@ const normalizePolicyType = (value) => {
   if (lower === "tp" || lower.includes("third party")) return "Third Party";
   if (lower.includes("comprehensive")) return "Comprehensive";
   return raw;
+};
+
+// The just-expiring policy's OD/TP/add-on/IDV breakup only lives inside its
+// accepted quote row (case-level fields only carry the aggregate IDV/premium),
+// so pull it from there for the renewal's "previous policy" premium fields.
+const getAcceptedQuotePremiumBreakup = (caseDoc) => {
+  const quotes = Array.isArray(caseDoc?.quotes) ? caseDoc.quotes : [];
+  const acceptedId = caseDoc?.acceptedQuoteId;
+  const accepted =
+    quotes.find(
+      (q, idx) =>
+        String(q?.id ?? q?._id ?? q?.quoteId ?? `quote-${idx}`) ===
+        String(acceptedId),
+    ) ||
+    quotes.find((q) => q?.isAccepted) ||
+    null;
+  if (!accepted) return null;
+
+  const odAmount = Number(
+    accepted.odAmount ??
+      accepted.ownDamage ??
+      accepted.basicOwnDamage ??
+      accepted.odPremium ??
+      0,
+  );
+  const thirdPartyAmount = Number(
+    accepted.thirdPartyAmount ??
+      accepted.thirdParty ??
+      accepted.basicThirdParty ??
+      accepted.tpPremium ??
+      0,
+  );
+  const addOnsAmount = Number(accepted.addOnsAmount || 0);
+  const vehicleIdv = Number(accepted.vehicleIdv || 0);
+  const cngIdv = Number(accepted.cngIdv || 0);
+  const accessoriesIdv = Number(accepted.accessoriesIdv || 0);
+  const totalIdv =
+    vehicleIdv + cngIdv + accessoriesIdv || Number(accepted.totalIdv || 0);
+  const totalPremium = Number(
+    caseDoc?.newTotalPremium || odAmount + thirdPartyAmount + addOnsAmount || 0,
+  );
+  const includedMap =
+    accepted.addOnsIncluded && typeof accepted.addOnsIncluded === "object"
+      ? accepted.addOnsIncluded
+      : {};
+  const addOnsMap =
+    accepted.addOns && typeof accepted.addOns === "object"
+      ? accepted.addOns
+      : {};
+  const selectedAddOns = addOnCatalog.filter(
+    (name) => includedMap[name] || Number(addOnsMap[name]) > 0,
+  );
+
+  return {
+    previousIdvAmount: totalIdv,
+    previousOwnDamageAmount: odAmount,
+    previousBasicOwnDamageAmount: odAmount,
+    previousThirdPartyAmount: thirdPartyAmount,
+    previousBasicThirdPartyAmount: thirdPartyAmount,
+    previousAddOnsTotal: addOnsAmount,
+    previousTotalPremium: totalPremium,
+    previousSelectedAddOns: selectedAddOns,
+  };
 };
 
 const InsuranceCasePage = () => {
@@ -44,6 +108,7 @@ const InsuranceCasePage = () => {
           renewFromCase.previousPolicyType ||
           "",
       );
+      const premiumBreakup = getAcceptedQuotePremiumBreakup(renewFromCase) || {};
       return {
         ...renewFromCase,
         _id: undefined,
@@ -66,6 +131,7 @@ const InsuranceCasePage = () => {
         previousNcbDiscount: renewFromCase.newNcbDiscount || 0,
         previousHypothecation: renewFromCase.newHypothecation || "",
         previousRemarks: renewFromCase.newRemarks || "",
+        ...premiumBreakup,
         newInsuranceCompany: "",
         newPolicyNumber: "",
         newPolicyType: normalizedPolicyType || "Comprehensive",
