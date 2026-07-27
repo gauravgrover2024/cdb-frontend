@@ -340,7 +340,7 @@ const InsuranceDocumentsModal = ({ insuranceCase, caseId, open, onClose }) => {
 
     if (!printableDocs.length) return;
 
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1024,height=768");
+    const printWindow = window.open("", "_blank", "width=1024,height=768");
     if (!printWindow) return;
 
     const escaped = (value = "") =>

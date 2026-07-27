@@ -175,7 +175,6 @@ const InsuranceStickyHeader = ({
               line1={
                 [data.mobile, data.email].filter(Boolean).join(" · ") || "—"
               }
-              line2={data.panNumber ? `PAN: ${data.panNumber}` : undefined}
               divider={true}
             />
             <SummarySegment
@@ -184,6 +183,7 @@ const InsuranceStickyHeader = ({
               colorIdx={3}
               title={vehicleLine || "—"}
               line1={`Reg: ${data.registrationNumber || "Unregistered"}`}
+              line2={data.manufactureYear ? `Year: ${data.manufactureYear}` : undefined}
               divider={true}
             />
             <SummarySegment
@@ -192,7 +192,11 @@ const InsuranceStickyHeader = ({
               colorIdx={1}
               title={policyCoreLabel}
               line1={
-                [data.newPolicyType, data.newInsuranceDuration ? formatPolicyDuration(data.newInsuranceDuration) : null]
+                [
+                  data.newPolicyType,
+                  data.policyJourneyClassification,
+                  data.newInsuranceDuration ? formatPolicyDuration(data.newInsuranceDuration) : null,
+                ]
                   .filter(Boolean)
                   .join(" · ") || "—"
               }

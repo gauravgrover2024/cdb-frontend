@@ -56,6 +56,7 @@ const inrInputProps = {
       : formattedWhole;
   },
   parser: (value) => `${value ?? ""}`.replace(/[^\d.-]/g, ""),
+  placeholder: "0",
 };
 
 const NCB_OPTIONS = [0, 20, 25, 35, 45, 50].map((value) => ({
@@ -135,11 +136,7 @@ const buildQuoteSummaryText = ({
 };
 
 const openQuotePrintWindow = ({ title, content }) => {
-  const nextWindow = window.open(
-    "",
-    "_blank",
-    "noopener,noreferrer,width=960,height=720",
-  );
+  const nextWindow = window.open("", "_blank", "width=960,height=720");
   if (!nextWindow) return false;
   const safeTitle = escapeHtmlText(title);
   const safeBody = escapeHtmlText(content);
@@ -366,8 +363,8 @@ const TickerRow = ({ label, value, valueClass = "text-slate-800", bold }) => (
 // ── BreakupRow ──
 const BreakupRow = ({ label, value, bold, muted, indent }) => (
   <div
-    className={`flex items-center justify-between py-1.5
-      ${bold ? "border-t border-slate-100 mt-1 pt-2.5" : ""}
+    className={`flex items-center justify-between py-1
+      ${bold ? "border-t border-slate-100 mt-0.5 pt-1.5" : ""}
       ${indent ? "pl-3" : ""}
     `}
   >
@@ -516,11 +513,11 @@ const QuoteCard = ({
       )}
 
       {/* In-card quote identity */}
-      <div className="px-5 pt-5 pb-4">
+      <div className="px-4 pt-4 pb-3">
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-2.5 min-w-0">
+          <div className="flex items-start gap-2 min-w-0">
             <div
-              className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
+              className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1
                   ${isAccepted
                   ? "bg-[#9FC0FF]/70 text-slate-800 ring-[#9FC0FF]"
                   : `${palette.activeBg} ${palette.text} ${palette.activeRing}`
@@ -531,7 +528,7 @@ const QuoteCard = ({
                 <img
                   src={logoUrl}
                   alt={row.insuranceCompany || "Insurer"}
-                  className="h-8 w-8 rounded-md object-contain bg-white"
+                  className="h-7 w-7 rounded-md object-contain bg-white"
                   onError={(e) => {
                     setLogoIdx((prev) => prev + 1);
                   }}
@@ -583,11 +580,11 @@ const QuoteCard = ({
       </div>
 
       {/* Section divider: identity -> pricing */}
-      <div className="mx-5 border-t border-slate-100" />
+      <div className="mx-4 border-t border-slate-100" />
 
       {/* Premium Breakup */}
-      <div className="px-5 pt-5 pb-3">
-        <p className="m-0 mb-3 text-sm font-black text-slate-800">
+      <div className="px-4 pt-3 pb-2">
+        <p className="m-0 mb-1.5 text-sm font-black text-slate-800">
           Premium Breakup
         </p>
 
@@ -670,16 +667,16 @@ const QuoteCard = ({
       </div>
 
       {/* Dashed separator */}
-      <div className="mx-5 border-t border-dashed border-slate-200" />
+      <div className="mx-4 border-t border-dashed border-slate-200" />
 
       {/* Total Amount */}
-      <div className="px-5 py-3">
+      <div className="px-4 py-2">
         <div className="flex items-center justify-between">
           <span className="text-sm font-black text-slate-800">
             Total Amount
           </span>
           <span
-            className={`text-xl font-black tabular-nums ${isAccepted ? "text-slate-800" : "text-slate-900"
+            className={`text-lg font-black tabular-nums ${isAccepted ? "text-slate-800" : "text-slate-900"
               }`}
           >
             {formatStoredOrComputedPremium(row)}
@@ -691,14 +688,14 @@ const QuoteCard = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="px-5 pb-5 space-y-2">
-        <div className="flex items-center gap-2">
+      <div className="px-4 pb-4 space-y-2">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
             onClick={() => acceptQuote(rid)}
             disabled={isIssued || isAccepted}
             className={`
-                flex-1 rounded-xl py-2.5 text-[13px] font-black tracking-wide
+                flex-1 rounded-xl py-2 text-[13px] font-black tracking-wide
                 transition-all border-0 shadow-sm
                 ${isIssued
                 ? "opacity-50 cursor-not-allowed bg-slate-300 text-white"
@@ -714,8 +711,13 @@ const QuoteCard = ({
           <button
             type="button"
             onClick={() => onStartEditQuote?.(row)}
-            title="Edit quote"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-slate-50 text-slate-500 ring-1 ring-slate-200 hover:bg-slate-100 hover:text-slate-700 transition-colors cursor-pointer"
+            disabled={isAccepted}
+            title={isAccepted ? "Accepted quotes can't be edited" : "Edit quote"}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-0 ring-1 transition-colors ${
+              isAccepted
+                ? "cursor-not-allowed bg-slate-50 text-slate-300 ring-slate-100"
+                : "cursor-pointer bg-slate-50 text-slate-500 ring-slate-200 hover:bg-slate-100 hover:text-slate-700"
+            }`}
           >
             <EditOutlined className="text-xs" />
           </button>
@@ -724,30 +726,40 @@ const QuoteCard = ({
             <button
               onClick={() => setShowInsightModal(true)}
               title="Why premium changed"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-0 bg-blue-50 text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100 transition-colors cursor-pointer"
             >
               <EyeOutlined className="text-xs" />
             </button>
           ) : null}
 
-          <Popconfirm
-            title="Delete this quote?"
-            description="This action cannot be undone."
-            onConfirm={() => onDelete(rid)}
-            okText="Delete"
-            cancelText="Cancel"
-            okButtonProps={{
-              danger: true,
-              className: "!bg-rose-500 !border-rose-500 !text-white",
-            }}
-          >
+          {isAccepted ? (
             <button
-              title="Delete quote"
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border-0 bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+              disabled
+              title="Accepted quotes can't be deleted"
+              className="flex h-9 w-9 shrink-0 cursor-not-allowed items-center justify-center rounded-xl border-0 bg-rose-50/50 text-rose-200 ring-1 ring-rose-100"
             >
               <DeleteOutlined className="text-xs" />
             </button>
-          </Popconfirm>
+          ) : (
+            <Popconfirm
+              title="Delete this quote?"
+              description="This action cannot be undone."
+              onConfirm={() => onDelete(rid)}
+              okText="Delete"
+              cancelText="Cancel"
+              okButtonProps={{
+                danger: true,
+                className: "!bg-rose-500 !border-rose-500 !text-white",
+              }}
+            >
+              <button
+                title="Delete quote"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border-0 bg-rose-50 text-rose-700 ring-1 ring-rose-200 hover:bg-rose-100 transition-colors cursor-pointer"
+              >
+                <DeleteOutlined className="text-xs" />
+              </button>
+            </Popconfirm>
+          )}
         </div>
       </div>
 
@@ -906,7 +918,7 @@ const Step4InsuranceQuotes = ({
         if (Number(p.thirdPartyAmount || 0) === 0) return p;
         return {
           ...p,
-          thirdPartyAmount: 0,
+          thirdPartyAmount: "",
         };
       });
     } else if (coverageType === "Third Party") {
@@ -924,13 +936,13 @@ const Step4InsuranceQuotes = ({
         if (!needsReset) return p;
         return {
           ...p,
-          vehicleIdv: 0,
-          cngIdv: 0,
-          accessoriesIdv: 0,
-          payoutPercentage: 0,
-          odAmount: 0,
-          basicOwnDamage: 0,
-          addOnsAmount: 0,
+          vehicleIdv: "",
+          cngIdv: "",
+          accessoriesIdv: "",
+          payoutPercentage: "",
+          odAmount: "",
+          basicOwnDamage: "",
+          addOnsAmount: "",
           addOnsIncluded: {},
           addOns: {},
         };
@@ -1338,11 +1350,17 @@ const Step4InsuranceQuotes = ({
                     <InputNumber
                       size="large"
                       min={0}
-                      value={Number(quoteDraft.vehicleIdv || 0)}
+                      value={
+                        quoteDraft.vehicleIdv === "" ||
+                        quoteDraft.vehicleIdv === undefined ||
+                        quoteDraft.vehicleIdv === null
+                          ? null
+                          : Number(quoteDraft.vehicleIdv)
+                      }
                       onChange={(v) =>
                         setQuoteDraft((p) => ({
                           ...p,
-                          vehicleIdv: Number(v || 0),
+                          vehicleIdv: v === null || v === undefined ? "" : Number(v),
                         }))
                       }
                       className="w-full quote-control"
@@ -1354,11 +1372,17 @@ const Step4InsuranceQuotes = ({
                     <InputNumber
                       size="large"
                       min={0}
-                      value={Number(quoteDraft.cngIdv || 0)}
+                      value={
+                        quoteDraft.cngIdv === "" ||
+                        quoteDraft.cngIdv === undefined ||
+                        quoteDraft.cngIdv === null
+                          ? null
+                          : Number(quoteDraft.cngIdv)
+                      }
                       onChange={(v) =>
                         setQuoteDraft((p) => ({
                           ...p,
-                          cngIdv: Number(v || 0),
+                          cngIdv: v === null || v === undefined ? "" : Number(v),
                         }))
                       }
                       className="w-full quote-control"
@@ -1370,11 +1394,17 @@ const Step4InsuranceQuotes = ({
                     <InputNumber
                       size="large"
                       min={0}
-                      value={Number(quoteDraft.accessoriesIdv || 0)}
+                      value={
+                        quoteDraft.accessoriesIdv === "" ||
+                        quoteDraft.accessoriesIdv === undefined ||
+                        quoteDraft.accessoriesIdv === null
+                          ? null
+                          : Number(quoteDraft.accessoriesIdv)
+                      }
                       onChange={(v) =>
                         setQuoteDraft((p) => ({
                           ...p,
-                          accessoriesIdv: Number(v || 0),
+                          accessoriesIdv: v === null || v === undefined ? "" : Number(v),
                         }))
                       }
                       className="w-full quote-control"
@@ -1389,11 +1419,17 @@ const Step4InsuranceQuotes = ({
                   <InputNumber
                     size="large"
                     min={0}
-                    value={Number(quoteDraft.odAmount || 0)}
+                    value={
+                      quoteDraft.odAmount === "" ||
+                      quoteDraft.odAmount === undefined ||
+                      quoteDraft.odAmount === null
+                        ? null
+                        : Number(quoteDraft.odAmount)
+                    }
                     onChange={(v) =>
                       setQuoteDraft((p) => ({
                         ...p,
-                        odAmount: Number(v || 0),
+                        odAmount: v === null || v === undefined ? "" : Number(v),
                       }))
                     }
                     className="w-full quote-control"
@@ -1407,11 +1443,17 @@ const Step4InsuranceQuotes = ({
                   <InputNumber
                     size="large"
                     min={0}
-                    value={Number(quoteDraft.thirdPartyAmount || 0)}
+                    value={
+                      quoteDraft.thirdPartyAmount === "" ||
+                      quoteDraft.thirdPartyAmount === undefined ||
+                      quoteDraft.thirdPartyAmount === null
+                        ? null
+                        : Number(quoteDraft.thirdPartyAmount)
+                    }
                     onChange={(v) =>
                       setQuoteDraft((p) => ({
                         ...p,
-                        thirdPartyAmount: Number(v || 0),
+                        thirdPartyAmount: v === null || v === undefined ? "" : Number(v),
                       }))
                     }
                     className="w-full quote-control"
@@ -1425,11 +1467,17 @@ const Step4InsuranceQuotes = ({
                   <InputNumber
                     size="large"
                     min={0}
-                    value={Number(quoteDraft.addOnsAmount || 0)}
+                    value={
+                      quoteDraft.addOnsAmount === "" ||
+                      quoteDraft.addOnsAmount === undefined ||
+                      quoteDraft.addOnsAmount === null
+                        ? null
+                        : Number(quoteDraft.addOnsAmount)
+                    }
                     onChange={(v) =>
                       setQuoteDraft((p) => ({
                         ...p,
-                        addOnsAmount: Number(v || 0),
+                        addOnsAmount: v === null || v === undefined ? "" : Number(v),
                       }))
                     }
                     className="w-full quote-control"
@@ -1590,7 +1638,11 @@ const Step4InsuranceQuotes = ({
                       const palette = addonPalette[i % addonPalette.length];
                       const included = Boolean(quoteDraft.addOnsIncluded?.[name]);
                       if (!included) return null;
-                      const amt = Number(quoteDraft.addOns?.[name] || 0);
+                      const rawAmt = quoteDraft.addOns?.[name];
+                      const amt =
+                        rawAmt === "" || rawAmt === undefined || rawAmt === null
+                          ? null
+                          : Number(rawAmt);
                       return (
                         <div
                           key={name}
@@ -1614,7 +1666,7 @@ const Step4InsuranceQuotes = ({
                                 ...p,
                                 addOns: {
                                   ...p.addOns,
-                                  [name]: Number(v ?? 0),
+                                  [name]: v === null || v === undefined ? "" : Number(v),
                                 },
                               }))
                             }
@@ -1886,7 +1938,7 @@ const Step4InsuranceQuotes = ({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {quoteRows.map((row, idx) => (
               <QuoteCard
                 key={String(getQuoteRowId(row))}

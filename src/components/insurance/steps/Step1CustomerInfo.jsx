@@ -1459,16 +1459,15 @@ const Step1CustomerInfo = ({
         />
       ) : null}
 
-      <div className="relative overflow-hidden rounded-xl border border-slate-200/75 bg-white p-5 shadow-sm md:p-6">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+      <div className="relative overflow-hidden rounded-xl border border-slate-200/75 bg-white p-4 shadow-sm md:p-5">
+        <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <div className={sectionHeaderLabel}>Customer information</div>
-            <div className="mt-1 text-[22px] font-black tracking-tight text-slate-800">
+            <div className="mt-1 text-lg font-black tracking-tight text-slate-800">
               Customer details
             </div>
-            <div className="mt-1 text-sm text-slate-500">
-              Buyer setup, CRM-linked customer info and KYC details in the same
-              policy theme
+            <div className="mt-1 max-w-xl text-sm leading-6 text-slate-500">
+              Buyer setup, CRM-linked customer info and KYC details
             </div>
           </div>
 
@@ -1507,12 +1506,6 @@ const Step1CustomerInfo = ({
               className="step1-status-chip is-policy !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
             >
               {getPolicyTypePillLabel(formData.policyCategory)}
-            </Tag>
-
-            <Tag
-              className="step1-status-chip is-case !rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-            >
-              {isCompany ? "Company Case" : "Individual Case"}
             </Tag>
           </div>
         </div>
@@ -1680,16 +1673,6 @@ const Step1CustomerInfo = ({
                             {formData.employeeName && (
                               <span className="rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-[11px] font-semibold text-blue-700">
                                 {formData.employeeName}
-                              </span>
-                            )}
-                            {formData.vehicleType && (
-                              <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
-                                {formData.vehicleType}
-                              </span>
-                            )}
-                            {formData.buyerType && (
-                              <span className="rounded-full bg-slate-100 border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600">
-                                {formData.buyerType}
                               </span>
                             )}
                             {(formData.source || formData.sourceOrigin) && (

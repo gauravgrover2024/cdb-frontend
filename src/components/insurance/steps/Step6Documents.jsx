@@ -12,7 +12,7 @@ import Button from "../../ui/Button";
 import LoanDocumentViewerModal from "../../../modules/loans/components/shared/LoanDocumentViewerModal";
 import { uploadMultipleFiles } from "../../../api/uploads";
 import API_BASE_URL from "../../../config/apiBaseUrl";
-import { scheduleWindowPrint } from "../../../utils/scheduleWindowPrint";
+import { scheduleWindowPrint, escapeHtmlText } from "../../../utils/scheduleWindowPrint";
 import { getSuggestedDocsForForm } from "../insuranceDocumentRules";
 
 const sectionHeaderLabel =
@@ -716,6 +716,22 @@ const PreviewPane = ({
     return String(pdfBlobUrl || pdfSourceCandidates[0] || rawPreviewSrc || "");
   }, [pdfBlobUrl, pdfSourceCandidates, rawPreviewSrc]);
 
+  // Same raw + proxied URL variants as the PDF preview above, reused for
+  // images: whichever source the doc originally came from (freshly
+  // uploaded, linked from a customer/loan profile, etc.), if one URL
+  // variant fails to load, try the next instead of just showing a broken
+  // image with no explanation.
+  const imageSourceCandidates = pdfSourceCandidates;
+  const [imageCandidateIndex, setImageCandidateIndex] = useState(0);
+  useEffect(() => {
+    setImageCandidateIndex(0);
+  }, [doc?.id, doc?.url, doc?.previewUrl, doc?.rawUrl]);
+  const imagePreviewSrc = imageSourceCandidates[imageCandidateIndex] || "";
+  const imagePreviewFailed =
+    imageLike &&
+    imageSourceCandidates.length > 0 &&
+    imageCandidateIndex >= imageSourceCandidates.length;
+
   useEffect(() => {
     let isCanceled = false;
     let objectUrl = "";
@@ -790,12 +806,32 @@ const PreviewPane = ({
 
       <div className="overflow-hidden rounded-xl border border-slate-100 bg-slate-50">
         {imageLike ? (
-          <img
-            src={doc.previewUrl || doc.url}
-            alt={getDocDisplayLabel(doc, index)}
-            loading="lazy"
-            className="h-[400px] w-full object-contain bg-white"
-          />
+          imagePreviewFailed ? (
+            <div className="flex h-[400px] flex-col items-center justify-center gap-3 bg-white px-6 text-center">
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-slate-100 text-slate-500">
+                <Icon name="ImageOff" size={28} />
+              </div>
+              <div className="text-sm font-bold text-slate-800">
+                Preview unavailable
+              </div>
+              <a
+                href={rawPreviewSrc}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-indigo-600 font-bold underline"
+              >
+                Open manually
+              </a>
+            </div>
+          ) : (
+            <img
+              src={imagePreviewSrc}
+              alt={getDocDisplayLabel(doc, index)}
+              loading="lazy"
+              className="h-[400px] w-full object-contain bg-white"
+              onError={() => setImageCandidateIndex((i) => i + 1)}
+            />
+          )
         ) : pdfLike ? (
           pdfPreviewSrc ? (
             <object
@@ -917,6 +953,17 @@ const Step6Documents = ({
   const activeRequirement =
     DOCUMENT_MATRIX[ui.scenario] || DOCUMENT_MATRIX["used-car-renewal"];
   const policyTagLabel = useMemo(() => getPolicyTagLabel(formData), [formData]);
+  const policyYearLabel = useMemo(() => getPolicyYearLabel(formData), [formData]);
+  const documentsCustomerName = useMemo(
+    () =>
+      String(
+        formData?.customerName ||
+          formData?.contactPersonName ||
+          formData?.companyName ||
+          "",
+      ).trim(),
+    [formData],
+  );
   const suggestedDocs = useMemo(
     () => getSuggestedDocsForForm(formData),
     [formData],
@@ -951,6 +998,7 @@ const Step6Documents = ({
           typeof doc?.size === "number"
             ? doc.size
             : Number(doc?.sizeBytes || 0) || 0;
+        const sizeUnknown = Boolean(doc?.sizeUnknown);
 
         return {
           ...doc,
@@ -961,7 +1009,8 @@ const Step6Documents = ({
           url: previewUrl || rawUrl,
           previewUrl: previewUrl || rawUrl,
           sizeBytes,
-          sizeLabel: doc?.sizeLabel || formatFileSize(sizeBytes),
+          sizeLabel:
+            doc?.sizeLabel || (sizeUnknown ? "Size unknown" : formatFileSize(sizeBytes)),
           uploadedAt: doc?.uploadedAt || "",
           uploadedBy: doc?.uploadedBy || "",
           type: mimeType,
@@ -1387,56 +1436,97 @@ const Step6Documents = ({
       return;
     }
     const href = buildAccessibleDocumentUrl(rawHref);
+    // Try the proxied URL first, then fall back to the raw source (same
+    // multi-candidate approach the "Full Viewer" PDF preview already uses
+    // successfully above) — a single failed fetch shouldn't fall through to
+    // just navigating the raw proxy URL instead of printing.
+    const fetchCandidates = uniqueList([href, rawHref]);
 
     const printFromBlob = async () => {
       let objectUrl = "";
-      let iframe = null;
       try {
-        const response = await fetch(href, { credentials: "include" });
-        if (!response.ok) throw new Error("Unable to load document for print.");
+        let response = null;
+        for (const candidate of fetchCandidates) {
+          try {
+            const res = await fetch(candidate);
+            if (res.ok) {
+              response = res;
+              break;
+            }
+          } catch {
+            // try next candidate
+          }
+        }
+        if (!response) throw new Error("Unable to load document for print.");
         const blob = await response.blob();
         if (!blob || !blob.size) throw new Error("Empty document.");
 
         if (blob.type === "application/pdf") {
           objectUrl = URL.createObjectURL(blob);
-          const win = window.open(objectUrl, "_blank", "noopener,noreferrer");
+          const win = window.open(objectUrl, "_blank");
           if (!win) throw new Error("Popup blocked while opening PDF.");
           scheduleWindowPrint(win, { loadDelayMs: 650, fallbackMs: 2000 });
           return;
         }
 
         objectUrl = URL.createObjectURL(blob);
-        iframe = document.createElement("iframe");
-        iframe.style.position = "fixed";
-        iframe.style.right = "0";
-        iframe.style.bottom = "0";
-        iframe.style.width = "0";
-        iframe.style.height = "0";
-        iframe.style.border = "0";
-        iframe.src = objectUrl;
-        document.body.appendChild(iframe);
 
-        iframe.onload = () => {
-          setTimeout(() => {
-            try {
-              iframe?.contentWindow?.focus();
-              iframe?.contentWindow?.print();
-            } catch {
-              window.open(objectUrl, "_blank");
+        if (blob.type.startsWith("image/")) {
+          // Print via a real HTML document instead of pointing an iframe's
+          // `src` straight at the image blob: a raw-binary iframe.src loads
+          // wrapped in the browser's bare-bones image viewer with no layout
+          // control, and (since `src` was set before `onload` was attached)
+          // the load event could fire and be missed before print() ever ran.
+          const win = window.open("", "_blank", "width=900,height=1000");
+          if (!win) throw new Error("Popup blocked while opening image.");
+          win.document.write(`<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtmlText(doc?.name || doc?.originalName || "Document")}</title>
+    <style>
+      html, body { margin: 0; padding: 0; }
+      img { display: block; max-width: 100%; height: auto; }
+      @media print { img { width: 100%; } }
+    </style>
+  </head>
+  <body>
+    <img src="${objectUrl}" alt="" />
+  </body>
+</html>`);
+          win.document.close();
+          const img = win.document.querySelector("img");
+          if (img) {
+            if (img.complete) {
+              scheduleWindowPrint(win, { loadDelayMs: 200, fallbackMs: 1500 });
+            } else {
+              img.addEventListener(
+                "load",
+                () => scheduleWindowPrint(win, { loadDelayMs: 150, fallbackMs: 1200 }),
+                { once: true },
+              );
+              img.addEventListener(
+                "error",
+                () => scheduleWindowPrint(win, { loadDelayMs: 0, fallbackMs: 800 }),
+                { once: true },
+              );
             }
-          }, 650);
-        };
+          } else {
+            scheduleWindowPrint(win, { loadDelayMs: 200, fallbackMs: 1500 });
+          }
+          return;
+        }
+
+        // Non-PDF, non-image (e.g. Word docs) — browsers can't render these
+        // inline, so open it in a new tab and let the OS/browser's own
+        // viewer handle printing.
+        window.open(objectUrl, "_blank");
       } catch (error) {
         message.warning(error?.message || "Unable to print this document.");
         // Fallback
         window.open(href, "_blank");
-      } finally {
-        setTimeout(() => {
-          if (iframe && iframe.parentNode)
-            iframe.parentNode.removeChild(iframe);
-          // Don't revoke immediately if we opened a new tab
-        }, 10000);
       }
+      // Don't revoke objectUrl immediately — the opened tab/window still needs it.
     };
     printFromBlob();
   }, []);
@@ -1506,7 +1596,7 @@ const Step6Documents = ({
         accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
         onChange={handlePickedFiles}
       />
-      <div className="-mt-2 flex flex-col gap-3">
+      <div className="insurance-step6-docs -mt-2 flex flex-col gap-3">
         <section className="overflow-hidden rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 shadow-sm">
           <div className="px-5 py-3.5 md:px-6 md:py-4">
             <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
@@ -1534,8 +1624,17 @@ const Step6Documents = ({
                     submit.
                   </div>
                   {policyTagLabel ? (
-                    <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold leading-relaxed text-slate-700">
-                      {policyTagLabel}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+                      {documentsCustomerName ? (
+                        <span className="text-[11px] font-semibold leading-relaxed text-slate-700">
+                          {documentsCustomerName}
+                        </span>
+                      ) : null}
+                      {policyYearLabel ? (
+                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-black text-indigo-700">
+                          Policy {policyYearLabel}
+                        </span>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -1647,9 +1746,18 @@ const Step6Documents = ({
                     Documents
                   </div>
                   {policyTagLabel ? (
-                    <div className="mt-2 text-sm font-semibold text-slate-600">
-                      Policy tag:{" "}
-                      <span className="font-black">{policyTagLabel}</span>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      {documentsCustomerName ? (
+                        <span className="text-sm font-semibold text-slate-600">
+                          {documentsCustomerName}
+                        </span>
+                      ) : null}
+                      {policyYearLabel ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-1 text-[11px] font-black text-indigo-700">
+                          <Icon name="CalendarDays" size={12} />
+                          Policy {policyYearLabel}
+                        </span>
+                      ) : null}
                     </div>
                   ) : null}
                 </div>
@@ -1783,11 +1891,24 @@ const Step6Documents = ({
                             className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-left"
                           >
                             {imageLike ? (
-                              <img
-                                src={doc.previewUrl || doc.url}
-                                alt={getDocDisplayLabel(doc, index)}
-                                className="h-full w-full object-cover"
-                              />
+                              <>
+                                <img
+                                  src={doc.previewUrl || doc.url}
+                                  alt={getDocDisplayLabel(doc, index)}
+                                  className="h-full w-full object-cover"
+                                  onError={(event) => {
+                                    event.currentTarget.style.display = "none";
+                                    const fallback = event.currentTarget.nextElementSibling;
+                                    if (fallback) fallback.style.display = "flex";
+                                  }}
+                                />
+                                <div
+                                  className="h-full w-full items-center justify-center bg-slate-50"
+                                  style={{ display: "none" }}
+                                >
+                                  <Icon name="ImageOff" size={22} className="text-slate-300" />
+                                </div>
+                              </>
                             ) : pdfLike ? (
                               <div className="flex h-full w-full flex-col items-center justify-center gap-1 bg-white">
                                 <Icon

@@ -551,7 +551,7 @@ const Step5NewPolicyDetails = ({
     const ewGstAmount = ewTotalPremium - ewTaxableAmount;
 
     return (
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_340px]">
+      <div className="insurance-step5 grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_340px]">
         <div className="flex flex-col gap-6">
           <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
             <div className={sectionHeaderLabel}>Policy information</div>
@@ -571,9 +571,15 @@ const Step5NewPolicyDetails = ({
                     <InputNumber
                       size="large"
                       min={0}
-                      value={Number(formData.exShowroomPrice || 0)}
+                      value={
+                        formData.exShowroomPrice === "" ||
+                        formData.exShowroomPrice === undefined ||
+                        formData.exShowroomPrice === null
+                          ? null
+                          : Number(formData.exShowroomPrice)
+                      }
                       onChange={(v) =>
-                        setField("exShowroomPrice", Number(v || 0))
+                        setField("exShowroomPrice", v === null || v === undefined ? "" : Number(v))
                       }
                       placeholder="₹ 0"
                       {...amountInputProps}
@@ -627,9 +633,15 @@ const Step5NewPolicyDetails = ({
                         <InputNumber
                           size="large"
                           min={0}
-                          value={Number(formData.odometerReading || 0)}
+                          value={
+                            formData.odometerReading === "" ||
+                            formData.odometerReading === undefined ||
+                            formData.odometerReading === null
+                              ? null
+                              : Number(formData.odometerReading)
+                          }
                           onChange={(v) =>
-                            setField("odometerReading", Number(v || 0))
+                            setField("odometerReading", v === null || v === undefined ? "" : Number(v))
                           }
                           placeholder="Kms"
                         />
@@ -735,9 +747,15 @@ const Step5NewPolicyDetails = ({
                     <InputNumber
                       size="large"
                       min={0}
-                      value={Number(formData.newTotalPremium || 0)}
+                      value={
+                        formData.newTotalPremium === "" ||
+                        formData.newTotalPremium === undefined ||
+                        formData.newTotalPremium === null
+                          ? null
+                          : Number(formData.newTotalPremium)
+                      }
                       onChange={(v) =>
-                        setField("newTotalPremium", Number(v || 0))
+                        setField("newTotalPremium", v === null || v === undefined ? "" : Number(v))
                       }
                       placeholder="₹ 0"
                       {...amountInputProps}
@@ -799,6 +817,66 @@ const Step5NewPolicyDetails = ({
                     {formatCurrency(ewGstAmount)}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200/90 bg-white px-3.5 py-3.5 sm:px-4">
+              <p className="m-0 mb-1 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                Policy Snapshot
+              </p>
+              <BreakupRow
+                label="Ex-Showroom Price"
+                value={formatCurrency(formData.exShowroomPrice)}
+              />
+              <BreakupRow
+                label={isNewCar ? "Date of Sale" : "Date of Purchase"}
+                value={formatDisplayDate(
+                  isNewCar ? formData.dateOfSale : formData.dateOfPurchase,
+                )}
+              />
+              {!isNewCar ? (
+                <BreakupRow
+                  label="Odometer Reading"
+                  value={
+                    formData.odometerReading === "" ||
+                    formData.odometerReading === undefined ||
+                    formData.odometerReading === null
+                      ? "—"
+                      : `${Number(formData.odometerReading).toLocaleString("en-IN")} km`
+                  }
+                />
+              ) : null}
+              <BreakupRow
+                label="Policy Purchase Date"
+                value={formatDisplayDate(formData.policyPurchaseDate)}
+              />
+              <BreakupRow
+                label="Policy Duration"
+                value={
+                  formData.newInsuranceDuration
+                    ? formatPolicyDuration(formData.newInsuranceDuration)
+                    : "—"
+                }
+              />
+              <BreakupRow
+                label="Policy Start Date"
+                value={formatDisplayDate(formData.ewCommencementDate)}
+              />
+              <BreakupRow
+                label="Policy End Date"
+                value={formatDisplayDate(formData.ewExpiryDate)}
+              />
+              <BreakupRow
+                label="Kms Coverage"
+                value={formData.kmsCoverage || "—"}
+              />
+              <div className="mt-1.5 border-t border-slate-100 pt-2">
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Remarks
+                </p>
+                <p className="m-0 mt-0.5 text-[12px] leading-5 text-slate-700">
+                  {formData.newRemarks || "—"}
+                </p>
               </div>
             </div>
           </div>
@@ -1041,11 +1119,17 @@ const Step5NewPolicyDetails = ({
                       <InputNumber
                         size="large"
                         min={0}
-                        value={Number(formData.newVehicleIdv || 0)}
+                        value={
+                          formData.newVehicleIdv === "" ||
+                          formData.newVehicleIdv === undefined ||
+                          formData.newVehicleIdv === null
+                            ? null
+                            : Number(formData.newVehicleIdv)
+                        }
                         onChange={(v) => {
-                          const nextVehicleIdv = Number(v || 0);
+                          const nextVehicleIdv = v === null || v === undefined ? "" : Number(v);
                           const nextTotal =
-                            nextVehicleIdv +
+                            Number(nextVehicleIdv || 0) +
                             Number(formData.newCngIdv || 0) +
                             Number(formData.newAccessoriesIdv || 0);
                           setField("newVehicleIdv", nextVehicleIdv);
@@ -1064,12 +1148,18 @@ const Step5NewPolicyDetails = ({
                       <InputNumber
                         size="large"
                         min={0}
-                        value={Number(formData.newCngIdv || 0)}
+                        value={
+                          formData.newCngIdv === "" ||
+                          formData.newCngIdv === undefined ||
+                          formData.newCngIdv === null
+                            ? null
+                            : Number(formData.newCngIdv)
+                        }
                         onChange={(v) => {
-                          const nextCngIdv = Number(v || 0);
+                          const nextCngIdv = v === null || v === undefined ? "" : Number(v);
                           const nextTotal =
                             Number(formData.newVehicleIdv || 0) +
-                            nextCngIdv +
+                            Number(nextCngIdv || 0) +
                             Number(formData.newAccessoriesIdv || 0);
                           setField("newCngIdv", nextCngIdv);
                           setField("newIdvAmount", nextTotal);
@@ -1087,13 +1177,19 @@ const Step5NewPolicyDetails = ({
                       <InputNumber
                         size="large"
                         min={0}
-                        value={Number(formData.newAccessoriesIdv || 0)}
+                        value={
+                          formData.newAccessoriesIdv === "" ||
+                          formData.newAccessoriesIdv === undefined ||
+                          formData.newAccessoriesIdv === null
+                            ? null
+                            : Number(formData.newAccessoriesIdv)
+                        }
                         onChange={(v) => {
-                          const nextAccessoriesIdv = Number(v || 0);
+                          const nextAccessoriesIdv = v === null || v === undefined ? "" : Number(v);
                           const nextTotal =
                             Number(formData.newVehicleIdv || 0) +
                             Number(formData.newCngIdv || 0) +
-                            nextAccessoriesIdv;
+                            Number(nextAccessoriesIdv || 0);
                           setField("newAccessoriesIdv", nextAccessoriesIdv);
                           setField("newIdvAmount", nextTotal);
                         }}
@@ -1135,9 +1231,15 @@ const Step5NewPolicyDetails = ({
                   <InputNumber
                     size="large"
                     min={0}
-                    value={Number(formData.newTotalPremium || 0)}
+                    value={
+                      formData.newTotalPremium === "" ||
+                      formData.newTotalPremium === undefined ||
+                      formData.newTotalPremium === null
+                        ? null
+                        : Number(formData.newTotalPremium)
+                    }
                     onChange={(v) =>
-                      setField("newTotalPremium", Number(v || 0))
+                      setField("newTotalPremium", v === null || v === undefined ? "" : Number(v))
                     }
                     placeholder="₹ 0"
                     {...amountInputProps}
@@ -1184,7 +1286,7 @@ const Step5NewPolicyDetails = ({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="insurance-step5 flex flex-col gap-6">
       <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
@@ -1204,24 +1306,10 @@ const Step5NewPolicyDetails = ({
             >
               Quote ID: {acceptedQuoteId}
             </Tag>
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#DAF3FF",
-                borderColor: "#9FC0FF",
-                color: "#1f2937",
-              }}
-            >
+            <Tag className="ins-pill-blue !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               {acceptedPolicyType}
             </Tag>
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#FFE6C6",
-                borderColor: "#FFE6C6",
-                color: "#1f2937",
-              }}
-            >
+            <Tag className="ins-pill-amber !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               {acceptedDuration}
             </Tag>
           </div>

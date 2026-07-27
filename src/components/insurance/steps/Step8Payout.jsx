@@ -7,6 +7,7 @@ import {
   InputNumber,
   Row,
   Popconfirm,
+  Select,
   Tag,
 } from "antd";
 import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
@@ -20,6 +21,11 @@ const formatMoney = (value, minimumFractionDigits = 0) =>
     minimumFractionDigits,
     maximumFractionDigits: minimumFractionDigits,
   })}`;
+
+const STATUS_OPTIONS = [
+  { label: "Expected", value: "Expected" },
+  { label: "Received", value: "Received" },
+];
 
 const Step8Payout = ({
   formData,
@@ -43,9 +49,12 @@ const Step8Payout = ({
     addOnsAmount,
     insurer,
   );
-  const payoutPercentage = Number(
-    formData.payoutPercent ?? formData.payoutPercentage ?? 10,
-  );
+  // NOTE: formData.payoutPercent (singular) is the dealer/channel commission
+  // rate from Step 1 — an unrelated field. The insurer's payout % set during
+  // quote acceptance lives in formData.payoutPercentage; using the wrong one
+  // silently produced incorrect payout amounts whenever a channel commission
+  // happened to be set.
+  const payoutPercentage = Number(formData.payoutPercentage ?? 10);
   const subventionAmount = Number(formData.subventionAmount || 0);
   const calculatedPayoutAmount = (payoutBaseAmount * payoutPercentage) / 100;
   const calculatedNetAmount = calculatedPayoutAmount - subventionAmount;
@@ -100,7 +109,7 @@ const Step8Payout = ({
         payout_party_name: formData.newInsuranceCompany || "",
         payout_percentage: payoutPercentage,
         payout_amount: initAmount,
-        tds_percentage: 0,
+        tds_percentage: "",
         tds_amount: 0,
         net_payout_amount: initAmount,
         payout_status: "Expected",
@@ -122,7 +131,7 @@ const Step8Payout = ({
         payout_party_name: formData.brokerName || "",
         payout_percentage: payoutPercentage,
         payout_amount: initAmount,
-        tds_percentage: 0,
+        tds_percentage: "",
         tds_amount: 0,
         net_payout_amount: initAmount,
         payout_status: "Expected",
@@ -177,7 +186,7 @@ const Step8Payout = ({
   }, [receivables, payables]);
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="insurance-step8 flex flex-col gap-8">
       <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -193,7 +202,7 @@ const Step8Payout = ({
             <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !border-slate-200 !text-slate-700">
               Premium: {formatMoney(netPremium)}
             </Tag>
-            <Tag className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !bg-[#DAF3FF] !border-[#9FC0FF] !text-slate-800">
+            <Tag className="ins-pill-blue !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               Margin: {formatMoney(totals.margin, 2)}
             </Tag>
           </div>
@@ -296,8 +305,16 @@ const Step8Payout = ({
                 <InputNumber
                   size="large"
                   min={0}
-                  value={subventionAmount}
-                  onChange={(v) => setField("subventionAmount", Number(v || 0))}
+                  value={
+                    formData.subventionAmount === "" ||
+                    formData.subventionAmount === undefined ||
+                    formData.subventionAmount === null
+                      ? null
+                      : Number(formData.subventionAmount)
+                  }
+                  onChange={(v) =>
+                    setField("subventionAmount", v === null || v === undefined ? "" : Number(v))
+                  }
                   className="w-full"
                   addonBefore="₹"
                   placeholder="0"
@@ -500,8 +517,14 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) =>
           </label>
           <InputNumber
             style={{ width: "100%" }}
-            value={item.payout_percentage}
-            onChange={(v) => onUpdate("payout_percentage", v)}
+            value={
+              item.payout_percentage === "" ||
+              item.payout_percentage === undefined ||
+              item.payout_percentage === null
+                ? null
+                : item.payout_percentage
+            }
+            onChange={(v) => onUpdate("payout_percentage", v === null || v === undefined ? "" : v)}
             placeholder="0"
             suffix="%"
             min={0}
@@ -515,8 +538,14 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) =>
           </label>
           <InputNumber
             style={{ width: "100%" }}
-            value={item.tds_percentage}
-            onChange={(v) => onUpdate("tds_percentage", v)}
+            value={
+              item.tds_percentage === "" ||
+              item.tds_percentage === undefined ||
+              item.tds_percentage === null
+                ? null
+                : item.tds_percentage
+            }
+            onChange={(v) => onUpdate("tds_percentage", v === null || v === undefined ? "" : v)}
             placeholder="0"
             suffix="%"
             min={0}
@@ -528,12 +557,12 @@ const PayoutItemCard = ({ item, onUpdate, onDelete, type, bankOptions = [] }) =>
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
             Status
           </label>
-          <Tag
-            className="!m-0 !rounded-lg !px-2 !py-1 !text-[11px] !font-bold"
-            color={item.payout_status === "Received" ? "green" : "default"}
-          >
-            {item.payout_status || "Expected"}
-          </Tag>
+          <Select
+            value={item.payout_status || "Expected"}
+            onChange={(v) => onUpdate("payout_status", v)}
+            options={STATUS_OPTIONS}
+            className="w-full"
+          />
         </div>
       </div>
 
