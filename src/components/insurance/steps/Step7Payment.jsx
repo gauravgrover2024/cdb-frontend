@@ -1099,10 +1099,19 @@ const Step7Payment = ({
           <InputNumber
             size="large"
             min={0}
-            value={paymentForm.amount}
+            value={
+              paymentForm.amount === "" ||
+              paymentForm.amount === undefined ||
+              paymentForm.amount === null
+                ? null
+                : Number(paymentForm.amount)
+            }
             disabled={isLocked}
             onChange={(v) =>
-              setPaymentForm((p) => ({ ...p, amount: numberOrZero(v) }))
+              setPaymentForm((p) => ({
+                ...p,
+                amount: v === null || v === undefined ? "" : Number(v),
+              }))
             }
             style={{ width: "100%" }}
             prefix="₹"
@@ -1230,14 +1239,8 @@ const Step7Payment = ({
   );
 
   return (
-    <div className="flex flex-col gap-5 font-sans">
-      <div
-        className="rounded-xl border border-slate-200/65 p-5 shadow-sm md:p-6"
-        style={{
-          background:
-            "linear-gradient(110deg, color-mix(in srgb, var(--ins-primary) 11%, #fff), #ffffff 52%, color-mix(in srgb, var(--ins-primary-2) 13%, #fff))",
-        }}
-      >
+    <div className="insurance-step7 flex flex-col gap-5 font-sans">
+      <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className={sectionHeaderLabel}>Payment information</div>
@@ -1575,11 +1578,17 @@ const Step7Payment = ({
                       editingId === row._id ? (
                         <InputNumber
                           min={0}
-                          value={editDraft?.amount}
+                          value={
+                            editDraft?.amount === "" ||
+                            editDraft?.amount === undefined ||
+                            editDraft?.amount === null
+                              ? null
+                              : Number(editDraft.amount)
+                          }
                           onChange={(next) =>
                             setEditDraft((prev) => ({
                               ...(prev || {}),
-                              amount: numberOrZero(next),
+                              amount: next === null || next === undefined ? "" : Number(next),
                             }))
                           }
                           style={{ width: 120 }}

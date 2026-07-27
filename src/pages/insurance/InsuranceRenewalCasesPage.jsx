@@ -434,6 +434,7 @@ const InsuranceRenewalCasesPage = () => {
       setSelectedStatCard("all");
       return;
     }
+    setViewTab("all");
     setSelectedStatCard((prev) => (prev === cardKey ? "all" : cardKey));
   };
 
@@ -1753,7 +1754,7 @@ const InsuranceRenewalCasesPage = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                                Payment Engine
+                                Previous Year Payment
                               </p>
                               <p className="text-[11px] text-slate-500 mt-1 truncate">
                                 {primaryPaymentRow.label}

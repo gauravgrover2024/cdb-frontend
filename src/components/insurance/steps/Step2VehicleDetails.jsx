@@ -23,6 +23,7 @@ import {
 } from "@ant-design/icons";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { usedCarsDbApi } from "../../../api/usedCars";
+import { vehiclesApi } from "../../../api/vehicles";
 
 const { Text } = Typography;
 
@@ -67,11 +68,6 @@ const TYPE_OF_VEHICLE_OPTIONS = [
   { label: "Four Wheeler", value: "Four Wheeler" },
   { label: "Commercial", value: "Commercial" },
 ];
-
-const getPolicyTypePillLabel = (value) => {
-  if (String(value || "").trim() === "Extended Warranty") return "EW Policy";
-  return "Insurance";
-};
 
 const normalizeVehicleToken = (value) =>
   String(value || "")
@@ -151,6 +147,39 @@ const Step2VehicleDetails = ({
       setUsedCarDbSearchValue("");
     }
   }, [formData.vehicleMake, formData.vehicleModel, formData.vehicleVariant]);
+
+  // "Type & Save" (background, no button): when the user leaves a Make/Model/
+  // Variant field with a value that isn't in the current catalogue options,
+  // quietly record it as a suggestion term so it shows up in autosuggest for
+  // future users too — without ever writing into the scraper-owned vehicles
+  // collection directly. Best-effort; failures are silent, same as the Loans
+  // module's "+ Add" flow.
+  const savedSuggestionTermsRef = React.useRef(new Set());
+  const saveVehicleSuggestionTerm = React.useCallback(
+    (level, value, options) => {
+      if (isNewCar === false) return; // used-car flow has its own master DB search
+      const trimmed = String(value || "").trim();
+      if (!trimmed) return;
+      const alreadyListed = (options || []).some(
+        (opt) => String(opt || "").trim().toLowerCase() === trimmed.toLowerCase(),
+      );
+      if (alreadyListed) return;
+
+      const dedupeKey = `${level}:${(formData.vehicleMake || "").toLowerCase()}|${(formData.vehicleModel || "").toLowerCase()}|${trimmed.toLowerCase()}`;
+      if (savedSuggestionTermsRef.current.has(dedupeKey)) return;
+      savedSuggestionTermsRef.current.add(dedupeKey);
+
+      vehiclesApi
+        .addSuggestionTerm({
+          level,
+          make: formData.vehicleMake,
+          model: formData.vehicleModel,
+          variant: formData.vehicleVariant,
+        })
+        .catch(() => {});
+    },
+    [isNewCar, formData.vehicleMake, formData.vehicleModel, formData.vehicleVariant],
+  );
 
   const usedCarDbSearchDebounceRef = React.useRef(null);
 
@@ -725,6 +754,17 @@ const Step2VehicleDetails = ({
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
+                    notFoundContent={
+                      formData.vehicleMake ? (
+                        <div className="py-2 text-center">
+                          <div className="text-xs font-semibold text-slate-500">Not in the catalogue yet</div>
+                          <div className="mt-1 text-[11px] text-slate-400">
+                            Keep typing — your entry will be used as-is
+                          </div>
+                        </div>
+                      ) : null
+                    }
+                    onBlur={() => saveVehicleSuggestionTerm("make", formData.vehicleMake, makeOptions)}
                     status={
                       showErrors && step2Errors.vehicleMake ? "error" : ""
                     }
@@ -758,6 +798,17 @@ const Step2VehicleDetails = ({
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
+                    notFoundContent={
+                      formData.vehicleModel ? (
+                        <div className="py-2 text-center">
+                          <div className="text-xs font-semibold text-slate-500">Not in the catalogue yet</div>
+                          <div className="mt-1 text-[11px] text-slate-400">
+                            Keep typing — your entry will be used as-is
+                          </div>
+                        </div>
+                      ) : null
+                    }
+                    onBlur={() => saveVehicleSuggestionTerm("model", formData.vehicleModel, modelOptions)}
                     status={
                       showErrors && step2Errors.vehicleModel ? "error" : ""
                     }
@@ -801,6 +852,17 @@ const Step2VehicleDetails = ({
                         .toLowerCase()
                         .includes(input.toLowerCase())
                     }
+                    notFoundContent={
+                      formData.vehicleVariant ? (
+                        <div className="py-2 text-center">
+                          <div className="text-xs font-semibold text-slate-500">Not in the catalogue yet</div>
+                          <div className="mt-1 text-[11px] text-slate-400">
+                            Keep typing — your entry will be used as-is
+                          </div>
+                        </div>
+                      ) : null
+                    }
+                    onBlur={() => saveVehicleSuggestionTerm("variant", formData.vehicleVariant, variantOptions)}
                     status={
                       showErrors && step2Errors.vehicleVariant ? "error" : ""
                     }
@@ -982,7 +1044,7 @@ const Step2VehicleDetails = ({
   ];
 
   return (
-    <div className="step2-vehicle-details step2-revamp flex flex-col gap-6">
+    <div className="step2-vehicle-details step2-revamp insurance-step2 flex flex-col gap-6">
       <style>
         {`
           .step2-revamp {
@@ -995,38 +1057,6 @@ const Step2VehicleDetails = ({
             --step2-border: #d9e4f7;
           }
 
-          .step2-revamp .step1-status-chip {
-            border-radius: 999px !important;
-            border: 1px solid #cfdcf3 !important;
-            background: #ffffff !important;
-            color: #334155 !important;
-            font-weight: 700 !important;
-            box-shadow: none !important;
-          }
-
-          .step2-revamp .step1-status-chip.is-filled {
-            border-color: #bcd3fb !important;
-            background: #eff6ff !important;
-            color: #1d4ed8 !important;
-          }
-
-          .step2-revamp .step1-status-chip.is-policy {
-            border-color: #cfc3fb !important;
-            background: #f3efff !important;
-            color: #6d28d9 !important;
-          }
-
-          .step2-revamp .step1-status-chip.is-flow {
-            border-color: #a7f3d0 !important;
-            background: #ecfdf5 !important;
-            color: #047857 !important;
-          }
-
-          .step2-revamp .step1-status-chip.is-case {
-            border-color: #fde68a !important;
-            background: #fffbeb !important;
-            color: #b45309 !important;
-          }
         `}
       </style>
       <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-4 shadow-sm sm:p-5 md:p-6">
@@ -1044,67 +1074,15 @@ const Step2VehicleDetails = ({
 
           <div className="flex flex-wrap gap-2">
             <Tag
-              className={`step1-status-chip !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
-                formData.buyerType === "Individual" ||
-                formData.buyerType === "Company"
-                  ? "is-filled"
-                  : ""
-              }`}
-            >
-              {formData.buyerType || "Buyer Type Pending"}
-            </Tag>
-
-            <Tag
-              className={`step1-status-chip !rounded-full !px-3 !py-1 !text-[11px] !font-bold ${
-                formData.vehicleType === "New Car" ||
-                formData.vehicleType === "Used Car"
-                  ? "is-filled"
-                  : ""
-              }`}
-            >
-              {formData.vehicleType || "Vehicle Type Pending"}
-            </Tag>
-
-            {formData.vehicleType === "Used Car" && !isExtendedWarranty ? (
-              <Tag className="step1-status-chip is-flow !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
-                {formData.usedCarFlowType || "Used-car flow pending"}
-              </Tag>
-            ) : null}
-
-            <Tag className="step1-status-chip is-policy !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
-              {getPolicyTypePillLabel(formData.policyCategory)}
-            </Tag>
-
-            <Tag className="step1-status-chip is-case !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
-              {String(formData.buyerType || "").toLowerCase() === "company"
-                ? "Company Case"
-                : "Individual Case"}
-            </Tag>
-
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold !ml-2"
+              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
               color="blue"
             >
               Reg: {registrationPreview}
             </Tag>
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#DAF3FF",
-                borderColor: "#9FC0FF",
-                color: "#1f2937",
-              }}
-            >
+            <Tag className="ins-pill-blue !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               {formData.fuelType || "Fuel pending"}
             </Tag>
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#FFE6C6",
-                borderColor: "#FFE6C6",
-                color: "#1f2937",
-              }}
-            >
+            <Tag className="ins-pill-amber !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               {formData.typesOfVehicle || "Four Wheeler"}
             </Tag>
           </div>

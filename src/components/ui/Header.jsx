@@ -18,7 +18,6 @@ import { startNewLoanCase as startNewHomeLoanCase } from "../../modules/home-loa
 import { startNewInsuranceCase } from "../../utils/startNewInsuranceCase";
 import PayoutSetupModal from "../payout/PayoutSetupModal";
 import { openNewCaseConfirmation } from "./NewCaseConfirmation";
-import { showUnsavedChangesModal } from "./UnsavedChangesModal";
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -279,7 +278,7 @@ const Header = () => {
       roles: FEATURE_ACCESS.TOOLS,
       children: [
         {
-          label: "Fleet Master",
+          label: "Vehicle Master",
           path: "/fleet-vehicles",
           desc: "Manage fleet and assignments",
           roles: FEATURE_ACCESS.TOOLS,
@@ -452,27 +451,6 @@ const Header = () => {
     location.pathname === "/insurance/new" ||
     location.pathname.startsWith("/insurance/edit");
 
-  // Shows the unified 3-button unsaved-changes modal when the insurance form
-  // has pending edits, then runs `action` on Save or Discard.
-  const withInsuranceGuard = (action) => {
-    if (isOnInsuranceForm && window.__isInsuranceFormDirty) {
-      showUnsavedChangesModal({
-        onSave: () => {
-          // Ask the mounted form to save first, then execute the action.
-          window.dispatchEvent(
-            new CustomEvent("SAVE_AND_NAVIGATE_INSURANCE", {
-              detail: { afterSave: action },
-            }),
-          );
-        },
-        onDiscard: action,
-        onCancel: () => {},
-      });
-      return true; // guarded — caller should not proceed
-    }
-    return false; // not guarded — caller may proceed
-  };
-
   const handleNavigation = (path) => {
     if (path === "__payout_setup__") {
       setIsPayoutModalOpen(true);
@@ -483,11 +461,14 @@ const Header = () => {
     // ── New insurance case — always a fresh start ────────────────────────────
     // Clears any stale sessionStorage draft so a new case never silently
     // restores a previous, unrelated in-progress case (even if the nav link
-    // is clicked while already on the new-case form).
+    // is clicked while already on the new-case form). Same scope + simple
+    // 2-button confirm as the Loan/Home Loan "New" guard below — every other
+    // header link navigates straight away without prompting.
     if (path === "/insurance/new") {
       if (isOnInsuranceForm && window.__isInsuranceFormDirty) {
-        showUnsavedChangesModal({
-          onSave: () => {
+        openNewCaseConfirmation({
+          moduleLabel: "Insurance",
+          onSaveAndNew: () => {
             window.dispatchEvent(
               new CustomEvent("SAVE_AND_NAVIGATE_INSURANCE", {
                 detail: {
@@ -497,8 +478,6 @@ const Header = () => {
               }),
             );
           },
-          onDiscard: () => startNewInsuranceCase(navigate, "global-header"),
-          onCancel: () => {},
         });
       } else {
         startNewInsuranceCase(navigate, "global-header");
@@ -512,19 +491,6 @@ const Header = () => {
     if (path === location.pathname) {
       setMobileMenuOpen(false);
       setProfileOpen(false);
-      return;
-    }
-
-    // ── Insurance form guard ─────────────────────────────────────────────────
-    // Any navigation away from an insurance form page (create or edit) must
-    // pass through the unsaved-changes check.
-    if (
-      withInsuranceGuard(() => {
-        navigate(path);
-        setMobileMenuOpen(false);
-        setProfileOpen(false);
-      })
-    ) {
       return;
     }
 
@@ -594,12 +560,8 @@ const Header = () => {
   };
 
   const handleLogout = () => {
-    const doLogout = () => {
-      logout();
-      navigate("/login");
-    };
-    if (withInsuranceGuard(doLogout)) return;
-    doLogout();
+    logout();
+    navigate("/login");
   };
 
   return (

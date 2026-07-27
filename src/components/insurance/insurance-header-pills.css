@@ -52,9 +52,27 @@
   color: #b45309 !important;
 }
 
+/* Shared header-pill accent colors — one definition for the blue/amber
+   accent pills repeated across every step's header (policy type, duration,
+   margin, etc). Keeps the palette in sync instead of re-declaring the same
+   hex values per step. */
+.ins-pill-blue {
+  background: #daf3ff !important;
+  border-color: #9fc0ff !important;
+  color: #1f2937 !important;
+}
+
+.ins-pill-amber {
+  background: #ffe6c6 !important;
+  border-color: #ffe6c6 !important;
+  color: #1f2937 !important;
+}
+
 /* Insurance form internal headers/cards */
 .step1-customer-info .rounded-\[30px\],
 .step1-customer-info .rounded-\[28px\],
+.insurance-step3 .rounded-\[30px\],
+.insurance-step3 .rounded-\[28px\],
 .insurance-step4 .rounded-\[30px\],
 .insurance-step4 .rounded-\[28px\],
 .insurance-step5 .rounded-\[30px\],
@@ -69,6 +87,8 @@
 }
 
 .step1-customer-info [class*="bg-gradient-to-r"],
+.insurance-step2 [class*="bg-gradient-to-r"],
+.insurance-step3 [class*="bg-gradient-to-r"],
 .insurance-step4 [class*="bg-gradient-to-r"],
 .insurance-step5 [class*="bg-gradient-to-r"],
 .insurance-step6-docs [class*="bg-gradient-to-r"],
@@ -81,6 +101,7 @@
 }
 
 .step1-customer-info .text-\[24px\],
+.insurance-step3 .text-\[24px\],
 .insurance-step4 .text-\[24px\],
 .insurance-step5 .text-\[24px\],
 .insurance-step7 .text-\[24px\],
@@ -97,6 +118,7 @@
 
 @media (max-width: 768px) {
   .step1-customer-info .text-\[24px\],
+  .insurance-step3 .text-\[24px\],
   .insurance-step4 .text-\[24px\],
   .insurance-step5 .text-\[24px\],
   .insurance-step7 .text-\[24px\],

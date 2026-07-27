@@ -49,7 +49,6 @@ import {
   normalizePincode,
 } from "../../modules/loans/components/loan-form/pre-file/pincodeCityLookup";
 import { usePreventPageRefresh } from "../../utils/formDataProtection";
-import UnsavedChangesModal from "../ui/UnsavedChangesModal";
 import {
   collectLinkedDocumentsForInsurance,
   mergeLinkedIntoExistingDocuments,
@@ -138,12 +137,12 @@ const initialFormState = {
   previousTpExpiryDate: "",
   claimTakenLastYear: "",
   previousNcbDiscount: 0,
-  previousIdvAmount: 0,
-  previousOwnDamageAmount: 0,
-  previousBasicOwnDamageAmount: 0,
-  previousThirdPartyAmount: 0,
-  previousBasicThirdPartyAmount: 0,
-  previousAddOnsTotal: 0,
+  previousIdvAmount: "",
+  previousOwnDamageAmount: "",
+  previousBasicOwnDamageAmount: "",
+  previousThirdPartyAmount: "",
+  previousBasicThirdPartyAmount: "",
+  previousAddOnsTotal: "",
   previousTotalPremium: 0,
   previousSelectedAddOns: [],
   previousHypothecation: "Not Applicable",
@@ -159,21 +158,21 @@ const initialFormState = {
   newTpExpiryDate: "",
   newNcbDiscount: 0,
   newIdvAmount: 0,
-  newVehicleIdv: 0,
-  newCngIdv: 0,
-  newAccessoriesIdv: 0,
-  newTotalPremium: 0,
+  newVehicleIdv: "",
+  newCngIdv: "",
+  newAccessoriesIdv: "",
+  newTotalPremium: "",
   payoutPercentage: 10,
-  subventionAmount: 0,
+  subventionAmount: "",
   subventionEntries: [],
   newHypothecation: "Not Applicable",
   newRemarks: "",
 
   // New fields for upgrade
-  exShowroomPrice: 0,
+  exShowroomPrice: "",
   dateOfSale: "",
   dateOfPurchase: "",
-  odometerReading: 0,
+  odometerReading: "",
   policyPurchaseDate: "",
 
   // Extended Warranty
@@ -195,16 +194,16 @@ const initialQuoteDraft = {
   insuranceCompany: "",
   coverageType: "Comprehensive",
   hypothecation: "Not Applicable",
-  vehicleIdv: 0,
-  cngIdv: 0,
-  accessoriesIdv: 0,
+  vehicleIdv: "",
+  cngIdv: "",
+  accessoriesIdv: "",
   policyDuration: "1yr OD + 1yr TP",
-  ncbDiscount: 0,
+  ncbDiscount: "",
   payoutPercentage: 10,
-  odAmount: 0,
-  thirdPartyAmount: 0,
-  addOnsAmount: 0,
-  addOns: addOnCatalog.reduce((acc, name) => ({ ...acc, [name]: 0 }), {}),
+  odAmount: "",
+  thirdPartyAmount: "",
+  addOnsAmount: "",
+  addOns: addOnCatalog.reduce((acc, name) => ({ ...acc, [name]: "" }), {}),
   /** Per catalog add-on: when true, amount counts (₹0 still counts as included). */
   addOnsIncluded: addOnCatalog.reduce(
     (acc, name) => ({ ...acc, [name]: false }),
@@ -926,11 +925,6 @@ const NewInsuranceCaseForm = ({
 
   usePreventPageRefresh(isFormDirty);
 
-  // Unsaved-changes modal state
-  const [unsavedModal, setUnsavedModal] = React.useState({
-    open: false,
-    pendingAction: null,
-  });
   const [quoteDraft, setQuoteDraft] = useState(initialQuoteDraft);
   const [editingQuoteId, setEditingQuoteId] = useState(null);
   const [deleting, setDeleting] = useState(false);
@@ -960,7 +954,7 @@ const NewInsuranceCaseForm = ({
   });
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [paymentForm, setPaymentForm] = useState({
-    amount: 0,
+    amount: "",
     date: new Date().toISOString().slice(0, 10),
     paymentType: "customer",
     paymentMode: "Cash",
@@ -3671,28 +3665,21 @@ const NewInsuranceCaseForm = ({
     });
   };
 
-  // Unified exit guard — shows the 3-option modal only when there are actual
-  // unsaved changes.  When the form is clean, the action runs immediately.
-  const handleRequestExit = React.useCallback(
-    (afterAction = null) => {
-      const doExit = afterAction ?? (() => onCancel?.());
-      if (!isFormDirty) {
-        doExit();
-        return;
-      }
-      setUnsavedModal({ open: true, pendingAction: doExit });
-    },
-    [isFormDirty, onCancel],
-  );
-
   // Discard: exit immediately without saving (resets dirty tracking first).
   const handleDiscard = React.useCallback(() => {
     savedSnapshotRef.current = currentSnapshotRef.current;
     onCancel?.();
   }, [onCancel]);
 
-  // Exit: show the save/discard modal if there are unsaved changes.
-  const handleSaveAndExit = () => handleRequestExit();
+  // Footer "Exit" — save (if dirty) then leave, same as the Loan module's
+  // footer Exit button: no confirmation prompt, it just saves and exits.
+  const handleSaveAndExit = React.useCallback(async () => {
+    if (isFormDirty) {
+      const saved = await persistNow({ silent: false });
+      if (!saved) return;
+    }
+    onCancel?.();
+  }, [isFormDirty, persistNow, onCancel]);
 
   keyboardActionsRef.current = {
     goNext,
@@ -3805,15 +3792,23 @@ const NewInsuranceCaseForm = ({
   const startEditQuote = useCallback(
     (quoteRow) => {
       if (!quoteRow) return;
+      if (String(getQuoteRowId(quoteRow)) === String(acceptedQuoteId ?? "")) {
+        message.warning("Accepted quotes can't be edited.");
+        return;
+      }
       setEditingQuoteId(getQuoteRowId(quoteRow));
       setQuoteDraft(mapQuoteToDraft(quoteRow));
     },
-    [setQuoteDraft],
+    [acceptedQuoteId, setQuoteDraft],
   );
 
   const deleteQuote = useCallback(
     (id) => {
       const quoteId = String(id ?? "");
+      if (quoteId === String(acceptedQuoteId ?? "")) {
+        message.warning("Accepted quotes can't be deleted.");
+        return;
+      }
       let nextAcceptedId = acceptedQuoteId;
       setQuotes((prev) => {
         const filtered = (prev || []).filter(
@@ -4650,7 +4645,7 @@ const NewInsuranceCaseForm = ({
             onCancel={() => {
               setPaymentModalVisible(false);
               setPaymentForm({
-                amount: 0,
+                amount: "",
                 date: new Date().toISOString().slice(0, 10),
                 paymentType: "customer",
                 paymentMode: "Cash",
@@ -4692,7 +4687,7 @@ const NewInsuranceCaseForm = ({
 
               setPaymentModalVisible(false);
               setPaymentForm({
-                amount: 0,
+                amount: "",
                 date: new Date().toISOString().slice(0, 10),
                 paymentType: "customer",
                 paymentMode: "Cash",
@@ -4734,9 +4729,18 @@ const NewInsuranceCaseForm = ({
                   <InputNumber
                     size="large"
                     min={0}
-                    value={paymentForm.amount}
+                    value={
+                      paymentForm.amount === "" ||
+                      paymentForm.amount === undefined ||
+                      paymentForm.amount === null
+                        ? null
+                        : Number(paymentForm.amount)
+                    }
                     onChange={(v) =>
-                      setPaymentForm((prev) => ({ ...prev, amount: v }))
+                      setPaymentForm((prev) => ({
+                        ...prev,
+                        amount: v === null || v === undefined ? "" : v,
+                      }))
                     }
                     style={{ width: "100%", marginTop: 6 }}
                     placeholder="Enter amount"
@@ -4813,29 +4817,6 @@ const NewInsuranceCaseForm = ({
         </div>
       )}
 
-      {/* Unsaved-changes guard — shown whenever the user tries to leave with
-          un-persisted edits (exit button, discard button, header navigation). */}
-      <UnsavedChangesModal
-        open={unsavedModal.open}
-        saving={saving}
-        onSave={async () => {
-          const success = await persistNow({ silent: false });
-          if (success) {
-            setUnsavedModal({ open: false, pendingAction: null });
-            unsavedModal.pendingAction?.();
-          }
-        }}
-        onDiscard={() => {
-          // Reset the snapshot so window.__isInsuranceFormDirty clears
-          // before navigation to avoid any double-prompt.
-          savedSnapshotRef.current = currentSnapshotRef.current;
-          setUnsavedModal({ open: false, pendingAction: null });
-          unsavedModal.pendingAction?.();
-        }}
-        onCancel={() => {
-          setUnsavedModal({ open: false, pendingAction: null });
-        }}
-      />
     </InsuranceAntdProvider>
   );
 };

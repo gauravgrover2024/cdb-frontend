@@ -195,13 +195,13 @@ const getDurationYears = (policyType, durationValue) => {
 };
 
 const buildDefaultQuoteState = () => ({
-  idv: 0,
-  ownDamage: 0,
+  idv: "",
+  ownDamage: "",
   basicOwnDamage: 0,
   ncbAmount: 0,
-  thirdParty: 0,
+  thirdParty: "",
   basicThirdParty: 0,
-  addOnsTotal: 0,
+  addOnsTotal: "",
   totalPremium: 0,
   selectedAddOns: [],
 });
@@ -210,6 +210,14 @@ const toPositiveInt = (value) => {
   const n = Number(value);
   if (!Number.isFinite(n)) return 0;
   return Math.max(0, Math.round(n));
+};
+
+// Same as toPositiveInt but keeps an unset field empty instead of coercing
+// it to 0 — so a never-filled amount shows blank (with "0" as placeholder)
+// instead of a real 0 the user has to increment away from.
+const toPositiveIntOrEmpty = (value) => {
+  if (value === "" || value === undefined || value === null) return "";
+  return toPositiveInt(value);
 };
 
 const Step3PreviousPolicy = ({
@@ -255,19 +263,19 @@ const Step3PreviousPolicy = ({
         ? formData.previousSelectedAddOns
         : [];
     return {
-      idv: toPositiveInt(formData.previousIdvAmount),
-      ownDamage: toPositiveInt(formData.previousOwnDamageAmount),
-      basicOwnDamage: toPositiveInt(
+      idv: toPositiveIntOrEmpty(formData.previousIdvAmount),
+      ownDamage: toPositiveIntOrEmpty(formData.previousOwnDamageAmount),
+      basicOwnDamage: toPositiveIntOrEmpty(
         formData.previousBasicOwnDamageAmount ??
           formData.previousOwnDamageAmount,
       ),
       ncbAmount: 0,
-      thirdParty: toPositiveInt(formData.previousThirdPartyAmount),
-      basicThirdParty: toPositiveInt(
+      thirdParty: toPositiveIntOrEmpty(formData.previousThirdPartyAmount),
+      basicThirdParty: toPositiveIntOrEmpty(
         formData.previousBasicThirdPartyAmount ??
           formData.previousThirdPartyAmount,
       ),
-      addOnsTotal: toPositiveInt(formData.previousAddOnsTotal),
+      addOnsTotal: toPositiveIntOrEmpty(formData.previousAddOnsTotal),
       totalPremium: toPositiveInt(formData.previousTotalPremium),
       selectedAddOns: addOns,
     };
@@ -874,7 +882,7 @@ const Step3PreviousPolicy = ({
   ];
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="insurance-step3 flex flex-col gap-6">
       <div className="rounded-xl border border-slate-200/65 bg-gradient-to-r from-sky-50/90 via-white to-amber-50/50 p-5 shadow-sm md:p-6">
         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
           <div>
@@ -894,24 +902,10 @@ const Step3PreviousPolicy = ({
             >
               Policy No: {previewPolicyId}
             </Tag>
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#DAF3FF",
-                borderColor: "#9FC0FF",
-                color: "#1f2937",
-              }}
-            >
+            <Tag className="ins-pill-blue !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               {previewPolicyType}
             </Tag>
-            <Tag
-              className="!rounded-full !px-3 !py-1 !text-[11px] !font-bold"
-              style={{
-                background: "#FFE6C6",
-                borderColor: "#FFE6C6",
-                color: "#1f2937",
-              }}
-            >
+            <Tag className="ins-pill-amber !rounded-full !px-3 !py-1 !text-[11px] !font-bold">
               {previewDuration}
             </Tag>
           </div>
@@ -1014,11 +1008,17 @@ const Step3PreviousPolicy = ({
                           <InputNumber
                             size="large"
                             min={0}
-                            value={Number(quoteDraft.idv || 0)}
+                            value={
+                              quoteDraft.idv === "" ||
+                              quoteDraft.idv === undefined ||
+                              quoteDraft.idv === null
+                                ? null
+                                : Number(quoteDraft.idv)
+                            }
                             onChange={(v) =>
                               setQuoteDraft((prev) => ({
                                 ...prev,
-                                idv: Number(v || 0),
+                                idv: v === null || v === undefined ? "" : Number(v),
                               }))
                             }
                             placeholder="₹ 0"
@@ -1035,11 +1035,17 @@ const Step3PreviousPolicy = ({
                             <InputNumber
                               size="large"
                               min={0}
-                              value={Number(quoteDraft.ownDamage || 0)}
+                              value={
+                                quoteDraft.ownDamage === "" ||
+                                quoteDraft.ownDamage === undefined ||
+                                quoteDraft.ownDamage === null
+                                  ? null
+                                  : Number(quoteDraft.ownDamage)
+                              }
                               onChange={(v) =>
                                 setQuoteDraft((prev) => ({
                                   ...prev,
-                                  ownDamage: Number(v || 0),
+                                  ownDamage: v === null || v === undefined ? "" : Number(v),
                                   basicOwnDamage: Number(v || 0),
                                 }))
                               }
@@ -1056,11 +1062,17 @@ const Step3PreviousPolicy = ({
                             <InputNumber
                               size="large"
                               min={0}
-                              value={Number(quoteDraft.thirdParty || 0)}
+                              value={
+                                quoteDraft.thirdParty === "" ||
+                                quoteDraft.thirdParty === undefined ||
+                                quoteDraft.thirdParty === null
+                                  ? null
+                                  : Number(quoteDraft.thirdParty)
+                              }
                               onChange={(v) =>
                                 setQuoteDraft((prev) => ({
                                   ...prev,
-                                  thirdParty: Number(v || 0),
+                                  thirdParty: v === null || v === undefined ? "" : Number(v),
                                   basicThirdParty: Number(v || 0),
                                 }))
                               }
@@ -1077,11 +1089,17 @@ const Step3PreviousPolicy = ({
                             <InputNumber
                               size="large"
                               min={0}
-                              value={Number(quoteDraft.addOnsTotal || 0)}
+                              value={
+                                quoteDraft.addOnsTotal === "" ||
+                                quoteDraft.addOnsTotal === undefined ||
+                                quoteDraft.addOnsTotal === null
+                                  ? null
+                                  : Number(quoteDraft.addOnsTotal)
+                              }
                               onChange={(v) =>
                                 setQuoteDraft((prev) => ({
                                   ...prev,
-                                  addOnsTotal: Number(v || 0),
+                                  addOnsTotal: v === null || v === undefined ? "" : Number(v),
                                 }))
                               }
                               placeholder="₹ 0"

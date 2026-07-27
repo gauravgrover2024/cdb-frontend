@@ -57,12 +57,13 @@ const normalizeArrayDoc = (doc = {}, fallbackMeta = {}) => {
     fallbackMeta.uploadedAt ||
     "";
 
-  const sizeBytes =
-    typeof doc.bytes === "number"
-      ? doc.bytes
-      : typeof doc.size === "number"
-        ? doc.size
-        : Number(doc.sizeBytes || 0) || 0;
+  const sizeKnown =
+    typeof doc.bytes === "number" ||
+    typeof doc.size === "number" ||
+    typeof doc.sizeBytes === "number";
+  const sizeBytes = sizeKnown
+    ? doc.bytes ?? doc.size ?? doc.sizeBytes
+    : 0;
 
   const ts = parseTs(uploadedAtRaw, fallbackMeta.fallbackTs);
 
@@ -73,6 +74,9 @@ const normalizeArrayDoc = (doc = {}, fallbackMeta = {}) => {
     original_name: originalName,
     size: sizeBytes,
     sizeBytes,
+    // True when this doc is a bare URL reference (e.g. a customer-profile
+    // field) with no known byte size, vs. an actually-empty 0-byte file.
+    sizeUnknown: !sizeKnown,
     type: String(doc.resource_type || doc.format || doc.type || "").trim() || "file",
     format: String(doc.format || "").toLowerCase(),
     url,
@@ -102,7 +106,6 @@ const pushScalarUrlDoc = (list, urlRaw, label, meta) => {
       secure_url: url,
       original_filename: label,
       name: label,
-      bytes: 0,
       uploadedAt: meta.uploadedAt || "",
     },
     {
