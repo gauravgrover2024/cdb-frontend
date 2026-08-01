@@ -39,6 +39,7 @@ import {
   buildInsurancePaymentTimeline,
   cycleAdjustedDaysUntilExpiry,
   getCycleAdjustedExpiryDate,
+  getEffectiveOdTenureYears,
   getPolicyPulseExpiryDate,
   getPolicyPulseMeta,
   parsePolicyIncludedAddons,
@@ -180,6 +181,8 @@ const RenewalStatusActionPanel = ({ row, draft, onAction, onClose }) => {
   const activePolicy = resolveActivePolicySnapshot(row);
   const cycleAdjustedExpiry = getCycleAdjustedExpiryDate(
     getPolicyPulseExpiryDate(row),
+    dayjs(),
+    { odTenureYears: getEffectiveOdTenureYears(row) },
   );
   const expiryLabel = cycleAdjustedExpiry
     ? cycleAdjustedExpiry.format("DD MMM YYYY")
@@ -408,6 +411,11 @@ const InsuranceRenewalCasesPage = () => {
   const [previewStageKey, setPreviewStageKey] = useState("previous");
   const [policyModal, setPolicyModal] = useState({ open: false, row: null });
   const [showAllPolicyAddons, setShowAllPolicyAddons] = useState(false);
+  const [renewReminderModal, setRenewReminderModal] = useState({
+    open: false,
+    row: null,
+    date: null,
+  });
   const popupContainer = (node) => node?.parentElement || document.body;
   const onWindowChange = (value) => setWindowFilter(String(value || "all"));
   const onPolicyStatusChange = (value) => setPolicyStatusFilter(String(value || "all"));
@@ -683,13 +691,14 @@ const InsuranceRenewalCasesPage = () => {
     }
   };
 
-  const applyOutcomeAction = async (row, action) => {
+  const applyOutcomeAction = async (row, action, extraPayload = {}) => {
     const id = getCaseId(row);
     if (!id) return;
     try {
       await insuranceApi.updateRenewalLead(id, {
         action,
         updatedBy: user?.name || "User",
+        ...extraPayload,
       });
       setRowDrafts((prev) => {
         const next = { ...prev };
@@ -777,7 +786,7 @@ const InsuranceRenewalCasesPage = () => {
       return;
     }
     if (actionKey === "RENEW_NEXT_YEAR") {
-      await applyOutcomeAction(row, "RENEW_NEXT_YEAR");
+      setRenewReminderModal({ open: true, row, date: null });
       return;
     }
   };
@@ -1150,6 +1159,8 @@ const InsuranceRenewalCasesPage = () => {
               // "Expiry: 12 Jul 2027 · Expired 8d ago").
               const cycleAdjustedExpiry = getCycleAdjustedExpiryDate(
                 getPolicyPulseExpiryDate(row),
+                dayjs(),
+                { odTenureYears: getEffectiveOdTenureYears(row) },
               );
               const displayExpiryLabel = cycleAdjustedExpiry
                 ? cycleAdjustedExpiry.format("DD MMM YYYY")
@@ -1165,6 +1176,7 @@ const InsuranceRenewalCasesPage = () => {
                 label: "Total Premium",
                 amount: 0,
                 type: "neutral",
+                isPreviousYearPremium: true,
               };
               const secondaryPaymentRows = paymentTimeline.slice(1);
               const paymentBaseAmount = Math.max(
@@ -1372,19 +1384,6 @@ const InsuranceRenewalCasesPage = () => {
                             <Eye size={14} />
                           </motion.button>
                         </Tooltip>
-                         {days !== null && days < 30 && viewTab === "renewal" && (
-                          <motion.button
-                            whileHover={{ scale: 1.03 }}
-                            whileTap={{ scale: 0.97 }}
-                            type="button"
-                            onClick={() =>
-                              navigate(`/insurance/new?renewFrom=${id}`)
-                            }
-                            className="px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-[0.08em] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-colors mr-1"
-                          >
-                            Renew Now
-                          </motion.button>
-                        )}
                         <Tooltip title="Renew">
                           <motion.button
                             whileHover={{ scale: 1.06 }}
@@ -1754,7 +1753,9 @@ const InsuranceRenewalCasesPage = () => {
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                                Previous Year Payment
+                                {primaryPaymentRow.isPreviousYearPremium
+                                  ? "Previous Year Payment"
+                                  : "Renewal Payment"}
                               </p>
                               <p className="text-[11px] text-slate-500 mt-1 truncate">
                                 {primaryPaymentRow.label}
@@ -2058,6 +2059,42 @@ const InsuranceRenewalCasesPage = () => {
             </div>
           )}
         </div>
+      </Modal>
+
+      <Modal
+        open={renewReminderModal.open}
+        title="Schedule renewal reminder"
+        okText="Schedule"
+        onCancel={() =>
+          setRenewReminderModal({ open: false, row: null, date: null })
+        }
+        onOk={async () => {
+          if (!renewReminderModal.date) {
+            message.error("Pick a reminder date first.");
+            return;
+          }
+          await applyOutcomeAction(renewReminderModal.row, "RENEW_NEXT_YEAR", {
+            renewalFollowUpDate: renewReminderModal.date,
+          });
+          setRenewReminderModal({ open: false, row: null, date: null });
+        }}
+      >
+        <p className="text-sm text-slate-600 mb-3">
+          This case will be closed for the current cycle and flagged to follow
+          up on the date you pick below.
+        </p>
+        <DatePicker
+          className="w-full"
+          format="DD MMM YYYY"
+          getPopupContainer={popupContainer}
+          disabledDate={(d) => d && d.isBefore(dayjs().startOf("day"))}
+          onChange={(d) =>
+            setRenewReminderModal((prev) => ({
+              ...prev,
+              date: d ? d.format("YYYY-MM-DD") : null,
+            }))
+          }
+        />
       </Modal>
 
       <InsurancePreview
