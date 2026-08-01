@@ -7,11 +7,21 @@ import {
   InputNumber,
   Row,
   Popconfirm,
+  Segmented,
   Select,
   Tag,
 } from "antd";
-import { Plus, Trash2, TrendingUp, TrendingDown, Wallet } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  TrendingUp,
+  TrendingDown,
+  Wallet,
+  CalendarClock,
+} from "lucide-react";
 import { computePayoutBaseAmount } from "./payoutRates";
+import { generatePayoutSchedule, PAYOUT_MODES } from "./payoutSchedule";
+import { parseDurationYears } from "../../../utils/insurancePolicyDisplay";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -58,6 +68,82 @@ const Step8Payout = ({
   const subventionAmount = Number(formData.subventionAmount || 0);
   const calculatedPayoutAmount = (payoutBaseAmount * payoutPercentage) / 100;
   const calculatedNetAmount = calculatedPayoutAmount - subventionAmount;
+
+  // Multi-year OD tenures (e.g. 3+3) split the payout across policy years;
+  // single-year policies behave identically in either mode.
+  const odTenureYears = Math.max(
+    1,
+    Number(
+      formData.policyTenure?.odTenureYears ||
+        parseDurationYears(formData.newInsuranceDuration).odYears ||
+        1,
+    ),
+  );
+  const payoutSchedule = formData.payoutSchedule || null;
+  const payoutMode = payoutSchedule?.mode || PAYOUT_MODES.LUMPSUM;
+
+  const buildSchedule = useCallback(
+    (mode) =>
+      generatePayoutSchedule({
+        mode,
+        tenureYears: odTenureYears,
+        totalPayoutPercentage: payoutPercentage,
+        baseAmount: payoutBaseAmount,
+        policyStartDate: formData.newPolicyStartDate,
+      }),
+    [odTenureYears, payoutPercentage, payoutBaseAmount, formData.newPolicyStartDate],
+  );
+
+  // Preserve any Paid/Expected status already recorded when the schedule is
+  // regenerated (mode switch, or percentage/base change).
+  const mergeStatuses = useCallback(
+    (nextSchedule) => {
+      const prevEntries = payoutSchedule?.entries || [];
+      return {
+        ...nextSchedule,
+        entries: nextSchedule.entries.map((entry) => {
+          const prior = prevEntries.find(
+            (p) => Number(p.policyYear) === Number(entry.policyYear),
+          );
+          return prior
+            ? { ...entry, status: prior.status, paidDate: prior.paidDate }
+            : entry;
+        }),
+      };
+    },
+    [payoutSchedule],
+  );
+
+  // Auto-generate once when this step is first reached for the case.
+  React.useEffect(() => {
+    if (payoutSchedule?.entries?.length) return;
+    setField("payoutSchedule", buildSchedule(PAYOUT_MODES.LUMPSUM));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSetPayoutMode = (mode) => {
+    setField("payoutSchedule", mergeStatuses(buildSchedule(mode)));
+  };
+
+  const handleRecalculateSchedule = () => {
+    setField("payoutSchedule", mergeStatuses(buildSchedule(payoutMode)));
+  };
+
+  const updateScheduleEntryStatus = (policyYear, status) => {
+    if (!payoutSchedule) return;
+    setField("payoutSchedule", {
+      ...payoutSchedule,
+      entries: payoutSchedule.entries.map((entry) =>
+        Number(entry.policyYear) === Number(policyYear)
+          ? {
+              ...entry,
+              status,
+              paidDate: status === "Paid" ? new Date().toISOString() : entry.paidDate,
+            }
+          : entry,
+      ),
+    });
+  };
 
   const receivables = useMemo(
     () =>
@@ -357,6 +443,114 @@ const Step8Payout = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Section 3: Payout Schedule (yearly vs lumpsum) */}
+      <div className="overflow-hidden rounded-xl border border-slate-200/75 bg-white shadow-sm">
+        <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-100">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-violet-100 text-violet-600 shadow-sm">
+                <CalendarClock size={20} />
+              </div>
+              <div>
+                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Payout Schedule</div>
+                <div className="text-sm font-bold text-slate-800">
+                  {odTenureYears > 1
+                    ? `${odTenureYears}-year OD tenure — auto-split across the policy years`
+                    : "Single-year policy"}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <Segmented
+                value={payoutMode}
+                onChange={handleSetPayoutMode}
+                options={[
+                  { label: "Lump Sum", value: PAYOUT_MODES.LUMPSUM },
+                  { label: "Yearly", value: PAYOUT_MODES.YEARLY },
+                ]}
+              />
+              <Button size="small" onClick={handleRecalculateSchedule}>
+                Recalculate
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-6">
+          {payoutMode === PAYOUT_MODES.YEARLY && odTenureYears > 1 ? (
+            <div className="mb-4 text-[12px] text-slate-500">
+              {payoutPercentage}% total payout ÷ {odTenureYears} years ={" "}
+              <span className="font-bold text-slate-700">
+                {(payoutSchedule?.entries?.[0]?.percentage ?? 0).toFixed(2)}%
+              </span>{" "}
+              paid each policy year.
+            </div>
+          ) : (
+            <div className="mb-4 text-[12px] text-slate-500">
+              Full {payoutPercentage}% paid once, at policy issuance.
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-[13px]">
+              <thead>
+                <tr className="border-b border-slate-100 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                  <th className="py-2 pr-4">Period</th>
+                  <th className="py-2 pr-4">%</th>
+                  <th className="py-2 pr-4">Base</th>
+                  <th className="py-2 pr-4">Amount</th>
+                  <th className="py-2 pr-4">Due</th>
+                  <th className="py-2 pr-4">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(payoutSchedule?.entries || []).map((entry) => (
+                  <tr
+                    key={entry.policyYear}
+                    className="border-b border-slate-50 last:border-0"
+                  >
+                    <td className="py-2.5 pr-4 font-bold text-slate-700">
+                      {entry.policyYear === 0
+                        ? "Upfront"
+                        : `Year ${entry.policyYear}`}
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-600">
+                      {Number(entry.percentage || 0).toFixed(2)}%
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-600">
+                      {formatMoney(entry.baseAmount)}
+                    </td>
+                    <td className="py-2.5 pr-4 font-black text-slate-800">
+                      {formatMoney(entry.amount, 2)}
+                    </td>
+                    <td className="py-2.5 pr-4 text-slate-500">
+                      {entry.dueDate
+                        ? new Date(entry.dueDate).toLocaleDateString("en-IN")
+                        : "—"}
+                    </td>
+                    <td className="py-2.5 pr-4">
+                      <Select
+                        size="small"
+                        value={entry.status || "Pending"}
+                        onChange={(v) =>
+                          updateScheduleEntryStatus(entry.policyYear, v)
+                        }
+                        options={[
+                          { label: "Pending", value: "Pending" },
+                          { label: "Expected", value: "Expected" },
+                          { label: "Paid", value: "Paid" },
+                        ]}
+                        style={{ width: 110 }}
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

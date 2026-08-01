@@ -210,6 +210,96 @@ const getDurationYears = (policyType, durationValue) => {
   return { odYears: 0, tpYears: 0 };
 };
 
+// Multi-year OD tenures (e.g. 3+3) need a distinct IDV per policy year —
+// claims use whichever year's row is active when the claim occurs.
+const YearlyIdvScheduleEditor = ({ schedule, onChange }) => {
+  if (!Array.isArray(schedule) || schedule.length < 2) return null;
+
+  const updateRow = (policyYear, field, value) => {
+    const nextVal = value === null || value === undefined ? 0 : Number(value);
+    const nextSchedule = schedule.map((row) => {
+      if (row.policyYear !== policyYear) return row;
+      const updated = { ...row, [field]: nextVal };
+      updated.totalIdv =
+        Number(updated.vehicleIdv || 0) +
+        Number(updated.cngIdv || 0) +
+        Number(updated.accessoriesIdv || 0);
+      return updated;
+    });
+    onChange(nextSchedule);
+  };
+
+  return (
+    <Col xs={24}>
+      <div className="mt-2 rounded-xl border border-slate-200/75 bg-slate-50/50 p-4">
+        <div className={labelClass}>Per-Year IDV Schedule</div>
+        <div className="mt-1 text-[11px] text-slate-400">
+          Multi-year OD cover — set the IDV for each policy year; claims use
+          the IDV of whichever year is active.
+        </div>
+        <div className="mt-3 flex flex-col gap-3">
+          {schedule.map((row) => (
+            <div
+              key={row.policyYear}
+              className="grid grid-cols-1 items-end gap-3 rounded-lg border border-slate-100 bg-white p-3 sm:grid-cols-4"
+            >
+              <div className="text-[12px] font-bold text-slate-600 sm:col-span-4">
+                Year {row.policyYear}
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Vehicle IDV (₹)
+                </span>
+                <InputNumber
+                  size="middle"
+                  min={0}
+                  className="w-full"
+                  value={row.vehicleIdv}
+                  onChange={(v) => updateRow(row.policyYear, "vehicleIdv", v)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  CNG IDV (₹)
+                </span>
+                <InputNumber
+                  size="middle"
+                  min={0}
+                  className="w-full"
+                  value={row.cngIdv}
+                  onChange={(v) => updateRow(row.policyYear, "cngIdv", v)}
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Accessories IDV (₹)
+                </span>
+                <InputNumber
+                  size="middle"
+                  min={0}
+                  className="w-full"
+                  value={row.accessoriesIdv}
+                  onChange={(v) =>
+                    updateRow(row.policyYear, "accessoriesIdv", v)
+                  }
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                  Total IDV (₹)
+                </span>
+                <div className="flex h-8 items-center rounded-md border border-slate-100 bg-slate-50 px-3 text-[13px] font-bold text-slate-700">
+                  ₹{Number(row.totalIdv || 0).toLocaleString("en-IN")}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Col>
+  );
+};
+
 const Step5NewPolicyDetails = ({
   formData,
   setField,
@@ -509,6 +599,53 @@ const Step5NewPolicyDetails = ({
     formData.newIdvAmount,
     formData.newVehicleIdv,
     isExtendedWarranty,
+    setField,
+  ]);
+
+  // Keep yearlyIdvSchedule row count in sync with the OD tenure. New rows
+  // seed from year 1's IDV (no depreciation assumed); existing rows are
+  // preserved as-is so manual edits aren't clobbered on every render.
+  React.useEffect(() => {
+    if (isExtendedWarranty) return;
+    const years = Math.max(1, Number(derivedYears.odYears) || 1);
+    const existing = Array.isArray(formData.yearlyIdvSchedule)
+      ? formData.yearlyIdvSchedule
+      : [];
+
+    if (years <= 1) {
+      if (existing.length > 0) setField("yearlyIdvSchedule", []);
+      return;
+    }
+    if (existing.length === years) return;
+
+    const seedVehicleIdv = Number(
+      existing[0]?.vehicleIdv ?? formData.newVehicleIdv ?? 0,
+    );
+    const seedCngIdv = Number(existing[0]?.cngIdv ?? formData.newCngIdv ?? 0);
+    const seedAccessoriesIdv = Number(
+      existing[0]?.accessoriesIdv ?? formData.newAccessoriesIdv ?? 0,
+    );
+
+    const nextSchedule = Array.from({ length: years }, (_, idx) => {
+      const policyYear = idx + 1;
+      const prior = existing.find((row) => row.policyYear === policyYear);
+      if (prior) return prior;
+      return {
+        policyYear,
+        vehicleIdv: seedVehicleIdv,
+        cngIdv: seedCngIdv,
+        accessoriesIdv: seedAccessoriesIdv,
+        totalIdv: seedVehicleIdv + seedCngIdv + seedAccessoriesIdv,
+      };
+    });
+    setField("yearlyIdvSchedule", nextSchedule);
+  }, [
+    derivedYears.odYears,
+    isExtendedWarranty,
+    formData.yearlyIdvSchedule,
+    formData.newVehicleIdv,
+    formData.newCngIdv,
+    formData.newAccessoriesIdv,
     setField,
   ]);
 
@@ -1199,6 +1336,11 @@ const Step5NewPolicyDetails = ({
                     </CleanField>
                   </div>
                 </Col>
+
+                <YearlyIdvScheduleEditor
+                  schedule={formData.yearlyIdvSchedule}
+                  onChange={(next) => setField("yearlyIdvSchedule", next)}
+                />
               </>
             )}
 

@@ -212,6 +212,26 @@ export const getAcceptedQuoteContext = (record) => {
   return { acceptedQuote, acceptedBreakup };
 };
 
+/** True once the renewal has its own premium (finalized or quoted) — false while
+ * premiumNum() is still falling back to last year's premium. */
+export const hasFinalizedRenewalPremium = (record) => {
+  const safe = coerceInsuranceRecord(record);
+  const finalizedPremium = Number(
+    safe.newTotalPremium ?? safe.new_total_premium ?? 0,
+  );
+  if (Number.isFinite(finalizedPremium) && finalizedPremium > 0) return true;
+
+  const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(safe);
+  const acceptedPremium = Number(
+    acceptedQuote?.totalPremium ??
+      acceptedQuote?.grossPremium ??
+      acceptedQuote?.finalPremium ??
+      acceptedBreakup?.totalPremium ??
+      0,
+  );
+  return Number.isFinite(acceptedPremium) && acceptedPremium > 0;
+};
+
 export const premiumNum = (record) => {
   const safe = coerceInsuranceRecord(record);
   // newTotalPremium is the staff-confirmed final premium (Step 5 lets them
@@ -249,6 +269,21 @@ export const parseDurationYears = (durationStr) => {
     odYears: odMatch ? Number(odMatch[1]) : years,
     tpYears: tpMatch ? Number(tpMatch[1]) : years,
   };
+};
+
+/** OD tenure years for the record's current/prior policy (1 for normal annual policies). */
+export const getEffectiveOdTenureYears = (record) => {
+  const safe = coerceInsuranceRecord(record);
+  const structuredOdYears = Number(safe.policyTenure?.odTenureYears);
+  if (Number.isFinite(structuredOdYears) && structuredOdYears > 0) {
+    return structuredOdYears;
+  }
+  const duration = pickPolicyValue(
+    safe.newInsuranceDuration,
+    safe.previousPolicyDuration,
+    safe.previousInsuranceDuration,
+  );
+  return parseDurationYears(duration).odYears;
 };
 
 export const computeExpiryFallback = (startDate, durationStr, type = "od") => {
@@ -331,10 +366,18 @@ export const getPolicyPulseExpiryDate = (record) => {
 export const getCycleAdjustedExpiryDate = (
   expiryDateStr,
   baseDate = dayjs(),
+  options = {},
 ) => {
   if (!expiryDateStr) return null;
   const parsed = parseInsuranceDate(expiryDateStr);
   if (!parsed || !parsed.isValid()) return null;
+
+  // Multi-year OD tenures (e.g. 3+3) already carry a real, correctly
+  // multi-year-out expiry date — snapping it into "this year" would make a
+  // 3-year policy look due for renewal every year. Trust the stored date.
+  if (Number(options.odTenureYears) > 1) {
+    return parsed.startOf("day");
+  }
 
   const base = dayjs(baseDate).startOf("day");
   let candidate = parsed.year(base.year()).startOf("day");
@@ -360,7 +403,9 @@ export const daysUntilExpiry = (record) => {
 export const cycleAdjustedDaysUntilExpiry = (record) => {
   const expiryDate = getPolicyPulseExpiryDate(record);
   if (!expiryDate) return null;
-  const adjusted = getCycleAdjustedExpiryDate(expiryDate);
+  const adjusted = getCycleAdjustedExpiryDate(expiryDate, dayjs(), {
+    odTenureYears: getEffectiveOdTenureYears(record),
+  });
   if (!adjusted) return null;
   return adjusted.startOf("day").diff(dayjs().startOf("day"), "day");
 };
@@ -708,6 +753,7 @@ export const buildInsurancePaymentTimeline = (record) => {
   // here while the rest of the card correctly falls back to the previous
   // policy's premium.
   const premium = pickPolicyNumber(premiumNum(safe), safe.previousTotalPremium);
+  const isPreviousYearPremium = !hasFinalizedRenewalPremium(safe);
   const paymentLedger = (
     Array.isArray(safe.paymentHistory)
       ? safe.paymentHistory
@@ -842,6 +888,7 @@ export const buildInsurancePaymentTimeline = (record) => {
       amount: premium,
       type: "neutral",
       date: null,
+      isPreviousYearPremium,
     },
     insurerFlowRow,
     receiptFlowRow,
