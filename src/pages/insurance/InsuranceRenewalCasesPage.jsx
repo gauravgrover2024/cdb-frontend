@@ -26,7 +26,6 @@ import {
   ListChecks,
   NotebookPen,
   RefreshCw,
-  Save,
   Search,
   Share2,
   Shield,
@@ -47,6 +46,7 @@ import {
   resolveInsuranceReference,
   shouldShowInsuranceChannelBadge,
   getPolicyOriginType,
+  getInsuranceDisplayCaseId,
 } from "../../utils/insurancePolicyDisplay";
 import { insuranceApi } from "../../api/insurance";
 import { useAuth } from "../../context/AuthContext";
@@ -196,7 +196,7 @@ const RenewalStatusActionPanel = ({ row, draft, onAction, onClose }) => {
             Update status
           </p>
           <p className="mt-0.5 truncate text-[15px] font-bold text-slate-900">
-            {row?.caseId || "Case"}
+            {getInsuranceDisplayCaseId(row) || "Case"}
           </p>
           <p className="truncate text-[12px] text-slate-500">{customer}</p>
         </div>
@@ -1165,9 +1165,20 @@ const InsuranceRenewalCasesPage = () => {
               const displayExpiryLabel = cycleAdjustedExpiry
                 ? cycleAdjustedExpiry.format("DD MMM YYYY")
                 : activePolicy.expiryLabel || "—";
+              // "Next renewal info": when the current policy is itself the
+              // result of a completed renewal, the countdown must run from
+              // its own activation date — not the original policy's.
+              const activationDateRaw =
+                row.newPolicyStartDate || row.previousPolicyStartDate || "";
+              const activationDate = parseInsuranceDate(activationDateRaw);
+              const durationLabel =
+                row?.policyTenure?.productType ||
+                row.newInsuranceDuration ||
+                row.previousPolicyDuration ||
+                "";
               const isRowRenewed =
                 viewTab === "renewed" ||
-                Boolean(row?.renewedToCaseId) ||
+                Boolean(row?.renewedComplete) ||
                 row?.renewalOutcome === "ALREADY_RENEWED";
               const policyPulseTone = getPolicyPulseMeta(days, isRowRenewed);
               const comment = draft.renewalComment ?? row.renewalComment ?? "";
@@ -1292,10 +1303,7 @@ const InsuranceRenewalCasesPage = () => {
               const vehicleLabel = vehicle || "—";
               const reg = row.registrationNumber || row.vehicleNumber || "";
               const policyOriginType = getPolicyOriginType(row);
-              const lifecycleBadge =
-                viewTab === "renewed" ? "Completed" : status || "Active";
               const vehicleOwnershipBadge = row?.vehicleType || "Used Car";
-              const wheelTypeBadge = row?.typesOfVehicle || "Four Wheeler";
               const ownershipLower = String(vehicleOwnershipBadge || "")
                 .trim()
                 .toLowerCase();
@@ -1335,7 +1343,7 @@ const InsuranceRenewalCasesPage = () => {
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-700">
-                          {row.caseId || "—"}
+                          {getInsuranceDisplayCaseId(row) || "—"}
                         </span>
                         <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
                           {["extended warranty", "ew policy"].includes(String(row.policyCategory || row.policyTypeSelector || "").trim().toLowerCase())
@@ -1384,15 +1392,31 @@ const InsuranceRenewalCasesPage = () => {
                             <Eye size={14} />
                           </motion.button>
                         </Tooltip>
-                        <Tooltip title="Renew">
+                        <Tooltip
+                          title={
+                            isRowRenewed
+                              ? "Already renewed"
+                              : row?.renewedToCaseId
+                                ? "Continue renewal draft"
+                                : "Renew"
+                          }
+                        >
                           <motion.button
-                            whileHover={{ scale: 1.06 }}
-                            whileTap={{ scale: 0.96 }}
+                            whileHover={isRowRenewed ? undefined : { scale: 1.06 }}
+                            whileTap={isRowRenewed ? undefined : { scale: 0.96 }}
                             type="button"
-                            onClick={() =>
-                              navigate(`/insurance/new?renewFrom=${id}`)
-                            }
-                            className="h-8 w-8 rounded-full inline-flex items-center justify-center shadow-sm ring-1 ring-black/5"
+                            disabled={isRowRenewed}
+                            onClick={() => {
+                              if (isRowRenewed) return;
+                              // A renewal draft already exists for this case —
+                              // resume it instead of spawning a duplicate one.
+                              navigate(
+                                row?.renewedToCaseId
+                                  ? `/insurance/edit/${row.renewedToCaseId}`
+                                  : `/insurance/new?renewFrom=${id}`,
+                              );
+                            }}
+                            className="h-8 w-8 rounded-full inline-flex items-center justify-center shadow-sm ring-1 ring-black/5 disabled:cursor-not-allowed disabled:opacity-40"
                             style={{ background: "#ecfdf5", color: "#059669" }}
                           >
                             <RefreshCw size={14} />
@@ -1479,7 +1503,7 @@ const InsuranceRenewalCasesPage = () => {
                         </Popover>
                         <Popconfirm
                           title="Delete case"
-                          description={`Delete policy ${row.caseId || id}? This cannot be undone.`}
+                          description={`Delete policy ${getInsuranceDisplayCaseId(row) || id}? This cannot be undone.`}
                           onConfirm={() => deleteRow(row)}
                           okText="Delete"
                           okType="danger"
@@ -1697,8 +1721,17 @@ const InsuranceRenewalCasesPage = () => {
                             ) : null}
                           </div>
                           <div className="space-y-1">
+                            {activationDate || durationLabel ? (
+                              <p className="text-[11px] text-slate-500 truncate">
+                                Activated:{" "}
+                                {activationDate
+                                  ? activationDate.format("DD MMM YYYY")
+                                  : "—"}
+                                {durationLabel ? ` · ${durationLabel}` : ""}
+                              </p>
+                            ) : null}
                             <p className="text-[11px] text-slate-500 truncate">
-                              Expiry: {displayExpiryLabel}
+                              Next Renewal: {displayExpiryLabel}
                               {Number.isFinite(days)
                                 ? days < 0
                                   ? ` · Expired ${Math.abs(days)}d ago`
@@ -1893,11 +1926,13 @@ const InsuranceRenewalCasesPage = () => {
                       </div>
                       <div className="space-y-1 text-[10px]">
                         <motion.div className="flex justify-between">
-                          <span className="text-slate-600">Created</span>
+                          <span className="text-slate-600">Policy Started</span>
                           <span className="font-semibold text-slate-900">
-                            {row.createdAt
-                              ? dayjs(row.createdAt).format("DD MMM YYYY")
-                              : "—"}
+                            {activationDate
+                              ? activationDate.format("DD MMM YYYY")
+                              : row.createdAt
+                                ? dayjs(row.createdAt).format("DD MMM YYYY")
+                                : "—"}
                           </span>
                         </motion.div>
                         <div className="flex justify-between">

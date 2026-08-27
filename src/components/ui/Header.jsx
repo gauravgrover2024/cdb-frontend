@@ -142,12 +142,6 @@ const Header = () => {
 
   const allNavigationGroups = [
     {
-      label: "ACI Assist",
-      path: "/aci-assist",
-      icon: <Icon name="Sparkles" size={18} />,
-      roles: FEATURE_ACCESS.ANALYTICS,
-    },
-    {
       label: "Insurance",
       icon: <Icon name="Shield" size={18} />,
       roles: FEATURE_ACCESS.INSURANCE,
@@ -280,7 +274,7 @@ const Header = () => {
         {
           label: "Vehicle Master",
           path: "/fleet-vehicles",
-          desc: "Manage fleet and assignments",
+          desc: "Manage vehicle master database",
           roles: FEATURE_ACCESS.TOOLS,
         },
         {
@@ -401,10 +395,6 @@ const Header = () => {
 
   const groupAccent = (label) => {
     const map = {
-      "ACI Assist": {
-        icon: "bg-gradient-to-br from-indigo-100 to-fuchsia-100 text-indigo-700 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-indigo-300",
-        dot: "bg-indigo-500 dark:bg-indigo-400",
-      },
       Insurance: {
         icon: "bg-gradient-to-br from-cyan-100 to-teal-100 text-cyan-700 dark:from-cyan-500/20 dark:to-teal-500/20 dark:text-cyan-300",
         dot: "bg-cyan-500 dark:bg-cyan-400",

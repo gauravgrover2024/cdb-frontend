@@ -1236,44 +1236,70 @@ const Step2VehicleDetails = ({
                   </p>
                 ) : (
                   <div className="flex flex-col gap-1.5">
-                    {visibleCustomerVehicleRows.map((row, idx) => (
-                      <button
-                        key={String(
-                          row?._id ||
-                            row?.registrationNumber ||
-                            row?.regNo ||
-                            row?.chassisNumber ||
-                            row?.engineNumber ||
-                            `vehicle-${idx}`,
-                        )}
-                        type="button"
-                        onClick={() => handleUseCustomerVehicle(row)}
-                        className="group w-full rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
-                      >
-                        <div className="flex items-center justify-between gap-2">
-                          <div>
-                            <p className="m-0 text-xs font-semibold text-slate-800">
-                              {row?.registrationNumber ||
-                                row?.regNo ||
-                                "Pending Registration"}
-                            </p>
-                            <p className="m-0 text-[11px] text-slate-500">
-                              {[row?.make, row?.model, row?.variant]
-                                .filter(Boolean)
-                                .join(" ")}
-                            </p>
-                            <p className="m-0 text-[10px] text-slate-400">
-                              {[row?.customerName, row?.primaryMobile]
-                                .filter(Boolean)
-                                .join(" · ")}
-                            </p>
+                    {visibleCustomerVehicleRows.map((row, idx) => {
+                      const rawReg = String(
+                        row?.registrationNumber || row?.regNo || "",
+                      ).trim();
+                      const isTempReg = rawReg
+                        .toUpperCase()
+                        .startsWith("TEMP_REDG_");
+                      const hasNoReg = !rawReg;
+                      return (
+                        <button
+                          key={String(
+                            row?._id ||
+                              row?.registrationNumber ||
+                              row?.regNo ||
+                              row?.chassisNumber ||
+                              row?.engineNumber ||
+                              `vehicle-${idx}`,
+                          )}
+                          type="button"
+                          onClick={() => handleUseCustomerVehicle(row)}
+                          className="group w-full rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 px-3 py-2 text-left transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-sm"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-1.5">
+                                <p className="m-0 text-xs font-semibold text-slate-800">
+                                  {hasNoReg || isTempReg
+                                    ? "No Registration Number"
+                                    : rawReg}
+                                </p>
+                                {isTempReg ? (
+                                  <Tag
+                                    className="!m-0 !rounded-full"
+                                    color="orange"
+                                  >
+                                    Temporary
+                                  </Tag>
+                                ) : hasNoReg ? (
+                                  <Tag
+                                    className="!m-0 !rounded-full"
+                                    color="default"
+                                  >
+                                    No Reg
+                                  </Tag>
+                                ) : null}
+                              </div>
+                              <p className="m-0 text-[11px] text-slate-500">
+                                {[row?.make, row?.model, row?.variant]
+                                  .filter(Boolean)
+                                  .join(" ")}
+                              </p>
+                              <p className="m-0 text-[10px] text-slate-400">
+                                {[row?.customerName, row?.primaryMobile]
+                                  .filter(Boolean)
+                                  .join(" · ")}
+                              </p>
+                            </div>
+                            <span className="text-[10px] font-semibold text-slate-700 opacity-80 transition group-hover:opacity-100">
+                              Use this
+                            </span>
                           </div>
-                          <span className="text-[10px] font-semibold text-slate-700 opacity-80 transition group-hover:opacity-100">
-                            Use this
-                          </span>
-                        </div>
-                      </button>
-                    ))}
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
               </div>

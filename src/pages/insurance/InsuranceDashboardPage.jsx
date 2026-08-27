@@ -15,7 +15,6 @@ import {
   FolderOpen,
   Search,
   X,
-  Calendar,
   Car,
   Shield,
   Activity,
@@ -38,8 +37,8 @@ import {
   resolveActivePolicySnapshot,
   getPolicyPulseExpiryDate,
   daysUntilExpiry,
-  getCycleAdjustedExpiryDate,
   getPolicyOriginType,
+  getInsuranceDisplayCaseId,
 } from "../../utils/insurancePolicyDisplay";
 
 dayjs.extend(customParseFormat);
@@ -174,11 +173,6 @@ const paymentReceivedNum = (c) => {
   return Number.isFinite(total) ? total : 0;
 };
 
-const hasPolicyNumber = (c) =>
-  hasDisplayValue(
-    c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number,
-  );
-
 const vehicleTypeLower = (c) =>
   String(c?.typesOfVehicle || "")
     .trim()
@@ -233,14 +227,6 @@ const parseInsuranceDate = (value) => {
   return fallback.isValid() ? fallback : null;
 };
 
-const isThirdPartyOnlyPolicy = (policyType) => {
-  const value = String(policyType || "")
-    .trim()
-    .toLowerCase();
-  return value.includes("third") || value === "tp";
-};
-
-
 const isExpiringSoonCase = (record = {}, renewedCaseIds = new Set()) => {
   const days = daysUntilExpiry(record);
   const caseId = String(getCaseId(record) || "");
@@ -254,15 +240,6 @@ const isExpiredCase = (record = {}, renewedCaseIds = new Set()) => {
   const caseId = String(getCaseId(record) || "");
   return days !== null && days < 0 && !renewedCaseIds.has(caseId);
 };
-
-const getPolicyIssueDate = (c) =>
-  c?.newIssueDate ||
-  c?.newPolicyIssueDate ||
-  c?.policyIssueDate ||
-  c?.issueDate ||
-  c?.newPolicyStartDate ||
-  c?.createdAt ||
-  "";
 
 const getVehicleDisplayYear = (record = {}) => {
   const regDate =
@@ -358,47 +335,6 @@ const collectRenewedCaseIds = (cases = []) => {
   return ids;
 };
 
-const getPolicyPulseMeta = (days, alreadyRenewed = false) => {
-  if (alreadyRenewed) {
-    return {
-      label: "Already Renewed",
-      detail: "Newer policy exists",
-      color: "#2563eb",
-      bg: "#eff6ff",
-    };
-  }
-  if (days === null || !Number.isFinite(Number(days))) {
-    return {
-      label: "Pending",
-      detail: "Expiry not captured",
-      color: "#64748b",
-      bg: "#f8fafc",
-    };
-  }
-  if (days < 0) {
-    return {
-      label: "Expired",
-      detail: `${Math.abs(days)}d overdue`,
-      color: "#dc2626",
-      bg: "#fef2f2",
-    };
-  }
-  if (days <= 45) {
-    return {
-      label: "Expiring Soon",
-      detail: `${days} days remaining`,
-      color: "#b45309",
-      bg: "#fffbeb",
-    };
-  }
-  return {
-    label: "Active",
-    detail: `${days} days remaining`,
-    color: "#047857",
-    bg: "#ecfdf5",
-  };
-};
-
 const getInsurancePaymentDueSnapshot = (record = {}) => {
   const premium = premiumNum(record);
   const rows = (
@@ -463,7 +399,6 @@ const isDraftPolicy = (c) => !isCompletedPolicy(c);
 const isPaymentDuePolicy = (c) => getInsurancePaymentDueSnapshot(c).isDue;
 
 const matchesPolicyFilter = (c, key, renewedCaseIds = new Set()) => {
-  const days = daysUntilExpiry(c);
   switch (key) {
     case "all":
       return true;
@@ -974,7 +909,7 @@ const PolicyCard = ({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-2 flex-wrap">
               <span className="px-2 py-0.5 rounded-md text-xs font-bold uppercase tracking-wide bg-slate-100 text-slate-700">
-                {policy.caseId}
+                {policy.displayCaseId || policy.caseId}
               </span>
 
               <span className="px-2 py-0.5 rounded-md text-xs font-semibold bg-violet-50 text-violet-700 border border-violet-200">
@@ -1053,7 +988,7 @@ const PolicyCard = ({
 
             <Popconfirm
               title="Delete case"
-              description={`Delete policy ${policy.caseId}? This cannot be undone.`}
+              description={`Delete policy ${policy.displayCaseId || policy.caseId}? This cannot be undone.`}
               onConfirm={onDelete}
               okText="Delete"
               okType="danger"
@@ -1552,7 +1487,7 @@ const InsuranceDashboardPage = () => {
   const [cases, setCases] = useState([]);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [policyFilter, setPolicyFilter] = useState("all");
+  const [policyFilter, setPolicyFilter] = useState("completed");
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [previewStageKey, setPreviewStageKey] = useState(null);
@@ -1754,7 +1689,6 @@ const InsuranceDashboardPage = () => {
     return filteredCases.slice(start, start + pageSize);
   }, [filteredCases, page]);
 
-  const totalCount = filteredCases.length;
   const hasActiveFilters = policyFilter !== "all" || search.trim().length > 0;
 
 
@@ -1884,9 +1818,6 @@ const InsuranceDashboardPage = () => {
             : policyDoneByLower === "showroom"
               ? "Showroom"
               : policyIssuedBy);
-      const sourceDetailsName = isIndirectSource
-        ? dealerChannelName || referenceName
-        : "";
       const channelDealerNo =
         record.channelDealerNo ||
         record.channel_dealer_no ||
@@ -2103,7 +2034,13 @@ const InsuranceDashboardPage = () => {
         insurerFlowRow,
         receiptFlowRow,
         ...subventionRows,
-      ].filter(Boolean);
+      ]
+        .filter(Boolean)
+        .filter(
+          (row) =>
+            row.label !== "Customer paid insurer" &&
+            row.label !== "Subvention Refund",
+        );
 
       const paymentPercent =
         premium > 0 ? Math.min(100, Math.round((paid / premium) * 100)) : 0;
@@ -2138,6 +2075,7 @@ const InsuranceDashboardPage = () => {
         regKey,
         insurer,
         policyNumber: policyNo,
+        displayCaseId: getInsuranceDisplayCaseId(record),
         policyIssuedBy,
         policyIssuedByDetail,
         policyOriginType,
@@ -2201,14 +2139,14 @@ const InsuranceDashboardPage = () => {
   return (
     <InsuranceAntdProvider>
       <div
-        className="insurance-antd-page h-[calc(100vh-5rem)] overflow-y-auto overflow-x-hidden p-4 bg-slate-50"
+        className="insurance-antd-page min-h-[calc(100vh-4rem)] w-full p-4 bg-slate-50"
         style={{
           ...FONT_VARS,
           fontFamily: "var(--default-font-family)",
           background: "linear-gradient(160deg, #f0f4ff 0%, #fafafa 60%)",
         }}
       >
-        <div className="max-w-[1920px] mx-auto space-y-4">
+        <div className="w-full space-y-4">
 
 
           {/* Header */}

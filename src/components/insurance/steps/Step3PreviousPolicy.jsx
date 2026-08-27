@@ -795,23 +795,25 @@ const Step3PreviousPolicy = ({
                     />
                   </CleanField>
                 </div>
-                <div className="mt-1 text-[12px] text-slate-500">
-                  Suggested NCB:{" "}
-                  <span className="font-semibold text-slate-700">
-                    {suggestedNcb}%
-                  </span>
-                  {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
-                    <button
-                      type="button"
-                      className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
-                      onClick={() =>
-                        setField("previousNcbDiscount", suggestedNcb)
-                      }
-                    >
-                      Use suggested
-                    </button>
-                  ) : null}
-                </div>
+                {!formData.isRenewal && (
+                  <div className="mt-1 text-[12px] text-slate-500">
+                    Suggested NCB:{" "}
+                    <span className="font-semibold text-slate-700">
+                      {suggestedNcb}%
+                    </span>
+                    {Number(formData.previousNcbDiscount ?? 0) !== suggestedNcb ? (
+                      <button
+                        type="button"
+                        className="ml-2 rounded-full border border-[#9FC0FF] bg-[#DAF3FF] px-2 py-[2px] text-[11px] font-semibold text-slate-700"
+                        onClick={() =>
+                          setField("previousNcbDiscount", suggestedNcb)
+                        }
+                      >
+                        Use suggested
+                      </button>
+                    ) : null}
+                  </div>
+                )}
               </Col>
             )}
 
