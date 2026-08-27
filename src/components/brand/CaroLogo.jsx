@@ -9,7 +9,7 @@ export default function CaroLogo({ size = 58 }) {
       }}
     >
       <img
-        src="/media/brand/car-wordmark.png"
+        src="/brand/car-wordmark.png"
         alt="car"
         className="caroWord"
         draggable="false"

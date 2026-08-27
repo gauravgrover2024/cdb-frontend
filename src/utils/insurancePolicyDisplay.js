@@ -50,6 +50,22 @@ export const pickPolicyValue = (...args) => {
   return "";
 };
 
+/**
+ * The internal caseId (e.g. "INS-2026-0078") is a permanent key used for
+ * renewal linking, receivables, etc. and must never be overwritten. Once the
+ * insurer issues a real policy number, users expect to see that instead of
+ * the generic case code wherever the case is displayed — this only picks
+ * which value to show, it never mutates the underlying record.
+ */
+export const getInsuranceDisplayCaseId = (record) => {
+  const safe = coerceInsuranceRecord(record);
+  const policyNumber = pickPolicyValue(
+    safe.newPolicyNumber,
+    safe.previousPolicyNumber,
+  );
+  return policyNumber || safe.caseId || "";
+};
+
 const POLICY_DURATION_DISPLAY = {
   "1yr OD + 1yr TP": "1 yr (OD) + 1 Yr (TP)",
   "1yr OD + 3yr TP": "1 Yr (OD) + 3 Yr (TP)",

@@ -21,8 +21,7 @@ import { lenderHypothecationOptions } from "../../../constants/lenderHypothecati
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 import { formatPolicyDuration } from "../../../utils/insurancePolicyDisplay";
 
-const shellStyle =
-  "rounded-xl border border-slate-200/75 bg-white shadow-sm";
+const shellStyle = "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
 const sectionHeaderLabel =
   "text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400";
@@ -234,8 +233,8 @@ const YearlyIdvScheduleEditor = ({ schedule, onChange }) => {
       <div className="mt-2 rounded-xl border border-slate-200/75 bg-slate-50/50 p-4">
         <div className={labelClass}>Per-Year IDV Schedule</div>
         <div className="mt-1 text-[11px] text-slate-400">
-          Multi-year OD cover — set the IDV for each policy year; claims use
-          the IDV of whichever year is active.
+          Multi-year OD cover — set the IDV for each policy year; claims use the
+          IDV of whichever year is active.
         </div>
         <div className="mt-3 flex flex-col gap-3">
           {schedule.map((row) => (
@@ -399,7 +398,7 @@ const Step5NewPolicyDetails = ({
             { label: "2 yr OD + 3 yr TP", value: "2yr OD + 3yr TP" },
             { label: "3 yr OD + 3 yr TP", value: "3yr OD + 3yr TP" },
           ]
-        : [{ label: "1 Year Own Damage (OD) + 1 Year Third Party (TP)", value: "1yr OD + 1yr TP" }]
+        : [{ label: "1 Yr (OD) + 1 Yr (TP)", value: "1yr OD + 1yr TP" }]
       : formData.newPolicyType === "Stand Alone OD"
         ? [
             { label: "1 Year", value: "1 Year" },
@@ -696,7 +695,8 @@ const Step5NewPolicyDetails = ({
               Extended warranty details
             </div>
             <div className="mt-1 text-sm text-slate-500">
-              Capture vehicle price context, tenure, coverage, premium and remarks
+              Capture vehicle price context, tenure, coverage, premium and
+              remarks
             </div>
           </div>
 
@@ -716,7 +716,10 @@ const Step5NewPolicyDetails = ({
                           : Number(formData.exShowroomPrice)
                       }
                       onChange={(v) =>
-                        setField("exShowroomPrice", v === null || v === undefined ? "" : Number(v))
+                        setField(
+                          "exShowroomPrice",
+                          v === null || v === undefined ? "" : Number(v),
+                        )
                       }
                       placeholder="₹ 0"
                       {...amountInputProps}
@@ -732,9 +735,16 @@ const Step5NewPolicyDetails = ({
                       <DatePicker
                         size="large"
                         allowClear
-                        value={formData.dateOfSale ? dayjs(formData.dateOfSale) : null}
+                        value={
+                          formData.dateOfSale
+                            ? dayjs(formData.dateOfSale)
+                            : null
+                        }
                         onChange={(d) =>
-                          setField("dateOfSale", d ? d.format("YYYY-MM-DD") : "")
+                          setField(
+                            "dateOfSale",
+                            d ? d.format("YYYY-MM-DD") : "",
+                          )
                         }
                         format={["DD/MM/YYYY", "D/M/YYYY"]}
                         style={{ width: "100%" }}
@@ -752,10 +762,15 @@ const Step5NewPolicyDetails = ({
                           size="large"
                           allowClear
                           value={
-                            formData.dateOfPurchase ? dayjs(formData.dateOfPurchase) : null
+                            formData.dateOfPurchase
+                              ? dayjs(formData.dateOfPurchase)
+                              : null
                           }
                           onChange={(d) =>
-                            setField("dateOfPurchase", d ? d.format("YYYY-MM-DD") : "")
+                            setField(
+                              "dateOfPurchase",
+                              d ? d.format("YYYY-MM-DD") : "",
+                            )
                           }
                           format={["DD/MM/YYYY", "D/M/YYYY"]}
                           style={{ width: "100%" }}
@@ -778,7 +793,10 @@ const Step5NewPolicyDetails = ({
                               : Number(formData.odometerReading)
                           }
                           onChange={(v) =>
-                            setField("odometerReading", v === null || v === undefined ? "" : Number(v))
+                            setField(
+                              "odometerReading",
+                              v === null || v === undefined ? "" : Number(v),
+                            )
                           }
                           placeholder="Kms"
                         />
@@ -800,7 +818,10 @@ const Step5NewPolicyDetails = ({
                           : null
                       }
                       onChange={(d) =>
-                        setField("policyPurchaseDate", d ? d.format("YYYY-MM-DD") : "")
+                        setField(
+                          "policyPurchaseDate",
+                          d ? d.format("YYYY-MM-DD") : "",
+                        )
                       }
                       format={["DD/MM/YYYY", "D/M/YYYY"]}
                       style={{ width: "100%" }}
@@ -892,7 +913,10 @@ const Step5NewPolicyDetails = ({
                           : Number(formData.newTotalPremium)
                       }
                       onChange={(v) =>
-                        setField("newTotalPremium", v === null || v === undefined ? "" : Number(v))
+                        setField(
+                          "newTotalPremium",
+                          v === null || v === undefined ? "" : Number(v),
+                        )
                       }
                       placeholder="₹ 0"
                       {...amountInputProps}
@@ -1236,7 +1260,9 @@ const Step5NewPolicyDetails = ({
                       size="large"
                       allowClear
                       value={Number(formData.newNcbDiscount || 0)}
-                      onChange={(v) => setField("newNcbDiscount", Number(v || 0))}
+                      onChange={(v) =>
+                        setField("newNcbDiscount", Number(v || 0))
+                      }
                       options={NCB_OPTIONS}
                     />
                   </CleanField>
@@ -1264,7 +1290,8 @@ const Step5NewPolicyDetails = ({
                             : Number(formData.newVehicleIdv)
                         }
                         onChange={(v) => {
-                          const nextVehicleIdv = v === null || v === undefined ? "" : Number(v);
+                          const nextVehicleIdv =
+                            v === null || v === undefined ? "" : Number(v);
                           const nextTotal =
                             Number(nextVehicleIdv || 0) +
                             Number(formData.newCngIdv || 0) +
@@ -1293,7 +1320,8 @@ const Step5NewPolicyDetails = ({
                             : Number(formData.newCngIdv)
                         }
                         onChange={(v) => {
-                          const nextCngIdv = v === null || v === undefined ? "" : Number(v);
+                          const nextCngIdv =
+                            v === null || v === undefined ? "" : Number(v);
                           const nextTotal =
                             Number(formData.newVehicleIdv || 0) +
                             Number(nextCngIdv || 0) +
@@ -1322,7 +1350,8 @@ const Step5NewPolicyDetails = ({
                             : Number(formData.newAccessoriesIdv)
                         }
                         onChange={(v) => {
-                          const nextAccessoriesIdv = v === null || v === undefined ? "" : Number(v);
+                          const nextAccessoriesIdv =
+                            v === null || v === undefined ? "" : Number(v);
                           const nextTotal =
                             Number(formData.newVehicleIdv || 0) +
                             Number(formData.newCngIdv || 0) +
@@ -1351,7 +1380,8 @@ const Step5NewPolicyDetails = ({
                   required
                   extra={
                     acceptedPremium > 0 &&
-                    Number(formData.newTotalPremium || 0) !== acceptedPremium ? (
+                    Number(formData.newTotalPremium || 0) !==
+                      acceptedPremium ? (
                       <span className="text-[12px] text-slate-500">
                         Suggested (from accepted quote):{" "}
                         <span className="font-semibold text-slate-700">
@@ -1381,7 +1411,10 @@ const Step5NewPolicyDetails = ({
                         : Number(formData.newTotalPremium)
                     }
                     onChange={(v) =>
-                      setField("newTotalPremium", v === null || v === undefined ? "" : Number(v))
+                      setField(
+                        "newTotalPremium",
+                        v === null || v === undefined ? "" : Number(v),
+                      )
                     }
                     placeholder="₹ 0"
                     {...amountInputProps}
@@ -1584,9 +1617,7 @@ const Step5NewPolicyDetails = ({
                       {includedAddons.length > 4 && (
                         <button
                           type="button"
-                          onClick={() =>
-                            setShowAllAcceptedAddons((p) => !p)
-                          }
+                          onClick={() => setShowAllAcceptedAddons((p) => !p)}
                           className="mt-1 ml-3 flex items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-slate-600 transition-colors hover:text-slate-700 cursor-pointer"
                         >
                           <span

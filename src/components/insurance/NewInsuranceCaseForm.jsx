@@ -2659,6 +2659,11 @@ const NewInsuranceCaseForm = ({
         initialFormState.inhousePaymentReceived,
     });
     setFormData(mergedValues);
+    // Establish the CRM baseline from the loaded record itself so editing an
+    // already-saved case (or a renewal pre-filled from one) can detect and
+    // confirm customer-detail changes, the same way a fresh customer search
+    // does via applyCustomerToForm.
+    crmSnapshotPendingRef.current = true;
     const normalizedQuotes = normalizeQuotesFromApi(initialValues?.quotes);
     if (normalizedQuotes.length) {
       setQuotes(normalizedQuotes);

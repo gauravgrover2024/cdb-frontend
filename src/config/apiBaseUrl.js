@@ -23,7 +23,12 @@ let API_BASE_URL;
 
 if (envBase) {
   // .env variable is set and has a value
-  API_BASE_URL = envBase;
+  // If envBase is localhost but we are accessing via a local IP (e.g. phone testing), intelligently rewrite it
+  if (isBrowser && envBase.includes('localhost') && isBrowserLocal && browserHost !== 'localhost') {
+    API_BASE_URL = envBase.replace('localhost', browserHost);
+  } else {
+    API_BASE_URL = envBase;
+  }
 } else if (isDevMode && isBrowser && browserHost) {
   // In local development, always prefer local backend on same host.
   API_BASE_URL = `http://${browserHost}:5050`;

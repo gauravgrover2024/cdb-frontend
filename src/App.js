@@ -50,12 +50,12 @@ import UsedCarsDocumentationPage from "./modules/used-cars/pages/UsedCarsDocumen
 import UsedCarsStockPage from "./modules/used-cars/pages/UsedCarsStockPage";
 import UsedCarsDbPage from "./modules/used-cars/pages/UsedCarsDbPage";
 import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
-import ACIAssistPage from "./pages/ACIAssistPage";
+
 import HomeLoanDashboard from "./modules/home-loans/components/LoanDashboard";
 import HomeLoanFormWithSteps from "./modules/home-loans/components/LoanFormWithSteps";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
 
-import CDrivePremiumPortal from "./pages/CDrivePremiumPortal";
+
 
 // NEW: booking pages
 import NewBookingPage from "./modules/payments/pages/NewBookingPage";
@@ -64,7 +64,7 @@ import BookingsDashboard from "./modules/bookings/pages/BookingsDashboard";
 
 // Floating EMI Calculator – accessible from every authenticated screen
 import EMIFloatingLauncher from "./components/EMIFloatingLauncher";
-import AciAssistProgressPage from "./components/aci-assist-v2/progress/AciAssistProgressPage";
+
 import { logPageVisit } from "./utils/activityLogger";
 
 // Routes that manage their own layout (no outer padding)
@@ -110,14 +110,13 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <Routes>
-          <Route path="/portal/aci-assist/progress" element={<AciAssistProgressPage />} />
+
 
           {/* Public Auth Routes */}
           <Route path="/login" element={<LoginPage />} />
           <Route path="/signup" element={<Signup />} />
 
-          {/* Customer-Facing Portal (public, no auth) */}
-          <Route path="/portal" element={<CDrivePremiumPortal />} />
+
 
           {/* Public: Insurance quote share link (sent to customers) */}
           <Route path="/quote-share" element={<InsuranceQuoteSharePage />} />
@@ -136,10 +135,7 @@ function App() {
               path="analytics"
               element={R(FEATURE_ACCESS.ANALYTICS, <AnalyticsDashboard />)}
             />
-            <Route
-              path="aci-assist"
-              element={R(FEATURE_ACCESS.ANALYTICS, <ACIAssistPage />)}
-            />
+
 
             {/* Insurance */}
             <Route
