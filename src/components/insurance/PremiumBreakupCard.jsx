@@ -6,36 +6,34 @@ import { formatPolicyDuration } from "../../utils/insurancePolicyDisplay";
 // Utility for conditional classes
 const cx = (...classes) => classes.filter(Boolean).join(" ");
 
-// Reusable Row Component with improved typography and spacing
-const BreakupRow = ({ label, value, bold, muted, indent, isLast }) => (
+const BreakupRow = ({ label, value, bold, muted, indent }) => (
   <div
     className={cx(
-      "flex items-center justify-between py-2 group",
-      indent ? "pl-4" : "",
-      !isLast && !bold ? "border-b border-slate-100/10 dark:border-slate-800/40" : "" // Subtle separator for non-bold rows
+      "flex items-center justify-between py-1",
+      bold ? "mt-0.5 border-t border-slate-100 pt-1.5 dark:border-slate-800" : "",
+      indent ? "pl-3" : "",
     )}
   >
     <span
       className={cx(
-        "text-[13px] leading-relaxed",
+        "text-[12px]",
         bold
-          ? "font-semibold text-slate-800 dark:text-slate-200"
+          ? "font-bold text-slate-800 dark:text-slate-200"
           : muted
             ? "text-slate-500 dark:text-slate-400"
-            : "text-slate-600 dark:text-slate-350",
-        indent ? "text-slate-500 dark:text-slate-400" : ""
+            : "text-slate-500 dark:text-slate-400",
       )}
     >
       {label}
     </span>
     <span
       className={cx(
-        "tabular-nums text-[13px] leading-relaxed whitespace-nowrap",
+        "whitespace-nowrap tabular-nums text-[12px]",
         bold
-          ? "font-bold text-slate-900 dark:text-white"
+          ? "font-black text-slate-900 dark:text-white"
           : muted
-            ? "text-slate-400 dark:text-slate-500"
-            : "font-medium text-slate-700 dark:text-slate-200"
+            ? "text-slate-500 dark:text-slate-400"
+            : "font-semibold text-slate-700 dark:text-slate-200",
       )}
     >
       {value}
@@ -99,7 +97,7 @@ const PremiumBreakupCard = ({
   // Limit visible addons to prevent clutter, unless expanded
   const visibleAddons = isExpanded
     ? includedAddons
-    : includedAddons.slice(0, 3); // Reduced to 3 for cleaner initial view
+    : includedAddons.slice(0, 4);
 
   const palette = addonPalette[idx % addonPalette.length];
 
@@ -114,43 +112,46 @@ const PremiumBreakupCard = ({
 
   // Helper to format IDV if it's a number
   const formattedIdv = idv && !isNaN(idv) ? formatCurrency(Number(idv)) : idv;
+  const resolvedTotal = totalAmount || breakup.totalAmount || 0;
+  const formattedTotal =
+    typeof resolvedTotal === "string"
+      ? resolvedTotal
+      : formatCurrency(Number(resolvedTotal || 0));
 
   return (
     <div
       className={cx(
-        "relative flex flex-col transition-all duration-300 ease-in-out",
+        "relative flex flex-col transition-all duration-200",
         borderless
           ? "bg-transparent border-0 shadow-none"
           : cx(
-              "rounded-xl bg-white dark:bg-[#151515] border border-slate-200 dark:border-slate-800",
+              "rounded-2xl bg-white dark:bg-[#151515]",
               isAccepted
-                ? "shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-blue-200 dark:ring-blue-900 border-blue-100 dark:border-blue-900/30"
-                : "shadow-sm hover:shadow-md hover:border-slate-300 dark:hover:border-slate-700"
+                ? "shadow-[0_4px_24px_rgba(15,23,42,0.10)] ring-1 ring-[#9FC0FF]"
+                : "shadow-[0_2px_16px_rgba(15,23,42,0.08)] ring-1 ring-slate-200 hover:shadow-[0_6px_24px_rgba(15,23,42,0.11)] dark:ring-slate-800",
             ),
         className
       )}
     >
-      {/* Accepted Badge - Floating */}
       {isAccepted && !borderless && (
-        <div className="absolute -top-3 left-4 z-10">
-          <span className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-[10px] font-bold text-white shadow-sm shadow-blue-250">
-            <CheckCircleFilled className="text-[10px]" />
-            ACCEPTED
+        <div className="absolute -top-2.5 left-4 z-10">
+          <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-0.5 text-[10px] font-black text-emerald-800 shadow-sm ring-1 ring-emerald-300">
+            <CheckCircleFilled className="text-[9px]" />
+            Accepted
           </span>
         </div>
       )}
 
       {/* Header Section */}
       {(logoUrl || insurerName) && (
-        <div className="px-5 pt-6 pb-4">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              {/* Logo / Initials Box */}
+        <div className="px-4 pb-3 pt-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="flex min-w-0 items-start gap-2">
               <div
                 className={cx(
-                  "flex h-12 w-12 shrink-0 items-center justify-center rounded-lg text-sm font-bold ring-1 transition-colors",
+                  "mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-xs font-black ring-1",
                   isAccepted
-                    ? "bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 ring-blue-100 dark:ring-blue-900/50"
+                    ? "bg-[#9FC0FF]/70 text-slate-800 ring-[#9FC0FF]"
                     : `${palette.bg} dark:bg-opacity-20 ${palette.text} ${palette.ring}`
                 )}
               >
@@ -158,31 +159,32 @@ const PremiumBreakupCard = ({
                   <img
                     src={logoUrl}
                     alt={insurerName || "Insurer"}
-                    className="h-8 w-8 object-contain"
+                    className="h-7 w-7 rounded-md bg-white object-contain"
                     onError={() => setFallbackLogoFailed(true)}
                   />
                 ) : (
-                  <span className={cx("text-lg", isAccepted ? "text-blue-600 dark:text-blue-400" : palette.accent)}>
+                  <span className={isAccepted ? "text-slate-800" : palette.accent}>
                     {initial}
                   </span>
                 )}
               </div>
 
-              {/* Insurer Details */}
-              <div className="min-w-0 pt-0.5">
-                <p className="truncate text-base font-bold text-slate-900 dark:text-white leading-tight">
+              <div className="min-w-0">
+                <p className="m-0 truncate text-sm font-bold leading-tight text-slate-800 dark:text-slate-100">
                   {insurerName || "Unknown Insurer"}
                 </p>
 
-                {/* Meta Tags */}
-                <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                   {coverageType && (
-                    <span className="inline-flex items-center rounded-md bg-slate-50 dark:bg-slate-805 px-1.5 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-300 ring-1 ring-inset ring-slate-500/10 dark:ring-slate-700">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
                       {coverageType}
                     </span>
                   )}
+                  {coverageType && policyDuration && (
+                    <span className="text-[10px] text-slate-300 dark:text-slate-700">·</span>
+                  )}
                   {policyDuration && (
-                    <span className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    <span className="text-[11px] text-slate-500 dark:text-slate-400">
                       {formatPolicyDuration(policyDuration)}
                     </span>
                   )}
@@ -193,13 +195,12 @@ const PremiumBreakupCard = ({
               </div>
             </div>
 
-            {/* IDV Block */}
             {idv && coverageType !== "Third Party" && (
-              <div className="text-right shrink-0 pl-2 border-l border-slate-100 dark:border-slate-800 ml-2">
-                <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500 mb-0.5">
+              <div className="shrink-0 text-right">
+                <p className="m-0 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
                   IDV
                 </p>
-                <p className="text-sm font-bold tabular-nums text-slate-800 dark:text-slate-200">
+                <p className="m-0 text-sm font-black tabular-nums text-slate-800 dark:text-slate-200">
                   {formattedIdv}
                 </p>
               </div>
@@ -208,13 +209,17 @@ const PremiumBreakupCard = ({
         </div>
       )}
 
-      {/* Divider after header */}
-      {(logoUrl || insurerName) && <div className="mx-5 border-t border-slate-100 dark:border-slate-800" />}
+      {(logoUrl || insurerName) && <div className="mx-4 border-t border-slate-100 dark:border-slate-800" />}
 
       {/* Breakdown Content */}
-      <div className="px-5 pt-4 pb-2">
+      <div className="px-4 pb-2 pt-3">
         {!logoUrl && !insurerName && (
-          <p className="mb-4 text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest">
+          <p className="m-0 mb-1.5 text-sm font-black text-slate-800 dark:text-slate-200">
+            {title}
+          </p>
+        )}
+        {(logoUrl || insurerName) && (
+          <p className="m-0 mb-1.5 text-sm font-black text-slate-800 dark:text-slate-200">
             {title}
           </p>
         )}
@@ -223,19 +228,19 @@ const PremiumBreakupCard = ({
         {coverageType !== "Third Party" && (
           <div className="space-y-0">
             <BreakupRow
-              label="Own Damage Premium"
+              label="Own Damage"
               value={formatCurrency(Number(breakup.ownDamageBeforeNcb || breakup.ownDamage || breakup.basicOwnDamage || 0))}
               bold
             />
             <BreakupRow
-              label="Base OD"
+              label="Own Damage (Base)"
               value={formatCurrency(Number(breakup.ownDamageBeforeNcb || breakup.ownDamage || breakup.basicOwnDamage || 0))}
               indent
               muted
             />
             <BreakupRow
-              label={`NCB Discount (${Number(breakup.ncbPercent || 0)}%)`}
-              value={`- ${formatCurrency(Number((breakup.ownDamageBeforeNcb || 0) * (breakup.ncbPercent || 0) / 100))}`}
+              label="NCB %"
+              value={`${Number(breakup.ncbPercent || 0)}%`}
               indent
               muted
             />
@@ -246,12 +251,12 @@ const PremiumBreakupCard = ({
         {coverageType !== "Stand Alone OD" && (
           <div className="mt-2 space-y-0">
             <BreakupRow
-              label="Third Party Liability"
+              label="Third Party"
               value={formatCurrency(Number(breakup.thirdParty || breakup.basicThirdParty || 0))}
               bold
             />
             <BreakupRow
-              label="Basic TP"
+              label="Basic Third Party"
               value={formatCurrency(Number(breakup.basicThirdParty || breakup.thirdParty || 0))}
               indent
               muted
@@ -263,7 +268,7 @@ const PremiumBreakupCard = ({
         {showAddons && coverageType !== "Third Party" && includedAddons.length > 0 && (
           <div className="mt-2">
             <BreakupRow
-              label="Add-on Covers"
+              label="Add Ons"
               value={formatCurrency(breakup.addOnsTotal || 0)}
               bold
             />
@@ -273,7 +278,7 @@ const PremiumBreakupCard = ({
                 <BreakupRow
                   key={name}
                   label={name}
-                  value={amt > 0 ? formatCurrency(amt) : "Included"}
+                  value={amt > 0 ? formatCurrency(amt) : "included"}
                   indent
                   muted
                 />
@@ -281,11 +286,11 @@ const PremiumBreakupCard = ({
             </div>
 
             {/* Toggle Button */}
-            {includedAddons.length > 3 && (
+            {includedAddons.length > 4 && (
               <button
                 type="button"
                 onClick={toggleHandler}
-                className="mt-2 flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20 py-1.5 text-[11px] font-semibold text-slate-650 dark:text-slate-400 transition-all hover:bg-slate-100 dark:hover:bg-slate-900/40 hover:text-slate-800 dark:hover:text-slate-200 hover:border-slate-300 dark:hover:border-slate-700"
+                className="ml-3 mt-1 flex cursor-pointer items-center gap-1 border-0 bg-transparent p-0 text-[11px] font-semibold text-slate-600 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
               >
                 {isExpanded ? (
                   <>
@@ -293,7 +298,7 @@ const PremiumBreakupCard = ({
                   </>
                 ) : (
                   <>
-                    <DownOutlined className="text-[10px]" /> +{includedAddons.length - 3} More Add-ons
+                    <DownOutlined className="text-[10px]" /> +{includedAddons.length - 4} More Add-ons
                   </>
                 )}
               </button>
@@ -302,27 +307,21 @@ const PremiumBreakupCard = ({
         )}
       </div>
 
-      {/* Total Section */}
       <div className="mt-auto">
-        {/* Dashed Separator */}
-        <div className="mx-5 border-t border-dashed border-slate-250 dark:border-slate-800 my-2" />
+        <div className="mx-4 border-t border-dashed border-slate-200 dark:border-slate-800" />
 
-        <div className={cx(borderless ? "px-5 py-4 bg-slate-50/30 dark:bg-slate-900/20" : "bg-slate-50/50 dark:bg-slate-900/30 rounded-b-xl p-5")}>
-          <div className="flex items-end justify-between">
-            <div className="flex flex-col">
-              <span className="text-sm font-semibold text-slate-500 dark:text-slate-400">
-                Net Premium
-              </span>
-              <span className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-                Incl. GST & Taxes
-              </span>
-            </div>
-            <div className="text-right">
-              <span className="block text-2xl font-black tabular-nums text-slate-900 dark:text-white tracking-tight">
-                {formatCurrency(totalAmount || breakup.totalAmount || 0)}
-              </span>
-            </div>
+        <div className="px-4 py-2">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-black text-slate-800 dark:text-slate-200">
+              Total Amount
+            </span>
+            <span className="text-lg font-black tabular-nums text-slate-900 dark:text-white">
+              {formattedTotal}
+            </span>
           </div>
+          <p className="m-0 mt-0.5 text-right text-[10px] text-slate-400 dark:text-slate-500">
+            Prices are inclusive of GST
+          </p>
         </div>
       </div>
     </div>

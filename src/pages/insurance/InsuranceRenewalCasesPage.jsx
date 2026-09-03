@@ -7,7 +7,6 @@ import {
   Modal,
   Popover,
   Popconfirm,
-  Select,
   Tooltip,
   message,
 } from "antd";
@@ -58,11 +57,6 @@ const LEAD_STATUS_OPTIONS = [
   "Quotes Shared",
   "Payment Pending",
   "Closed",
-];
-const CLOSE_REASONS = [
-  "Not Interested",
-  "Already renewed from somewhere else",
-  "Other",
 ];
 const RENEWAL_STATUS_ACTION_GROUPS = [
   {
@@ -182,7 +176,11 @@ const RenewalStatusActionPanel = ({ row, draft, onAction, onClose }) => {
   const cycleAdjustedExpiry = getCycleAdjustedExpiryDate(
     getPolicyPulseExpiryDate(row),
     dayjs(),
-    { odTenureYears: getEffectiveOdTenureYears(row) },
+    {
+      odTenureYears: getEffectiveOdTenureYears(row),
+      policyStartDate:
+        row?.newPolicyStartDate || row?.previousPolicyStartDate || "",
+    },
   );
   const expiryLabel = cycleAdjustedExpiry
     ? cycleAdjustedExpiry.format("DD MMM YYYY")
@@ -277,6 +275,16 @@ const formatInr = (n) =>
     currency: "INR",
     minimumFractionDigits: 0,
   });
+
+// On the renewal list, the latest issued/expiring policy is the "previous"
+// policy relative to the policy the agent is about to create.
+const resolvePreviousPolicySnapshot = (record = {}) =>
+  resolveActivePolicySnapshot(record);
+
+const resolvePreviousPolicyAddons = (record = {}, snapshot) =>
+  parsePolicyIncludedAddons(record, snapshot).filter((item) =>
+    hasDisplayValue(item?.name),
+  );
 
 const paymentSignalMeta = {
   neutral: {
@@ -405,7 +413,6 @@ const InsuranceRenewalCasesPage = () => {
   const [selectedStatCard, setSelectedStatCard] = useState("all");
   const [rowDrafts, setRowDrafts] = useState({});
   const [statusActionRow, setStatusActionRow] = useState(null);
-  const [timelineRow, setTimelineRow] = useState(null);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [selectedCase, setSelectedCase] = useState(null);
   const [previewStageKey, setPreviewStageKey] = useState("previous");
@@ -1151,16 +1158,35 @@ const InsuranceRenewalCasesPage = () => {
               const draft = rowDrafts[id] || {};
               const status =
                 draft.renewalLeadStatus ?? row.renewalLeadStatus ?? "New";
-              const activePolicy = resolveActivePolicySnapshot(row);
-              const days = cycleAdjustedDaysUntilExpiry(row);
+              const isRowRenewed =
+                viewTab === "renewed" ||
+                Boolean(row?.renewedComplete) ||
+                row?.renewalOutcome === "ALREADY_RENEWED";
+              const policyRecord =
+                row?.renewedComplete && row?.renewedPolicy
+                  ? row.renewedPolicy
+                  : row;
+              const activePolicy = resolveActivePolicySnapshot(policyRecord);
+              const previousPolicy = resolvePreviousPolicySnapshot(policyRecord);
+              const previousPolicyAddons = resolvePreviousPolicyAddons(
+                policyRecord,
+                previousPolicy,
+              );
+              const days = cycleAdjustedDaysUntilExpiry(policyRecord);
               // Show the same cycle-adjusted date the "Xd left / Expired Xd
               // ago" badges are computed from, so the label never contradicts
               // the badge (e.g. a stored expiry a year out otherwise reads as
               // "Expiry: 12 Jul 2027 · Expired 8d ago").
               const cycleAdjustedExpiry = getCycleAdjustedExpiryDate(
-                getPolicyPulseExpiryDate(row),
+                getPolicyPulseExpiryDate(policyRecord),
                 dayjs(),
-                { odTenureYears: getEffectiveOdTenureYears(row) },
+                {
+                  odTenureYears: getEffectiveOdTenureYears(policyRecord),
+                  policyStartDate:
+                    policyRecord.newPolicyStartDate ||
+                    policyRecord.previousPolicyStartDate ||
+                    "",
+                },
               );
               const displayExpiryLabel = cycleAdjustedExpiry
                 ? cycleAdjustedExpiry.format("DD MMM YYYY")
@@ -1169,20 +1195,13 @@ const InsuranceRenewalCasesPage = () => {
               // result of a completed renewal, the countdown must run from
               // its own activation date — not the original policy's.
               const activationDateRaw =
-                row.newPolicyStartDate || row.previousPolicyStartDate || "";
-              const activationDate = parseInsuranceDate(activationDateRaw);
-              const durationLabel =
-                row?.policyTenure?.productType ||
-                row.newInsuranceDuration ||
-                row.previousPolicyDuration ||
+                policyRecord.newPolicyStartDate ||
+                policyRecord.previousPolicyStartDate ||
                 "";
-              const isRowRenewed =
-                viewTab === "renewed" ||
-                Boolean(row?.renewedComplete) ||
-                row?.renewalOutcome === "ALREADY_RENEWED";
+              const activationDate = parseInsuranceDate(activationDateRaw);
               const policyPulseTone = getPolicyPulseMeta(days, isRowRenewed);
               const comment = draft.renewalComment ?? row.renewalComment ?? "";
-              const paymentTimeline = buildInsurancePaymentTimeline(row);
+              const paymentTimeline = buildInsurancePaymentTimeline(policyRecord);
               const primaryPaymentRow = paymentTimeline[0] || {
                 label: "Total Premium",
                 amount: 0,
@@ -1310,12 +1329,6 @@ const InsuranceRenewalCasesPage = () => {
               const leftAccentColor = ownershipLower.includes("new")
                 ? "#2563eb"
                 : "#16a34a";
-              const timelinePreview = (
-                Array.isArray(row?.renewalTimeline) ? row.renewalTimeline : []
-              )
-                .slice()
-                .reverse()
-                .slice(0, 2);
               const statusChipClass =
                 status === "Closed"
                   ? "bg-rose-100 text-rose-700"
@@ -1382,8 +1395,10 @@ const InsuranceRenewalCasesPage = () => {
                             whileTap={{ scale: 0.96 }}
                             type="button"
                             onClick={() => {
-                              setSelectedCase(row);
-                              setPreviewStageKey("previous");
+                              setSelectedCase(policyRecord);
+                              setPreviewStageKey(
+                                policyRecord === row ? "previous" : "new",
+                              );
                               setPreviewVisible(true);
                             }}
                             className="h-8 w-8 rounded-full inline-flex items-center justify-center shadow-sm ring-1 ring-black/5"
@@ -1398,7 +1413,7 @@ const InsuranceRenewalCasesPage = () => {
                               ? "Already renewed"
                               : row?.renewedToCaseId
                                 ? "Continue renewal draft"
-                                : "Renew"
+                                : "Convert to Renewal"
                           }
                         >
                           <motion.button
@@ -1669,7 +1684,11 @@ const InsuranceRenewalCasesPage = () => {
                     <div
                       className="cursor-pointer border-r p-3 transition-colors hover:bg-slate-50"
                       onClick={() => {
-                        setPolicyModal({ open: true, row });
+                        setPolicyModal({
+                          open: true,
+                          row: policyRecord,
+                          isRenewed: policyRecord !== row,
+                        });
                         setShowAllPolicyAddons(false);
                       }}
                       style={{ borderColor: "#f1f5f9" }}
@@ -1692,14 +1711,16 @@ const InsuranceRenewalCasesPage = () => {
                               <div className="flex items-center gap-2">
                                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
                                   <Shield size={11} />
-                                  Policy
+                                  {policyRecord !== row
+                                    ? "Renewed Policy"
+                                    : "Previous Policy"}
                                 </p>
                               </div>
                               <p className="text-[13px] font-semibold text-slate-900 mt-1 truncate">
-                                {activePolicy.insuranceCompany || "—"}
+                                {previousPolicy.insuranceCompany || "—"}
                               </p>
                               <p className="text-[11px] text-slate-500 truncate">
-                                {activePolicy.policyNumber || "Not issued"}
+                                {previousPolicy.policyNumber || "Not issued"}
                               </p>
                             </div>
                           </div>
@@ -1707,10 +1728,10 @@ const InsuranceRenewalCasesPage = () => {
                         <div className="p-3 space-y-3">
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
-                              Type {activePolicy.policyType || "—"}
+                              Type {previousPolicy.policyType || "—"}
                             </span>
                             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
-                              NCB {Number(activePolicy.ncbDiscount || 0)}%
+                              NCB {Number(previousPolicy.ncbDiscount || 0)}%
                             </span>
                             {policyOriginType &&
                               policyOriginType !== "EW Policy" &&
@@ -1721,46 +1742,25 @@ const InsuranceRenewalCasesPage = () => {
                             ) : null}
                           </div>
                           <div className="space-y-1">
-                            {activationDate || durationLabel ? (
-                              <p className="text-[11px] text-slate-500 truncate">
-                                Activated:{" "}
-                                {activationDate
-                                  ? activationDate.format("DD MMM YYYY")
-                                  : "—"}
-                                {durationLabel ? ` · ${durationLabel}` : ""}
-                              </p>
-                            ) : null}
-                            <p className="text-[11px] text-slate-500 truncate">
-                              Next Renewal: {displayExpiryLabel}
-                              {Number.isFinite(days)
-                                ? days < 0
-                                  ? ` · Expired ${Math.abs(days)}d ago`
-                                  : ` · ${days}d left`
-                                : ""}
+                            <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">
+                              Add Ons
                             </p>
-                            {activePolicy.odExpiryDate &&
-                            activePolicy.odExpiryDate !==
-                              activePolicy.expiryDate ? (
-                              <p className="text-[11px] text-slate-500 truncate">
-                                OD Expiry:{" "}
-                                {dayjs(activePolicy.odExpiryDate).format(
-                                  "DD MMM YYYY",
-                                )}
-                              </p>
-                            ) : null}
-                            {activePolicy.tpExpiryDate &&
-                            activePolicy.tpExpiryDate !== activePolicy.expiryDate &&
-                            activePolicy.policyType !== "Stand Alone OD" ? (
-                              <p className="text-[11px] text-slate-500 truncate">
-                                TP Expiry:{" "}
-                                {dayjs(activePolicy.tpExpiryDate).format(
-                                  "DD MMM YYYY",
-                                )}
-                              </p>
-                            ) : null}
-                            <p className="text-[11px] text-slate-500 truncate">
-                              Premium: {formatInr(activePolicy.totalPremium)}
-                            </p>
+                            <div className="flex flex-wrap gap-1.5 pt-1">
+                              {previousPolicyAddons.length ? (
+                                previousPolicyAddons.map((addon) => (
+                                  <span
+                                    key={addon.name}
+                                    className="inline-flex items-center rounded-full border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold leading-none text-emerald-700"
+                                  >
+                                    {addon.name}
+                                  </span>
+                                ))
+                              ) : (
+                                <span className="text-[10px] text-slate-400">
+                                  No add-ons recorded
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -1972,71 +1972,8 @@ const InsuranceRenewalCasesPage = () => {
                           </div>
                         </div>
                       </div>
-                      <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-2 py-2">
-                        <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                          Lead Timeline
-                        </p>
-                        <div className="mt-1.5 space-y-1.5">
-                          {timelinePreview.length > 0 ? (
-                            timelinePreview.map((item, idx) => (
-                              <div
-                                key={`${item?.at || "timeline"}-${idx}`}
-                                className="rounded-md border border-slate-200 bg-white px-2 py-1.5"
-                              >
-                                <div className="text-[10px] text-slate-500">
-                                  {item?.at
-                                    ? dayjs(item.at).format("DD MMM, hh:mm A")
-                                    : "—"}
-                                </div>
-                                <div className="text-[10px] font-semibold text-slate-700">
-                                  {item?.status || "Updated"}
-                                </div>
-                                {item?.comment ? (
-                                  <div className="text-[10px] text-slate-600 truncate">
-                                    {item.comment}
-                                  </div>
-                                ) : null}
-                              </div>
-                            ))
-                          ) : (
-                            <p className="text-[10px] text-slate-500">
-                              No timeline updates yet.
-                            </p>
-                          )}
-                        </div>
-                      </div>
                     </div>
                   </div>
-                  {status === "Closed" ? (
-                    <div
-                      className="grid grid-cols-1 gap-3 border-t p-3 md:grid-cols-3"
-                      style={{ borderColor: "#f1f5f9" }}
-                    >
-                      <div>
-                        <p className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                          Closed Reason
-                        </p>
-                        <Select
-                          className="w-full"
-                          size="small"
-                          placeholder="Closed reason"
-                          value={
-                            draft.renewalClosedReason ?? row.renewalClosedReason
-                          }
-                          options={CLOSE_REASONS.map((x) => ({
-                            label: x,
-                            value: x,
-                          }))}
-                          onChange={(value) =>
-                            setRowDrafts((prev) => ({
-                              ...prev,
-                              [id]: { ...prev[id], renewalClosedReason: value },
-                            }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  ) : null}
                 </motion.div>
               );
             })}
@@ -2048,53 +1985,6 @@ const InsuranceRenewalCasesPage = () => {
           </div>
         </div>
       </div>
-
-      <Modal
-        open={Boolean(timelineRow)}
-        title="Lead Timeline"
-        footer={null}
-        onCancel={() => setTimelineRow(null)}
-      >
-        <div className="space-y-2">
-          {(Array.isArray(timelineRow?.renewalTimeline)
-            ? timelineRow.renewalTimeline
-            : []
-          )
-            .slice()
-            .reverse()
-            .map((item, idx) => (
-              <div key={`${item?.at || idx}`} className="rounded border p-2">
-                <div className="text-xs text-slate-500">
-                  {item?.at
-                    ? dayjs(item.at).format("DD MMM YYYY, hh:mm A")
-                    : "—"}{" "}
-                  · {item?.by || "User"}
-                </div>
-                {item?.event ? (
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-400">
-                    {String(item.event).replaceAll("_", " ")}
-                  </div>
-                ) : null}
-                <div className="text-sm font-semibold">
-                  {item?.status || "—"}
-                </div>
-                {item?.comment ? (
-                  <div className="text-sm text-slate-700">{item.comment}</div>
-                ) : null}
-                {item?.closedReason ? (
-                  <div className="text-xs text-rose-600">
-                    Closed Reason: {item.closedReason}
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          {!timelineRow?.renewalTimeline?.length && (
-            <div className="text-sm text-slate-500">
-              No timeline updates yet.
-            </div>
-          )}
-        </div>
-      </Modal>
 
       <Modal
         open={renewReminderModal.open}
@@ -2153,27 +2043,22 @@ const InsuranceRenewalCasesPage = () => {
           setShowAllPolicyAddons(false);
         }}
         title={
-          <div className="pr-6">
-            <p className="text-xs uppercase tracking-[0.1em] text-slate-500">
-              Premium Breakup
-            </p>
-            <p className="text-sm font-semibold text-slate-800">
-              {policyModal.row
-                ? resolveActivePolicySnapshot(policyModal.row).insuranceCompany ||
-                  "Insurance Company"
-                : "Insurance Company"}
-            </p>
-          </div>
+          policyModal.isRenewed
+            ? "Renewed Policy Details"
+            : "Previous Policy Details"
         }
       >
         {policyModal.row ? (
           (() => {
-            const modalPolicy = resolveActivePolicySnapshot(policyModal.row);
+            const modalPolicy = resolvePreviousPolicySnapshot(policyModal.row);
             const ownDamage = Number(modalPolicy.ownDamage || 0);
             const ncbPercent = Number(modalPolicy.ncbDiscount || 0);
             const ncbAmount = Number(modalPolicy.ncbAmount || 0);
-            const idv = policyModal.row?.newIdvAmount || policyModal.row?.previousIdvAmount || "";
-            const includedAddons = parsePolicyIncludedAddons(
+            const idv =
+              policyModal.row?.newIdvAmount ||
+              policyModal.row?.previousIdvAmount ||
+              "";
+            const includedAddons = resolvePreviousPolicyAddons(
               policyModal.row,
               modalPolicy,
             );
@@ -2205,8 +2090,12 @@ const InsuranceRenewalCasesPage = () => {
                   setShowAllPolicyAddons((prev) => !prev)
                 }
                 totalAmount={Number(modalPolicy.totalPremium || 0)}
-                title="Premium Breakup"
-                insurerName={modalPolicy.insurer}
+                title={
+                  policyModal.isRenewed
+                    ? "Renewed Policy Premium Breakup"
+                    : "Previous Policy Premium Breakup"
+                }
+                insurerName={modalPolicy.insuranceCompany}
                 idx={0}
               />
             );
