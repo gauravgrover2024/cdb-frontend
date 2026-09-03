@@ -396,6 +396,15 @@ export const getCycleAdjustedExpiryDate = (
   }
 
   const base = dayjs(baseDate).startOf("day");
+  const policyStart = parseInsuranceDate(options.policyStartDate);
+
+  // A policy that has not started yet cannot be due for renewal. Keep its
+  // real stored expiry instead of rebasing the month/day into the current
+  // year, which can otherwise place expiry before policy start.
+  if (policyStart?.isValid() && policyStart.startOf("day").isAfter(base)) {
+    return parsed.startOf("day");
+  }
+
   let candidate = parsed.year(base.year()).startOf("day");
   const diffDays = candidate.diff(base, "day");
 
@@ -419,8 +428,13 @@ export const daysUntilExpiry = (record) => {
 export const cycleAdjustedDaysUntilExpiry = (record) => {
   const expiryDate = getPolicyPulseExpiryDate(record);
   if (!expiryDate) return null;
+  const safe = coerceInsuranceRecord(record);
   const adjusted = getCycleAdjustedExpiryDate(expiryDate, dayjs(), {
     odTenureYears: getEffectiveOdTenureYears(record),
+    policyStartDate: pickPolicyValue(
+      safe.newPolicyStartDate,
+      safe.previousPolicyStartDate,
+    ),
   });
   if (!adjusted) return null;
   return adjusted.startOf("day").diff(dayjs().startOf("day"), "day");
@@ -817,33 +831,41 @@ export const buildInsurancePaymentTimeline = (record) => {
           ? INSURER_SETTLEMENT_MODE.MIXED
           : INSURER_SETTLEMENT_MODE.NONE;
 
-  const insurerFlowRow =
-    effectiveInsurerPaidTotal > 0
-      ? effectiveInsurerMode === INSURER_SETTLEMENT_MODE.CUSTOMER
-        ? {
-            label: "Customer paid insurer",
-            amount: effectiveInsurerPaidByCustomer,
-            type: "good",
-            date: latestInsurerRow?.date || null,
-          }
-        : {
-            label: "Autocredits paid insurer",
-            amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
-            type: "good",
-            date: latestInsurerRow?.date || null,
-          }
-      : {
-          label: "Insurer payment pending",
-          amount: Math.max(0, premium - effectiveInsurerPaidTotal),
-          type: premium > 0 ? "warning" : "neutral",
-          date: null,
-        };
+  const insurerFlowRows = [];
+  if (effectiveInsurerPaidByCustomer > 0) {
+    insurerFlowRows.push({
+      label: "Customer paid insurer",
+      amount: effectiveInsurerPaidByCustomer,
+      type: "good",
+      date: latestInsurerRow?.date || null,
+    });
+  }
+  if (effectiveInsurerPaidByAc > 0) {
+    insurerFlowRows.push({
+      label: "Autocredits paid insurer",
+      amount: effectiveInsurerPaidByAc,
+      type: "good",
+      date: latestInsurerRow?.date || null,
+    });
+  }
+  const insurerOutstanding = Math.max(
+    0,
+    premium - effectiveInsurerPaidTotal,
+  );
+  if (insurerOutstanding > 0) {
+    insurerFlowRows.push({
+      label: "Insurer payment pending",
+      amount: insurerOutstanding,
+      type: "warning",
+      date: null,
+    });
+  }
 
-  const effectiveSubventionNr = ledgerTotals.subventionNotRecoverable;
-  const effectiveSubventionRefund = Math.max(
-    ledgerTotals.subventionRefundPaid,
+  const effectiveSubventionNr = Math.max(
+    ledgerTotals.subventionNotRecoverable,
     Number(safe.subventionAmount || 0),
   );
+  const effectiveSubventionRefund = ledgerTotals.subventionRefundPaid;
   const receiptVisible =
     effectiveInsurerMode === INSURER_SETTLEMENT_MODE.NONE ||
     effectiveInsurerMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
@@ -886,10 +908,7 @@ export const buildInsurancePaymentTimeline = (record) => {
       date: latestSubventionNrRow?.date || null,
     });
   }
-  if (
-    effectiveSubventionRefund > 0 &&
-    effectiveSubventionRefund !== effectiveSubventionNr
-  ) {
+  if (effectiveSubventionRefund > 0) {
     subventionRows.push({
       label: "Subvention Refund",
       amount: effectiveSubventionRefund,
@@ -906,7 +925,7 @@ export const buildInsurancePaymentTimeline = (record) => {
       date: null,
       isPreviousYearPremium,
     },
-    insurerFlowRow,
+    ...insurerFlowRows,
     receiptFlowRow,
     ...subventionRows,
   ].filter(Boolean);

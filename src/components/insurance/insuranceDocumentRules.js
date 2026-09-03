@@ -1,5 +1,16 @@
 /** Suggested documents by policy scenario — not enforced on submit. */
 export const SUGGESTED_DOCS_BY_SCENARIO = {
+  "ew-policy": [
+    "Policy Copy",
+    "RC Copy",
+    "Invoice",
+    "PAN Card",
+    "Aadhaar Front",
+    "Aadhaar Back",
+    "GST Certificate (P1)",
+    "GST Certificate (P2)",
+    "GST Certificate (P3)",
+  ],
   "new-car-insurance": ["Invoice"],
   "used-car-insurance": [
     "RC Copy",
@@ -12,6 +23,16 @@ export const SUGGESTED_DOCS_BY_SCENARIO = {
 };
 
 export const getInsuranceDocScenario = (data = {}) => {
+  const policyCategory = String(data?.policyCategory || "")
+    .trim()
+    .toLowerCase();
+  if (
+    policyCategory.includes("extended warranty") ||
+    policyCategory.includes("ew")
+  ) {
+    return "ew-policy";
+  }
+
   const vehicleType = String(data?.vehicleType || "")
     .trim()
     .toLowerCase();

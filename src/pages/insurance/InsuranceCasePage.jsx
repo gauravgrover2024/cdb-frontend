@@ -213,8 +213,14 @@ const InsuranceCasePage = () => {
     };
   }, [caseId, isEditMode, renewFromId, isRenewalMode]);
 
+  const insuranceExitPath =
+    isRenewalMode ||
+    Boolean(loadedCase?.renewedFromCaseId || initialValues?.renewedFromCaseId)
+      ? "/insurance/renewals"
+      : "/insurance";
+
   const handleSubmit = () => {
-    navigate("/insurance");
+    navigate(insuranceExitPath);
   };
 
   return (
@@ -230,9 +236,9 @@ const InsuranceCasePage = () => {
           key={location.search}
           mode={isEditMode ? "edit" : "create"}
           initialValues={initialValues}
-          onCancel={() => navigate("/insurance")}
+          onCancel={() => navigate(insuranceExitPath)}
           onSubmit={handleSubmit}
-          onDelete={() => navigate("/insurance")}
+          onDelete={() => navigate(insuranceExitPath)}
         />
       </Spin>
     </div>

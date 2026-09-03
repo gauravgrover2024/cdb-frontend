@@ -2826,6 +2826,58 @@ const NewInsuranceCaseForm = ({
   const docsTaggedCount = documents.filter((d) => d.tag).length;
   const allUploadedDocsTagged =
     documents.length > 0 && docsTaggedCount === documents.length;
+  const policyDetailsErrors = useMemo(() => {
+    const errors = [];
+    const isBlank = (value) => String(value ?? "").trim() === "";
+
+    if (isExtendedWarranty) {
+      if (isBlank(formData.newInsuranceCompany))
+        errors.push("Insurance company is required.");
+      if (isBlank(formData.newPolicyType))
+        errors.push("Policy type is required.");
+      if (isBlank(formData.newPolicyNumber))
+        errors.push("Policy number is required.");
+      if (isBlank(formData.newIssueDate))
+        errors.push("Policy issue date is required.");
+      if (Number(formData.exShowroomPrice || 0) <= 0)
+        errors.push("Ex-showroom price is required.");
+      if (isNewCar) {
+        if (isBlank(formData.dateOfSale))
+          errors.push("Date of sale is required.");
+      } else {
+        if (isBlank(formData.dateOfPurchase))
+          errors.push("Date of purchase is required.");
+        if (isBlank(formData.odometerReading))
+          errors.push("Current odometer reading is required.");
+      }
+      if (isBlank(formData.policyPurchaseDate))
+        errors.push("Policy purchase date is required.");
+      if (isBlank(formData.newInsuranceDuration))
+        errors.push("Policy duration is required.");
+      if (isBlank(formData.ewCommencementDate))
+        errors.push("Extended warranty commencement date is required.");
+      if (isBlank(formData.ewExpiryDate))
+        errors.push("Extended warranty expiry date is required.");
+      if (isBlank(formData.kmsCoverage))
+        errors.push("Kms coverage is required.");
+      if (Number(formData.newTotalPremium || 0) <= 0)
+        errors.push("Premium is required.");
+      return errors;
+    }
+
+    if (isBlank(formData.newInsuranceCompany))
+      errors.push("New insurance company is required.");
+    if (isBlank(formData.newPolicyType))
+      errors.push("New policy type is required.");
+    if (isBlank(formData.newPolicyNumber))
+      errors.push("New policy number is required.");
+    if (isBlank(formData.newIssueDate))
+      errors.push("New policy issue date is required.");
+    if (isBlank(formData.newPolicyStartDate))
+      errors.push("New policy start date is required.");
+    return errors;
+  }, [formData, isExtendedWarranty, isNewCar]);
+
   const finalSubmitErrors = useMemo(() => {
     const errors = [];
     if (Object.keys(step1StrictErrors).length) {
@@ -2856,21 +2908,12 @@ const NewInsuranceCaseForm = ({
       errors.push("At least one quote is required.");
     if (!shouldSkipStep(4) && !acceptedQuoteId)
       errors.push("Accept one quote before submitting.");
-    if (!String(formData.newInsuranceCompany || "").trim())
-      errors.push("New insurance company is required.");
-    if (!String(formData.newPolicyType || "").trim())
-      errors.push("New policy type is required.");
-    if (!String(formData.newPolicyNumber || "").trim())
-      errors.push("New policy number is required.");
-    if (!String(formData.newIssueDate || "").trim())
-      errors.push("New policy issue date is required.");
-    if (!String(formData.newPolicyStartDate || "").trim())
-      errors.push("New policy start date is required.");
+    errors.push(...policyDetailsErrors);
 
     return errors;
   }, [
     acceptedQuoteId,
-    formData,
+    policyDetailsErrors,
     quotes.length,
     shouldSkipStep,
     step1StrictErrors,
@@ -4121,13 +4164,7 @@ const NewInsuranceCaseForm = ({
         const targetStep = shouldSkipStep(4) ? 6 : 4;
         markStepError(targetStep);
         setStep(targetStep);
-      } else if (
-        !String(formData.newInsuranceCompany || "").trim() ||
-        !String(formData.newPolicyType || "").trim() ||
-        !String(formData.newPolicyNumber || "").trim() ||
-        !String(formData.newIssueDate || "").trim() ||
-        !String(formData.newPolicyStartDate || "").trim()
-      ) {
+      } else if (policyDetailsErrors.length) {
         markStepError(6);
         setStep(6);
       }

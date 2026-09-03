@@ -49,13 +49,12 @@ const EW_SUGGESTED_TAGS = [
   "Policy Copy",
   "RC Copy",
   "Invoice",
-  "Pan",
+  "PAN Card",
   "Aadhaar Front",
   "Aadhaar Back",
-  "GST Page 1",
-  "GST Page 2",
+  "GST Certificate (P1)",
   "GST Certificate (P2)",
-  "GST Page 3",
+  "GST Certificate (P3)",
 ];
 
 const DOCUMENT_MATRIX = {
@@ -247,29 +246,44 @@ const getVehiclePolicyLabel = (formData = {}) => {
       "",
   ).trim();
 
-  if (vehicleNumber) return vehicleNumber;
+  if (vehicleNumber) {
+    return vehicleNumber.replace(/[^a-z0-9]/gi, "").toUpperCase();
+  }
 
   return (
     [formData?.vehicleMake, formData?.vehicleModel, formData?.vehicleVariant]
       .filter(Boolean)
-      .join(" ")
+      .map((value) =>
+        String(value || "")
+          .trim()
+          .replace(/[^a-z0-9]+/gi, "_")
+          .replace(/^_+|_+$/g, ""),
+      )
+      .filter(Boolean)
+      .join("_")
       .trim() || "Vehicle"
   );
 };
 
-const getPolicyTagLabel = (formData = {}) =>
-  [
-    String(
-      formData?.customerName ||
-        formData?.contactPersonName ||
-        formData?.companyName ||
-        "Customer",
-    ).trim(),
+const getPolicyTagLabel = (formData = {}) => {
+  const customerName = String(
+    formData?.customerName ||
+      formData?.contactPersonName ||
+      formData?.companyName ||
+      "Customer",
+  )
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/_+/g, " ");
+
+  return [
+    customerName,
     getVehiclePolicyLabel(formData),
     getPolicyYearLabel(formData),
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join("_");
+};
 
 const inferDocumentTag = ({ docName = "", formData = {}, scenario = "" }) => {
   const value = String(docName || "")
@@ -493,8 +507,12 @@ const LINKED_CATEGORY_SORT_RANK = {
 };
 
 const getDocDisplayLabel = (doc, index = -1) => {
-  const tag = String(doc?.tag || "").trim();
-  if (tag) return tag;
+  const policyLabel = String(doc?.policyTagLabel || "").trim();
+  if (policyLabel) return policyLabel;
+  const storedName = String(
+    doc?.name || doc?.originalName || doc?.original_name || "",
+  ).trim();
+  if (storedName) return storedName;
   return index >= 0 ? `Document ${index + 1}` : "Document";
 };
 
@@ -507,7 +525,7 @@ const getDocStatus = (doc) => {
     };
   }
   return {
-    label: "Tagged",
+    label: tag,
     className: "border-emerald-200 bg-emerald-50 text-emerald-700",
   };
 };
@@ -953,6 +971,10 @@ const Step6Documents = ({
   const activeRequirement =
     DOCUMENT_MATRIX[ui.scenario] || DOCUMENT_MATRIX["used-car-renewal"];
   const policyTagLabel = useMemo(() => getPolicyTagLabel(formData), [formData]);
+  const renewalPolicyTagLabel =
+    formData?.isRenewal || ui.scenario === "used-car-renewal"
+      ? policyTagLabel
+      : "";
   const policyYearLabel = useMemo(() => getPolicyYearLabel(formData), [formData]);
   const documentsCustomerName = useMemo(
     () =>
@@ -1016,9 +1038,12 @@ const Step6Documents = ({
           type: mimeType,
           format: String(doc?.format || fallbackFormat || "file").toLowerCase(),
           tag: String(doc?.tag || "").trim(),
+          policyTagLabel: String(
+            doc?.policyTagLabel || renewalPolicyTagLabel || "",
+          ).trim(),
         };
       }),
-    [documents],
+    [documents, renewalPolicyTagLabel],
   );
 
   const baseSuggestedTags = useMemo(() => {
@@ -1312,7 +1337,7 @@ const Step6Documents = ({
             id:
               storageKey ||
               `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
-            name: originalName,
+            name: renewalPolicyTagLabel || originalName,
             originalName,
             size: sizeBytes,
             sizeBytes,
@@ -1326,7 +1351,7 @@ const Step6Documents = ({
             url: rawUrl,
             previewUrl: buildAccessibleDocumentUrl(rawUrl),
             source: "uploaded-r2",
-            policyTagLabel,
+            policyTagLabel: renewalPolicyTagLabel,
           };
         });
 
@@ -1352,7 +1377,13 @@ const Step6Documents = ({
         setUploading(false);
       }
     },
-    [formData, persistSoon, policyTagLabel, setDocuments, ui.scenario],
+    [
+      formData,
+      persistSoon,
+      renewalPolicyTagLabel,
+      setDocuments,
+      ui.scenario,
+    ],
   );
 
   const handlePickedFiles = useCallback(

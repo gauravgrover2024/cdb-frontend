@@ -702,6 +702,81 @@ const Step5NewPolicyDetails = ({
 
           <div className={`${shellStyle} p-5 md:p-6`}>
             <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Insurance Company" required>
+                    <AutoComplete
+                      style={{ width: "100%" }}
+                      size="large"
+                      value={formData.newInsuranceCompany}
+                      allowClear
+                      placeholder="Select or enter company"
+                      options={IRDAI_INSURANCE_COMPANIES.map((name) => ({
+                        value: name,
+                      }))}
+                      onChange={(value) =>
+                        setField("newInsuranceCompany", String(value || ""))
+                      }
+                      filterOption={(inputValue, option) =>
+                        String(option?.value || "")
+                          .toLowerCase()
+                          .includes(String(inputValue || "").toLowerCase())
+                      }
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={6}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Policy Number" required>
+                    <Input
+                      size="large"
+                      allowClear
+                      value={formData.newPolicyNumber}
+                      onChange={handleChange("newPolicyNumber")}
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={6}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Issue Date" required>
+                    <DatePicker
+                      size="large"
+                      allowClear
+                      value={
+                        formData.newIssueDate
+                          ? dayjs(formData.newIssueDate)
+                          : null
+                      }
+                      onChange={(d) =>
+                        setField(
+                          "newIssueDate",
+                          d ? d.format("YYYY-MM-DD") : "",
+                        )
+                      }
+                      format={["DD/MM/YYYY", "D/M/YYYY"]}
+                      style={{ width: "100%" }}
+                      popupClassName="insurance-themed-calendar"
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
+              <Col xs={24} md={8}>
+                <div className={fieldWrapClass}>
+                  <CleanField label="Policy Type" required>
+                    <Input
+                      size="large"
+                      value={formData.newPolicyType || "EW Policy"}
+                      readOnly
+                    />
+                  </CleanField>
+                </div>
+              </Col>
+
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="Ex-Showroom Price" required>

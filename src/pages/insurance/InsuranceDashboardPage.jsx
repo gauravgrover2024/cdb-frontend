@@ -35,6 +35,7 @@ import {
   shouldShowInsuranceChannelBadge,
   parsePolicyIncludedAddons,
   resolveActivePolicySnapshot,
+  buildInsurancePaymentTimeline,
   getPolicyPulseExpiryDate,
   daysUntilExpiry,
   getPolicyOriginType,
@@ -1844,15 +1845,19 @@ const InsuranceDashboardPage = () => {
       const paidByCustomer = Number(
         record.customerPaymentReceived || record.customer_payment_received || 0,
       );
-      const snapshotSubventionRefund = hasLedgerSnapshot
-        ? ledgerTotals.subventionRefundPaid
-        : Number(record?.subventionAmount || 0);
+      const snapshotSubventionNr = hasLedgerSnapshot
+        ? ledgerTotals.subventionNotRecoverable
+        : Number(
+            record?.subventionNotRecoverable ||
+              record?.subventionAmount ||
+              0,
+          );
       const fallbackAcPaidToInsurer = Number(
         record.inhousePaymentReceived || record.inhouse_payment_received || 0,
       );
       const fallbackOpenDues = Math.max(
         0,
-        fallbackAcPaidToInsurer - snapshotSubventionRefund - paidByCustomer,
+        fallbackAcPaidToInsurer - snapshotSubventionNr - paidByCustomer,
       );
       const openDuesFromAcRecovery = hasLedgerSnapshot
         ? ledgerTotals.insurerPaidByAutocredits > 0
@@ -1902,145 +1907,9 @@ const InsuranceDashboardPage = () => {
         : "—";
       const daysLeft = daysUntilExpiry(record);
 
-      // Payment timeline for UI - business rule aligned.
-      const sortedLedgerRows = sortLedgerByDate(normalizedLedger);
-      const latestRowBy = (predicate) =>
-        [...sortedLedgerRows].reverse().find(predicate) || null;
-
-      const latestInsurerRow = latestRowBy(
-        (row) => row.entryType === INSURANCE_ENTRY_TYPES.INSURER_PAYMENT,
-      );
-      const latestReceiptRow = latestRowBy(
-        (row) => row.entryType === INSURANCE_ENTRY_TYPES.CUSTOMER_RECEIPT,
-      );
-      const latestSubventionRefundRow = latestRowBy(
-        (row) => row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_REFUND,
-      );
-      const latestSubventionNrRow = latestRowBy(
-        (row) =>
-          row.entryType === INSURANCE_ENTRY_TYPES.SUBVENTION_NON_RECOVERABLE,
-      );
-
-      const fallbackInsurerPaidByCustomer = Number(
-        record.customerPaymentToInsurer ||
-        record.customer_payment_to_insurer ||
-        0,
-      );
-      const fallbackInsurerPaidByAc = Math.max(
-        0,
-        fallbackAcPaidToInsurer - fallbackInsurerPaidByCustomer,
-      );
-      const effectiveInsurerPaidByCustomer =
-        ledgerTotals.insurerPaidByCustomer || fallbackInsurerPaidByCustomer;
-      const effectiveInsurerPaidByAc =
-        ledgerTotals.insurerPaidByAutocredits || fallbackInsurerPaidByAc;
-      const effectiveInsurerPaidTotal =
-        effectiveInsurerPaidByCustomer + effectiveInsurerPaidByAc;
-      const effectiveInsurerMode =
-        effectiveInsurerPaidByCustomer > 0 && effectiveInsurerPaidByAc === 0
-          ? INSURER_SETTLEMENT_MODE.CUSTOMER
-          : effectiveInsurerPaidByAc > 0 && effectiveInsurerPaidByCustomer === 0
-            ? INSURER_SETTLEMENT_MODE.AUTOCREDITS
-            : effectiveInsurerPaidByAc > 0 && effectiveInsurerPaidByCustomer > 0
-              ? INSURER_SETTLEMENT_MODE.MIXED
-              : INSURER_SETTLEMENT_MODE.NONE;
-
-      const insurerFlowRow =
-        effectiveInsurerPaidTotal > 0
-          ? effectiveInsurerMode === INSURER_SETTLEMENT_MODE.CUSTOMER
-            ? {
-              label: "Customer paid insurer",
-              amount: effectiveInsurerPaidByCustomer,
-              type: "good",
-              date: latestInsurerRow?.date || null,
-            }
-            : {
-              label: "Autocredits paid insurer",
-              amount: effectiveInsurerPaidByAc || effectiveInsurerPaidTotal,
-              type: "good",
-              date: latestInsurerRow?.date || null,
-            }
-          : {
-            label: "Insurer payment pending",
-            amount: Math.max(0, premium - effectiveInsurerPaidTotal),
-            type: premium > 0 ? "warning" : "neutral",
-            date: null,
-          };
-
-      const effectiveSubventionNr = ledgerTotals.subventionNotRecoverable;
-      const effectiveSubventionRefund = Math.max(
-        ledgerTotals.subventionRefundPaid,
-        snapshotSubventionRefund,
-      );
-      const receiptVisible =
-        effectiveInsurerMode === INSURER_SETTLEMENT_MODE.NONE ||
-        effectiveInsurerMode === INSURER_SETTLEMENT_MODE.AUTOCREDITS;
-      const insurerPaymentPending =
-        effectiveInsurerPaidTotal <= 0 && premium > 0;
-      const receiptBase = receiptVisible
-        ? Math.max(0, premium - effectiveSubventionNr)
-        : 0;
-      const effectiveCustomerRecovered =
-        ledgerTotals.customerRecovered || paidByCustomer;
-      const customerOutstanding = receiptVisible
-        ? Math.max(0, receiptBase - effectiveCustomerRecovered)
-        : 0;
-
-      const receiptFlowRow = receiptVisible
-        ? effectiveCustomerRecovered > 0
-          ? {
-            label: "Receipt from customer",
-            amount: effectiveCustomerRecovered,
-            type: "good",
-            date: latestReceiptRow?.date || null,
-            progressBase: receiptBase,
-          }
-          : insurerPaymentPending
-            ? null
-            : {
-              label: "Customer outstanding",
-              amount: customerOutstanding,
-              type: customerOutstanding > 0 ? "warning" : "neutral",
-              date: null,
-              progressBase: receiptBase,
-            }
-        : null;
-
-      const subventionRows = [];
-      if (effectiveSubventionNr > 0) {
-        subventionRows.push({
-          label: "Subvention (Non-recoverable)",
-          amount: effectiveSubventionNr,
-          type: "accent",
-          date: latestSubventionNrRow?.date || null,
-        });
-      }
-      if (effectiveSubventionRefund > 0 && effectiveSubventionRefund !== effectiveSubventionNr) {
-        subventionRows.push({
-          label: "Subvention Refund",
-          amount: effectiveSubventionRefund,
-          type: "accent",
-          date: latestSubventionRefundRow?.date || null,
-        });
-      }
-
-      const paymentTimelineRows = [
-        {
-          label: "Total Premium",
-          amount: premium,
-          type: "neutral",
-          date: null,
-        },
-        insurerFlowRow,
-        receiptFlowRow,
-        ...subventionRows,
-      ]
-        .filter(Boolean)
-        .filter(
-          (row) =>
-            row.label !== "Customer paid insurer" &&
-            row.label !== "Subvention Refund",
-        );
+      // Keep the dashboard aligned with the same ledger reconciliation used
+      // by renewal cards and policy previews.
+      const paymentTimelineRows = buildInsurancePaymentTimeline(record);
 
       const paymentPercent =
         premium > 0 ? Math.min(100, Math.round((paid / premium) * 100)) : 0;
