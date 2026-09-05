@@ -41,6 +41,7 @@ import {
   getPolicyOriginType,
   getInsuranceDisplayCaseId,
   getInsuranceLifecycleStatus,
+  hasCurrentPolicyNumber,
 } from "../../utils/insurancePolicyDisplay";
 
 dayjs.extend(customParseFormat);
@@ -404,29 +405,9 @@ const getInsurancePaymentDueSnapshot = (record = {}) => {
   };
 };
 
-const isCompletedPolicy = (c) => {
-  const st = normalizeStatus(c?.status);
+const isCompletedPolicy = (c) => hasCurrentPolicyNumber(c);
 
-  if (["draft", "pending", "submitted", "cancelled"].includes(st)) return false;
-
-  // 1. Explicit completion statuses
-  if (st === "issued" || st === "completed") return true;
-
-  // 2. All 5 New Policy fields are filled
-  const hasNewInsuranceCompany = String(c?.newInsuranceCompany || "").trim() !== "";
-  const hasNewPolicyType = String(c?.newPolicyType || "").trim() !== "";
-  const hasNewPolicyNumber = String(c?.newPolicyNumber || c?.policyNumber || c?.new_policy_number || "").trim() !== "";
-  const hasNewIssueDate = String(c?.newIssueDate || "").trim() !== "";
-  const hasNewPolicyStartDate = String(c?.newPolicyStartDate || "").trim() !== "";
-
-  return hasNewInsuranceCompany && hasNewPolicyType && hasNewPolicyNumber && hasNewIssueDate && hasNewPolicyStartDate;
-};
-
-const isDraftPolicy = (c) => {
-  const status = normalizeStatus(c?.status);
-  if (status) return status === "draft";
-  return !isCompletedPolicy(c);
-};
+const isDraftPolicy = (c) => !hasCurrentPolicyNumber(c);
 
 const isPaymentDuePolicy = (c) => getInsurancePaymentDueSnapshot(c).isDue;
 

@@ -43,6 +43,13 @@ export const hasDisplayValue = (value) => {
   return text.length > 0 && text.toLowerCase() !== "n/a";
 };
 
+export const hasCurrentPolicyNumber = (record) => {
+  const safe = coerceInsuranceRecord(record);
+  return hasDisplayValue(
+    safe.newPolicyNumber || safe.policyNumber || safe.new_policy_number,
+  );
+};
+
 export const pickPolicyValue = (...args) => {
   for (const val of args) {
     if (hasDisplayValue(val)) return String(val).trim();
@@ -455,8 +462,8 @@ export const getInsuranceLifecycleStatus = (
   const safe = coerceInsuranceRecord(record);
   const status = String(safe.status || "").trim().toLowerCase();
 
-  if (status === "draft") return "Draft";
   if (status === "cancelled") return "Cancelled";
+  if (!hasCurrentPolicyNumber(safe)) return "Draft";
   if (renewed) return "Renewed";
 
   const currentExpiry = isRenewalRecord(safe)
