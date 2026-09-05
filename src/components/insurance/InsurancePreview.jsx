@@ -642,6 +642,7 @@ const QuotePreviewCard = ({
   idx,
   isAccepted = false,
   isCheapest = false,
+  isNewCar = false,
 }) => {
   const [showAllAddons, setShowAllAddons] = useState(false);
   const breakup = computeQuoteBreakupFromRow(row);
@@ -753,6 +754,7 @@ const QuotePreviewCard = ({
         isAccepted={isAccepted}
         coverageType={row.coverageType || breakup?.coverageType}
         borderless={true}
+        showNcb={!isNewCar}
       />
 
       <div className="px-5 pb-5">
@@ -2001,6 +2003,7 @@ const InsurancePreview = ({
                                 lowestPremium !== null &&
                                 thisPremium === lowestPremium
                               }
+                              isNewCar={isNewCar}
                             />
                           );
                         })}
@@ -2072,7 +2075,7 @@ const InsurancePreview = ({
                       formatter: asDateInput,
                     },
                     {
-                      label: "Insurance Duration",
+                      label: "Policy Duration",
                       value: data.newInsuranceDuration,
                       formatter: formatPolicyDuration,
                     },
@@ -2086,11 +2089,15 @@ const InsurancePreview = ({
                       value: data.newPolicyType === "Stand Alone OD" ? null : data.newTpExpiryDate,
                       formatter: asDateInput,
                     },
-                    {
-                      label: "NCB Discount",
-                      value: data.newNcbDiscount,
-                      formatter: asPercent,
-                    },
+                    ...(isNewCar
+                      ? []
+                      : [
+                          {
+                            label: "NCB Discount",
+                            value: data.newNcbDiscount,
+                            formatter: asPercent,
+                          },
+                        ]),
                     {
                       label: "IDV Amount",
                       value: firstFilled(

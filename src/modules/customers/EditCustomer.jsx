@@ -52,6 +52,133 @@ const cleanEmptyValues = (obj, omitFields = []) => {
   return cleaned;
 };
 
+const CHANGE_FIELD_LABELS = {
+  customerName: "Customer Name",
+  companyName: "Company Name",
+  contactPersonName: "Contact Person Name",
+  primaryMobile: "Primary Mobile",
+  extraMobiles: "Alternate Mobile Numbers",
+  email: "Email",
+  dob: "Date of Birth",
+  residenceAddress: "Residence Address",
+  pincode: "Pincode",
+  city: "City",
+  panNumber: "PAN Number",
+  aadhaarNumber: "Aadhaar Number",
+  aadharNumber: "Aadhaar Number",
+  gstNumber: "GST Number",
+};
+
+const normalizeChangeValue = (value) => {
+  if (dayjs.isDayjs(value)) return value.format("YYYY-MM-DD");
+  if (value instanceof Date) return dayjs(value).format("YYYY-MM-DD");
+  if (Array.isArray(value)) return value.map(normalizeChangeValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((key) => [key, normalizeChangeValue(value[key])]),
+    );
+  }
+  return value ?? "";
+};
+
+const flattenCustomerValues = (value, prefix = "", target = {}) => {
+  if (
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    !dayjs.isDayjs(value) &&
+    !(value instanceof Date)
+  ) {
+    Object.entries(value).forEach(([key, nestedValue]) => {
+      const path = prefix ? `${prefix}.${key}` : key;
+      flattenCustomerValues(nestedValue, path, target);
+    });
+    return target;
+  }
+  if (prefix && prefix !== "customerIdDisplay") {
+    target[prefix] = normalizeChangeValue(value);
+  }
+  return target;
+};
+
+const snapshotCustomerValues = (values) => flattenCustomerValues(values || {});
+
+const restoreChangedEmptyValues = (
+  cleanedValue,
+  currentValue,
+  beforeSnapshot,
+  prefix = "",
+) => {
+  if (
+    currentValue &&
+    typeof currentValue === "object" &&
+    !Array.isArray(currentValue) &&
+    !dayjs.isDayjs(currentValue) &&
+    !(currentValue instanceof Date)
+  ) {
+    const next = { ...(cleanedValue || {}) };
+    Object.entries(currentValue).forEach(([key, nestedValue]) => {
+      const path = prefix ? `${prefix}.${key}` : key;
+      const restored = restoreChangedEmptyValues(
+        next[key],
+        nestedValue,
+        beforeSnapshot,
+        path,
+      );
+      if (restored !== undefined) next[key] = restored;
+    });
+    return next;
+  }
+
+  const normalized = normalizeChangeValue(currentValue);
+  const wasChanged =
+    JSON.stringify(beforeSnapshot?.[prefix] ?? "") !==
+    JSON.stringify(normalized ?? "");
+  const isEmptyNow =
+    normalized === "" ||
+    normalized === null ||
+    (Array.isArray(normalized) && normalized.length === 0);
+  return wasChanged && isEmptyNow ? normalized : cleanedValue;
+};
+
+const formatChangeLabel = (path) => {
+  if (CHANGE_FIELD_LABELS[path]) return CHANGE_FIELD_LABELS[path];
+  return path
+    .replace(/\.(\w)/g, " $1")
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+};
+
+const formatChangeDisplay = (value) => {
+  if (value === "" || value === null || value === undefined) return "—";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (Array.isArray(value)) {
+    if (!value.length) return "—";
+    return value.every((item) => typeof item !== "object")
+      ? value.join(", ")
+      : JSON.stringify(value);
+  }
+  return typeof value === "object" ? JSON.stringify(value) : String(value);
+};
+
+const buildCustomerChanges = (beforeSnapshot, currentValues) => {
+  const before = beforeSnapshot || {};
+  const after = snapshotCustomerValues(currentValues);
+  return [...new Set([...Object.keys(before), ...Object.keys(after)])]
+    .filter(
+      (key) =>
+        JSON.stringify(before[key] ?? "") !== JSON.stringify(after[key] ?? ""),
+    )
+    .map((key) => ({
+      field: formatChangeLabel(key),
+      oldVal: formatChangeDisplay(before[key]),
+      newVal: formatChangeDisplay(after[key]),
+    }));
+};
+
 const sectionsConfig = [
   {
     key: "personal",
@@ -130,6 +257,7 @@ const EditCustomer = () => {
   });
 
   const [saving, setSaving] = useState(false);
+  const initialFormValuesRef = useRef({});
 
   // ============================================
   // ⚡ AUTO-SAVE FORM DATA PROTECTION
@@ -275,6 +403,7 @@ const EditCustomer = () => {
           aadhaarCardBackDocUrl: found.aadhaarCardBackDocUrl || "",
           passportNumber: found.passportNumber || "",
           passportDocUrl: found.passportDocUrl || "",
+          passportBackDocUrl: found.passportBackDocUrl || "",
           gstNumber: found.gstNumber || "",
           gstDocUrl: found.gstDocUrl || "",
           gstDocUrlPage2: found.gstDocUrlPage2 || "",
@@ -301,6 +430,9 @@ const EditCustomer = () => {
           signatory_pan: found.signatory_pan || "",
           signatory_aadhaar: found.signatory_aadhaar || "",
         });
+        initialFormValuesRef.current = snapshotCustomerValues(
+          form.getFieldsValue(true),
+        );
 
         setHeaderInfo({
           name: found.customerName || "",
@@ -408,7 +540,11 @@ const EditCustomer = () => {
 
         // ✅ FIX: Get ALL fields, then clean empty/cache values
         const values = form.getFieldsValue(true);
-        const cleaned = cleanEmptyValues(values);
+        const cleaned = restoreChangedEmptyValues(
+          cleanEmptyValues(values),
+          values,
+          initialFormValuesRef.current,
+        );
 
         // Flatten reference1/reference2 to match backend schema (reference1_name, etc.)
         const flat = { ...cleaned };
@@ -460,42 +596,24 @@ const EditCustomer = () => {
         };
         payload = enrichPayloadWithBankDetails(payload);
 
-        // Check for changes on critical fields that sync to other modules
-        const syncFields = {
-          customerName: "Customer Name",
-          companyName: "Company Name",
-          contactPersonName: "Contact Person Name",
-          primaryMobile: "Primary Mobile",
-          email: "Email",
-          aadhaarNumber: "Aadhaar Number",
-          panNumber: "PAN Number",
-        };
-
-        const changes = [];
-        Object.keys(syncFields).forEach((key) => {
-          let newVal = payload[key] !== undefined ? String(payload[key]).trim() : "";
-          let oldVal = customer[key] !== undefined ? String(customer[key]).trim() : "";
-
-          if (key === "aadhaarNumber") {
-            const oldAadhar = customer.aadhaarNumber || customer.aadharNumber || "";
-            const newAadhar = payload.aadhaarNumber || payload.aadharNumber || "";
-            oldVal = String(oldAadhar).trim();
-            newVal = String(newAadhar).trim();
-          }
-
-          if (newVal !== oldVal) {
-            changes.push({
-              field: syncFields[key],
-              oldVal: oldVal || "—",
-              newVal: newVal || "—",
-            });
-          }
-        });
+        const changes = buildCustomerChanges(
+          initialFormValuesRef.current,
+          values,
+        );
 
         const performSave = async () => {
           try {
             setSaving(true);
-            await updateCustomerById(id, payload);
+            const updateResult = await updateCustomerById(id, payload);
+            const syncSummary = updateResult?.syncSummary;
+            const syncFailed = Array.isArray(syncSummary?.errors)
+              ? syncSummary.errors.length > 0
+              : false;
+
+            if (updateResult?.data) setCustomer(updateResult.data);
+            initialFormValuesRef.current = snapshotCustomerValues(
+              form.getFieldsValue(true),
+            );
 
             // ✅ Clear auto-saved form data after successful save
             clearSavedFormData();
@@ -504,7 +622,17 @@ const EditCustomer = () => {
             sessionStorage.removeItem('loan_form_draft');
             sessionStorage.removeItem('loans_list_cache');
 
-            message.success("Saved ✅");
+            if (syncFailed) {
+              message.warning(
+                "Customer saved, but one or more linked modules could not be synced.",
+              );
+            } else {
+              message.success(
+                changes.length > 0
+                  ? "Customer saved and linked modules synced ✅"
+                  : "Saved ✅",
+              );
+            }
             resolve(true);
           } catch (err) {
             console.error("Save Error:", err);
@@ -521,9 +649,9 @@ const EditCustomer = () => {
           content: changes.length > 0 ? (
             <div className="space-y-3 font-sans mt-2">
               <p className="text-sm text-slate-600">
-                You have modified key customer information. Saving will automatically sync all linked <strong>Insurance cases</strong> and <strong>Loan files</strong>.
+                Confirm the changes below. Saving will sync linked <strong>Insurance</strong>, <strong>Loan/Home Loan</strong>, quotation, and vehicle records.
               </p>
-              <div className="border border-slate-100 rounded-xl overflow-hidden shadow-sm bg-slate-50/50">
+              <div className="max-h-72 overflow-auto rounded-xl border border-slate-100 bg-slate-50/50 shadow-sm">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-100/80 text-slate-700 font-bold border-b border-slate-200">
@@ -553,9 +681,9 @@ const EditCustomer = () => {
           okText: changes.length > 0 ? "Yes, Sync & Save" : "Yes, Save",
           cancelText: "Cancel",
           okButtonProps: { className: "bg-primary text-white hover:bg-primary-hover font-semibold" },
-          width: changes.length > 0 ? 500 : 420,
+          width: changes.length > 0 ? 640 : 420,
           onOk() {
-            performSave();
+            return performSave();
           },
           onCancel() {
             setSaving(false);

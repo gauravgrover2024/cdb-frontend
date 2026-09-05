@@ -48,6 +48,16 @@ export const insuranceApi = {
     return await apiClient.post("/api/insurance/temp-registration/next");
   },
 
+  // Allotted when the form opens, not when it first saves — see
+  // InsuranceCaseIdReservation on the API side.
+  reserveCaseId: async () => {
+    return await apiClient.post("/api/insurance/case-id/reserve");
+  },
+
+  releaseCaseId: async (caseId) => {
+    return await apiClient.post("/api/insurance/case-id/release", { caseId });
+  },
+
   resolveVehicleCubicCapacity: async (payload = {}) => {
     return await apiClient.post(
       "/api/insurance/vehicle-cubic-capacity/resolve",

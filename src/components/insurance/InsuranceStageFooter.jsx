@@ -50,6 +50,7 @@ const InsuranceStageFooter = ({
                 variant="outline"
                 size="sm"
                 onClick={onClear}
+                disabled={isSaving}
                 className="h-9 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700/60 dark:text-amber-300 dark:hover:bg-amber-900/20"
               >
                 <Icon name="Eraser" size={16} style={{ marginRight: 6 }} />
@@ -60,6 +61,7 @@ const InsuranceStageFooter = ({
                 variant="outline"
                 size="sm"
                 onClick={onDiscard}
+                disabled={isSaving}
                 className="h-9 border-destructive/40 text-destructive hover:bg-destructive/10 dark:border-destructive/30 dark:text-destructive/90 dark:hover:bg-destructive/20"
               >
                 <Icon name="X" size={16} style={{ marginRight: 6 }} />
@@ -92,6 +94,7 @@ const InsuranceStageFooter = ({
                 variant="default"
                 size="sm"
                 onClick={onNext}
+                disabled={isSaving}
                 loading={isSaving && !computedIsLastStep}
                 className={
                   computedIsLastStep

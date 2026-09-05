@@ -14,6 +14,7 @@ const generalInsurerSet = new Set([
   "ICICI Lombard General Insurance Company Limited",
   "IFFCO TOKIO General Insurance Company Limited",
   "Zurich Kotak General Insurance Company (India) Limited",
+  "Kiwi General Insurance",
   "Kshema General Insurance Limited",
   "Liberty General Insurance Limited",
   "Magma General Insurance Limited",
@@ -35,4 +36,3 @@ const generalInsurerSet = new Set([
 export const IRDAI_INSURANCE_COMPANIES = Array.from(generalInsurerSet).sort(
   (a, b) => a.localeCompare(b, "en", { sensitivity: "base" })
 );
-

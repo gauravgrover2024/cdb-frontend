@@ -129,6 +129,14 @@ const KycDetails = () => {
             placeholder="Passport Number"
             maxLength={20}
             styleInput={{ textTransform: "" }}
+            primaryDocTag="Passport Front"
+            extraUploads={[
+              {
+                name: "passportBackDocUrl",
+                uploadTitle: "Upload Passport Back",
+                docTag: "Passport Back",
+              },
+            ]}
           />
         )}
 

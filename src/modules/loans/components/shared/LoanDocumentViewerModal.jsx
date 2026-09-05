@@ -137,7 +137,7 @@ const normalizeDocs = (documents = []) =>
         size: doc?.size || "",
         uploadedBy: doc?.uploadedBy || "",
         isImage: doc?.isImage ?? inferredIsImage,
-        isPdf: doc?.isPdf ?? inferredIsPdf,
+        isPdf: doc?.isPdf === true || inferredIsPdf,
       };
     });
 

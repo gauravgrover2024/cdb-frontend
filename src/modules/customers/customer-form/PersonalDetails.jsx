@@ -416,6 +416,7 @@ const PersonalDetails = ({
         aadhaarCardBackDocUrl: pick(fullCustomer.aadhaarCardBackDocUrl, ""),
         panCardDocUrl: pick(fullCustomer.panCardDocUrl, ""),
         passportDocUrl: pick(fullCustomer.passportDocUrl, ""),
+        passportBackDocUrl: pick(fullCustomer.passportBackDocUrl, ""),
         dlDocUrl: pick(fullCustomer.dlDocUrl, ""),
         gstDocUrl: pick(fullCustomer.gstDocUrl, ""),
         gstDocUrlPage2: pick(fullCustomer.gstDocUrlPage2, ""),

@@ -21,6 +21,7 @@ import {
 } from "antd";
 import { CheckCircleFilled, UnorderedListOutlined } from "@ant-design/icons";
 import { insuranceApi } from "../../api/insurance";
+import API_BASE_URL from "../../config/apiBaseUrl";
 import { customersApi } from "../../api/customers";
 import { vehiclesApi } from "../../api/vehicles";
 import { featuresApi } from "../../api/features";
@@ -39,6 +40,10 @@ import {
   DEFAULT_PAYOUT_PERCENTAGE,
   computePayoutBaseAmount,
 } from "./steps/payoutRates";
+import {
+  generatePayoutSchedule,
+  PAYOUT_MODES,
+} from "./steps/payoutSchedule";
 import InsuranceStickyHeader from "./InsuranceStickyHeader";
 import InsuranceStageFooter from "./InsuranceStageFooter";
 import "./insurance-header-pills.css";
@@ -49,6 +54,7 @@ import {
   normalizePincode,
 } from "../../modules/loans/components/loan-form/pre-file/pincodeCityLookup";
 import { usePreventPageRefresh } from "../../utils/formDataProtection";
+import { calculateNewCarIdv } from "../../utils/insurancePolicyDisplay";
 import {
   collectLinkedDocumentsForInsurance,
   mergeLinkedIntoExistingDocuments,
@@ -658,6 +664,141 @@ const buildAutoReceivableRow = (
   };
 };
 
+const formatPayoutMoney = (value) =>
+  `₹${Math.round(Number(value || 0)).toLocaleString("en-IN")}`;
+
+const QuotePayoutCalculator = ({
+  companyName,
+  policyDuration,
+  payoutBaseAmount,
+  initialPercentages,
+  payoutYearCount,
+  onChange,
+}) => {
+  const isMultiYearPayout = payoutYearCount > 1;
+  const [percentages, setPercentages] = useState(initialPercentages);
+  const totalPercentage = percentages.reduce(
+    (sum, percentage) => sum + Number(percentage || 0),
+    0,
+  );
+  const totalPayoutAmount =
+    (Number(payoutBaseAmount || 0) * totalPercentage) / 100;
+
+  const updatePercentage = (index, value) => {
+    const next = percentages.map((percentage, currentIndex) =>
+      currentIndex === index ? Number(value || 0) : percentage,
+    );
+    setPercentages(next);
+    onChange(next);
+  };
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50/70">
+      <div className="border-b border-slate-200 bg-white px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="m-0 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-400">
+              Accepted quote
+            </p>
+            <p className="m-0 mt-1 truncate text-sm font-bold text-slate-800">
+              {companyName || "Insurance Company"}
+            </p>
+            <p className="m-0 mt-0.5 text-xs text-slate-500">
+              {policyDuration || "Policy duration not selected"}
+            </p>
+          </div>
+          <div className="rounded-xl bg-blue-50 px-3 py-2 text-right ring-1 ring-blue-100">
+            <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-blue-500">
+              Payout base
+            </p>
+            <p className="m-0 mt-0.5 text-base font-black tabular-nums text-blue-800">
+              {formatPayoutMoney(payoutBaseAmount)}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-5 py-4">
+        <div className="mb-3">
+          <p className="m-0 text-sm font-bold text-slate-800">
+            {isMultiYearPayout
+              ? "Set year-wise payout"
+              : "Set payout percentage"}
+          </p>
+          <p className="m-0 mt-0.5 text-xs text-slate-500">
+            {isMultiYearPayout
+              ? "Each percentage is saved against its policy year."
+              : "The payout is calculated on OD premium and applicable add-ons."}
+          </p>
+        </div>
+
+        <div
+          className={`grid grid-cols-1 gap-2.5 ${
+            payoutYearCount === 3
+              ? "sm:grid-cols-3"
+              : payoutYearCount === 2
+                ? "sm:grid-cols-2"
+                : ""
+          }`}
+        >
+          {percentages.map((percentage, index) => {
+            const amount =
+              (Number(payoutBaseAmount || 0) * Number(percentage || 0)) / 100;
+            return (
+              <div
+                key={index}
+                className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm shadow-slate-900/5"
+              >
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <label className="text-xs font-bold text-slate-700">
+                    {isMultiYearPayout ? `Year ${index + 1}` : "Payout"}
+                  </label>
+                  <span className="text-[11px] font-semibold tabular-nums text-slate-500">
+                    {formatPayoutMoney(amount)}
+                  </span>
+                </div>
+                <InputNumber
+                  min={0}
+                  max={100}
+                  precision={2}
+                  value={percentage}
+                  addonAfter="%"
+                  className="w-full"
+                  aria-label={
+                    isMultiYearPayout
+                      ? `Year ${index + 1} Payout %`
+                      : "Payout %"
+                  }
+                  onChange={(value) => updatePercentage(index, value)}
+                />
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-end justify-between gap-3 rounded-xl bg-slate-900 px-4 py-3 text-white">
+          <div>
+            <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Total payout
+            </p>
+            <p className="m-0 mt-0.5 text-xl font-black tabular-nums">
+              {formatPayoutMoney(totalPayoutAmount)}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="m-0 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              Combined rate
+            </p>
+            <p className="m-0 mt-0.5 text-lg font-black tabular-nums text-blue-300">
+              {Number(totalPercentage || 0).toFixed(2)}%
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 /** Strips spaces / +91 etc. so step save + validation match what users type. */
 const normalizeIndianMobile = (raw) => {
   let d = String(raw ?? "").replace(/\D/g, "");
@@ -855,6 +996,30 @@ const pickCrmCustomerSnapshot = (data) => {
   return snapshot;
 };
 
+const buildCustomerUpdatePayloadFromInsurance = (data = {}) => ({
+  customerName: String(data.customerName || "").trim(),
+  companyName: String(data.companyName || "").trim(),
+  contactPersonName: String(data.contactPersonName || "").trim(),
+  primaryMobile: normalizeIndianMobile(data.mobile),
+  extraMobiles: normalizeIndianMobile(data.alternatePhone)
+    ? [normalizeIndianMobile(data.alternatePhone)]
+    : [],
+  email: String(data.email || "").trim(),
+  gender: String(data.gender || "").trim(),
+  panNumber: String(data.panNumber || "").trim(),
+  aadhaarNumber: String(data.aadhaarNumber || "").trim(),
+  aadharNumber: String(data.aadhaarNumber || "").trim(),
+  gstNumber: String(data.gstNumber || "").trim(),
+  residenceAddress: String(data.residenceAddress || "").trim(),
+  pincode: String(data.pincode || "").trim(),
+  city: String(data.city || "").trim(),
+  nomineeName: String(data.nomineeName || "").trim(),
+  nomineeRelation: String(data.nomineeRelationship || "").trim(),
+  nomineeDob: data.nomineeDob || "",
+  reference1_name: String(data.referenceName || "").trim(),
+  reference1_mobile: normalizeIndianMobile(data.referencePhone),
+});
+
 const NewInsuranceCaseForm = ({
   onCancel,
   onSubmit,
@@ -887,6 +1052,7 @@ const NewInsuranceCaseForm = ({
 
   const savedSnapshotRef = React.useRef(null);
   const currentSnapshotRef = React.useRef(null);
+  const [savedSnapshotRevision, setSavedSnapshotRevision] = useState(0);
 
   useEffect(() => {
     const snap = JSON.stringify({
@@ -904,6 +1070,8 @@ const NewInsuranceCaseForm = ({
   }, [formData, quotes, acceptedQuoteId, paymentHistory, documents]);
 
   const isFormDirty = useMemo(() => {
+    // Re-evaluate when a successful save advances the snapshot baseline.
+    void savedSnapshotRevision;
     if (savedSnapshotRef.current === null) return false;
     const snap = JSON.stringify({
       formData,
@@ -913,7 +1081,14 @@ const NewInsuranceCaseForm = ({
       docs: (documents || []).map((d) => ({ name: d?.name, tag: d?.tag, url: d?.url })),
     });
     return snap !== savedSnapshotRef.current;
-  }, [formData, quotes, acceptedQuoteId, paymentHistory, documents]);
+  }, [
+    formData,
+    quotes,
+    acceptedQuoteId,
+    paymentHistory,
+    documents,
+    savedSnapshotRevision,
+  ]);
 
   useEffect(() => {
     window.__isInsuranceFormDirty = isFormDirty;
@@ -965,9 +1140,84 @@ const NewInsuranceCaseForm = ({
   const [insuranceDbId, setInsuranceDbId] = useState(
     initialValues?._id || initialValues?.id || null,
   );
+  /**
+   * Case ID allotted the instant this form opens, so the number follows the
+   * order cases were *started* in. Previously the server stamped it inside
+   * create — which only fires once name + mobile are valid — so whoever
+   * finished typing first won the lower number and IDs came out of order.
+   * Abandon the form without saving and this ID goes back for the next case.
+   */
+  const [reservedCaseId, setReservedCaseId] = useState("");
+  const reservedCaseIdRef = React.useRef("");
+  const insuranceDbIdRef = React.useRef(insuranceDbId);
   const [saving, setSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState(null);
   const [saveError, setSaveError] = useState("");
+
+  // Refs shadow the state so the unmount / tab-close handlers below read the
+  // current values instead of the ones captured when the effect was created.
+  useEffect(() => {
+    insuranceDbIdRef.current = insuranceDbId;
+  }, [insuranceDbId]);
+  useEffect(() => {
+    reservedCaseIdRef.current = reservedCaseId;
+  }, [reservedCaseId]);
+
+  // Allot the number the moment a brand-new case is opened.
+  useEffect(() => {
+    if (!isCreateMode) return undefined;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await insuranceApi.reserveCaseId();
+        const payload = res?.data?.data ?? res?.data ?? res;
+        const allotted = payload?.caseId || "";
+        if (!allotted) return;
+        if (cancelled) {
+          // Form closed while the request was in flight — give it straight back.
+          insuranceApi.releaseCaseId(allotted).catch(() => {});
+          return;
+        }
+        setReservedCaseId(allotted);
+      } catch (err) {
+        // A missing reservation is not fatal: create falls back to the counter.
+        console.error("[Insurance] Case ID reservation failed:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isCreateMode]);
+
+  // Left without ever saving → the number goes back for the next new case.
+  useEffect(() => {
+    const releasableId = () => {
+      const id = reservedCaseIdRef.current;
+      // insuranceDbId set means a real case owns this number now.
+      return id && !insuranceDbIdRef.current ? id : "";
+    };
+
+    // A closing tab kills in-flight XHR, so the release has to go by beacon.
+    const handlePageHide = () => {
+      const id = releasableId();
+      if (!id || typeof navigator.sendBeacon !== "function") return;
+      navigator.sendBeacon(
+        `${API_BASE_URL}/api/insurance/case-id/release`,
+        new Blob([JSON.stringify({ caseId: id })], {
+          type: "application/json",
+        }),
+      );
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+      const id = releasableId();
+      if (!id) return;
+      reservedCaseIdRef.current = "";
+      insuranceApi.releaseCaseId(id).catch(() => {});
+    };
+  }, []);
 
   // ── New UI state ─────────────────────────────────────────────────────────
   /** True after Step 8 is submitted successfully */
@@ -1070,11 +1320,13 @@ const NewInsuranceCaseForm = ({
     usedCarFlowType === "Sale/Purchase";
   const step4SuggestedNcb = useMemo(
     () =>
-      getSuggestedStep4Ncb({
-        previousNcbDiscount: formData.previousNcbDiscount,
-        claimTakenLastYear: formData.claimTakenLastYear,
-      }),
-    [formData.claimTakenLastYear, formData.previousNcbDiscount],
+      isNewCar
+        ? 0
+        : getSuggestedStep4Ncb({
+            previousNcbDiscount: formData.previousNcbDiscount,
+            claimTakenLastYear: formData.claimTakenLastYear,
+          }),
+    [formData.claimTakenLastYear, formData.previousNcbDiscount, isNewCar],
   );
   const step4VehicleAgeYears = useMemo(() => {
     const regDateRaw = String(formData.dateOfReg || "").trim();
@@ -1091,12 +1343,14 @@ const NewInsuranceCaseForm = ({
   const step4ShowStandaloneAgeWarning =
     step4VehicleAgeYears != null && step4VehicleAgeYears > 3;
   const step4SuggestedIdv = useMemo(() => {
+    if (isNewCar) return calculateNewCarIdv(formData.exShowroomPrice);
     const previousIdv = Number(formData.previousIdvAmount || 0);
     if (!Number.isFinite(previousIdv) || previousIdv <= 0) return 0;
     return Math.round(previousIdv * 0.9);
-  }, [formData.previousIdvAmount]);
+  }, [formData.exShowroomPrice, formData.previousIdvAmount, isNewCar]);
 
   const crmSnapshotPendingRef = React.useRef(false);
+  const confirmedCrmSyncRef = React.useRef(false);
 
   const applyCustomerToForm = useCallback((customer, { overwrite = false } = {}) => {
     if (!customer) return;
@@ -1148,16 +1402,53 @@ const NewInsuranceCaseForm = ({
     setCrmCustomerSnapshot(pickCrmCustomerSnapshot(formData));
   }, [formData]);
 
-  /** Labels of CRM-loaded customer fields the user has edited afterwards */
-  const modifiedCrmFields = useMemo(() => {
+  useEffect(() => {
+    const customerId = getCustomerId(formData.customerId);
+    if (!customerId || crmCustomerSnapshot || crmSnapshotPendingRef.current) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    customersApi
+      .getById(customerId)
+      .then((res) => {
+        if (cancelled) return;
+        const raw = res?.data?.data ?? res?.data ?? res;
+        if (!raw || typeof raw !== "object") return;
+        const normalized = {
+          ...raw,
+          ...mapCustomerToInsuranceFields(raw),
+        };
+        setCrmCustomerSnapshot(pickCrmCustomerSnapshot(normalized));
+      })
+      .catch((error) => {
+        console.error("[Insurance] Customer baseline load failed:", error);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [crmCustomerSnapshot, formData.customerId, getCustomerId]);
+
+  /** CRM-loaded customer fields edited afterwards, including old/new values. */
+  const modifiedCrmChanges = useMemo(() => {
     if (!crmCustomerSnapshot) return [];
     return Object.entries(CRM_CUSTOMER_FIELD_LABELS)
       .filter(
         ([key]) =>
           String(formData?.[key] ?? "").trim() !== crmCustomerSnapshot[key],
       )
-      .map(([, label]) => label);
+      .map(([key, label]) => ({
+        key,
+        label,
+        oldValue: crmCustomerSnapshot[key] || "—",
+        newValue: String(formData?.[key] ?? "").trim() || "—",
+      }));
   }, [crmCustomerSnapshot, formData]);
+  const modifiedCrmFields = useMemo(
+    () => modifiedCrmChanges.map((change) => change.label),
+    [modifiedCrmChanges],
+  );
 
   // Note: auto-toast removed — false positives fired during the two-phase CRM
   // async load (search result merge → getById merge). Confirmation is handled
@@ -1173,19 +1464,87 @@ const NewInsuranceCaseForm = ({
     return new Promise((resolve) => {
       Modal.confirm({
         title: "Existing customer data changed",
-        content: `You have changed these details of an existing customer: ${modifiedCrmFields.join(
-          ", ",
-        )}. Do you want to continue with the updated details?`,
-        okText: "Yes, continue",
+        width: 640,
+        content: (
+          <div className="mt-2 space-y-3">
+            <p className="m-0 text-sm text-slate-600">
+              Confirm these customer changes. They will sync to linked Loans,
+              Home Loans, quotations, vehicles, and other Insurance cases.
+            </p>
+            <div className="max-h-72 overflow-auto rounded-xl border border-slate-200">
+              <table className="w-full border-collapse text-left text-xs">
+                <thead className="sticky top-0 bg-slate-100 text-slate-700">
+                  <tr>
+                    <th className="px-3 py-2">Field</th>
+                    <th className="px-3 py-2">Current</th>
+                    <th className="px-3 py-2">New Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {modifiedCrmChanges.map((change) => (
+                    <tr key={change.key}>
+                      <td className="px-3 py-2 font-semibold text-slate-700">
+                        {change.label}
+                      </td>
+                      <td className="px-3 py-2 text-slate-500">
+                        {change.oldValue}
+                      </td>
+                      <td className="px-3 py-2 font-medium text-emerald-700">
+                        {change.newValue}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ),
+        okText: "Yes, sync & continue",
         cancelText: "No, review",
         onOk: () => {
-          setCrmCustomerSnapshot(pickCrmCustomerSnapshot(formData));
+          confirmedCrmSyncRef.current = true;
           resolve(true);
         },
         onCancel: () => resolve(false),
       });
     });
-  }, [modifiedCrmFields, formData]);
+  }, [modifiedCrmChanges, modifiedCrmFields]);
+
+  const syncConfirmedCustomerChanges = useCallback(
+    async (payload) => {
+      if (!confirmedCrmSyncRef.current) return null;
+      const customerId = getCustomerId(payload?.customerId);
+      if (!customerId) {
+        confirmedCrmSyncRef.current = false;
+        return null;
+      }
+
+      try {
+        const result = await customersApi.update(
+          customerId,
+          buildCustomerUpdatePayloadFromInsurance(payload),
+        );
+        confirmedCrmSyncRef.current = false;
+        setCrmCustomerSnapshot(pickCrmCustomerSnapshot(payload));
+        if (
+          Array.isArray(result?.syncSummary?.errors) &&
+          result.syncSummary.errors.length
+        ) {
+          message.warning(
+            "Customer updated, but one or more linked modules could not be synced.",
+          );
+        }
+        return result;
+      } catch (error) {
+        console.error("[Insurance] Linked customer sync failed:", error);
+        message.warning(
+          "Insurance saved, but linked customer modules could not be synced. Please retry.",
+        );
+        return null;
+      }
+    },
+    [getCustomerId],
+  );
 
   /**
    * Confirm before an explicit save whenever any field — new or existing —
@@ -2621,8 +2980,9 @@ const NewInsuranceCaseForm = ({
         initialValues?.payoutPercentage ??
         initialFormState.payoutPercent,
       payoutPercentage:
-        initialValues?.payoutPercent ??
+        initialValues?.payoutSchedule?.totalPayoutPercentage ??
         initialValues?.payoutPercentage ??
+        initialValues?.payoutPercent ??
         initialFormState.payoutPercentage,
       assignedTo:
         initialValues?.assignedTo ||
@@ -3027,7 +3387,10 @@ const NewInsuranceCaseForm = ({
       )
         ? currentDuration
         : nextDuration;
-      const nextNcb = Number(step4SuggestedNcb || 0);
+      const nextNcb = isNewCar ? 0 : Number(step4SuggestedNcb || 0);
+      const nextVehicleIdv = isNewCar
+        ? Number(step4SuggestedIdv || 0)
+        : Number(prev.vehicleIdv || 0);
       const shouldSyncNcb =
         !String(prev.insuranceCompany || "").trim() &&
         Number(prev.odAmount || 0) === 0 &&
@@ -3049,6 +3412,7 @@ const NewInsuranceCaseForm = ({
 
       if (
         resolvedDuration === currentDuration &&
+        Number(prev.vehicleIdv || 0) === nextVehicleIdv &&
         (!shouldSyncNcb || Number(prev.ncbDiscount || 0) === nextNcb) &&
         (!shouldSyncHypothecation ||
           currentHypothecation === previousHypothecation)
@@ -3059,7 +3423,8 @@ const NewInsuranceCaseForm = ({
       return {
         ...prev,
         policyDuration: resolvedDuration,
-        ...(shouldSyncNcb ? { ncbDiscount: nextNcb } : {}),
+        ...(isNewCar || shouldSyncNcb ? { ncbDiscount: nextNcb } : {}),
+        ...(isNewCar ? { vehicleIdv: nextVehicleIdv } : {}),
         ...(shouldSyncHypothecation
           ? { hypothecation: previousHypothecation || "Not Applicable" }
           : {}),
@@ -3069,6 +3434,7 @@ const NewInsuranceCaseForm = ({
     editingQuoteId,
     formData.previousHypothecation,
     isNewCar,
+    step4SuggestedIdv,
     step4SuggestedNcb,
   ]);
 
@@ -3108,6 +3474,9 @@ const NewInsuranceCaseForm = ({
         ).trim() || "Direct";
       const normalizedPaymentHistory =
         normalizePaymentHistoryForPersist(paymentHistory);
+      const normalizedQuotes = isNewCar
+        ? quotes.map((quote) => ({ ...quote, ncbDiscount: 0 }))
+        : quotes;
       const customerPaymentExpected = Number(
         safeFormData.customerPaymentExpected || 0,
       );
@@ -3150,7 +3519,10 @@ const NewInsuranceCaseForm = ({
       const policyName =
         `${customerName} ${vehicleIdent} ${yearRange ? `* ${yearRange}` : ""}`.trim();
       const payoutPercentValue = Number(
-        safeFormData.payoutPercent ?? safeFormData.payoutPercentage ?? 0,
+        safeFormData.payoutSchedule?.totalPayoutPercentage ??
+          safeFormData.payoutPercent ??
+          safeFormData.payoutPercentage ??
+          0,
       );
 
       const mobileNorm = normalizeIndianMobile(safeFormData.mobile);
@@ -3160,6 +3532,7 @@ const NewInsuranceCaseForm = ({
 
       return {
         ...safeFormData,
+        ...(isNewCar ? { newNcbDiscount: 0 } : {}),
         customerId: customerIdValue,
         mobile: mobileNorm.length === 10 ? mobileNorm : safeFormData.mobile,
         alternatePhone:
@@ -3174,7 +3547,7 @@ const NewInsuranceCaseForm = ({
         sourceOrigin: normalizedSource,
         policyCategory: safeFormData.policyCategory || "Insurance Policy",
         policyTypeSelector: safeFormData.policyCategory || "Insurance Policy",
-        quotes,
+        quotes: normalizedQuotes,
         acceptedQuoteId,
         documents,
         paymentHistory: normalizedPaymentHistory,
@@ -3191,10 +3564,13 @@ const NewInsuranceCaseForm = ({
         payoutPercent: Number.isFinite(payoutPercentValue)
           ? payoutPercentValue
           : 0,
+        payoutPercentage: Number.isFinite(payoutPercentValue)
+          ? payoutPercentValue
+          : 0,
         ...safePatch,
       };
     },
-    [acceptedQuoteId, documents, formData, paymentHistory, quotes, step],
+    [acceptedQuoteId, documents, formData, isNewCar, paymentHistory, quotes, step],
   );
 
   const persistNow = useCallback(
@@ -3205,6 +3581,8 @@ const NewInsuranceCaseForm = ({
 
         try {
           const payload = buildPersistPayload(patch);
+          payload.syncCustomerConfirmed = confirmedCrmSyncRef.current;
+          const snapshotAtSave = currentSnapshotRef.current;
           if (!insuranceDbId) {
             const hasName = Boolean(
               String(
@@ -3221,20 +3599,28 @@ const NewInsuranceCaseForm = ({
             }
           }
           if (!insuranceDbId) {
+            // Claim the number the form has been displaying all along.
+            if (reservedCaseIdRef.current) {
+              payload.reservedCaseId = reservedCaseIdRef.current;
+            }
             const res = await insuranceApi.create(payload);
             const created = res?.data || res;
             const id = created?._id || created?.id || created?.data?._id;
             if (id) setInsuranceDbId(id);
+            await syncConfirmedCustomerChanges(payload);
             setLastSavedAt(new Date().toISOString());
             // Mark form as clean relative to this save point
-            savedSnapshotRef.current = currentSnapshotRef.current;
+            savedSnapshotRef.current = snapshotAtSave;
+            setSavedSnapshotRevision((revision) => revision + 1);
             if (!silent) message.success("Draft saved ✓");
             return created;
           }
           const res = await insuranceApi.update(insuranceDbId, payload);
+          await syncConfirmedCustomerChanges(payload);
           setLastSavedAt(new Date().toISOString());
           // Mark form as clean relative to this save point
-          savedSnapshotRef.current = currentSnapshotRef.current;
+          savedSnapshotRef.current = snapshotAtSave;
+          setSavedSnapshotRevision((revision) => revision + 1);
           if (!silent) message.success("Draft saved ✓");
           return res?.data || res;
         } catch (err) {
@@ -3253,7 +3639,7 @@ const NewInsuranceCaseForm = ({
       persistChainRef.current = next.catch(() => {});
       return next;
     },
-    [buildPersistPayload, insuranceDbId],
+    [buildPersistPayload, insuranceDbId, syncConfirmedCustomerChanges],
   );
 
   const schedulePersist = useCallback(
@@ -3683,6 +4069,15 @@ const NewInsuranceCaseForm = ({
           newAddOnsTotal: initialFormState.newAddOnsTotal,
           newTotalPremium: initialFormState.newTotalPremium,
           newSelectedAddOns: initialFormState.newSelectedAddOns,
+          newHypothecation: initialFormState.newHypothecation,
+          exShowroomPrice: initialFormState.exShowroomPrice,
+          dateOfSale: initialFormState.dateOfSale,
+          dateOfPurchase: initialFormState.dateOfPurchase,
+          odometerReading: initialFormState.odometerReading,
+          policyPurchaseDate: initialFormState.policyPurchaseDate,
+          ewCommencementDate: initialFormState.ewCommencementDate,
+          ewExpiryDate: initialFormState.ewExpiryDate,
+          kmsCoverage: initialFormState.kmsCoverage,
         }));
       } else if (step === 7) {
         setDocuments([]);
@@ -3694,6 +4089,9 @@ const NewInsuranceCaseForm = ({
           payoutApplicable: initialFormState.payoutApplicable,
           payoutPercent: initialFormState.payoutPercent,
           payoutPercentage: initialFormState.payoutPercentage,
+          payoutSchedule: null,
+          insurance_receivables: [],
+          insurance_payables: [],
         }));
       }
       clearStepError(step);
@@ -3715,7 +4113,17 @@ const NewInsuranceCaseForm = ({
 
   // Discard: exit immediately without saving (resets dirty tracking first).
   const handleDiscard = React.useCallback(() => {
+    if (autoSaveDraftTimerRef.current) {
+      window.clearTimeout(autoSaveDraftTimerRef.current);
+      autoSaveDraftTimerRef.current = null;
+    }
+    if (persistTimerRef.current) {
+      window.clearTimeout(persistTimerRef.current);
+      persistTimerRef.current = null;
+    }
+    isDirtyRef.current = false;
     savedSnapshotRef.current = currentSnapshotRef.current;
+    clearInsuranceDraftFromSession();
     onCancel?.();
   }, [onCancel]);
 
@@ -3726,6 +4134,8 @@ const NewInsuranceCaseForm = ({
       const saved = await persistNow({ silent: false });
       if (!saved) return;
     }
+    isDirtyRef.current = false;
+    clearInsuranceDraftFromSession();
     onCancel?.();
   }, [isFormDirty, persistNow, onCancel]);
 
@@ -3884,6 +4294,7 @@ const NewInsuranceCaseForm = ({
     if (!String(quoteDraft.policyDuration || "").trim()) return;
     const normalizedQuotePayload = {
       ...quoteDraft,
+      ncbDiscount: isNewCar ? 0 : Number(quoteDraft.ncbDiscount || 0),
       totalIdv: quoteComputed.totalIdv,
       addOnsTotal: quoteComputed.addOnsTotal,
       addOnsSource: quoteComputed.addOnsSource,
@@ -3954,36 +4365,86 @@ const NewInsuranceCaseForm = ({
       selectedPayoutPercentage = DEFAULT_PAYOUT_PERCENTAGE;
     }
 
+    const acceptedTenure = yearsFromDuration(q.policyDuration);
+    const payoutYearCount = Math.max(1, acceptedTenure.odYears);
+    const isMultiYearPayout = payoutYearCount > 1;
+    const existingYearlyEntries = Array.isArray(q?.payoutSchedule?.entries)
+      ? q.payoutSchedule.entries
+      : [];
+    const selectedYearlyPercentages = Array.from(
+      { length: payoutYearCount },
+      (_, index) => {
+        const policyYear = index + 1;
+        const existing = existingYearlyEntries.find(
+          (entry) => Number(entry?.policyYear) === policyYear,
+        );
+        if (existing) return Number(existing.percentage || 0);
+        return policyYear === 1 ? selectedPayoutPercentage : 0;
+      },
+    );
+    const acceptedBreakup = computeQuoteBreakupFromRow(q);
+    const acceptedPayoutBaseAmount = Number(
+      acceptedBreakup?.payoutBaseAmount || 0,
+    );
+
     Modal.confirm({
-      title: "Set Payout %",
+      title: "Payout Calculator",
+      width: isMultiYearPayout ? 720 : 540,
+      centered: true,
+      icon: null,
       content: (
-        <div className="space-y-2">
-          <p className="m-0 text-sm text-slate-600">
-            Accepted quote: <b>{q.insuranceCompany || "Insurance Company"}</b>
-          </p>
-          <InputNumber
-            min={0}
-            max={100}
-            defaultValue={selectedPayoutPercentage}
-            addonAfter="%"
-            className="w-full"
-            onChange={(v) => {
-              selectedPayoutPercentage = Number(v || 0);
-            }}
-          />
-        </div>
+        <QuotePayoutCalculator
+          companyName={q.insuranceCompany}
+          policyDuration={q.policyDuration}
+          payoutBaseAmount={acceptedPayoutBaseAmount}
+          initialPercentages={
+            isMultiYearPayout
+              ? selectedYearlyPercentages
+              : [selectedPayoutPercentage]
+          }
+          payoutYearCount={payoutYearCount}
+          onChange={(percentages) => {
+            if (isMultiYearPayout) {
+              selectedYearlyPercentages.splice(
+                0,
+                selectedYearlyPercentages.length,
+                ...percentages,
+              );
+            } else {
+              selectedPayoutPercentage = Number(percentages[0] || 0);
+            }
+          }}
+        />
       ),
-      okText: "Apply",
+      okText: "Apply Payout",
       cancelText: "Cancel",
       onOk: () => {
         setFormData((prev) => {
           const breakup = computeQuoteBreakupFromRow(q);
           const payoutBaseAmount = Number(breakup?.payoutBaseAmount || 0);
+          const appliedPayoutPercentage = isMultiYearPayout
+            ? selectedYearlyPercentages.reduce(
+                (sum, percentage) => sum + Number(percentage || 0),
+                0,
+              )
+            : Number(selectedPayoutPercentage || 0);
           const payoutAmount =
-            (payoutBaseAmount * Number(selectedPayoutPercentage || 0)) / 100;
+            (payoutBaseAmount * appliedPayoutPercentage) / 100;
+          const payoutSchedule = generatePayoutSchedule({
+            mode: isMultiYearPayout
+              ? PAYOUT_MODES.YEARLY
+              : PAYOUT_MODES.LUMPSUM,
+            tenureYears: payoutYearCount,
+            totalPayoutPercentage: appliedPayoutPercentage,
+            yearlyPercentages: isMultiYearPayout
+              ? selectedYearlyPercentages
+              : null,
+            baseAmount: payoutBaseAmount,
+            policyStartDate,
+          });
           const nextReceivable = buildAutoReceivableRow(
             q.insuranceCompany,
-            selectedPayoutPercentage,
+            appliedPayoutPercentage,
             payoutAmount,
           );
           const existingReceivables = Array.isArray(prev.insurance_receivables)
@@ -4041,7 +4502,7 @@ const NewInsuranceCaseForm = ({
             newPolicyStartDate: "",
             newOdExpiryDate: "",
             newTpExpiryDate: "",
-            newNcbDiscount: q.ncbDiscount,
+            newNcbDiscount: isNewCar ? 0 : Number(q.ncbDiscount || 0),
             newVehicleIdv: Number(q.vehicleIdv || 0),
             newCngIdv: Number(q.cngIdv || 0),
             newAccessoriesIdv: Number(q.accessoriesIdv || 0),
@@ -4056,7 +4517,8 @@ const NewInsuranceCaseForm = ({
               String(q.hypothecation || "").trim() ||
               String(prev.previousHypothecation || "").trim() ||
               "Not Applicable",
-            payoutPercentage: Number(selectedPayoutPercentage || 0),
+            payoutPercentage: appliedPayoutPercentage,
+            payoutSchedule,
             policyJourneyClassification,
             insurance_receivables: [...existingReceivables, nextReceivable],
           };
@@ -4176,11 +4638,16 @@ const NewInsuranceCaseForm = ({
       silent: true,
       patch: { status: "submitted" },
     });
+    if (!saved) {
+      message.error("Case could not be saved. Please retry before completing.");
+      return;
+    }
+    isDirtyRef.current = false;
     clearInsuranceDraftFromSession();
     const ref = `CASE-${Date.now()}`;
     setCaseReference(ref);
     setSubmitted(true);
-    onSubmit?.(saved || buildPersistPayload({ status: "submitted" }));
+    onSubmit?.(saved);
   };
 
   const visibleSteps = useMemo(() => {
@@ -4435,6 +4902,10 @@ const NewInsuranceCaseForm = ({
               claimTakenLastYear: formData.claimTakenLastYear,
               customerName: formData.customerName || formData.contactPersonName || "",
               mobile: formData.mobile || "",
+              email: formData.email || "",
+              residenceAddress: formData.residenceAddress || "",
+              pincode: formData.pincode || "",
+              city: formData.city || "",
               registrationNumber: formData.registrationNumber || "",
               vehicleMake: formData.vehicleMake || "",
               vehicleModel: formData.vehicleModel || "",
@@ -4648,6 +5119,7 @@ const NewInsuranceCaseForm = ({
               skipPreviousPolicyStep={shouldSkipStep(3)}
               skipQuotesStep={shouldSkipStep(4)}
               innerRef={stickyHeaderRef}
+              caseId={formData?.caseId || reservedCaseId}
             />
           ) : null}
 
@@ -4671,7 +5143,7 @@ const NewInsuranceCaseForm = ({
               onNext={step === 9 ? handleSubmitFinal : goNext}
               onSave={async () => {
                 if (!(await confirmSaveChanges())) return;
-                persistNow({ silent: false });
+                await persistNow({ silent: false });
               }}
               onExit={handleSaveAndExit}
               onDiscard={handleDiscard}
