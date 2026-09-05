@@ -121,8 +121,12 @@ const InsuranceStickyHeader = ({
   skipPreviousPolicyStep = false,
   skipQuotesStep = false,
   innerRef,
+  caseId,
 }) => {
   const data = formData || {};
+  // On a new case this is the ID reserved when the form opened, so the user
+  // can quote a case number before anything has been saved.
+  const displayCaseId = hasValue(caseId) ? caseId : data.caseId;
 
   const vehicleLine = [data.vehicleMake, data.vehicleModel, data.vehicleVariant]
     .filter((v) => hasValue(v))
@@ -171,10 +175,11 @@ const InsuranceStickyHeader = ({
               icon="User"
               label="Customer Details"
               colorIdx={0}
-              title={data.customerName || data.companyName || data.caseId || "—"}
+              title={data.customerName || data.companyName || displayCaseId || "—"}
               line1={
                 [data.mobile, data.email].filter(Boolean).join(" · ") || "—"
               }
+              line2={hasValue(displayCaseId) ? `Case: ${displayCaseId}` : undefined}
               divider={true}
             />
             <SummarySegment
@@ -208,7 +213,11 @@ const InsuranceStickyHeader = ({
               label="Premium"
               colorIdx={2}
               title={formatMoney(data.newTotalPremium)}
-              line1={`IDV: ${formatMoney(data.newIdvAmount)} · NCB: ${data.newNcbDiscount || 0}%`}
+              line1={
+                String(data.vehicleType || "").trim() === "New Car"
+                  ? `IDV: ${formatMoney(data.newIdvAmount)}`
+                  : `IDV: ${formatMoney(data.newIdvAmount)} · NCB: ${data.newNcbDiscount || 0}%`
+              }
               line2={
                 data.subventionAmount
                   ? `Subvention: ${formatMoney(data.subventionAmount)}`

@@ -71,6 +71,11 @@ const POLICY_DURATION_DISPLAY = {
   "1yr OD + 3yr TP": "1 Yr (OD) + 3 Yr (TP)",
   "2yr OD + 3yr TP": "2 yr (OD) + 3 Yr (TP)",
   "3yr OD + 3yr TP": "3 Yr (OD) + 3 Yr (TP)",
+  // Shorthand tenures never reach the customer as "1+3" — always expanded.
+  "1+1": "1 yr (OD) + 1 Yr (TP)",
+  "1+3": "1 Yr (OD) + 3 Yr (TP)",
+  "2+3": "2 yr (OD) + 3 Yr (TP)",
+  "3+3": "3 Yr (OD) + 3 Yr (TP)",
 };
 
 export const formatPolicyDuration = (value) => {
@@ -84,6 +89,20 @@ export const pickPolicyNumber = (primary, fallback = 0) => {
   const b = Number(fallback);
   return Number.isFinite(b) ? b : 0;
 };
+
+export const calculateNewCarIdv = (showroomPrice) => {
+  const price = Number(showroomPrice);
+  if (!Number.isFinite(price) || price <= 0) return 0;
+  return Math.round(price * 0.95);
+};
+
+const isRenewalRecord = (record = {}) =>
+  Boolean(
+    record?.isRenewal ||
+      record?.renewedFromCaseId ||
+      record?.renewFromCaseId ||
+      record?.renewedFrom,
+  );
 
 export const parseInsuranceDate = (value) => {
   if (!hasDisplayValue(value)) return null;
@@ -271,6 +290,10 @@ export const premiumNum = (record) => {
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
 
+  // A renewal child owns a new policy cycle. Its copied previous-policy
+  // premium must never become the current Payment Engine premium.
+  if (isRenewalRecord(safe)) return 0;
+
   const fallback = pickPolicyNumber(safe.previousTotalPremium ?? safe.totalPremium);
   return Number.isFinite(fallback) ? fallback : 0;
 };
@@ -423,6 +446,32 @@ export const daysUntilExpiry = (record) => {
   const parsed = parseInsuranceDate(expiryDate);
   if (!parsed || !parsed.isValid()) return null;
   return parsed.startOf("day").diff(dayjs().startOf("day"), "day");
+};
+
+export const getInsuranceLifecycleStatus = (
+  record,
+  { renewed = false, baseDate = dayjs() } = {},
+) => {
+  const safe = coerceInsuranceRecord(record);
+  const status = String(safe.status || "").trim().toLowerCase();
+
+  if (status === "draft") return "Draft";
+  if (status === "cancelled") return "Cancelled";
+  if (renewed) return "Renewed";
+
+  const currentExpiry = isRenewalRecord(safe)
+    ? pickPolicyValue(safe.newOdExpiryDate, safe.newTpExpiryDate)
+    : getPolicyPulseExpiryDate(safe);
+  const expiry = parseInsuranceDate(currentExpiry);
+  if (
+    expiry?.isValid() &&
+    expiry.endOf("day").isBefore(dayjs(baseDate).startOf("day"))
+  ) {
+    return "Expired";
+  }
+
+  if (status === "issued" || status === "completed") return "Issued";
+  return "Pending";
 };
 
 export const cycleAdjustedDaysUntilExpiry = (record) => {
@@ -609,31 +658,32 @@ export const computeInsurancePaymentTotals = (rows = [], premium = 0) => {
 export const resolveActivePolicySnapshot = (record) => {
   const safe = coerceInsuranceRecord(record);
   const { acceptedQuote, acceptedBreakup } = getAcceptedQuoteContext(safe);
+  const allowPreviousFallback = !isRenewalRecord(safe);
 
   const insuranceCompany = pickPolicyValue(
     safe.newInsuranceCompany,
-    safe.previousInsuranceCompany,
+    allowPreviousFallback ? safe.previousInsuranceCompany : "",
   );
   const policyNumber = pickPolicyValue(
     safe.newPolicyNumber,
-    safe.previousPolicyNumber,
+    allowPreviousFallback ? safe.previousPolicyNumber : "",
   );
   const policyType = pickPolicyValue(
     safe.newPolicyType,
-    safe.previousPolicyType,
+    allowPreviousFallback ? safe.previousPolicyType : "",
   );
   const odExpiryDate = pickPolicyValue(
     safe.newOdExpiryDate,
-    safe.previousOdExpiryDate,
+    allowPreviousFallback ? safe.previousOdExpiryDate : "",
   );
   const tpExpiryDate = pickPolicyValue(
     safe.newTpExpiryDate,
-    safe.previousTpExpiryDate,
+    allowPreviousFallback ? safe.previousTpExpiryDate : "",
   );
   const ncbDiscount = Number(
     pickPolicyValue(
       safe.newNcbDiscount ?? safe.newNcb,
-      safe.previousNcbDiscount,
+      allowPreviousFallback ? safe.previousNcbDiscount : "",
     ) ||
       acceptedQuote?.ncbDiscount ||
       0,
@@ -641,22 +691,28 @@ export const resolveActivePolicySnapshot = (record) => {
 
   const ownDamage = pickPolicyNumber(
     acceptedBreakup?.odAmt || safe.newOwnDamageAmount || safe.newOdAmount,
-    safe.previousOwnDamageAmount || safe.previousOdAmount,
+    allowPreviousFallback
+      ? safe.previousOwnDamageAmount || safe.previousOdAmount
+      : 0,
   );
   const thirdParty = pickPolicyNumber(
     acceptedBreakup?.tpAmt || safe.newThirdPartyAmount || safe.newTpAmount,
-    safe.previousThirdPartyAmount || safe.previousTpAmount,
+    allowPreviousFallback
+      ? safe.previousThirdPartyAmount || safe.previousTpAmount
+      : 0,
   );
   const addOnsTotal = pickPolicyNumber(
     acceptedBreakup?.addOnsTotal || safe.newAddOnsTotal,
-    safe.previousAddOnsTotal,
+    allowPreviousFallback ? safe.previousAddOnsTotal : 0,
   );
   const totalPremium = pickPolicyNumber(
     premiumNum(safe),
     safe.previousTotalPremium,
   );
 
-  const expiryDate = getPolicyPulseExpiryDate(safe);
+  const expiryDate = allowPreviousFallback
+    ? getPolicyPulseExpiryDate(safe)
+    : pickPolicyValue(safe.newOdExpiryDate, safe.newTpExpiryDate);
   const parsedExpiry = parseInsuranceDate(expiryDate);
   const expiryLabel = parsedExpiry ? parsedExpiry.format("DD MMM YYYY") : "—";
   const expiryDays = daysUntilExpiry(safe);
@@ -674,12 +730,14 @@ export const resolveActivePolicySnapshot = (record) => {
     tpExpiryDate,
     ownDamage,
     ownDamageBeforeNcb: pickPolicyNumber(
-      safe.newOwnDamageBeforeNcb || safe.previousOwnDamageBeforeNcb,
+      safe.newOwnDamageBeforeNcb ||
+        (allowPreviousFallback ? safe.previousOwnDamageBeforeNcb : 0),
       ownDamage + ncbAmount,
     ),
     thirdParty,
     basicThirdParty: pickPolicyNumber(
-      safe.newBasicThirdPartyAmount || safe.previousBasicThirdPartyAmount,
+      safe.newBasicThirdPartyAmount ||
+        (allowPreviousFallback ? safe.previousBasicThirdPartyAmount : 0),
       thirdParty,
     ),
     addOnsTotal,
@@ -702,20 +760,25 @@ export const parsePolicyIncludedAddons = (record, snapshot = null) => {
   const safe = coerceInsuranceRecord(record);
   const active = snapshot || resolveActivePolicySnapshot(safe);
   const { acceptedQuote } = active;
+  const allowPreviousFallback = !isRenewalRecord(safe);
 
   const candidates = [
     acceptedQuote?.includedAddons,
     acceptedQuote?.includedAddOns,
     safe.newIncludedAddons,
     safe.newIncludedAddOns,
-    safe.previousIncludedAddons,
-    safe.previousIncludedAddOns,
     safe.includedAddons,
     safe.includedAddOns,
-    safe.previousAddOns,
-    safe.previousAddonDetails,
-    safe.previousAddOnsDetails,
-    safe.previousAddOnsBreakup,
+    ...(allowPreviousFallback
+      ? [
+          safe.previousIncludedAddons,
+          safe.previousIncludedAddOns,
+          safe.previousAddOns,
+          safe.previousAddonDetails,
+          safe.previousAddOnsDetails,
+          safe.previousAddOnsBreakup,
+        ]
+      : []),
   ];
 
   const normalizeArray = (value) => {
@@ -778,12 +841,19 @@ export const parsePolicyIncludedAddons = (record, snapshot = null) => {
 
 export const buildInsurancePaymentTimeline = (record) => {
   const safe = coerceInsuranceRecord(record);
-  // Same fallback as resolveActivePolicySnapshot's totalPremium — without it,
-  // a case whose new/renewed policy premium isn't finalized yet shows ₹0
-  // here while the rest of the card correctly falls back to the previous
-  // policy's premium.
-  const premium = pickPolicyNumber(premiumNum(safe), safe.previousTotalPremium);
+  const premium = premiumNum(safe);
   const isPreviousYearPremium = !hasFinalizedRenewalPremium(safe);
+  if (isRenewalRecord(safe) && isPreviousYearPremium) {
+    return [
+      {
+        label: "Total Premium",
+        amount: 0,
+        type: "neutral",
+        date: null,
+        isPreviousYearPremium: false,
+      },
+    ];
+  }
   const paymentLedger = (
     Array.isArray(safe.paymentHistory)
       ? safe.paymentHistory

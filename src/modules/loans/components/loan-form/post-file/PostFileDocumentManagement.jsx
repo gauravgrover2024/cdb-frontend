@@ -135,6 +135,7 @@ const PostFileDocumentManagement = ({ form }) => {
           aadhaarCardBackDocUrl: freshCustomer.aadhaarCardBackDocUrl,
           panCardDocUrl: freshCustomer.panCardDocUrl,
           passportDocUrl: freshCustomer.passportDocUrl,
+          passportBackDocUrl: freshCustomer.passportBackDocUrl,
           dlDocUrl: freshCustomer.dlDocUrl,
           addressProofDocUrl: freshCustomer.addressProofDocUrl,
           gstDocUrl: freshCustomer.gstDocUrl,
@@ -174,6 +175,7 @@ const PostFileDocumentManagement = ({ form }) => {
   const aadhaarCardBackDocUrl = Form.useWatch("aadhaarCardBackDocUrl", form);
   const panCardDocUrl = Form.useWatch("panCardDocUrl", form);
   const passportDocUrl = Form.useWatch("passportDocUrl", form);
+  const passportBackDocUrl = Form.useWatch("passportBackDocUrl", form);
   const dlDocUrl = Form.useWatch("dlDocUrl", form);
   const addressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
   const gstDocUrl = Form.useWatch("gstDocUrl", form);
@@ -189,6 +191,7 @@ const PostFileDocumentManagement = ({ form }) => {
       aadhaarCardBackDocUrl,
       panCardDocUrl,
       passportDocUrl,
+      passportBackDocUrl,
       dlDocUrl,
       addressProofDocUrl,
       gstDocUrl,
@@ -213,6 +216,7 @@ const PostFileDocumentManagement = ({ form }) => {
     aadhaarCardBackDocUrl,
     panCardDocUrl,
     passportDocUrl,
+    passportBackDocUrl,
     dlDocUrl,
     addressProofDocUrl,
     gstDocUrl,
@@ -279,7 +283,8 @@ const PostFileDocumentManagement = ({ form }) => {
     addPreFile(aadhaarCardDocUrl, "Aadhar Front", "Aadhar Front");
     addPreFile(aadhaarCardBackDocUrl, "Aadhar Back", "Aadhar Back");
     addPreFile(panCardDocUrl, "PAN Card", "KYC");
-    addPreFile(passportDocUrl, "Passport", "KYC");
+    addPreFile(passportDocUrl, "Passport Front", "KYC");
+    addPreFile(passportBackDocUrl, "Passport Back", "KYC");
     addPreFile(dlDocUrl, "Driving License", "KYC");
     addPreFile(addressProofDocUrl, "Address Proof", "KYC");
     addPreFile(gstDocUrl, "GST Page 1", "GST Page 1");
@@ -293,6 +298,7 @@ const PostFileDocumentManagement = ({ form }) => {
     aadhaarCardBackDocUrl,
     panCardDocUrl,
     passportDocUrl,
+    passportBackDocUrl,
     dlDocUrl,
     addressProofDocUrl,
     gstDocUrl,

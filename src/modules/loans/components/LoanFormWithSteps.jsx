@@ -848,6 +848,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   );
   const watchedPanCardDocUrl = Form.useWatch("panCardDocUrl", form);
   const watchedPassportDocUrl = Form.useWatch("passportDocUrl", form);
+  const watchedPassportBackDocUrl = Form.useWatch("passportBackDocUrl", form);
   const watchedDlDocUrl = Form.useWatch("dlDocUrl", form);
   const watchedAddressProofDocUrl = Form.useWatch("addressProofDocUrl", form);
   const watchedGstDocUrl = Form.useWatch("gstDocUrl", form);
@@ -1938,6 +1939,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       aadhaarCardBackDocUrl: watchedAadhaarCardBackDocUrl || "",
       panCardDocUrl: watchedPanCardDocUrl || "",
       passportDocUrl: watchedPassportDocUrl || "",
+      passportBackDocUrl: watchedPassportBackDocUrl || "",
       dlDocUrl: watchedDlDocUrl || "",
       addressProofDocUrl: watchedAddressProofDocUrl || "",
       gstDocUrl: watchedGstDocUrl || "",
@@ -1981,6 +1983,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     watchedAadhaarCardBackDocUrl,
     watchedPanCardDocUrl,
     watchedPassportDocUrl,
+    watchedPassportBackDocUrl,
     watchedDlDocUrl,
     watchedAddressProofDocUrl,
     watchedGstDocUrl,
@@ -2528,6 +2531,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           aadhaarCardBackDocUrl: formValues.aadhaarCardBackDocUrl,
           panCardDocUrl: formValues.panCardDocUrl,
           passportDocUrl: formValues.passportDocUrl,
+          passportBackDocUrl: formValues.passportBackDocUrl,
           dlDocUrl: formValues.dlDocUrl,
           gstDocUrl: formValues.gstDocUrl,
           gstDocUrlPage2: formValues.gstDocUrlPage2,

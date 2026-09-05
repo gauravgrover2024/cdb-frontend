@@ -438,6 +438,7 @@ const QuoteCard = ({
   isIssued,
   isSelected,
   onSelectQuote,
+  isNewCar,
 }) => {
   const [showAllAddons, setShowAllAddons] = React.useState(false);
   const [showInsightModal, setShowInsightModal] = React.useState(false);
@@ -597,7 +598,9 @@ const QuoteCard = ({
               indent
               muted
             />
-            <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
+            {!isNewCar && (
+              <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
+            )}
           </>
         )}
 
@@ -1007,6 +1010,10 @@ const Step4InsuranceQuotes = ({
         customer: {
           name: previousPolicyContext?.customerName || "",
           mobile: previousPolicyContext?.mobile || "",
+          email: previousPolicyContext?.email || "",
+          address: previousPolicyContext?.residenceAddress || "",
+          pincode: previousPolicyContext?.pincode || "",
+          city: previousPolicyContext?.city || "",
         },
         vehicle: {
           registration: previousPolicyContext?.registrationNumber || "",
@@ -1023,24 +1030,29 @@ const Step4InsuranceQuotes = ({
             insuranceCompany: q.insuranceCompany || "",
             coverageType: q.coverageType || "",
             policyDuration: q.policyDuration || "",
-            idv: Number(b?.idv || q.totalIdv || q.vehicleIdv || 0),
+            idv: Number(b?.totalIdv || q.totalIdv || q.vehicleIdv || 0),
             ncbDiscount: Number(q.ncbDiscount || 0),
             odAmount: Number(b?.odAmt || q.odAmount || 0),
             tpAmount: Number(b?.tpAmt || q.thirdPartyAmount || 0),
             addOnsTotal: Number(b?.addOnsTotal || q.addOnsTotal || 0),
-            gstAmount: Number(b?.gstAmt || q.gstAmount || 0),
+            gstAmount: Number(b?.gstAmount || q.gstAmount || 0),
             totalPremium: Number(b?.totalPremium || q.totalPremium || 0),
-            isAccepted: Boolean(q.isAccepted),
-            addOns: Object.entries(q.addOns || {})
-              .filter(([, v]) => Number(v) > 0)
-              .map(([k, v]) => ({ name: k, amount: Number(v) })),
+            isAccepted:
+              Boolean(q.isAccepted) ||
+              String(acceptedQuoteId) === String(getQuoteRowId(q)),
+            addOns: b?.addOnLines || [],
           };
         }),
       };
       const encoded = encodeURIComponent(JSON.stringify(payload));
       return `${window.location.origin}/quote-share?d=${encoded}`;
     },
-    [previousPolicyContext, computeQuoteBreakupFromRow],
+    [
+      previousPolicyContext,
+      computeQuoteBreakupFromRow,
+      acceptedQuoteId,
+      getQuoteRowId,
+    ],
   );
 
   const handleShareQuote = React.useCallback(
@@ -1244,7 +1256,7 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              {includesOd && (
+              {includesOd && !isNewCar && (
                 <FieldBlock
                   label="NCB Discount (%)"
                   helper={
@@ -1839,7 +1851,7 @@ const Step4InsuranceQuotes = ({
               </div>
             </div>
 
-            {includesOd && (
+            {includesOd && !isNewCar && (
               <div
                 className={`rounded-xl border px-4 py-3.5 ${ncbPct > 0
                     ? "border-amber-300/90 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm shadow-amber-200/40"
@@ -1954,6 +1966,7 @@ const Step4InsuranceQuotes = ({
                 acceptQuote={acceptQuote}
                 onStartEditQuote={onStartEditQuote}
                 onDelete={deleteQuote}
+                isNewCar={isNewCar}
                 isSelected={selectedQuoteIds.includes(String(getQuoteRowId(row)))}
                 onSelectQuote={(rid, checked) => {
                   setSelectedQuoteIds((prev) => {

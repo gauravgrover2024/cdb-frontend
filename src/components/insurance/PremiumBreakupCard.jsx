@@ -87,6 +87,7 @@ const PremiumBreakupCard = ({
   policyDuration = "",
   idv = "",
   borderless = false,
+  showNcb = true,
 }) => {
   const [localShowAllAddons, setLocalShowAllAddons] = React.useState(false);
 
@@ -238,12 +239,14 @@ const PremiumBreakupCard = ({
               indent
               muted
             />
-            <BreakupRow
-              label="NCB %"
-              value={`${Number(breakup.ncbPercent || 0)}%`}
-              indent
-              muted
-            />
+            {showNcb && (
+              <BreakupRow
+                label="NCB %"
+                value={`${Number(breakup.ncbPercent || 0)}%`}
+                indent
+                muted
+              />
+            )}
           </div>
         )}
 

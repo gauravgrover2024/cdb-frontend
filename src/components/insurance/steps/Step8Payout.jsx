@@ -64,7 +64,11 @@ const Step8Payout = ({
   // quote acceptance lives in formData.payoutPercentage; using the wrong one
   // silently produced incorrect payout amounts whenever a channel commission
   // happened to be set.
-  const payoutPercentage = Number(formData.payoutPercentage ?? 10);
+  const payoutPercentage = Number(
+    formData.payoutSchedule?.totalPayoutPercentage ??
+      formData.payoutPercentage ??
+      10,
+  );
   const subventionAmount = Number(formData.subventionAmount || 0);
   const calculatedPayoutAmount = (payoutBaseAmount * payoutPercentage) / 100;
   const calculatedNetAmount = calculatedPayoutAmount - subventionAmount;
@@ -88,10 +92,21 @@ const Step8Payout = ({
         mode,
         tenureYears: odTenureYears,
         totalPayoutPercentage: payoutPercentage,
+        yearlyPercentages:
+          mode === PAYOUT_MODES.YEARLY &&
+          payoutSchedule?.entries?.length === odTenureYears
+            ? payoutSchedule.entries.map((entry) => entry.percentage)
+            : null,
         baseAmount: payoutBaseAmount,
         policyStartDate: formData.newPolicyStartDate,
       }),
-    [odTenureYears, payoutPercentage, payoutBaseAmount, formData.newPolicyStartDate],
+    [
+      odTenureYears,
+      payoutPercentage,
+      payoutBaseAmount,
+      formData.newPolicyStartDate,
+      payoutSchedule,
+    ],
   );
 
   // Preserve any Paid/Expected status already recorded when the schedule is
@@ -459,7 +474,7 @@ const Step8Payout = ({
                 <div className="text-[10px] font-black uppercase tracking-[0.18em] text-slate-400">Payout Schedule</div>
                 <div className="text-sm font-bold text-slate-800">
                   {odTenureYears > 1
-                    ? `${odTenureYears}-year OD tenure — auto-split across the policy years`
+                    ? `${odTenureYears}-year OD tenure — configured by policy year`
                     : "Single-year policy"}
                 </div>
               </div>
@@ -483,11 +498,8 @@ const Step8Payout = ({
         <div className="p-6">
           {payoutMode === PAYOUT_MODES.YEARLY && odTenureYears > 1 ? (
             <div className="mb-4 text-[12px] text-slate-500">
-              {payoutPercentage}% total payout ÷ {odTenureYears} years ={" "}
-              <span className="font-bold text-slate-700">
-                {(payoutSchedule?.entries?.[0]?.percentage ?? 0).toFixed(2)}%
-              </span>{" "}
-              paid each policy year.
+              Year-wise payout percentages accepted with the quote are carried
+              forward below. Total: {payoutPercentage}%.
             </div>
           ) : (
             <div className="mb-4 text-[12px] text-slate-500">

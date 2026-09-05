@@ -40,6 +40,7 @@ import {
   daysUntilExpiry,
   getPolicyOriginType,
   getInsuranceDisplayCaseId,
+  getInsuranceLifecycleStatus,
 } from "../../utils/insurancePolicyDisplay";
 
 dayjs.extend(customParseFormat);
@@ -106,6 +107,9 @@ const normalizeStatus = (value) =>
     .trim()
     .toLowerCase();
 
+const isIssuedPolicy = (record = {}) =>
+  ["issued", "completed"].includes(normalizeStatus(record.status));
+
 const getAcceptedQuoteContext = (record) => {
   const quotes = Array.isArray(record?.quotes) ? record.quotes : [];
   const acceptedQuoteId =
@@ -142,6 +146,15 @@ const premiumNum = (c) => {
   );
   if (Number.isFinite(acceptedPremium) && acceptedPremium > 0)
     return acceptedPremium;
+
+  if (
+    c?.isRenewal ||
+    c?.renewedFromCaseId ||
+    c?.renewFromCaseId ||
+    c?.renewedFrom
+  ) {
+    return 0;
+  }
 
   const fallback = Number(c?.totalPremium ?? 0);
   return Number.isFinite(fallback) ? fallback : 0;
@@ -302,12 +315,15 @@ const getPolicySortStamp = (record = {}) => {
  * vehicle should not keep showing as expired/overdue here.
  */
 const collectRenewedCaseIds = (cases = []) => {
+  const completedCases = (cases || []).filter(isIssuedPolicy);
   const ids = new Set(
-    (cases || []).map((c) => String(getRenewedFromId(c) || "")).filter(Boolean),
+    completedCases
+      .map((c) => String(getRenewedFromId(c) || ""))
+      .filter(Boolean),
   );
 
   const groups = new Map();
-  (cases || []).forEach((c) => {
+  completedCases.forEach((c) => {
     const key = normalizeVehicleKey(c);
     if (!key) return;
     if (!groups.has(key)) groups.set(key, []);
@@ -338,6 +354,15 @@ const collectRenewedCaseIds = (cases = []) => {
 
 const getInsurancePaymentDueSnapshot = (record = {}) => {
   const premium = premiumNum(record);
+  if (
+    premium <= 0 &&
+    (record.isRenewal ||
+      record.renewedFromCaseId ||
+      record.renewFromCaseId ||
+      record.renewedFrom)
+  ) {
+    return { isDue: false, amount: 0 };
+  }
   const rows = (
     Array.isArray(record?.paymentHistory)
       ? record.paymentHistory
@@ -382,8 +407,10 @@ const getInsurancePaymentDueSnapshot = (record = {}) => {
 const isCompletedPolicy = (c) => {
   const st = normalizeStatus(c?.status);
 
+  if (["draft", "pending", "submitted", "cancelled"].includes(st)) return false;
+
   // 1. Explicit completion statuses
-  if (st === "submitted" || st === "issued" || st === "completed") return true;
+  if (st === "issued" || st === "completed") return true;
 
   // 2. All 5 New Policy fields are filled
   const hasNewInsuranceCompany = String(c?.newInsuranceCompany || "").trim() !== "";
@@ -395,7 +422,11 @@ const isCompletedPolicy = (c) => {
   return hasNewInsuranceCompany && hasNewPolicyType && hasNewPolicyNumber && hasNewIssueDate && hasNewPolicyStartDate;
 };
 
-const isDraftPolicy = (c) => !isCompletedPolicy(c);
+const isDraftPolicy = (c) => {
+  const status = normalizeStatus(c?.status);
+  if (status) return status === "draft";
+  return !isCompletedPolicy(c);
+};
 
 const isPaymentDuePolicy = (c) => getInsurancePaymentDueSnapshot(c).isDue;
 
@@ -501,16 +532,6 @@ const normalizeInsuranceLedgerRow = (row = {}, index = 0) => {
     amount: toAmount(row.amount),
   };
 };
-
-const sortLedgerByDate = (rows = []) =>
-  [...rows].sort((a, b) => {
-    const aDate = dayjs(a.date);
-    const bDate = dayjs(b.date);
-    if (!aDate.isValid() && !bDate.isValid()) return 0;
-    if (!aDate.isValid()) return 1;
-    if (!bDate.isValid()) return -1;
-    return aDate.valueOf() - bDate.valueOf();
-  });
 
 const computeInsurancePaymentTotals = (rows = [], premium = 0) => {
   const insurerPaidByAutocredits = rows
@@ -830,25 +851,23 @@ const PolicyCard = ({
   // Use pre-computed isCompleted from transformedPolicies to ensure exact sync with filters,
   // falling back to isCompletedPolicy if called with a raw record
   const isCompleted = policy.isCompleted ?? isCompletedPolicy(policy);
-  const isDraft = !isCompleted;
+  const lifecycleStatus = policy.lifecycleStatus || (isCompleted ? "Issued" : "Draft");
+  const isDraft = lifecycleStatus === "Draft";
   const openDues = policy.openDues || 0;
 
 
   const statusConfig = {
-    draft: { color: "#f43f5e", bg: "#fff1f2", label: "Draft" },
-    submitted: { color: "#f59e0b", bg: "#fffbeb", label: "Submitted" },
-    issued: { color: "#10b981", bg: "#ecfdf5", label: "Issued" },
-    cancelled: { color: "#dc2626", bg: "#fef2f2", label: "Cancelled" },
-    completed: { color: "#10b981", bg: "#ecfdf5", label: "Completed" },
+    Draft: { color: "#f43f5e", bg: "#fff1f2", label: "Draft" },
+    Pending: { color: "#f59e0b", bg: "#fffbeb", label: "Pending" },
+    Issued: { color: "#10b981", bg: "#ecfdf5", label: "Issued" },
+    Renewed: { color: "#2563eb", bg: "#eff6ff", label: "Renewed" },
+    Expired: { color: "#dc2626", bg: "#fef2f2", label: "Expired" },
+    Cancelled: { color: "#dc2626", bg: "#fef2f2", label: "Cancelled" },
   };
 
-  const config = isCompleted
-    ? statusConfig.completed
-    : policy.status === "cancelled"
-      ? statusConfig.cancelled
-      : statusConfig.draft;
+  const config = statusConfig[lifecycleStatus] || statusConfig.Pending;
 
-  const accentColor = isDraft ? "#f43f5e" : isCompleted ? "#10b981" : "#3b82f6";
+  const accentColor = config.color;
 
   const paymentRows = Array.isArray(policy.paymentTimeline)
     ? policy.paymentTimeline
@@ -1126,13 +1145,13 @@ const PolicyCard = ({
                   title={policy.vehicle}
                 >
                   {policy.vehicle || "—"}
-                  {policy.vehicleYear ? (
-                    <span className="text-slate-500">
-                      {" "}
-                      · {policy.vehicleYear}
-                    </span>
-                  ) : null}
                 </p>
+
+                {policy.vehicleYear ? (
+                  <p className="mt-0.5 text-[11px] font-medium text-slate-500">
+                    {policy.vehicleYear}
+                  </p>
+                ) : null}
 
                 <p
                   className="text-[11px] text-slate-600 mt-0.5"
@@ -1166,7 +1185,7 @@ const PolicyCard = ({
                   <div className="flex items-center gap-2">
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
                       <Shield size={11} />
-                      Policy
+                      Insurance Company
                     </p>
                   </div>
                   <p
@@ -1205,9 +1224,11 @@ const PolicyCard = ({
                     <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-700">
                       IDV {policy.idvInline}
                     </span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
-                      NCB {policy.ncb}
-                    </span>
+                    {!policy.isNewCarCase && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700">
+                        NCB {policy.ncb}
+                      </span>
+                    )}
                     {(() => {
                       const isEW = ["extended warranty", "ew policy"].includes(
                         String(policy.policyCategory || policy.policyTypeSelector || "").trim().toLowerCase()
@@ -1453,20 +1474,27 @@ const PolicyCard = ({
             <div className="p-3 space-y-3">
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex justify-between gap-2">
-                  <span className="text-slate-600">Created</span>
+                  <span className="text-slate-600">Created Date</span>
                   <span className="font-semibold text-slate-900 text-right truncate">
                     {policy.createdLabel}
                   </span>
                 </div>
 
-                {policy.expiryLabel && policy.expiryLabel !== "—" && (
-                  <div className="flex justify-between gap-2 items-center">
-                    <span className="text-slate-600 shrink-0">Expiry</span>
-                    <span className="font-semibold text-slate-900 text-right truncate">
-                      {policy.expiryLabel}
-                    </span>
-                  </div>
-                )}
+                <div className="flex justify-between gap-2 items-center">
+                  <span className="text-slate-600 shrink-0">Issued Date</span>
+                  <span className="font-semibold text-slate-900 text-right truncate">
+                    {policy.issuedLabel || "Pending"}
+                  </span>
+                </div>
+
+                <div className="flex justify-between gap-2 items-center">
+                  <span className="text-slate-600 shrink-0">Expiry Date</span>
+                  <span className="font-semibold text-slate-900 text-right truncate">
+                    {policy.expiryLabel && policy.expiryLabel !== "—"
+                      ? policy.expiryLabel
+                      : "Pending"}
+                  </span>
+                </div>
               </div>
 
             </div>
@@ -1900,6 +1928,10 @@ const InsuranceDashboardPage = () => {
       const createdLabel = record.createdAt
         ? dayjs(record.createdAt).format("DD MMM YYYY")
         : "—";
+      const parsedIssueDate = parseInsuranceDate(record.newIssueDate);
+      const issuedLabel = parsedIssueDate
+        ? parsedIssueDate.format("DD MMM YYYY")
+        : "";
       const expiryDate = getPolicyPulseExpiryDate(record);
       const parsedExpiryDate = parseInsuranceDate(expiryDate);
       const expiryLabel = parsedExpiryDate
@@ -1960,6 +1992,7 @@ const InsuranceDashboardPage = () => {
         renewalFollowUpStatus: record.renewalFollowUpStatus || "",
         expiryDays: daysLeft,
         expiryLabel,
+        issuedLabel,
         canRenewNow:
           daysLeft !== null &&
           daysLeft >= 0 &&
@@ -1973,6 +2006,9 @@ const InsuranceDashboardPage = () => {
         policyType,
         paymentTimeline: paymentTimelineRows,
         isCompleted: isCompletedPolicy(record),
+        lifecycleStatus: getInsuranceLifecycleStatus(record, {
+          renewed: renewedCaseIds.has(String(id)),
+        }),
         paymentPercent,
         openDues: openDuesFromAcRecovery,
         alreadyRenewed: renewedCaseIds.has(String(id)),

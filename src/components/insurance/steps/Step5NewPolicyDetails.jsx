@@ -3,7 +3,6 @@ import dayjs from "dayjs";
 import {
   AutoComplete,
   Col,
-  Collapse,
   DatePicker,
   Input,
   InputNumber,
@@ -32,7 +31,6 @@ const labelClass =
 const microHintClass = "mt-1 text-[11px] text-slate-400";
 
 const fieldWrapClass = "insurance-field-wrap";
-const controlStyle = {};
 
 const CleanField = ({ label, required, hint, children, extra }) => (
   <div className="pb-1 insurance-field-block" data-ins-field="true">
@@ -330,7 +328,7 @@ const Step5NewPolicyDetails = ({
     acceptedQuote?.policyDuration || formData.newInsuranceDuration || "—";
 
   const acceptedNcb = Number(
-    formData.newNcbDiscount || acceptedQuote?.ncbDiscount || 0,
+    formData.newNcbDiscount ?? acceptedQuote?.ncbDiscount ?? 0,
   );
 
   const acceptedIdv = acceptedQuoteBreakup?.totalIdv
@@ -459,7 +457,7 @@ const Step5NewPolicyDetails = ({
   }, [formData.newPolicyStartDate, derivedYears.tpYears]);
 
   // Self-heal: some existing cases had their accepted quote's coverage type /
-  // duration / NCB / OD & TP amounts never copied into these editable
+  // duration / OD & TP amounts never copied into these editable
   // fields (e.g. accepted before that copy logic existed). Backfill them
   // from the live accepted quote so the form doesn't show blank/stale
   // required fields while the summary card above (driven by the same
@@ -476,11 +474,6 @@ const Step5NewPolicyDetails = ({
     const policyDuration = String(acceptedQuote?.policyDuration || "").trim();
     if (policyDuration && formData.newInsuranceDuration !== policyDuration) {
       setField("newInsuranceDuration", policyDuration);
-    }
-
-    const nextNcb = Number(acceptedQuote?.ncbDiscount || 0);
-    if (Number(formData.newNcbDiscount || 0) !== nextNcb) {
-      setField("newNcbDiscount", nextNcb);
     }
 
     if (
@@ -512,7 +505,6 @@ const Step5NewPolicyDetails = ({
     acceptedAddOnsTotal,
     formData.newPolicyType,
     formData.newInsuranceDuration,
-    formData.newNcbDiscount,
     formData.newOwnDamageAmount,
     formData.newThirdPartyAmount,
     formData.newAddOnsTotal,
@@ -1199,6 +1191,7 @@ const Step5NewPolicyDetails = ({
               <div className={fieldWrapClass}>
                 <CleanField
                   label="Policy Number"
+                  required
                   extra={longPolicyNumberPreview}
                 >
                   <Input
@@ -1263,7 +1256,7 @@ const Step5NewPolicyDetails = ({
 
             <Col xs={24} md={8}>
               <div className={fieldWrapClass}>
-                <CleanField label="Insurance Duration" required>
+                <CleanField label="Policy Duration" required>
                   <Select
                     size="large"
                     allowClear
@@ -1281,7 +1274,7 @@ const Step5NewPolicyDetails = ({
               </div>
             </Col>
 
-            {formData.newPolicyType !== "Third Party" && (
+            {!isNewCar && formData.newPolicyType !== "Third Party" && (
               <Col xs={24} md={8}>
                 <div className={fieldWrapClass}>
                   <CleanField label="OD Expiry Date">
