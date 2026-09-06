@@ -391,6 +391,22 @@ const getVehicleDisplayYear = (record = {}) => {
   );
 };
 
+const getRenewalVehicleType = (record = {}) =>
+  String(
+    record.vehicleType ||
+      record.caseType ||
+      record.typesOfVehicle ||
+      record.vehicleCategory ||
+      "",
+  ).trim();
+
+const getRenewalSource = (record = {}) => {
+  const directSource = String(record.source || record.sourceOrigin || "").trim();
+  if (/^direct$/i.test(directSource)) return "Direct";
+  if (/^indirect$/i.test(directSource)) return "Indirect";
+  return record.sourceName || record.dealerChannelName ? "Indirect" : "Direct";
+};
+
 const InsuranceRenewalCasesPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -630,11 +646,15 @@ const InsuranceRenewalCasesPage = () => {
     }
 
     if (vehicleTypeFilter !== "all") {
-      rows = rows.filter((row) => String(row?.vehicleType || "").toLowerCase() === vehicleTypeFilter.toLowerCase());
+      rows = rows.filter(
+        (row) => getRenewalVehicleType(row).toLowerCase() === vehicleTypeFilter.toLowerCase(),
+      );
     }
 
     if (sourceFilter !== "all") {
-      rows = rows.filter((row) => String(row?.source || "").toLowerCase() === sourceFilter.toLowerCase());
+      rows = rows.filter(
+        (row) => getRenewalSource(row).toLowerCase() === sourceFilter.toLowerCase(),
+      );
     }
 
     return rows.sort((a, b) => {
@@ -1050,7 +1070,7 @@ const InsuranceRenewalCasesPage = () => {
               />
               <input
                 type="text"
-                placeholder="Search Reg no / Name / Mobile"
+                placeholder="Search case, customer, vehicle, policy or mobile"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full rounded-lg border-2 border-slate-200 py-2.5 pl-10 pr-4 font-medium text-slate-900 placeholder-slate-400 transition-all focus:border-slate-400 focus:outline-none"
