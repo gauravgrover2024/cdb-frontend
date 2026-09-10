@@ -34,3 +34,26 @@ export const deleteUser = async (userId, token) => {
     token ? { Authorization: `Bearer ${token}` } : undefined
   );
 };
+
+export const updateUserDepartment = async (userId, department, token) => {
+  return apiClient.put(
+    `/api/auth/user/${userId}/department`,
+    { department },
+    token ? { Authorization: `Bearer ${token}` } : undefined,
+  );
+};
+
+export const fetchRolePermissions = async (token) => {
+  return apiClient.get(
+    '/api/auth/role-permissions',
+    token ? { Authorization: `Bearer ${token}` } : undefined,
+  );
+};
+
+export const updateRolePermissions = async (role, permissions, token) => {
+  return apiClient.put(
+    `/api/auth/role-permissions/${encodeURIComponent(role)}`,
+    { permissions },
+    token ? { Authorization: `Bearer ${token}` } : undefined,
+  );
+};

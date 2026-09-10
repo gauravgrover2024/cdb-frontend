@@ -341,6 +341,12 @@ const Header = () => {
           roles: FEATURE_ACCESS.SUPERADMIN_USERS,
         },
         {
+          label: "Roles & Permissions",
+          path: "/superadmin/roles-permissions",
+          desc: "Manage module and field access",
+          roles: FEATURE_ACCESS.SUPERADMIN_PERMISSIONS,
+        },
+        {
           label: "Showrooms",
           path: "/superadmin/showrooms",
           desc: "Manage all showrooms",
