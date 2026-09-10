@@ -2,10 +2,17 @@ import React, { useMemo } from "react";
 import { Select, Table, Popconfirm } from "antd";
 import { CheckCircle, XCircle, Lock, Trash2 } from "lucide-react";
 
-const ROLE_OPTIONS = [
+export const ROLE_OPTIONS = [
   { value: "staff", label: "Staff" },
   { value: "admin", label: "Admin" },
   { value: "superadmin", label: "Superadmin" },
+];
+
+export const DEPARTMENT_OPTIONS = [
+  { value: "", label: "All workspaces" },
+  { value: "insurance", label: "Insurance" },
+  { value: "finance", label: "Finance" },
+  { value: "home_loans", label: "Home Loans" },
 ];
 
 const nameToHue = (name) => {
@@ -84,7 +91,7 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-const SuperadminUsersTable = ({ users, loading, updatingById, onRoleChange, onApprove, onDeactivate, onDelete }) => {
+const SuperadminUsersTable = ({ users, loading, updatingById, onRoleChange, onDepartmentChange, onApprove, onDeactivate, onDelete }) => {
   const columns = useMemo(
     () => [
       {
@@ -146,6 +153,23 @@ const SuperadminUsersTable = ({ users, loading, updatingById, onRoleChange, onAp
           ) : (
             <span className="text-xs text-muted-foreground/40">—</span>
           ),
+      },
+      {
+        title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Workspace</span>,
+        dataIndex: "department",
+        key: "department",
+        width: 150,
+        render: (_, record) => (
+          <Select
+            value={record?.department || ""}
+            size="small"
+            loading={Boolean(updatingById?.[record?._id])}
+            disabled={Boolean(updatingById?.[record?._id])}
+            options={DEPARTMENT_OPTIONS}
+            style={{ width: 130 }}
+            onChange={(value) => onDepartmentChange?.(record?._id, value)}
+          />
+        ),
       },
       {
         title: <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Actions</span>,
@@ -234,7 +258,7 @@ const SuperadminUsersTable = ({ users, loading, updatingById, onRoleChange, onAp
         },
       },
     ],
-    [onRoleChange, onApprove, onDeactivate, onDelete, updatingById],
+    [onRoleChange, onDepartmentChange, onApprove, onDeactivate, onDelete, updatingById],
   );
 
   return (

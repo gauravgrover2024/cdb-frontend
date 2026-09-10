@@ -42,6 +42,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import { loansApi } from "../../api/loans";
+import { useAuth } from "../../context/AuthContext";
 
 const { RangePicker } = DatePicker;
 dayjs.extend(customParseFormat);
@@ -1546,14 +1547,13 @@ const WidgetShell = ({
   const accent = WIDGET_ACCENT[color] || WIDGET_ACCENT.slate;
   return (
     <Card
-      className="h-full min-h-0 border-border/60 bg-card/90 shadow-sm backdrop-blur-[1px] transition-all duration-200 hover:-translate-y-px hover:shadow-md"
+      className="h-full min-h-0 rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow duration-200 hover:shadow-md"
       size="small"
       bordered={false}
-      hoverable
-      bodyStyle={{ paddingTop: 14, paddingBottom: 14 }}
+      bodyStyle={{ padding: 16 }}
       style={{ height: "100%" }}
     >
-      <div className="mb-3 flex items-start gap-3">
+      <div className="mb-4 flex items-start gap-3 border-b border-border/60 pb-3">
         {Icon ? (
           <span
             className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${accent}`}
@@ -1592,10 +1592,10 @@ const KpiTile = ({
   const t = KPI_TONE[tone] || KPI_TONE.blue;
   return (
     <Card
-      className="group relative flex min-h-[128px] flex-col justify-center overflow-hidden border-border/55 bg-card shadow-sm transition-all duration-200 hover:border-primary/20 hover:shadow-md"
+      className="group relative flex min-h-[142px] flex-col justify-center overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md"
       bordered={false}
       hoverable
-      bodyStyle={{ padding: 18 }}
+      bodyStyle={{ padding: 20 }}
       style={{ height: "100%" }}
     >
       <div
@@ -1648,6 +1648,7 @@ const KpiTile = ({
 };
 
 const AnalyticsDashboard = () => {
+  const { user } = useAuth();
   const [rangePreset, setRangePreset] = useState("all");
   const [customRange, setCustomRange] = useState([
     dayjs().startOf("month"),
@@ -1657,6 +1658,9 @@ const AnalyticsDashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [overview, setOverview] = useState(null);
+  const roleLabel = String(user?.role || "staff")
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
   const [drillOpen, setDrillOpen] = useState(false);
   const [drillLoading, setDrillLoading] = useState(false);
@@ -2119,16 +2123,16 @@ const AnalyticsDashboard = () => {
   }, [drillRows, drillSearch]);
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-gradient-to-b from-background via-background to-muted/30">
+    <main className="min-h-screen overflow-x-hidden bg-muted/20">
       <ConfigProvider theme={analyticsTabsTheme}>
-        <div className="app-max-wrap space-y-6 py-6 md:space-y-8 md:py-8">
-        <header className="relative overflow-hidden rounded-2xl border border-border/70 bg-card px-4 py-6 shadow-sm transition-shadow duration-300 hover:shadow-md dark:hover:shadow-black/40 sm:px-6 md:px-8 md:py-7">
+        <div className="app-max-wrap space-y-5 py-5 md:space-y-6 md:py-6">
+        <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-card px-5 py-6 shadow-sm sm:px-7 md:px-9 md:py-8">
           <div
             className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary/[0.09] blur-3xl"
             aria-hidden
           />
           <div
-            className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-violet-500/[0.07] blur-3xl dark:bg-violet-500/[0.12]"
+            className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-emerald-500/[0.06] blur-3xl dark:bg-emerald-500/[0.1]"
             aria-hidden
           />
           <div className="relative z-[1] flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
@@ -2144,18 +2148,20 @@ const AnalyticsDashboard = () => {
                   AutoCredits India LLP
                 </span>
               </div>
+              <div className="flex flex-wrap items-center gap-2">
               <Typography.Title
                 level={2}
-                className="!mb-0 !mt-1 !text-2xl !font-bold !tracking-tight md:!text-3xl"
+                className="!mb-0 !mt-1 !text-3xl !font-bold !tracking-tight md:!text-4xl"
               >
-                Analytics
+                Business overview
               </Typography.Title>
+              <span className="mt-1 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{roleLabel}</span>
+              </div>
               <Typography.Text
                 type="secondary"
                 className="block max-w-xl text-sm leading-relaxed"
               >
-                Pipeline performance, disbursement trends, and configurable
-                reports for the selected window.
+                A clear view of pipeline movement, disbursements, quality gaps, and team performance for the selected window.
               </Typography.Text>
             </div>
 
@@ -2225,7 +2231,7 @@ const AnalyticsDashboard = () => {
         ) : null}
 
         <div>
-          <section className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-[1px] md:p-6">
+          <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
             <div className="mb-5">
               <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
                 Key metrics
@@ -2279,7 +2285,7 @@ const AnalyticsDashboard = () => {
         </div>
 
         <div>
-          <section className="rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-[1px] md:p-6">
+          <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
             <div className="mb-5">
               <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
                 Charts & insights
@@ -2717,7 +2723,7 @@ const AnalyticsDashboard = () => {
             </section>
           </section>
 
-          <section className="relative overflow-hidden rounded-2xl border border-border/70 bg-card/95 p-5 shadow-sm backdrop-blur-[1px] md:p-6">
+          <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
             <Tabs
               defaultActiveKey="customWidget"
               items={[
