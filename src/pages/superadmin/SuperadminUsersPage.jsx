@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Alert, Spin, message } from "antd";
 import { Search, RefreshCw, Users } from "lucide-react";
-import { fetchUsers, updateUserRole, approveUser, deactivateUser, deleteUser } from "../../api/users";
+import { fetchUsers, updateUserRole, updateUserDepartment, approveUser, deactivateUser, deleteUser } from "../../api/users";
 import SuperadminUsersTable from "../../components/ui/SuperadminUsersTable";
 
 const ROLE_SEARCH_MIN_CHARS = 0;
@@ -78,6 +78,21 @@ const SuperadminUsersPage = () => {
       message.success(`User ${status === "active" ? "approved" : "rejected"} successfully`);
     } catch (err) {
       message.error(err?.message || "Failed to update user status");
+      loadUsers();
+    } finally {
+      setUpdatingById((prev) => { const c = { ...prev }; delete c[userId]; return c; });
+    }
+  }, [token, loadUsers]);
+
+  const handleDepartmentChange = useCallback(async (userId, department) => {
+    if (!token || !userId) return;
+    setUpdatingById((prev) => ({ ...prev, [userId]: true }));
+    try {
+      const res = await updateUserDepartment(userId, department, token);
+      setUsers((prev) => prev.map((u) => String(u?._id) !== String(userId) ? u : { ...u, department: res?.data?.department ?? department }));
+      message.success("Workspace updated successfully");
+    } catch (err) {
+      message.error(err?.message || "Failed to update workspace");
       loadUsers();
     } finally {
       setUpdatingById((prev) => { const c = { ...prev }; delete c[userId]; return c; });
@@ -191,6 +206,7 @@ const SuperadminUsersPage = () => {
             loading={loading}
             updatingById={updatingById}
             onRoleChange={handleRoleChange}
+            onDepartmentChange={handleDepartmentChange}
             onApprove={handleApprove}
             onDeactivate={handleDeactivate}
             onDelete={handleDelete}

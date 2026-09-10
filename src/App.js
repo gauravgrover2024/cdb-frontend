@@ -54,6 +54,7 @@ import VehicleMappingPage from "./modules/vehicles/VehicleMappingPage";
 import HomeLoanDashboard from "./modules/home-loans/components/LoanDashboard";
 import HomeLoanFormWithSteps from "./modules/home-loans/components/LoanFormWithSteps";
 import ActivityLogPage from "./pages/superadmin/ActivityLogPage";
+import SuperadminRolePermissionsPage from "./pages/superadmin/SuperadminRolePermissionsPage";
 
 
 
@@ -361,6 +362,13 @@ function App() {
               element={R(
                 FEATURE_ACCESS.SUPERADMIN_USERS,
                 <SuperadminUsersPage />,
+              )}
+            />
+            <Route
+              path="superadmin/roles-permissions"
+              element={R(
+                FEATURE_ACCESS.SUPERADMIN_PERMISSIONS,
+                <SuperadminRolePermissionsPage />,
               )}
             />
             <Route
