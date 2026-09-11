@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
@@ -186,7 +187,7 @@ const DocumentsList = ({ form }) => {
   if (totalDocuments === 0) {
     return (
       <div className="rounded-[24px] border border-dashed border-border/80 bg-muted/20 px-6 py-12 text-center">
-        <Form.Item name="postfile_documents_ledger" hidden />
+        <PermissionFormItem name="postfile_documents_ledger" hidden />
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted text-muted-foreground">
           <Icon name="ListOrdered" size={28} />
         </div>
@@ -200,7 +201,7 @@ const DocumentsList = ({ form }) => {
 
   return (
     <div className="rounded-[24px] border border-border/70 bg-card p-5 md:p-6">
-      <Form.Item name="postfile_documents_ledger" hidden />
+      <PermissionFormItem name="postfile_documents_ledger" hidden />
       <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200">

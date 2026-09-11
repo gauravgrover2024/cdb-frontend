@@ -1,4 +1,5 @@
 import React, { useMemo, useEffect, useState, useCallback } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import ReactDOM from "react-dom";
 import { AutoComplete, DatePicker, Form, InputNumber, Radio, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
@@ -494,7 +495,7 @@ const PostFileApprovalDetails = ({ form }) => {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="Date of Approval"
               className="mb-0"
             >
@@ -510,9 +511,9 @@ const PostFileApprovalDetails = ({ form }) => {
                 size="middle"
                 allowClear={false}
               />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               label="Bank Name"
               name="postfile_bankName"
               className="mb-0"
@@ -526,11 +527,11 @@ const PostFileApprovalDetails = ({ form }) => {
                     .includes(String(inputValue || "").toUpperCase())
                 }
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="Loan Amount Approved"
               name="postfile_loanAmountApproved"
               className="mb-0"
@@ -544,9 +545,9 @@ const PostFileApprovalDetails = ({ form }) => {
                 </span>
                 <Icon name="Info" size={14} className="text-primary" />
               </div>
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               label="Net Loan Amount for Disbursal"
               name="postfile_disbursedLoanTotal"
               className="mb-0"
@@ -574,7 +575,7 @@ const PostFileApprovalDetails = ({ form }) => {
                   </div>
                 )}
               </div>
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           {/* Checkbox: Same as Approved */}
@@ -583,7 +584,7 @@ const PostFileApprovalDetails = ({ form }) => {
               <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground block mb-3">
                 Is disbursement amount same as approved amount?
               </span>
-              <Form.Item name="postfile_sameAsApproved" className="mb-0">
+              <PermissionFormItem name="postfile_sameAsApproved" className="mb-0">
                 <Radio.Group 
                   optionType="button" 
                   buttonStyle="solid"
@@ -602,7 +603,7 @@ const PostFileApprovalDetails = ({ form }) => {
                     No
                   </Radio.Button>
                 </Radio.Group>
-              </Form.Item>
+              </PermissionFormItem>
             </div>
         </div>
 
@@ -614,7 +615,7 @@ const PostFileApprovalDetails = ({ form }) => {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="Processing Fees"
               name="postfile_processingFees"
               className="mb-0"
@@ -631,7 +632,7 @@ const PostFileApprovalDetails = ({ form }) => {
                 }
                 parser={(value) => (value ? value.replace(/,/g, "") : "")}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
         </div>
 
@@ -643,7 +644,7 @@ const PostFileApprovalDetails = ({ form }) => {
           </h3>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="Rate of Interest Type"
               name="postfile_roiType"
               className="mb-0"
@@ -666,9 +667,9 @@ const PostFileApprovalDetails = ({ form }) => {
                     </Select.Option>
                   )}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               label="Rate of Interest (%)"
               name="postfile_roi"
               className="mb-0"
@@ -678,11 +679,11 @@ const PostFileApprovalDetails = ({ form }) => {
                 step="0.01"
                 className={controlClass}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="EMI Mode"
               name="postfile_emiMode"
               className="mb-0"
@@ -701,9 +702,9 @@ const PostFileApprovalDetails = ({ form }) => {
                     </Select.Option>
                   )}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               label="EMI Plan"
               name="postfile_emiPlan"
               className="mb-0"
@@ -722,11 +723,11 @@ const PostFileApprovalDetails = ({ form }) => {
                     </Select.Option>
                   )}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="Tenure (Months)"
               name="postfile_tenureMonths"
               className="mb-0"
@@ -735,9 +736,9 @@ const PostFileApprovalDetails = ({ form }) => {
                 type="number"
                 className={controlClass}
               />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               label="Date of 1st EMI"
               className="mb-0"
             >
@@ -753,11 +754,11 @@ const PostFileApprovalDetails = ({ form }) => {
                 size="middle"
                 allowClear
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label="Loan Maturity Date"
               className="mb-0"
             >
@@ -779,11 +780,11 @@ const PostFileApprovalDetails = ({ form }) => {
                   </span>
                 )}
               </div>
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Form.Item
+            <PermissionFormItem
               label={`EMI Amount ${
                 emiAmount
                   ? `(Calculated: ${formatINR(emiAmount)})`
@@ -804,7 +805,7 @@ const PostFileApprovalDetails = ({ form }) => {
                 }
                 parser={(value) => (value ? value.replace(/,/g, "") : "")}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
@@ -817,11 +818,11 @@ const PostFileApprovalDetails = ({ form }) => {
       </div>
 
       {/* Hidden fields to ensure useWatch works and syncs correctly */}
-      <Form.Item name="postfile_disbursedLoan" hidden><input /></Form.Item>
-      <Form.Item name="postfile_disbursedCreditAssured" hidden><input /></Form.Item>
-      <Form.Item name="postfile_disbursedInsurance" hidden><input /></Form.Item>
-      <Form.Item name="postfile_disbursedEw" hidden><input /></Form.Item>
-      <Form.Item name="postfile_disbursed_custom" hidden />
+      <PermissionFormItem name="postfile_disbursedLoan" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="postfile_disbursedCreditAssured" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="postfile_disbursedInsurance" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="postfile_disbursedEw" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="postfile_disbursed_custom" hidden />
 
       {/* Render popups using Portal */}
       {showBreakupPopup &&

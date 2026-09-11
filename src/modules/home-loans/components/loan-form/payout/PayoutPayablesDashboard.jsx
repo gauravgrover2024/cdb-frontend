@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import {
   Table,
   Tag,
@@ -1220,13 +1221,13 @@ const PayoutPayablesDashboard = () => {
             Recording payments for <strong>{selectedRows.length}</strong> payable(s).
           </p>
 
-          <Form.Item
+          <PermissionFormItem
             name="paid_date"
             label="Payment Date"
             rules={[{ required: true, message: "Please select payment date" }]}
           >
             <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" size="large" />
-          </Form.Item>
+          </PermissionFormItem>
 
           <Space style={{ marginBottom: 16 }} wrap>
             <Button size="small" onClick={() => bulkForm.setFieldValue("paid_date", dayjs())}>
@@ -1266,7 +1267,7 @@ const PayoutPayablesDashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <Form.Item
+                  <PermissionFormItem
                     name={`amount_${row.payoutId}`}
                     rules={[
                       { required: true, message: "Required" },
@@ -1294,7 +1295,7 @@ const PayoutPayablesDashboard = () => {
                       min={0}
                       max={paymentStatus.pendingAmount}
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </div>
               );
             })}
@@ -1333,7 +1334,7 @@ const PayoutPayablesDashboard = () => {
               })()}
             </div>
 
-            <Form.Item
+            <PermissionFormItem
               name="payment_amount"
               label="Payment Amount"
               rules={[
@@ -1361,19 +1362,19 @@ const PayoutPayablesDashboard = () => {
                 size="large"
                 min={0}
               />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               name="payment_date"
               label="Payment Date"
               rules={[{ required: true, message: "Please select payment date" }]}
             >
               <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" size="large" />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item name="payment_remarks" label="Remarks (optional)">
+            <PermissionFormItem name="payment_remarks" label="Remarks (optional)">
               <Input.TextArea rows={2} placeholder="Payment method, reference number, etc." />
-            </Form.Item>
+            </PermissionFormItem>
 
             {safeArray(currentRecord.payment_history).length > 0 && (
               <div className="mt-4">
@@ -1474,7 +1475,7 @@ const PayoutPayablesDashboard = () => {
         okText="Save Changes"
       >
         <Form form={editPaymentForm} layout="vertical">
-          <Form.Item
+          <PermissionFormItem
             name="payment_amount"
             label="Payment Amount"
             rules={[{ required: true, message: "Please enter payment amount" }]}
@@ -1487,19 +1488,19 @@ const PayoutPayablesDashboard = () => {
               size="large"
               min={0}
             />
-          </Form.Item>
+          </PermissionFormItem>
 
-          <Form.Item
+          <PermissionFormItem
             name="payment_date"
             label="Payment Date"
             rules={[{ required: true, message: "Please select payment date" }]}
           >
             <DatePicker style={{ width: "100%" }} format="DD MMM YYYY" size="large" />
-          </Form.Item>
+          </PermissionFormItem>
 
-          <Form.Item name="payment_remarks" label="Remarks">
+          <PermissionFormItem name="payment_remarks" label="Remarks">
             <Input.TextArea rows={2} placeholder="Payment method, reference number, etc." />
-          </Form.Item>
+          </PermissionFormItem>
         </Form>
       </Modal>
 

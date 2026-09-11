@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { AutoComplete, DatePicker, Form, Input, InputNumber, Select, Tooltip } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
@@ -252,29 +253,29 @@ const PostFileInstrumentDetails = ({ form }) => {
 
   return (
     <div className="h-full flex flex-col rounded-2xl border border-border bg-[#f9fafb] dark:bg-slate-950/35 p-4 md:p-5">
-      <Form.Item name="instrumentType" hidden><input /></Form.Item>
-      <Form.Item name="si_accountNumber" hidden><input /></Form.Item>
-      <Form.Item name="si_signedBy" hidden><input /></Form.Item>
-      <Form.Item name="si_image" hidden><input /></Form.Item>
-      <Form.Item name="nach_accountNumber" hidden><input /></Form.Item>
-      <Form.Item name="nach_signedBy" hidden><input /></Form.Item>
-      <Form.Item name="nach_image" hidden><input /></Form.Item>
-      <Form.Item name="ecs_micrCode" hidden><input /></Form.Item>
-      <Form.Item name="ecs_bankName" hidden><input /></Form.Item>
-      <Form.Item name="ecs_accountNumber" hidden><input /></Form.Item>
-      <Form.Item name="ecs_date" hidden><input /></Form.Item>
-      <Form.Item name="ecs_amount" hidden><input /></Form.Item>
-      <Form.Item name="ecs_tag" hidden><input /></Form.Item>
-      <Form.Item name="ecs_favouring" hidden><input /></Form.Item>
-      <Form.Item name="ecs_signedBy" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_number" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_bankName" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_accountNumber" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_date" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_amount" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_tag" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_favouring" hidden><input /></Form.Item>
-      <Form.Item name="cheque_1_signedBy" hidden><input /></Form.Item>
+      <PermissionFormItem name="instrumentType" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="si_accountNumber" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="si_signedBy" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="si_image" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="nach_accountNumber" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="nach_signedBy" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="nach_image" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_micrCode" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_bankName" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_accountNumber" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_date" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_amount" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_tag" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_favouring" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="ecs_signedBy" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_number" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_bankName" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_accountNumber" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_date" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_amount" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_tag" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_favouring" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="cheque_1_signedBy" hidden><input /></PermissionFormItem>
 
       {/* content */}
       <div className="flex-1 overflow-y-auto text-sm space-y-4">
@@ -338,9 +339,9 @@ const PostFileInstrumentDetails = ({ form }) => {
                     expandedCheque === cheque.id ? "border-primary/30 shadow-lg shadow-primary/5" : "border-border"
                   }`}
                 >
-                  <Form.Item name={`cheque_${cheque.id}_number`} hidden><input /></Form.Item>
-                  <Form.Item name={`cheque_${cheque.id}_amount`} hidden><input /></Form.Item>
-                  <Form.Item name={`cheque_${cheque.id}_tag`} hidden><input /></Form.Item>
+                  <PermissionFormItem name={`cheque_${cheque.id}_number`} hidden><input /></PermissionFormItem>
+                  <PermissionFormItem name={`cheque_${cheque.id}_amount`} hidden><input /></PermissionFormItem>
+                  <PermissionFormItem name={`cheque_${cheque.id}_tag`} hidden><input /></PermissionFormItem>
                   <ChequeHeader
                     id={cheque.id}
                     index={index}
@@ -356,13 +357,13 @@ const PostFileInstrumentDetails = ({ form }) => {
                     <div className="p-4 bg-muted/20 space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <EntryField label="Cheque No">
-                          <Form.Item name={`cheque_${cheque.id}_number`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_number`} className="mb-0">
                             <Input placeholder="6-digit No" maxLength={6} className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Bank Name">
-                          <Form.Item name={`cheque_${cheque.id}_bankName`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_bankName`} className="mb-0">
                             <AutoComplete
                               options={bankDirectoryOptions}
                               placeholder="e.g. HDFC Bank"
@@ -373,54 +374,54 @@ const PostFileInstrumentDetails = ({ form }) => {
                                   .includes(String(inputValue || "").toUpperCase())
                               }
                             />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Acc Number">
-                          <Form.Item name={`cheque_${cheque.id}_accountNumber`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_accountNumber`} className="mb-0">
                             <Input placeholder="Acc No" className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Cheque Date">
-                          <Form.Item name={`cheque_${cheque.id}_date`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_date`} className="mb-0">
                             <DatePicker className="w-full bg-background border-border font-medium h-10" format="DD-MM-YYYY" getValueProps={(value) => ({ value: asDayjs(value) })} />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <EntryField label="Amount">
-                          <Form.Item name={`cheque_${cheque.id}_amount`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_amount`} className="mb-0">
                             <InputNumber 
                               className="w-full bg-background border-border font-medium h-10" 
                               placeholder="₹ 0"
                               formatter={value => formatINRInput(value)}
                               parser={value => parseINRInput(value)}
                             />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Purpose / Tag">
-                          <Form.Item name={`cheque_${cheque.id}_tag`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_tag`} className="mb-0">
                             <Input placeholder="e.g. Security, EMI" className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Favouring">
-                          <Form.Item name={`cheque_${cheque.id}_favouring`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_favouring`} className="mb-0">
                             <Input placeholder="Beneficiary Name" className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Signed By">
-                          <Form.Item name={`cheque_${cheque.id}_signedBy`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_signedBy`} className="mb-0">
                             <Select className="w-full font-medium h-10" placeholder="Select Entity">
                               <Option value="Applicant">Applicant</Option>
                               <Option value="Co-applicant">Co-applicant</Option>
                               <Option value="Guarantor">Guarantor</Option>
                             </Select>
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
                       </div>
 
@@ -430,13 +431,13 @@ const PostFileInstrumentDetails = ({ form }) => {
                           <Icon name="Image" size={16} className="text-primary" />
                           <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                         </div>
-                        <Form.Item name={`cheque_${cheque.id}_image`} className="mb-0">
+                        <PermissionFormItem name={`cheque_${cheque.id}_image`} className="mb-0">
                           <DocumentUpload
                             uploadTitle="Upload Cheque Image"
                             viewerTitle="Post-File Document Viewer"
                             docTag="Cheque Image"
                           />
-                        </Form.Item>
+                        </PermissionFormItem>
                       </div>
                     </div>
                   )}
@@ -461,17 +462,17 @@ const PostFileInstrumentDetails = ({ form }) => {
             <div className="rounded-2xl border border-border bg-muted/30 p-5 space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <EntryField label="MICR Code">
-                  <Form.Item
+                  <PermissionFormItem
                     name="ecs_micrCode"
                     className="mb-0"
                     normalize={(value) => normalizeMicr(value)}
                   >
                     <Input placeholder="9-digit MICR" maxLength={9} className="bg-background border-border font-medium h-10" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Bank Name">
-                  <Form.Item name="ecs_bankName" className="mb-0">
+                  <PermissionFormItem name="ecs_bankName" className="mb-0">
                     <AutoComplete
                       options={bankDirectoryOptions}
                       placeholder="e.g. HDFC Bank"
@@ -482,54 +483,54 @@ const PostFileInstrumentDetails = ({ form }) => {
                           .includes(String(inputValue || "").toUpperCase())
                       }
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Acc Number">
-                  <Form.Item name="ecs_accountNumber" className="mb-0">
+                  <PermissionFormItem name="ecs_accountNumber" className="mb-0">
                     <Input placeholder="Acc No" className="bg-background border-border font-medium h-10" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Start Date">
-                  <Form.Item name="ecs_date" className="mb-0">
+                  <PermissionFormItem name="ecs_date" className="mb-0">
                     <DatePicker className="w-full bg-background border-border font-medium h-10" format="DD-MM-YYYY" getValueProps={(value) => ({ value: asDayjs(value) })} />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <EntryField label="Max Amount">
-                  <Form.Item name="ecs_amount" className="mb-0">
+                  <PermissionFormItem name="ecs_amount" className="mb-0">
                     <InputNumber 
                       className="w-full bg-background border-border font-medium h-10" 
                       placeholder="₹ 0"
                       formatter={value => formatINRInput(value)}
                       parser={value => parseINRInput(value)}
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Type / Tag">
-                  <Form.Item name="ecs_tag" className="mb-0">
+                  <PermissionFormItem name="ecs_tag" className="mb-0">
                     <Input placeholder="e.g. EMI Mandate" className="bg-background border-border font-medium h-10" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Favouring">
-                  <Form.Item name="ecs_favouring" className="mb-0">
+                  <PermissionFormItem name="ecs_favouring" className="mb-0">
                     <Input placeholder="Beneficiary Name" className="bg-background border-border font-medium h-10" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Signed By">
-                  <Form.Item name="ecs_signedBy" className="mb-0">
+                  <PermissionFormItem name="ecs_signedBy" className="mb-0">
                     <Select className="w-full font-medium h-10" placeholder="Select Entity">
                       <Option value="Applicant">Applicant</Option>
                       <Option value="Co-applicant">Co-applicant</Option>
                       <Option value="Guarantor">Guarantor</Option>
                     </Select>
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
               </div>
 
@@ -539,13 +540,13 @@ const PostFileInstrumentDetails = ({ form }) => {
                   <Icon name="Image" size={16} className="text-primary" />
                   <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                 </div>
-                <Form.Item name="ecs_image" className="mb-0">
+                <PermissionFormItem name="ecs_image" className="mb-0">
                   <DocumentUpload
                     uploadTitle="Upload ECS Form"
                     viewerTitle="Post-File Document Viewer"
                     docTag="ECS Form"
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </div>
             </div>
           </div>
@@ -571,9 +572,9 @@ const PostFileInstrumentDetails = ({ form }) => {
                     expandedCheque === cheque.id ? "border-primary/30 shadow-lg shadow-primary/5" : "border-border"
                   }`}
                 >
-                  <Form.Item name={`cheque_${cheque.id}_number`} hidden><input /></Form.Item>
-                  <Form.Item name={`cheque_${cheque.id}_amount`} hidden><input /></Form.Item>
-                  <Form.Item name={`cheque_${cheque.id}_tag`} hidden><input /></Form.Item>
+                  <PermissionFormItem name={`cheque_${cheque.id}_number`} hidden><input /></PermissionFormItem>
+                  <PermissionFormItem name={`cheque_${cheque.id}_amount`} hidden><input /></PermissionFormItem>
+                  <PermissionFormItem name={`cheque_${cheque.id}_tag`} hidden><input /></PermissionFormItem>
                   <ChequeHeader
                     id={cheque.id}
                     index={index}
@@ -589,13 +590,13 @@ const PostFileInstrumentDetails = ({ form }) => {
                     <div className="p-4 bg-muted/20 space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <EntryField label="Cheque No">
-                          <Form.Item name={`cheque_${cheque.id}_number`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_number`} className="mb-0">
                             <Input placeholder="6-digit No" maxLength={6} className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Bank Name">
-                          <Form.Item name={`cheque_${cheque.id}_bankName`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_bankName`} className="mb-0">
                             <AutoComplete
                               options={bankDirectoryOptions}
                               placeholder="e.g. HDFC Bank"
@@ -606,54 +607,54 @@ const PostFileInstrumentDetails = ({ form }) => {
                                   .includes(String(inputValue || "").toUpperCase())
                               }
                             />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Acc Number">
-                          <Form.Item name={`cheque_${cheque.id}_accountNumber`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_accountNumber`} className="mb-0">
                             <Input placeholder="Acc No" className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Cheque Date">
-                          <Form.Item name={`cheque_${cheque.id}_date`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_date`} className="mb-0">
                             <DatePicker className="w-full bg-background border-border font-medium h-10" format="DD-MM-YYYY" getValueProps={(value) => ({ value: asDayjs(value) })} />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <EntryField label="Amount">
-                          <Form.Item name={`cheque_${cheque.id}_amount`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_amount`} className="mb-0">
                             <InputNumber
                               className="w-full bg-background border-border font-medium h-10"
                               placeholder="₹ 0"
                               formatter={value => formatINRInput(value)}
                               parser={value => parseINRInput(value)}
                             />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Purpose / Tag">
-                          <Form.Item name={`cheque_${cheque.id}_tag`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_tag`} className="mb-0">
                             <Input placeholder="e.g. Security, EMI" className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Favouring">
-                          <Form.Item name={`cheque_${cheque.id}_favouring`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_favouring`} className="mb-0">
                             <Input placeholder="Beneficiary Name" className="bg-background border-border font-medium h-10" />
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
 
                         <EntryField label="Signed By">
-                          <Form.Item name={`cheque_${cheque.id}_signedBy`} className="mb-0">
+                          <PermissionFormItem name={`cheque_${cheque.id}_signedBy`} className="mb-0">
                             <Select className="w-full font-medium h-10" placeholder="Select Entity">
                               <Option value="Applicant">Applicant</Option>
                               <Option value="Co-applicant">Co-applicant</Option>
                               <Option value="Guarantor">Guarantor</Option>
                             </Select>
-                          </Form.Item>
+                          </PermissionFormItem>
                         </EntryField>
                       </div>
 
@@ -662,13 +663,13 @@ const PostFileInstrumentDetails = ({ form }) => {
                           <Icon name="Image" size={16} className="text-primary" />
                           <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                         </div>
-                        <Form.Item name={`cheque_${cheque.id}_image`} className="mb-0">
+                        <PermissionFormItem name={`cheque_${cheque.id}_image`} className="mb-0">
                           <DocumentUpload
                             uploadTitle="Upload Cheque Image"
                             viewerTitle="Post-File Document Viewer"
                             docTag="Cheque Image"
                           />
-                        </Form.Item>
+                        </PermissionFormItem>
                       </div>
                     </div>
                   )}
@@ -697,16 +698,16 @@ const PostFileInstrumentDetails = ({ form }) => {
             <div className="rounded-2xl border border-border bg-muted/30 p-5">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <EntryField label="Account Number">
-                  <Form.Item
+                  <PermissionFormItem
                     name={resolvedInstrumentType === "NACH" ? "nach_accountNumber" : "si_accountNumber"}
                     className="mb-0"
                   >
                     <Input placeholder="Internal Bank Acc No" className="bg-background border-border font-medium h-10" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
 
                 <EntryField label="Signed By">
-                  <Form.Item
+                  <PermissionFormItem
                     name={resolvedInstrumentType === "NACH" ? "nach_signedBy" : "si_signedBy"}
                     className="mb-0"
                   >
@@ -717,7 +718,7 @@ const PostFileInstrumentDetails = ({ form }) => {
                         </Option>
                       ))}
                     </Select>
-                  </Form.Item>
+                  </PermissionFormItem>
                 </EntryField>
               </div>
 
@@ -727,7 +728,7 @@ const PostFileInstrumentDetails = ({ form }) => {
                   <Icon name="Image" size={16} className="text-primary" />
                   <span className="text-xs font-medium text-muted-foreground">Document Verification</span>
                 </div>
-                <Form.Item
+                <PermissionFormItem
                   name={resolvedInstrumentType === "NACH" ? "nach_image" : "si_image"}
                   className="mb-0"
                 >
@@ -740,7 +741,7 @@ const PostFileInstrumentDetails = ({ form }) => {
                     viewerTitle="Post-File Document Viewer"
                     docTag={resolvedInstrumentType === "NACH" ? "NACH Document" : "SI Document"}
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </div>
             </div>
           </div>

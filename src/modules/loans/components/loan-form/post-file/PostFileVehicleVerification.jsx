@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { AutoComplete, Checkbox, Form, Input, InputNumber, Select } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { formatINR } from "../../../../../utils/currency";
@@ -408,7 +409,7 @@ const PostFileVehicleVerification = ({ form }) => {
               </div>
             ) : (
               <div>
-                <Form.Item style={{ marginBottom: 12 }}>
+                <PermissionFormItem style={{ marginBottom: 12 }}>
                   <Checkbox
                     checked={showDiscontinuedCars}
                     onChange={(event) =>
@@ -417,9 +418,9 @@ const PostFileVehicleVerification = ({ form }) => {
                   >
                     Show discontinued cars
                   </Checkbox>
-                </Form.Item>
+                </PermissionFormItem>
                 <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                <Form.Item label="Make" name="vehicleMake" style={{ marginBottom: 0 }}>
+                <PermissionFormItem label="Make" name="vehicleMake" style={{ marginBottom: 0 }}>
                   <Select
                     placeholder="Select Make"
                     showSearch
@@ -443,8 +444,8 @@ const PostFileVehicleVerification = ({ form }) => {
                       </Option>
                     ))}
                   </Select>
-                </Form.Item>
-                <Form.Item label="Model" name="vehicleModel" style={{ marginBottom: 0 }}>
+                </PermissionFormItem>
+                <PermissionFormItem label="Model" name="vehicleModel" style={{ marginBottom: 0 }}>
                   <Select
                     placeholder={vehicleMake ? "Select Model" : "Select Make First"}
                     showSearch
@@ -468,8 +469,8 @@ const PostFileVehicleVerification = ({ form }) => {
                       </Option>
                     ))}
                   </Select>
-                </Form.Item>
-                <Form.Item label="Variant" name="vehicleVariant" style={{ marginBottom: 0 }}>
+                </PermissionFormItem>
+                <PermissionFormItem label="Variant" name="vehicleVariant" style={{ marginBottom: 0 }}>
                   <Select
                     placeholder={vehicleModel ? "Select Variant" : "Select Model First"}
                     showSearch
@@ -492,8 +493,8 @@ const PostFileVehicleVerification = ({ form }) => {
                       </Option>
                     ))}
                   </Select>
-                </Form.Item>
-                <Form.Item label="Fuel Type" name="vehicleFuelType" style={{ marginBottom: 0 }}>
+                </PermissionFormItem>
+                <PermissionFormItem label="Fuel Type" name="vehicleFuelType" style={{ marginBottom: 0 }}>
                   <Select placeholder="Select Fuel Type" showSearch optionFilterProp="children">
                     <Option value="Petrol">Petrol</Option>
                     <Option value="Diesel">Diesel</Option>
@@ -501,7 +502,7 @@ const PostFileVehicleVerification = ({ form }) => {
                     <Option value="Hybrid">Hybrid</Option>
                     <Option value="Electric">Electric</Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </div>
               </div>
             )}
@@ -550,7 +551,7 @@ const PostFileVehicleVerification = ({ form }) => {
               </>
             ) : isNewCarCase ? (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Form.Item
+                <PermissionFormItem
                   label="Dealer Name"
                   name="showroomDealerName"
                   style={{ marginBottom: 0 }}
@@ -577,9 +578,9 @@ const PostFileVehicleVerification = ({ form }) => {
                       data-lpignore="true"
                     />
                   </AutoComplete>
-                </Form.Item>
+                </PermissionFormItem>
                 <>
-                  <Form.Item
+                  <PermissionFormItem
                     label="Contact Person"
                     name="showroomDealerContactPerson"
                     style={{ marginBottom: 0 }}
@@ -592,8 +593,8 @@ const PostFileVehicleVerification = ({ form }) => {
                         })
                       }
                     />
-                  </Form.Item>
-                  <Form.Item
+                  </PermissionFormItem>
+                  <PermissionFormItem
                     label="Contact Number"
                     name="showroomDealerContactNumber"
                     style={{ marginBottom: 0 }}
@@ -606,8 +607,8 @@ const PostFileVehicleVerification = ({ form }) => {
                         })
                       }
                     />
-                  </Form.Item>
-                  <Form.Item
+                  </PermissionFormItem>
+                  <PermissionFormItem
                     label="Dealer Address"
                     name="showroomDealerAddress"
                     style={{ marginBottom: 0 }}
@@ -621,7 +622,7 @@ const PostFileVehicleVerification = ({ form }) => {
                         })
                       }
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </>
               </div>
             ) : (
@@ -629,7 +630,7 @@ const PostFileVehicleVerification = ({ form }) => {
                 <div className="text-sm font-semibold text-foreground">
                   Loan Payment Favouring
                 </div>
-                <Form.Item
+                <PermissionFormItem
                   name="showroomDealerName"
                   style={{ marginBottom: 0 }}
                   className="!mb-0"
@@ -642,7 +643,7 @@ const PostFileVehicleVerification = ({ form }) => {
                       syncDealerFields({ showroomDealerName: e.target.value || "" })
                     }
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </div>
             )}
           </div>
@@ -662,7 +663,7 @@ const PostFileVehicleVerification = ({ form }) => {
             </div>
             {isPricingEdit && (
               <div className="grid grid-cols-1 gap-3 md:grid-cols-2 mb-3">
-                <Form.Item
+                <PermissionFormItem
                   label="Ex-Showroom Price"
                   name="exShowroomPrice"
                   style={{ marginBottom: 0 }}
@@ -672,8 +673,8 @@ const PostFileVehicleVerification = ({ form }) => {
                     formatter={(value) => `₹ ${formatIndianNumber(value)}`}
                     parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
-                </Form.Item>
-                <Form.Item
+                </PermissionFormItem>
+                <PermissionFormItem
                   label="Insurance Cost"
                   name="insuranceCost"
                   style={{ marginBottom: 0 }}
@@ -683,8 +684,8 @@ const PostFileVehicleVerification = ({ form }) => {
                     formatter={(value) => `₹ ${formatIndianNumber(value)}`}
                     parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
-                </Form.Item>
-                <Form.Item
+                </PermissionFormItem>
+                <PermissionFormItem
                   label="Road Tax"
                   name="roadTax"
                   style={{ marginBottom: 0 }}
@@ -694,8 +695,8 @@ const PostFileVehicleVerification = ({ form }) => {
                     formatter={(value) => `₹ ${formatIndianNumber(value)}`}
                     parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
-                </Form.Item>
-                <Form.Item
+                </PermissionFormItem>
+                <PermissionFormItem
                   label="Accessories Amount"
                   name="accessoriesAmount"
                   style={{ marginBottom: 0 }}
@@ -705,8 +706,8 @@ const PostFileVehicleVerification = ({ form }) => {
                     formatter={(value) => `₹ ${formatIndianNumber(value)}`}
                     parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
-                </Form.Item>
-                <Form.Item
+                </PermissionFormItem>
+                <PermissionFormItem
                   label="Dealer Discount"
                   name="dealerDiscount"
                   style={{ marginBottom: 0 }}
@@ -716,8 +717,8 @@ const PostFileVehicleVerification = ({ form }) => {
                     formatter={(value) => `₹ ${formatIndianNumber(value)}`}
                     parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
-                </Form.Item>
-                <Form.Item
+                </PermissionFormItem>
+                <PermissionFormItem
                   label="Manufacturer Discount"
                   name="manufacturerDiscount"
                   style={{ marginBottom: 0 }}
@@ -727,7 +728,7 @@ const PostFileVehicleVerification = ({ form }) => {
                     formatter={(value) => `₹ ${formatIndianNumber(value)}`}
                     parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </div>
             )}
             <div className="space-y-2">
