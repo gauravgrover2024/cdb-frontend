@@ -1,4 +1,5 @@
 import { lookupCityByPincode } from "../../loans/components/loan-form/pre-file/pincodeCityLookup";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import React, { useEffect, useState } from "react";
 import { Form, Input, Row, Col, Divider, Select } from "antd";
 import Icon from "../../../components/AppIcon";
@@ -9,7 +10,7 @@ const { TextArea } = Input;
 const ReferenceDetails = () => {
   const form = Form.useFormInstance();
   const isFinanced = Form.useWatch("isFinanced", form);
-  
+
   // Watch PINCODES
   const pincode1 = Form.useWatch(["reference1", "pincode"], form);
   const pincode2 = Form.useWatch(["reference2", "pincode"], form);
@@ -57,8 +58,8 @@ const ReferenceDetails = () => {
   }
 
   return (
-    <div 
-        id="section-other" 
+    <div
+        id="section-other"
         className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
         style={{ background: "var(--card)" }}
     >
@@ -82,14 +83,14 @@ const ReferenceDetails = () => {
 
             <Row gutter={[12, 12]}>
               <Col xs={24} md={12}>
-                <Form.Item label="Name" name={["reference1", "name"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                <PermissionFormItem label="Name" name={["reference1", "name"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                   <Input placeholder="Reference Name" className="rounded-xl border-border placeholder:font-normal" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={12}>
-                <Form.Item 
-                  label="Mobile No" 
+                <PermissionFormItem
+                  label="Mobile No"
                   name={["reference1", "mobile"]}
                   rules={[{ pattern: /^[0-9]{10}$/, message: '10 digits required' }]}
                 >
@@ -99,37 +100,37 @@ const ReferenceDetails = () => {
                     maxLength={10}
                     className="rounded-xl border-border placeholder:font-normal"
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24}>
-                <Form.Item label="Address" name={["reference1", "address"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                <PermissionFormItem label="Address" name={["reference1", "address"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                   <TextArea
                     rows={2}
                     placeholder="House No, Street, Area"
                     className="rounded-xl border-border placeholder:font-normal"
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item 
-                  label="Pincode" 
+                <PermissionFormItem
+                  label="Pincode"
                   name={["reference1", "pincode"]}
                   rules={[{ pattern: /^[0-9]{6}$/, message: '6 digits required' }]}
                 >
                   <Input placeholder="6-Digit Pincode" maxLength={6} className="rounded-xl border-border placeholder:font-normal" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="City" name={["reference1", "city"]}>
+                <PermissionFormItem label="City" name={["reference1", "city"]}>
                   <Input placeholder="City (Auto-Filled)" className="rounded-xl border-border placeholder:font-normal" suffix={fetching1 ? <span style={{fontSize: 10, color: '#aaa'}}>...</span> : null} />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Relation" name={['reference1', 'relation']}>
+                <PermissionFormItem label="Relation" name={['reference1', 'relation']}>
                   <Select placeholder="Relation" className="rounded-xl border-border w-full placeholder:font-normal">
                     <Option value="Family">Family</Option>
                     <Option value="Friend">Friend</Option>
@@ -138,9 +139,9 @@ const ReferenceDetails = () => {
                     <Option value="Relative">Relative</Option>
                     <Option value="Other">Other</Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
-              
+
             </Row>
           </div>
         </Col>
@@ -154,14 +155,14 @@ const ReferenceDetails = () => {
 
             <Row gutter={[12, 12]}>
               <Col xs={24} md={12}>
-                <Form.Item label="Name" name={["reference2", "name"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                <PermissionFormItem label="Name" name={["reference2", "name"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                   <Input placeholder="Reference Name" className="rounded-xl border-border placeholder:font-normal" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={12}>
-                <Form.Item 
-                  label="Mobile No" 
+                <PermissionFormItem
+                  label="Mobile No"
                   name={["reference2", "mobile"]}
                   rules={[{ pattern: /^[0-9]{10}$/, message: '10 digits required' }]}
                 >
@@ -171,37 +172,37 @@ const ReferenceDetails = () => {
                     maxLength={10}
                     className="rounded-xl border-border placeholder:font-normal"
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24}>
-                <Form.Item label="Address" name={["reference2", "address"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                <PermissionFormItem label="Address" name={["reference2", "address"]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                   <TextArea
                     rows={2}
                     placeholder="House No, Street, Area"
                     className="rounded-xl border-border placeholder:font-normal"
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item 
-                  label="Pincode" 
+                <PermissionFormItem
+                  label="Pincode"
                   name={["reference2", "pincode"]}
                   rules={[{ pattern: /^[0-9]{6}$/, message: '6 digits required' }]}
                 >
                   <Input placeholder="6-Digit Pincode" maxLength={6} className="rounded-xl border-border placeholder:font-normal" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="City" name={["reference2", "city"]}>
+                <PermissionFormItem label="City" name={["reference2", "city"]}>
                   <Input placeholder="City (Auto-Filled)" className="rounded-xl border-border placeholder:font-normal" suffix={fetching2 ? <span style={{fontSize: 10, color: '#aaa'}}>...</span> : null} />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Relation" name={['reference2', 'relation']}>
+                <PermissionFormItem label="Relation" name={['reference2', 'relation']}>
                   <Select placeholder="Relation" className="rounded-xl border-border w-full placeholder:font-normal">
                     <Option value="Family">Family</Option>
                     <Option value="Friend">Friend</Option>
@@ -210,7 +211,7 @@ const ReferenceDetails = () => {
                     <Option value="Relative">Relative</Option>
                     <Option value="Other">Other</Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
             </Row>
           </div>

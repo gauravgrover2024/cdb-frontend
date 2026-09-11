@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
@@ -105,8 +106,8 @@ const CommissionTracker = ({ form, loanId }) => {
 
         {/* Excess Payment */}
         <div className={`bg-gradient-to-br rounded-lg p-3 border ${
-          hasExcess 
-            ? 'from-warning/5 to-warning/10 border-warning/20' 
+          hasExcess
+            ? 'from-warning/5 to-warning/10 border-warning/20'
             : 'from-muted/5 to-muted/10 border-muted/20'
         }`}>
           <div className="flex items-center gap-2 mb-1">
@@ -129,7 +130,7 @@ const CommissionTracker = ({ form, loanId }) => {
                 Excess Payment Detected
               </p>
               <p className="text-xs text-muted-foreground mb-2">
-                You've paid ₹{commissionData.excessPaymentToShowroom.toLocaleString()} more than expected. 
+                You've paid ₹{commissionData.excessPaymentToShowroom.toLocaleString()} more than expected.
                 This will be tracked as commission receivable from showroom.
               </p>
               <div className="flex gap-2">
@@ -166,8 +167,8 @@ const CommissionTracker = ({ form, loanId }) => {
         </div>
 
         <div className={`flex items-center justify-between p-3 rounded-lg border ${
-          hasOutstanding 
-            ? 'bg-destructive/10 border-destructive/20' 
+          hasOutstanding
+            ? 'bg-destructive/10 border-destructive/20'
             : 'bg-muted/10 border-muted/20'
         }`}>
           <div className="flex items-center gap-2">
@@ -192,24 +193,24 @@ const CommissionTracker = ({ form, loanId }) => {
 
       {/* Hidden Form Fields */}
       <div className="hidden">
-        <Form.Item name="totalPaymentToShowroom">
+        <PermissionFormItem name="totalPaymentToShowroom">
           <input type="hidden" />
-        </Form.Item>
-        <Form.Item name="expectedPaymentToShowroom">
+        </PermissionFormItem>
+        <PermissionFormItem name="expectedPaymentToShowroom">
           <input type="hidden" />
-        </Form.Item>
-        <Form.Item name="excessPaymentToShowroom">
+        </PermissionFormItem>
+        <PermissionFormItem name="excessPaymentToShowroom">
           <input type="hidden" />
-        </Form.Item>
-        <Form.Item name="commissionReceivableFromShowroom">
+        </PermissionFormItem>
+        <PermissionFormItem name="commissionReceivableFromShowroom">
           <input type="hidden" />
-        </Form.Item>
-        <Form.Item name="commissionReceivedFromShowroom">
+        </PermissionFormItem>
+        <PermissionFormItem name="commissionReceivedFromShowroom">
           <input type="hidden" />
-        </Form.Item>
-        <Form.Item name="outstandingCommissionFromShowroom">
+        </PermissionFormItem>
+        <PermissionFormItem name="outstandingCommissionFromShowroom">
           <input type="hidden" />
-        </Form.Item>
+        </PermissionFormItem>
       </div>
     </div>
   );

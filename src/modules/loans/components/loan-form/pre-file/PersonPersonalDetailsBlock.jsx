@@ -11,6 +11,7 @@ import {
   Space,
   Button,
 } from "antd";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import {
   UserOutlined,
   HomeOutlined,
@@ -30,51 +31,51 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
 
     <Row gutter={[16, 16]}>
       <Col md={8}>
-        <Form.Item label="Applicant Name" name={`${prefix}Name`}>
+        <PermissionFormItem label="Applicant Name" name={`${prefix}Name`}>
           <Input />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={8}>
-        <Form.Item label="Mother's Name" name={`${prefix}MotherName`}>
+        <PermissionFormItem label="Mother's Name" name={`${prefix}MotherName`}>
           <Input />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={8}>
-        <Form.Item label="Father / Husband Name" name={`${prefix}FatherName`}>
+        <PermissionFormItem label="Father / Husband Name" name={`${prefix}FatherName`}>
           <Input />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="Date of Birth" name={`${prefix}Dob`}>
+        <PermissionFormItem label="Date of Birth" name={`${prefix}Dob`}>
           <DatePicker style={{ width: "100%" }} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="Gender" name={`${prefix}Gender`}>
+        <PermissionFormItem label="Gender" name={`${prefix}Gender`}>
           <Select options={["Male", "Female"].map((v) => ({ value: v }))} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="Marital Status" name={`${prefix}MaritalStatus`}>
+        <PermissionFormItem label="Marital Status" name={`${prefix}MaritalStatus`}>
           <Select
             options={["Married", "Unmarried"].map((v) => ({ value: v }))}
           />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="No of Dependents" name={`${prefix}Dependents`}>
+        <PermissionFormItem label="No of Dependents" name={`${prefix}Dependents`}>
           <InputNumber min={0} style={{ width: "100%" }} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={8}>
-        <Form.Item label="Education Details" name={`${prefix}Education`}>
+        <PermissionFormItem label="Education Details" name={`${prefix}Education`}>
           <Select
             options={[
               "Undergraduate",
@@ -83,38 +84,38 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
               "Others",
             ].map((v) => ({ value: v }))}
           />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col span={24}>
-        <Form.Item label="Present Address" name={`${prefix}Address`}>
+        <PermissionFormItem label="Present Address" name={`${prefix}Address`}>
           <TextArea autoSize={{ minRows: 2, maxRows: 5 }} prefix={<HomeOutlined />} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="Pincode" name={`${prefix}Pincode`}>
+        <PermissionFormItem label="Pincode" name={`${prefix}Pincode`}>
           <Input />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="City" name={`${prefix}City`}>
+        <PermissionFormItem label="City" name={`${prefix}City`}>
           <Input />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item
+        <PermissionFormItem
           label="Years at Current Residence"
           name={`${prefix}YearsAtResidence`}
         >
           <InputNumber min={0} style={{ width: "100%" }} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={6}>
-        <Form.Item label="House" name={`${prefix}House`}>
+        <PermissionFormItem label="House" name={`${prefix}House`}>
           <Select
             options={[
               "Owned",
@@ -123,13 +124,13 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
               "Rented (monthly rent)",
             ].map((v) => ({ value: v }))}
           />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={8}>
-        <Form.Item label="Primary Mobile" name={`${prefix}Mobile`}>
+        <PermissionFormItem label="Primary Mobile" name={`${prefix}Mobile`}>
           <Input prefix={<PhoneOutlined />} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={8}>
@@ -139,9 +140,9 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
               <label>Additional Mobile(s)</label>
               {fields.map((field) => (
                 <Space key={field.key}>
-                  <Form.Item {...field}>
+                  <PermissionFormItem {...field}>
                     <Input />
-                  </Form.Item>
+                  </PermissionFormItem>
                   <Button danger onClick={() => remove(field.name)}>
                     Remove
                   </Button>
@@ -156,19 +157,19 @@ const PersonPersonalDetailsBlock = ({ prefix }) => (
       </Col>
 
       <Col md={8}>
-        <Form.Item label="PAN Number" name={`${prefix}Pan`}>
+        <PermissionFormItem label="PAN Number" name={`${prefix}Pan`}>
           <Input prefix={<IdcardOutlined />} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
 
       <Col md={8}>
-        <Form.Item 
+        <PermissionFormItem
           label="Aadhaar Number" 
           name={`${prefix}Aadhaar`}
           rules={[{ pattern: /^[0-9]{12}$/, message: '12 digits required' }]}
         >
           <Input maxLength={12} />
-        </Form.Item>
+        </PermissionFormItem>
       </Col>
     </Row>
   </>

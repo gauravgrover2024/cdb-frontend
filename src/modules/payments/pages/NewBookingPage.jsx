@@ -1,5 +1,6 @@
 // src/modules/payments/pages/NewBookingPage.jsx
 import React, { useEffect, useState } from "react";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import {
   Card,
   Form,
@@ -161,30 +162,30 @@ const NewBookingPage = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Customer details */}
             <Card size="small" title="Customer details">
-              <Form.Item label="Customer name" name="customerName">
+              <PermissionFormItem label="Customer name" name="customerName">
                 <Input />
-              </Form.Item>
-              <Form.Item label="S/D/W of" name="sdwOf">
+              </PermissionFormItem>
+              <PermissionFormItem label="S/D/W of" name="sdwOf">
                 <Input />
-              </Form.Item>
-              <Form.Item label="Customer phone" name="customerPhone">
+              </PermissionFormItem>
+              <PermissionFormItem label="Customer phone" name="customerPhone">
                 <Input />
-              </Form.Item>
-              <Form.Item label="Lead source type" name="leadSourceType">
+              </PermissionFormItem>
+              <PermissionFormItem label="Lead source type" name="leadSourceType">
                 <Select allowClear>
                   <Option value="Direct">Direct</Option>
                   <Option value="Referral">Referral</Option>
                   <Option value="Dealer">Dealer</Option>
                 </Select>
-              </Form.Item>
-              <Form.Item label="Direct source name" name="directSourceName">
+              </PermissionFormItem>
+              <PermissionFormItem label="Direct source name" name="directSourceName">
                 <Input />
-              </Form.Item>
+              </PermissionFormItem>
             </Card>
 
             {/* Vehicle details */}
             <Card size="small" title="Vehicle details">
-              <Form.Item label="Make" name="vehicleMake">
+              <PermissionFormItem label="Make" name="vehicleMake">
                 <Select
                   showSearch
                   loading={vehicleLoading}
@@ -198,8 +199,8 @@ const NewBookingPage = () => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
-              <Form.Item label="Model" name="vehicleModel">
+              </PermissionFormItem>
+              <PermissionFormItem label="Model" name="vehicleModel">
                 <Select
                   showSearch
                   loading={vehicleLoading}
@@ -218,8 +219,8 @@ const NewBookingPage = () => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
-              <Form.Item label="Variant" name="vehicleVariant">
+              </PermissionFormItem>
+              <PermissionFormItem label="Variant" name="vehicleVariant">
                 <Select
                   showSearch
                   loading={vehicleLoading}
@@ -238,8 +239,8 @@ const NewBookingPage = () => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
-              <Form.Item label={null}>
+              </PermissionFormItem>
+              <PermissionFormItem label={null}>
                 <Checkbox
                   checked={showDiscontinuedCars}
                   onChange={(event) =>
@@ -248,18 +249,18 @@ const NewBookingPage = () => {
                 >
                   Show discontinued cars
                 </Checkbox>
-              </Form.Item>
-              <Form.Item label="Color" name="vehicleColor">
+              </PermissionFormItem>
+              <PermissionFormItem label="Color" name="vehicleColor">
                 <Input />
-              </Form.Item>
-              <Form.Item label="Registration city" name="regCity">
+              </PermissionFormItem>
+              <PermissionFormItem label="Registration city" name="regCity">
                 <Input />
-              </Form.Item>
+              </PermissionFormItem>
             </Card>
 
             {/* Price & booking */}
             <Card size="small" title="Price & booking">
-              <Form.Item label="Ex-showroom price" name="exShowroomPrice">
+              <PermissionFormItem label="Ex-showroom price" name="exShowroomPrice">
                 <InputNumber
                   style={{ width: "100%" }}
                   min={0}
@@ -272,29 +273,29 @@ const NewBookingPage = () => {
                     value ? value.replace(/[₹\s,]/g, "") : ""
                   }
                 />
-              </Form.Item>
-              <Form.Item label="Dealer discount" name="dealerDiscount">
+              </PermissionFormItem>
+              <PermissionFormItem label="Dealer discount" name="dealerDiscount">
                 <InputNumber style={{ width: "100%" }} min={0} />
-              </Form.Item>
-              <Form.Item
+              </PermissionFormItem>
+              <PermissionFormItem
                 label="Manufacturer discount"
                 name="manufacturerDiscount"
               >
                 <InputNumber style={{ width: "100%" }} min={0} />
-              </Form.Item>
-              <Form.Item label="Other discounts" name="otherDiscounts">
+              </PermissionFormItem>
+              <PermissionFormItem label="Other discounts" name="otherDiscounts">
                 <InputNumber style={{ width: "100%" }} min={0} />
-              </Form.Item>
-              <Form.Item label="Finance required" name="financeRequired">
+              </PermissionFormItem>
+              <PermissionFormItem label="Finance required" name="financeRequired">
                 <InputNumber style={{ width: "100%" }} min={0} />
-              </Form.Item>
-              <Form.Item label="Booking amount" name="bookingAmount">
+              </PermissionFormItem>
+              <PermissionFormItem label="Booking amount" name="bookingAmount">
                 <InputNumber style={{ width: "100%" }} min={0} />
-              </Form.Item>
-              <Form.Item label="Booking date" name="bookingDate">
+              </PermissionFormItem>
+              <PermissionFormItem label="Booking date" name="bookingDate">
                 <DatePicker style={{ width: "100%" }} />
-              </Form.Item>
-              <Form.Item label="Booking payment mode" name="bookingPaymentMode">
+              </PermissionFormItem>
+              <PermissionFormItem label="Booking payment mode" name="bookingPaymentMode">
                 <Select allowClear>
                   <Option value="Online Transfer/UPI">
                     Online Transfer/UPI
@@ -304,18 +305,18 @@ const NewBookingPage = () => {
                   <Option value="DD">DD</Option>
                   <Option value="Credit Card">Credit Card</Option>
                 </Select>
-              </Form.Item>
-              <Form.Item label="Exchange present" name="exchangePresent">
+              </PermissionFormItem>
+              <PermissionFormItem label="Exchange present" name="exchangePresent">
                 <Select allowClear>
                   <Option value="Yes">Yes</Option>
                   <Option value="No">No</Option>
                 </Select>
-              </Form.Item>
+              </PermissionFormItem>
             </Card>
 
             {/* Showroom details */}
             <Card size="small" title="Showroom details">
-              <Form.Item label="Showroom name" name="showroomName">
+              <PermissionFormItem label="Showroom name" name="showroomName">
                 <AutoComplete
                   options={showroomOptions}
                   onSearch={searchShowrooms}
@@ -328,22 +329,22 @@ const NewBookingPage = () => {
                 >
                   <Input />
                 </AutoComplete>
-              </Form.Item>
-              <Form.Item
+              </PermissionFormItem>
+              <PermissionFormItem
                 label="Showroom contact person"
                 name="showroomContactPerson"
               >
                 <Input />
-              </Form.Item>
-              <Form.Item
+              </PermissionFormItem>
+              <PermissionFormItem
                 label="Showroom contact number"
                 name="showroomContactNumber"
               >
                 <Input />
-              </Form.Item>
-              <Form.Item label="Showroom address" name="showroomAddress">
+              </PermissionFormItem>
+              <PermissionFormItem label="Showroom address" name="showroomAddress">
                 <Input.TextArea rows={3} />
-              </Form.Item>
+              </PermissionFormItem>
             </Card>
           </div>
 

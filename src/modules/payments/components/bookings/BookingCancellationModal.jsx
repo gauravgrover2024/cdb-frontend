@@ -1,5 +1,6 @@
 // src/modules/payments/components/bookings/BookingCancellationModal.jsx
 import React from "react";
+import PermissionFormItem from "../../../../components/permissions/PermissionFormItem";
 import { Modal, Form, Select, Input, DatePicker } from "antd";
 import dayjs from "dayjs";
 import { bookingsApi } from "../../../../api/bookings";
@@ -46,7 +47,7 @@ const BookingCancellationModal = ({ open, onClose, booking, onCancelled }) => {
           cancelledAt: dayjs(),
         }}
       >
-        <Form.Item
+        <PermissionFormItem
           label="Cancellation reason"
           name="reason"
           rules={[{ required: true, message: "Please select a reason" }]}
@@ -62,13 +63,13 @@ const BookingCancellationModal = ({ open, onClose, booking, onCancelled }) => {
             </Option>
             <Option value="Other">Other</Option>
           </Select>
-        </Form.Item>
-        <Form.Item label="Remarks" name="remarks">
+        </PermissionFormItem>
+        <PermissionFormItem label="Remarks" name="remarks">
           <Input.TextArea rows={3} placeholder="Any extra notes" />
-        </Form.Item>
-        <Form.Item label="Cancellation date" name="cancelledAt">
+        </PermissionFormItem>
+        <PermissionFormItem label="Cancellation date" name="cancelledAt">
           <DatePicker style={{ width: "100%" }} />
-        </Form.Item>
+        </PermissionFormItem>
       </Form>
     </Modal>
   );

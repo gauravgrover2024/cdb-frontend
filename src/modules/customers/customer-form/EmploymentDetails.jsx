@@ -1,4 +1,5 @@
 import { lookupCityByPincode } from "../../loans/components/loan-form/pre-file/pincodeCityLookup";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import React, { useEffect, useState } from "react";
 import { Form, Input, Select, AutoComplete, Row, Col, Tag, Spin, Button } from "antd";
 import Icon from "../../../components/AppIcon";
@@ -105,8 +106,8 @@ const EmploymentDetails = () => {
   const isSelfEmployed = occupation?.includes("Self Employed");
 
   return (
-    <div 
-        id="section-employment" 
+    <div
+        id="section-employment"
         className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
         style={{ background: "var(--card)" }}
     >
@@ -126,52 +127,52 @@ const EmploymentDetails = () => {
         {/* --- GROUP 1: Professional Setup --- */}
         {isCompany ? (
           <Col xs={24} md={8}>
-            <Form.Item label="Occupation Type" name="occupationType" hidden>
+            <PermissionFormItem label="Occupation Type" name="occupationType" hidden>
               <Input />
-            </Form.Item>
-            <Form.Item label="Business Profile" className="mb-0">
+            </PermissionFormItem>
+            <PermissionFormItem label="Business Profile" className="mb-0">
               <Select
                 value={occupation || "Self Employed"}
                 placeholder="Select business profile"
                 onChange={(value) => form.setFieldsValue({ occupationType: value })}
                 options={occupationOptions.map((opt) => ({ label: opt, value: opt }))}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         ) : (
           <Col xs={24} md={8}>
-            <Form.Item label="Occupation Type" name="occupationType">
+            <PermissionFormItem label="Occupation Type" name="occupationType">
               <Select placeholder="Select occupation" allowClear>
                 {occupationOptions.map((opt) => (
                   <Option key={opt} value={opt}>{opt}</Option>
                 ))}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {!isCompany && (
           <>
             <Col xs={24} md={8}>
-              <Form.Item 
-                label={isSelfEmployed ? "Business Name" : "Company Name"} 
+              <PermissionFormItem
+                label={isSelfEmployed ? "Business Name" : "Company Name"}
                 name="companyName"
               >
                 <Input placeholder={isSelfEmployed ? "Trading name" : "Employer name"} />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Designation / Role" name="designation">
+              <PermissionFormItem label="Designation / Role" name="designation">
                 <Input placeholder="Enter Position" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           </>
         )}
 
         {isCompany && (
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Whether MSME"
               name="isMSME"
               rules={[{ required: true, message: "Select MSME status" }]}
@@ -180,13 +181,13 @@ const EmploymentDetails = () => {
                 <Option value="Yes">Yes</Option>
                 <Option value="No">No</Option>
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {/* --- GROUP 2: Business Specifics --- */}
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label="Constitution / Type" name="companyType">
+          <PermissionFormItem label="Constitution / Type" name="companyType">
             <AutoComplete
               placeholder="Select or type your own"
               allowClear
@@ -195,11 +196,11 @@ const EmploymentDetails = () => {
                 (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
               }
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label="Nature of Business" name="businessNature">
+          <PermissionFormItem label="Nature of Business" name="businessNature">
             <Select
               mode="tags"
               placeholder="Select business nature(s)"
@@ -212,12 +213,12 @@ const EmploymentDetails = () => {
                 form.setFieldsValue({ businessNature: normalizeMultiTags(value) })
               }
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {(occupation === "Self Employed Professional" || (isCompany && occupation === "Self Employed Professional")) && (
           <Col xs={24} md={8} className="mt-4">
-            <Form.Item label="Professional Type" name="professionalType">
+            <PermissionFormItem label="Professional Type" name="professionalType">
               <Select placeholder="Select professional type" allowClear>
                 <Option value="Doctor">Doctor</Option>
                 <Option value="CA">CA</Option>
@@ -227,39 +228,39 @@ const EmploymentDetails = () => {
                 <Option value="Lawyer">Lawyer</Option>
                 <Option value="Other">Other</Option>
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {!isCompany && occupation === "Salaried" && (
           <Col xs={24} md={8} className="mt-4">
-            <Form.Item label="Monthly Net Salary" name="salaryMonthly">
-              <Input 
-                placeholder="Take-home amount" 
-                prefix={<Icon name="IndianRupee" size={14} className="text-muted-foreground" />} 
+            <PermissionFormItem label="Monthly Net Salary" name="salaryMonthly">
+              <Input
+                placeholder="Take-home amount"
+                prefix={<Icon name="IndianRupee" size={14} className="text-muted-foreground" />}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {!isCompany && isSelfEmployed && (
           <Col xs={24} md={8} className="mt-4">
-            <Form.Item label="Business Since (Year)" name="incorporationYear">
+            <PermissionFormItem label="Business Since (Year)" name="incorporationYear">
               <Input placeholder="Ex: 2012" maxLength={4} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label={isCompany ? "Business Since / Current Vintage (Years)" : "Current Exp (Years)"} name="experienceCurrent">
+          <PermissionFormItem label={isCompany ? "Business Since / Current Vintage (Years)" : "Current Exp (Years)"} name="experienceCurrent">
             <Input placeholder="Years" />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label="Total Exp (Years)" name="totalExperience">
+          <PermissionFormItem label="Total Exp (Years)" name="totalExperience">
             <Input placeholder="Years" />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {/* --- GROUP 3: Contact Details --- */}
@@ -271,43 +272,43 @@ const EmploymentDetails = () => {
             </Col>
 
             <Col xs={24}>
-              <Form.Item label="Office Address" name="employmentAddress">
+              <PermissionFormItem label="Office Address" name="employmentAddress">
                 <TextArea rows={2} placeholder="Building, Street, Area" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Pincode" name="employmentPincode">
+              <PermissionFormItem label="Pincode" name="employmentPincode">
                 <Input placeholder="6-Digit Pincode" maxLength={6} />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="City" name="employmentCity">
-                <Input 
-                  placeholder="Auto-filled" 
-                  suffix={fetchingPincode ? <Spin size="small" /> : null} 
+              <PermissionFormItem label="City" name="employmentCity">
+                <Input
+                  placeholder="Auto-filled"
+                  suffix={fetchingPincode ? <Spin size="small" /> : null}
                 />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Office Phone" name="employmentPhone">
+              <PermissionFormItem label="Office Phone" name="employmentPhone">
                 <Input
                   placeholder="Work contact"
                   prefix={<Icon name="Phone" size={14} className="text-muted-foreground mr-1" />}
                 />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item
+              <PermissionFormItem
                 label="Official Email ID"
                 name="officialEmail"
                 rules={[{ type: "email", message: "Enter a valid email" }]}
               >
                 <Input placeholder="email@company.com" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           </>
         )}
@@ -327,24 +328,24 @@ const EmploymentDetails = () => {
                       className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-xl border border-border bg-foreground/[0.02] p-3"
                     >
                       <div className="md:col-span-4">
-                        <Form.Item {...field} label="Name" name={[field.name, "name"]} className="mb-0">
+                        <PermissionFormItem {...field} label="Name" name={[field.name, "name"]} className="mb-0">
                           <Input placeholder="Partner / Director name" />
-                        </Form.Item>
+                        </PermissionFormItem>
                       </div>
                       <div className="md:col-span-3">
-                        <Form.Item {...field} label="PAN No." name={[field.name, "panNumber"]} className="mb-0">
+                        <PermissionFormItem {...field} label="PAN No." name={[field.name, "panNumber"]} className="mb-0">
                           <Input placeholder="PAN Number" />
-                        </Form.Item>
+                        </PermissionFormItem>
                       </div>
                       <div className="md:col-span-3">
-                        <Form.Item {...field} label="Contact" name={[field.name, "contactNumber"]} className="mb-0">
+                        <PermissionFormItem {...field} label="Contact" name={[field.name, "contactNumber"]} className="mb-0">
                           <Input placeholder="Mobile Number" />
-                        </Form.Item>
+                        </PermissionFormItem>
                       </div>
                       <div className="md:col-span-2">
-                        <Form.Item {...field} label="Date of Birth" name={[field.name, "dateOfBirth"]} className="mb-0">
+                        <PermissionFormItem {...field} label="Date of Birth" name={[field.name, "dateOfBirth"]} className="mb-0">
                           <Input type="date" />
-                        </Form.Item>
+                        </PermissionFormItem>
                       </div>
                       <div className="md:col-span-12 flex justify-end">
                         <Button type="text" danger onClick={() => remove(field.name)}>

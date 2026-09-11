@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import {
   AutoComplete,
   Button,
@@ -216,8 +217,8 @@ const BankDetails = () => {
   }
 
   return (
-    <div 
-        id="section-bank" 
+    <div
+        id="section-bank"
         className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
         style={{ background: "var(--card)" }}
     >
@@ -233,13 +234,13 @@ const BankDetails = () => {
 
       {/* FORM FIELDS */}
       <Row gutter={[16, 16]}>
-        <Form.Item name="ifscCode" hidden>
+        <PermissionFormItem name="ifscCode" hidden>
           <Input />
-        </Form.Item>
+        </PermissionFormItem>
 
          {/* IFSC */}
         <Col xs={24} md={8}>
-          <Form.Item
+          <PermissionFormItem
             label="IFSC Code"
             name="ifsc"
             normalize={(value) => normalizeIfsc(value)}
@@ -256,12 +257,12 @@ const BankDetails = () => {
                 ) : null
               }
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {/* Bank Name */}
         <Col xs={24} md={8}>
-          <Form.Item label="Bank Name" name="bankName">
+          <PermissionFormItem label="Bank Name" name="bankName">
             <AutoComplete
               placeholder="Select or type bank name"
               options={bankDirectoryOptions}
@@ -272,56 +273,56 @@ const BankDetails = () => {
               }
               className="rounded-xl border-border w-full placeholder:font-normal"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {/* Branch */}
         <Col xs={24} md={8}>
-          <Form.Item label="Branch" name="branch">
+          <PermissionFormItem label="Branch" name="branch">
             <Input placeholder="Branch name" className="rounded-xl border-border placeholder:font-normal" />
-          </Form.Item>
-        </Col>
-        
-        {/* Account Number */}
-        <Col xs={24} md={8}>
-          <Form.Item label="Account Number" name="accountNumber">
-            <Input placeholder="Account number" className="rounded-xl border-border placeholder:font-normal" />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
-      
+        {/* Account Number */}
+        <Col xs={24} md={8}>
+          <PermissionFormItem label="Account Number" name="accountNumber">
+            <Input placeholder="Account number" className="rounded-xl border-border placeholder:font-normal" />
+          </PermissionFormItem>
+        </Col>
+
+
 
         {/* Account Since */}
         <Col xs={24} md={8}>
-          <Form.Item label="Account Since (Years)" name="accountSinceYears">
+          <PermissionFormItem label="Account Since (Years)" name="accountSinceYears">
             <InputNumber
               placeholder="Number of years"
               min={0}
               className="w-full rounded-xl border-border placeholder:font-normal"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {/* Account Type */}
         <Col xs={24} md={8}>
-          <Form.Item label="Account Type" name="accountType">
+          <PermissionFormItem label="Account Type" name="accountType">
             <Select
               placeholder="Select account type"
               options={accountTypeOptions}
               className="rounded-xl border-border w-full placeholder:font-normal"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8}>
-          <Form.Item label="Opened In" name="openedIn">
+          <PermissionFormItem label="Opened In" name="openedIn">
             <Input placeholder="Auto-filled year" disabled className="rounded-xl border-border placeholder:font-normal" />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
       </Row>
 
       <div className="mt-5 rounded-xl border border-border/60 bg-muted/20 p-4">
-        <Form.Item
+        <PermissionFormItem
           name="hasAdditionalBankDetails"
           valuePropName="checked"
           className="mb-3"
@@ -329,7 +330,7 @@ const BankDetails = () => {
           <Checkbox>
             Add additional banking details (up to 3 banks total)
           </Checkbox>
-        </Form.Item>
+        </PermissionFormItem>
 
         {hasAdditionalBankDetails && (
           <div className="space-y-4">
@@ -354,7 +355,7 @@ const BankDetails = () => {
 
                 <Row gutter={[16, 16]}>
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="IFSC Code"
                       name={["additionalBankDetails", index, "ifsc"]}
                       normalize={(value) => normalizeIfsc(value)}
@@ -364,11 +365,11 @@ const BankDetails = () => {
                         maxLength={11}
                         className="rounded-xl border-border placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Bank Name"
                       name={["additionalBankDetails", index, "bankName"]}
                     >
@@ -382,11 +383,11 @@ const BankDetails = () => {
                         }
                         className="rounded-xl border-border w-full placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Branch"
                       name={["additionalBankDetails", index, "branch"]}
                     >
@@ -394,11 +395,11 @@ const BankDetails = () => {
                         placeholder="Branch name"
                         className="rounded-xl border-border placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Account Number"
                       name={["additionalBankDetails", index, "accountNumber"]}
                     >
@@ -406,11 +407,11 @@ const BankDetails = () => {
                         placeholder="Account number"
                         className="rounded-xl border-border placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Account Since (Years)"
                       name={["additionalBankDetails", index, "accountSinceYears"]}
                     >
@@ -419,11 +420,11 @@ const BankDetails = () => {
                         min={0}
                         className="w-full rounded-xl border-border placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Opened In"
                       name={["additionalBankDetails", index, "openedIn"]}
                     >
@@ -432,11 +433,11 @@ const BankDetails = () => {
                         disabled
                         className="rounded-xl border-border placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Account Type"
                       name={["additionalBankDetails", index, "accountType"]}
                     >
@@ -445,7 +446,7 @@ const BankDetails = () => {
                         options={accountTypeOptions}
                         className="rounded-xl border-border w-full placeholder:font-normal"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 </Row>
               </div>

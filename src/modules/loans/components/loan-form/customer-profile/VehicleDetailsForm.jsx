@@ -1,4 +1,5 @@
 import React from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { Form, Select, Row, Col, Segmented, Spin, Checkbox, AutoComplete, Divider, Button } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { useVehicleData } from "../../../../../hooks/useVehicleData";
@@ -202,7 +203,7 @@ const VehicleDetailsForm = () => {
         </div>
         <Row gutter={[16, 16]} align="bottom">
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Vehicle Type"
               name="vehicleType"
               initialValue="New Car"
@@ -217,11 +218,11 @@ const VehicleDetailsForm = () => {
                   { label: "Used Car", value: "Used Car" },
                 ]}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Type of Loan"
               name="typeOfLoan"
               rules={[{ required: true, message: "Select type of loan" }]}
@@ -232,12 +233,12 @@ const VehicleDetailsForm = () => {
                 className="h-10 rounded-xl"
                 options={LOAN_TYPE_OPTIONS}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           {isUsedCar && (
             <Col xs={24} md={8}>
-              <Form.Item
+              <PermissionFormItem
                 label="Select Used Car (Master DB)"
                 className="mb-0"
               >
@@ -272,7 +273,7 @@ const VehicleDetailsForm = () => {
                     )
                   }
                 />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           )}
         </Row>
@@ -286,7 +287,7 @@ const VehicleDetailsForm = () => {
         </div>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={8}>
-            <Form.Item label="Make" name="vehicleMake" className="mb-0">
+            <PermissionFormItem label="Make" name="vehicleMake" className="mb-0">
               <Select
                 placeholder="Select make"
                 allowClear
@@ -358,11 +359,11 @@ const VehicleDetailsForm = () => {
                   </Select.Option>
                 ))}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Model" name="vehicleModel" className="mb-0">
+            <PermissionFormItem label="Model" name="vehicleModel" className="mb-0">
               <Select
                 placeholder={vehicleMake ? "Select model" : "Select make first"}
                 disabled={!vehicleMake}
@@ -421,11 +422,11 @@ const VehicleDetailsForm = () => {
                   </Select.Option>
                 ))}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Variant" name="vehicleVariant" className="mb-0">
+            <PermissionFormItem label="Variant" name="vehicleVariant" className="mb-0">
               <Select
                 placeholder={vehicleModel ? "Select variant" : "Select model first"}
                 disabled={!vehicleModel}
@@ -488,18 +489,18 @@ const VehicleDetailsForm = () => {
                   </Select.Option>
                 ))}
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24}>
-            <Form.Item className="mb-0">
+            <PermissionFormItem className="mb-0">
               <Checkbox
                 checked={showDiscontinuedCars}
                 onChange={(event) => setShowDiscontinuedCars(event?.target?.checked)}
               >
                 Show discontinued cars
               </Checkbox>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         </Row>
       </div>
@@ -520,7 +521,7 @@ const VehicleDetailsForm = () => {
           </div>
         </div>
         <div className="w-full md:w-48 shrink-0">
-          <Form.Item name="isFinanced" className="mb-0">
+          <PermissionFormItem name="isFinanced" className="mb-0">
             <Segmented
               block
               options={[
@@ -529,7 +530,7 @@ const VehicleDetailsForm = () => {
               ]}
               className="rounded-xl p-1 bg-background shadow-sm"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </div>
       </div>
     </div>

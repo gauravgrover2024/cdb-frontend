@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { Form, DatePicker, TimePicker } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import { getEmployees } from "../../../../../api/employees";
@@ -102,11 +103,11 @@ const PostFileDispatchAndRecords = ({ form }) => {
 
   return (
     <div className="space-y-4 md:space-y-5">
-      <Form.Item name="loan_number" hidden><input /></Form.Item>
-      <Form.Item name="dispatch_date" hidden><input /></Form.Item>
-      <Form.Item name="dispatch_time" hidden><input /></Form.Item>
-      <Form.Item name="disbursement_date" hidden><input /></Form.Item>
-      <Form.Item name="disbursement_time" hidden><input /></Form.Item>
+      <PermissionFormItem name="loan_number" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="dispatch_date" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="dispatch_time" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="disbursement_date" hidden><input /></PermissionFormItem>
+      <PermissionFormItem name="disbursement_time" hidden><input /></PermissionFormItem>
 
       <div className="rounded-2xl border border-border bg-[#f9fafb] dark:bg-slate-950/35 p-4 md:p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -137,7 +138,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FieldShell label="Dispatch Date">
-                <Form.Item className="mb-0">
+                <PermissionFormItem className="mb-0">
                   <DatePicker
                     className="w-full"
                     format="DD MMM YYYY"
@@ -150,11 +151,11 @@ const PostFileDispatchAndRecords = ({ form }) => {
                       )
                     }
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </FieldShell>
 
               <FieldShell label="Dispatch Time">
-                <Form.Item className="mb-0">
+                <PermissionFormItem className="mb-0">
                   <TimePicker
                     className="w-full"
                     format="HH:mm"
@@ -167,13 +168,13 @@ const PostFileDispatchAndRecords = ({ form }) => {
                       )
                     }
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </FieldShell>
 
               <FieldShell label="Dispatch Through">
-                <Form.Item name="dispatch_through" className="mb-0">
+                <PermissionFormItem name="dispatch_through" className="mb-0">
                   <input type="text" className="w-full border border-border rounded-md px-3 py-2 text-sm bg-background" placeholder="e.g., Courier" />
-                </Form.Item>
+                </PermissionFormItem>
               </FieldShell>
             </div>
           </div>
@@ -187,7 +188,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <FieldShell label="Disbursement Date">
-                <Form.Item className="mb-0">
+                <PermissionFormItem className="mb-0">
                   <DatePicker
                     className="w-full"
                     format="DD MMM YYYY"
@@ -200,11 +201,11 @@ const PostFileDispatchAndRecords = ({ form }) => {
                       )
                     }
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </FieldShell>
 
               <FieldShell label="Disbursement Time">
-                <Form.Item className="mb-0">
+                <PermissionFormItem className="mb-0">
                   <TimePicker
                     className="w-full"
                     format="HH:mm"
@@ -217,11 +218,11 @@ const PostFileDispatchAndRecords = ({ form }) => {
                       )
                     }
                   />
-                </Form.Item>
+                </PermissionFormItem>
               </FieldShell>
 
               <FieldShell label="Loan Number">
-                <Form.Item className="mb-0">
+                <PermissionFormItem className="mb-0">
                   <div className="relative">
                     <input
                       type="text"
@@ -255,7 +256,7 @@ const PostFileDispatchAndRecords = ({ form }) => {
                       Active loan number
                     </div>
                   )}
-                </Form.Item>
+                </PermissionFormItem>
               </FieldShell>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import { Form, Input, InputNumber, Row, Col } from "antd";
 import Icon from "../../../components/AppIcon";
 import DocumentUpload from "../../../components/ui/DocumentUpload";
@@ -16,8 +17,8 @@ const IncomeDetails = () => {
   }
 
   return (
-    <div 
-        id="section-income" 
+    <div
+        id="section-income"
         className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
         style={{ background: "var(--card)" }}
     >
@@ -41,23 +42,23 @@ const IncomeDetails = () => {
                  <Icon name="CreditCard" size={14} />
                  PAN Details
                </div>
-               <Form.Item name="panNumber" style={{ marginBottom: 0 }}>
-                  <Input 
-                    placeholder="Pan Number" 
-                    maxLength={10} 
+               <PermissionFormItem name="panNumber" style={{ marginBottom: 0 }}>
+                  <Input
+                    placeholder="Pan Number"
+                    maxLength={10}
                     className="bg-transparent border-border rounded-xl placeholder:font-normal"
                   />
-               </Form.Item>
+               </PermissionFormItem>
              </div>
 
              <div className="flex-none pt-1">
-               <Form.Item name="panCardDocUrl" style={{ marginBottom: 0 }}>
+               <PermissionFormItem name="panCardDocUrl" style={{ marginBottom: 0 }}>
                   <DocumentUpload
                     uploadTitle="Upload PAN Card"
                     viewerTitle="Post-File Document Viewer"
                     docTag="PAN Card"
                   />
-               </Form.Item>
+               </PermissionFormItem>
              </div>
            </div>
         </Col>
@@ -66,9 +67,9 @@ const IncomeDetails = () => {
         <Col xs={24} md={12}>
           <div className="h-full flex items-center p-4 border border-border rounded-2xl bg-foreground/5">
              <div className="w-full">
-               <Form.Item 
+               <PermissionFormItem
                   label={<span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Total Income (as per ITR)</span>}
-                  name="totalIncomeITR" 
+                  name="totalIncomeITR"
                   style={{ marginBottom: 0 }}
                 >
                   <InputNumber
@@ -78,7 +79,7 @@ const IncomeDetails = () => {
                     formatter={(value) => formatINRInput(value)}
                     parser={value => parseINRInput(value)}
                   />
-               </Form.Item>
+               </PermissionFormItem>
              </div>
           </div>
         </Col>
