@@ -4,7 +4,7 @@ import PermissionField from "./PermissionField";
 
 const PermissionFormItem = ({ module, section = "customer", label, children, ...props }) => {
   const resolvedModule = module || (typeof window !== "undefined"
-    ? (window.location.pathname.includes("home-loans") ? "homeLoans" : window.location.pathname.includes("customers") ? "customers" : "loans")
+    ? (window.location.pathname.includes("home-loans") ? "homeLoans" : window.location.pathname.includes("customers") ? "customers" : window.location.pathname.includes("bookings") ? "bookings" : window.location.pathname.includes("payments") ? "payments" : "loans")
     : "loans");
   if (!label) return <Form.Item {...props}>{children}</Form.Item>;
   return (

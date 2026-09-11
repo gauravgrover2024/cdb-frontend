@@ -1,5 +1,6 @@
 // src/modules/payments/components/bookings/NewCarBookingForm.jsx
 import React from "react";
+import PermissionFormItem from "../../../../components/permissions/PermissionFormItem";
 import {
   AutoComplete,
   Form,
@@ -90,7 +91,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               <UserOutlined className="text-sky-500" />,
             )}
 
-            <Form.Item
+            <PermissionFormItem
               label="Source type"
               name="leadSourceType"
               rules={[{ required: true, message: "Please select source type" }]}
@@ -99,10 +100,10 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 <Radio.Button value="Direct">Direct</Radio.Button>
                 <Radio.Button value="Indirect">Indirect</Radio.Button>
               </Radio.Group>
-            </Form.Item>
+            </PermissionFormItem>
 
             {/* Direct */}
-            <Form.Item
+            <PermissionFormItem
               noStyle
               shouldUpdate={(prev, cur) =>
                 prev.leadSourceType !== cur.leadSourceType
@@ -110,7 +111,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
             >
               {({ getFieldValue }) =>
                 getFieldValue("leadSourceType") === "Direct" && (
-                  <Form.Item
+                  <PermissionFormItem
                     label="Direct reference / source name"
                     name="directSourceName"
                     rules={[
@@ -121,13 +122,13 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                     ]}
                   >
                     <Input placeholder="Friend, existing customer, walk-in, etc." />
-                  </Form.Item>
+                  </PermissionFormItem>
                 )
               }
-            </Form.Item>
+            </PermissionFormItem>
 
             {/* Indirect */}
-            <Form.Item
+            <PermissionFormItem
               noStyle
               shouldUpdate={(prev, cur) =>
                 prev.leadSourceType !== cur.leadSourceType
@@ -136,7 +137,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               {({ getFieldValue }) =>
                 getFieldValue("leadSourceType") === "Indirect" && (
                   <>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Dealer name"
                       name="dealerName"
                       rules={[
@@ -147,14 +148,14 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                       ]}
                     >
                       <Input placeholder="Showroom / dealer" />
-                    </Form.Item>
-                    <Form.Item label="Dealer address" name="dealerAddress">
+                    </PermissionFormItem>
+                    <PermissionFormItem label="Dealer address" name="dealerAddress">
                       <Input.TextArea
                         rows={2}
                         placeholder="Dealer showroom address"
                       />
-                    </Form.Item>
-                    <Form.Item
+                    </PermissionFormItem>
+                    <PermissionFormItem
                       label="Dealer mobile"
                       name="dealerMobile"
                       rules={[
@@ -165,11 +166,11 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                       ]}
                     >
                       <Input placeholder="10-digit mobile" maxLength={10} />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </>
                 )
               }
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           {/* SECTION: Vehicle + registration */}
@@ -181,7 +182,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Form.Item
+              <PermissionFormItem
                 label="Make"
                 name="vehicleMake"
                 rules={[{ required: true, message: "Please enter make" }]}
@@ -199,8 +200,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
-              <Form.Item
+              </PermissionFormItem>
+              <PermissionFormItem
                 label="Model"
                 name="vehicleModel"
                 rules={[{ required: true, message: "Please enter model" }]}
@@ -219,11 +220,11 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
+              </PermissionFormItem>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Form.Item
+              <PermissionFormItem
                 label="Variant"
                 name="vehicleVariant"
                 rules={[{ required: true, message: "Please enter variant" }]}
@@ -242,8 +243,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                     </Option>
                   ))}
                 </Select>
-              </Form.Item>
-              <Form.Item label={null}>
+              </PermissionFormItem>
+              <PermissionFormItem label={null}>
                 <Checkbox
                   checked={showDiscontinuedCars}
                   onChange={(event) =>
@@ -252,24 +253,24 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 >
                   Show discontinued cars
                 </Checkbox>
-              </Form.Item>
-              <Form.Item label="Colour" name="vehicleColor">
+              </PermissionFormItem>
+              <PermissionFormItem label="Colour" name="vehicleColor">
                 <Input placeholder="White, Grey, etc." />
-              </Form.Item>
+              </PermissionFormItem>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Form.Item label="Mfg year" name="mfgYear">
+              <PermissionFormItem label="Mfg year" name="mfgYear">
                 <InputNumber
                   min={2010}
                   max={2099}
                   style={{ width: "100%" }}
                   placeholder="2025"
                 />
-              </Form.Item>
-              <Form.Item label="Registration city" name="regCity">
+              </PermissionFormItem>
+              <PermissionFormItem label="Registration city" name="regCity">
                 <Input placeholder="Delhi, Gurgaon, etc." />
-              </Form.Item>
+              </PermissionFormItem>
             </div>
           </div>
 
@@ -281,7 +282,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               <UserOutlined className="text-indigo-500" />,
             )}
 
-            <Form.Item
+            <PermissionFormItem
               label="Customer name"
               name="customerName"
               rules={[
@@ -289,19 +290,19 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               ]}
             >
               <Input placeholder="Customer full name" />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item label="S/D/W of" name="sdwOf">
+            <PermissionFormItem label="S/D/W of" name="sdwOf">
               <Input placeholder="Father / spouse name" />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               label="Customer mobile"
               name="customerPhone"
               rules={[{ required: true, message: "Please enter mobile" }]}
             >
               <Input placeholder="10-digit mobile" maxLength={10} />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
         </div>
 
@@ -315,7 +316,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               <BankOutlined className="text-amber-500" />,
             )}
 
-            <Form.Item
+            <PermissionFormItem
               label="Ex-showroom price"
               name="exShowroomPrice"
               rules={[
@@ -329,10 +330,10 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 parser={moneyParser}
                 placeholder="₹ 8,50,000"
               />
-            </Form.Item>
+            </PermissionFormItem>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <Form.Item label="Dealer discount" name="dealerDiscount">
+              <PermissionFormItem label="Dealer discount" name="dealerDiscount">
                 <InputNumber
                   min={0}
                   style={{ width: "100%" }}
@@ -340,8 +341,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                   parser={moneyParser}
                   placeholder="₹ 25,000"
                 />
-              </Form.Item>
-              <Form.Item
+              </PermissionFormItem>
+              <PermissionFormItem
                 label="Manufacturer discount"
                 name="manufacturerDiscount"
               >
@@ -352,8 +353,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                   parser={moneyParser}
                   placeholder="₹ 10,000"
                 />
-              </Form.Item>
-              <Form.Item label="Other discounts" name="otherDiscounts">
+              </PermissionFormItem>
+              <PermissionFormItem label="Other discounts" name="otherDiscounts">
                 <InputNumber
                   min={0}
                   style={{ width: "100%" }}
@@ -361,10 +362,10 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                   parser={moneyParser}
                   placeholder="₹ 5,000"
                 />
-              </Form.Item>
+              </PermissionFormItem>
             </div>
 
-            <Form.Item
+            <PermissionFormItem
               label="Finance required"
               name="financeRequired"
               rules={[
@@ -378,7 +379,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 parser={moneyParser}
                 placeholder="₹ 6,50,000"
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           {/* SECTION: Showroom contact */}
@@ -389,7 +390,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               <ShopOutlined className="text-purple-500" />,
             )}
 
-            <Form.Item
+            <PermissionFormItem
               label="Showroom name"
               name="showroomName"
               rules={[
@@ -397,20 +398,20 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               ]}
             >
               <Input placeholder="Dealer / showroom name" />
-            </Form.Item>
+            </PermissionFormItem>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Form.Item label="Contact person" name="showroomContactPerson">
+              <PermissionFormItem label="Contact person" name="showroomContactPerson">
                 <Input placeholder="Sales person name" />
-              </Form.Item>
-              <Form.Item label="Contact number" name="showroomContactNumber">
+              </PermissionFormItem>
+              <PermissionFormItem label="Contact number" name="showroomContactNumber">
                 <Input placeholder="10-digit mobile" maxLength={10} />
-              </Form.Item>
+              </PermissionFormItem>
             </div>
 
-            <Form.Item label="Showroom address" name="showroomAddress">
+            <PermissionFormItem label="Showroom address" name="showroomAddress">
               <Input.TextArea rows={2} placeholder="Showroom address" />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           {/* SECTION: Booking amount */}
@@ -422,7 +423,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Form.Item
+              <PermissionFormItem
                 label="Amount paid"
                 name="bookingAmount"
                 rules={[
@@ -436,14 +437,14 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                   parser={moneyParser}
                   placeholder="₹ 11,000"
                 />
-              </Form.Item>
-              <Form.Item label="Booking date" name="bookingDate">
+              </PermissionFormItem>
+              <PermissionFormItem label="Booking date" name="bookingDate">
                 <DatePicker style={{ width: "100%" }} />
-              </Form.Item>
+              </PermissionFormItem>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <Form.Item
+              <PermissionFormItem
                 label="Payment mode"
                 name="bookingPaymentMode"
                 rules={[
@@ -460,8 +461,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                   <Option value="Credit Card">Credit Card</Option>
                   <Option value="Adjustment">Adjustment</Option>
                 </Select>
-              </Form.Item>
-              <Form.Item label="Bank name" name="bookingBankName">
+              </PermissionFormItem>
+              <PermissionFormItem label="Bank name" name="bookingBankName">
                 <AutoComplete
                   options={bankDirectoryOptions}
                   placeholder="Bank / wallet"
@@ -471,19 +472,19 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                       .includes(String(inputValue || "").toUpperCase())
                   }
                 />
-              </Form.Item>
+              </PermissionFormItem>
             </div>
 
-            <Form.Item label="Txn / reference no." name="bookingTxnRef">
+            <PermissionFormItem label="Txn / reference no." name="bookingTxnRef">
               <Input placeholder="UTR / cheque no / ref no" />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item label="Remarks" name="bookingRemarks">
+            <PermissionFormItem label="Remarks" name="bookingRemarks">
               <Input.TextArea
                 rows={2}
                 placeholder="Any notes about booking payment"
               />
-            </Form.Item>
+            </PermissionFormItem>
           </div>
 
           {/* SECTION: Exchange */}
@@ -494,7 +495,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               <SwapOutlined className="text-slate-500" />,
             )}
 
-            <Form.Item
+            <PermissionFormItem
               label="Exchange vehicle present?"
               name="exchangePresent"
               rules={[
@@ -505,9 +506,9 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                 <Radio.Button value="No">No</Radio.Button>
                 <Radio.Button value="Yes">Yes</Radio.Button>
               </Radio.Group>
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               noStyle
               shouldUpdate={(prev, cur) =>
                 prev.exchangePresent !== cur.exchangePresent
@@ -516,7 +517,7 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
               {({ getFieldValue }) =>
                 getFieldValue("exchangePresent") === "Yes" && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <Form.Item
+                    <PermissionFormItem
                       label="Exchange make"
                       name="exchangeMake"
                       rules={[
@@ -527,8 +528,8 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                       ]}
                     >
                       <Input placeholder="Make" />
-                    </Form.Item>
-                    <Form.Item
+                    </PermissionFormItem>
+                    <PermissionFormItem
                       label="Exchange model"
                       name="exchangeModel"
                       rules={[
@@ -539,19 +540,19 @@ const NewCarBookingForm = ({ loading, onSubmit, initialValues }) => {
                       ]}
                     >
                       <Input placeholder="Model" />
-                    </Form.Item>
-                    <Form.Item label="Mfg year" name="exchangeYear">
+                    </PermissionFormItem>
+                    <PermissionFormItem label="Mfg year" name="exchangeYear">
                       <InputNumber
                         min={2000}
                         max={2099}
                         style={{ width: "100%" }}
                         placeholder="2018"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </div>
                 )
               }
-            </Form.Item>
+            </PermissionFormItem>
           </div>
         </div>
       </div>
