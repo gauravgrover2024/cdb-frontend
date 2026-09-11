@@ -3,7 +3,9 @@ import { Form } from "antd";
 import PermissionField from "./PermissionField";
 
 const PermissionFormItem = ({ module, section = "customer", label, children, ...props }) => {
-  const resolvedModule = module || (typeof window !== "undefined" && window.location.pathname.includes("home-loans") ? "homeLoans" : "loans");
+  const resolvedModule = module || (typeof window !== "undefined"
+    ? (window.location.pathname.includes("home-loans") ? "homeLoans" : window.location.pathname.includes("customers") ? "customers" : "loans")
+    : "loans");
   if (!label) return <Form.Item {...props}>{children}</Form.Item>;
   return (
     <PermissionField module={resolvedModule} section={section} label={label}>

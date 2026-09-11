@@ -1,4 +1,5 @@
 import { lookupCityByPincode } from "../../loans/components/loan-form/pre-file/pincodeCityLookup";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Form, Input, DatePicker, Select, Row, Col, Tag, Spin, Switch, Radio, InputNumber } from "antd";
 import Icon from "../../../components/AppIcon";
@@ -58,7 +59,7 @@ const PersonalDetails = ({
   const applicantType = Form.useWatch("applicantType", form);
   const aadhaarNumberValue = Form.useWatch("aadhaarNumber", form);
   const aadharNumberValue = Form.useWatch("aadharNumber", form);
-  
+
   // Watch fields for logic
   const pincode = Form.useWatch("pincode", form);
   const permanentPincode = Form.useWatch("permanentPincode", form);
@@ -111,7 +112,7 @@ const PersonalDetails = ({
         setFetchingPincode(false);
       };
 
-      const timer = setTimeout(fetchCity, 500); 
+      const timer = setTimeout(fetchCity, 500);
       return () => clearTimeout(timer);
     }
   }, [pincode, form]);
@@ -224,15 +225,15 @@ const PersonalDetails = ({
       setLoading(false);
       return;
     }
-    
+
     // Cancel previous request
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-    
+
     abortControllerRef.current = new AbortController();
     setLoading(true);
-    
+
     try {
       const res = await customersApi.search(q);
       // Only update if this is still the latest request
@@ -308,7 +309,7 @@ const PersonalDetails = ({
         };
         return Object.values(out).some(Boolean) ? out : undefined;
       };
-      
+
       const baseValues = {
         customerId: pick(fullCustomer._id, fullCustomer.id, ""),
         customerName: fullCustomer.customerName || "",
@@ -357,7 +358,7 @@ const PersonalDetails = ({
         nomineeName: pick(fullCustomer.nomineeName, ""),
         nomineeDob: toDayjsSafe(fullCustomer.nomineeDob),
         nomineeRelation: pick(fullCustomer.nomineeRelation, ""),
-        
+
         // Employment / business
         occupationType: pick(fullCustomer.occupationType, ""),
         employmentType: pick(fullCustomer.employmentType, ""),
@@ -392,18 +393,18 @@ const PersonalDetails = ({
         signatory_designation: pick(fullCustomer.signatory_designation, ""),
         signatory_pan: pick(fullCustomer.signatory_pan, ""),
         signatory_aadhaar: pick(fullCustomer.signatory_aadhaar, ""),
-        
+
         // Income
         monthlyIncome: pick(fullCustomer.monthlyIncome, ""),
         salaryMonthly: pick(fullCustomer.salaryMonthly, fullCustomer.monthlySalary, ""),
         monthlySalary: pick(fullCustomer.monthlySalary, fullCustomer.salaryMonthly, ""),
         annualIncome: pick(fullCustomer.annualIncome, ""),
         totalIncomeITR: pick(fullCustomer.totalIncomeITR, ""),
-        
+
         // Banking
         ...splitBankDetailsForFormValues(fullCustomer),
         docsPreparedBy: pick(fullCustomer.docsPreparedBy, ""),
-        
+
         // KYC
         panNumber: pick(fullCustomer.panNumber, ""),
         aadhaarNumber: pick(fullCustomer.aadhaarNumber, fullCustomer.aadharNumber, ""),
@@ -424,7 +425,7 @@ const PersonalDetails = ({
         addressProofDocUrl: pick(fullCustomer.addressProofDocUrl, ""),
         photoUrl: pick(fullCustomer.photoUrl, ""),
         signatureUrl: pick(fullCustomer.signatureUrl, ""),
-        
+
         // References
         reference1,
         reference2,
@@ -440,10 +441,10 @@ const PersonalDetails = ({
           return true;
         })
       );
-      
+
       // Use setFieldsValue to populate form - this keeps fields editable
       form.setFieldsValue(merged);
-      
+
       setSearchTerm("");
       setFilteredCustomers([]);
       setIsOpen(false);
@@ -500,7 +501,7 @@ const PersonalDetails = ({
         <Row gutter={[16, 0]}>
           <Col xs={24} md={8}>
             <div className="relative" ref={dropdownRef}>
-              <Form.Item
+              <PermissionFormItem
                 label="Company Name"
                 name="customerName"
                 normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -517,7 +518,7 @@ const PersonalDetails = ({
                   }}
                   onFocus={() => searchable && searchTerm && setIsOpen(true)}
                 />
-              </Form.Item>
+              </PermissionFormItem>
 
               {searchable && isOpen && (searchTerm || loading) && (
                 <div className="absolute left-0 right-0 top-[72px] z-[500] bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 ring-1 ring-black/5">
@@ -583,25 +584,25 @@ const PersonalDetails = ({
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Date of Incorporation" name="dob">
+            <PermissionFormItem label="Date of Incorporation" name="dob">
               <DatePicker className="w-full" format="DD-MM-YYYY" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="PAN Number" name="panNumber">
+            <PermissionFormItem label="PAN Number" name="panNumber">
               <Input placeholder="ABCDE1234F" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="File Prepared By" name="docsPreparedBy">
+            <PermissionFormItem label="File Prepared By" name="docsPreparedBy">
               <Input placeholder="Enter name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Mobile Number"
               name="primaryMobile"
               rules={[
@@ -614,88 +615,88 @@ const PersonalDetails = ({
                 maxLength={10}
                 prefix={<Icon name="Phone" size={14} className="text-muted-foreground mr-1" />}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Email ID" name="email">
+            <PermissionFormItem label="Email ID" name="email">
               <Input placeholder="Company@Example.Com" prefix={<Icon name="Mail" size={14} className="text-muted-foreground mr-1" />} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Contact Person Name" name="contactPersonName">
+            <PermissionFormItem label="Contact Person Name" name="contactPersonName">
               <Input placeholder="Contact Person Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Contact Person Mobile"
               name="contactPersonMobile"
               rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
             >
               <Input placeholder="Contact Person Mobile" maxLength={10} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={24}>
-            <Form.Item
+            <PermissionFormItem
               label="Present Address"
               name="residenceAddress"
               normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}
             >
               <TextArea rows={2} placeholder="Office Address" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Pincode" name="pincode">
+            <PermissionFormItem label="Pincode" name="pincode">
               <Input placeholder="6-Digit Pincode" maxLength={6} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="City" name="city">
+            <PermissionFormItem label="City" name="city">
               <Input
                 placeholder="City (Auto-Filled)"
                 suffix={fetchingPincode ? <span className="text-[10px] text-muted-foreground">Loading...</span> : null}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Permanent Address is same as current?"
               name="sameAsCurrentAddress"
               valuePropName="checked"
             >
               <Switch />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           {!sameAsCurrentAddress && (
             <>
               <Col xs={24} md={24}>
-                <Form.Item
+                <PermissionFormItem
                   label="Permanent Address"
                   name="permanentAddress"
                   normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}
                 >
                   <TextArea rows={2} placeholder="Permanent Address" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Permanent Pincode" name="permanentPincode">
+                <PermissionFormItem label="Permanent Pincode" name="permanentPincode">
                   <Input placeholder="6-Digit Pincode" maxLength={6} />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Permanent City" name="permanentCity">
+                <PermissionFormItem label="Permanent City" name="permanentCity">
                   <Input placeholder="City (Auto-Filled)" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
             </>
           )}
@@ -708,65 +709,65 @@ const PersonalDetails = ({
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Applicant Name" name="signatory_customerName">
+            <PermissionFormItem label="Applicant Name" name="signatory_customerName">
               <Input placeholder="Authorised Signatory Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Primary Mobile"
               name="signatory_primaryMobile"
               rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits required" }]}
             >
               <Input placeholder="10-digit number" maxLength={10} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Date of Birth" name="signatory_dob">
+            <PermissionFormItem label="Date of Birth" name="signatory_dob">
               <DatePicker
                 className="w-full"
                 format="DD-MM-YYYY"
                 getValueProps={(value) => ({ value: toDayjsSafe(value) })}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={16}>
-            <Form.Item label="Present / Current Address" name="signatory_address">
+            <PermissionFormItem label="Present / Current Address" name="signatory_address">
               <Input placeholder="House no, Street, Area" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Pincode" name="signatory_pincode">
+            <PermissionFormItem label="Pincode" name="signatory_pincode">
               <Input maxLength={6} placeholder="6-digit PIN" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="City" name="signatory_city">
+            <PermissionFormItem label="City" name="signatory_city">
               <Input placeholder="City" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Designation" name="signatory_designation">
+            <PermissionFormItem label="Designation" name="signatory_designation">
               <Input placeholder="e.g. Director" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="PAN Number" name="signatory_pan">
+            <PermissionFormItem label="PAN Number" name="signatory_pan">
               <Input placeholder="ABCDE1234F" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Aadhaar Number" name="signatory_aadhaar">
+            <PermissionFormItem label="Aadhaar Number" name="signatory_aadhaar">
               <Input placeholder="1234 5678 9012" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={24}>
@@ -777,47 +778,47 @@ const PersonalDetails = ({
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Is vehicle registered at GST/office address?" name="registerSameAsAadhaar">
+            <PermissionFormItem label="Is vehicle registered at GST/office address?" name="registerSameAsAadhaar">
               <Radio.Group>
                 <Radio value="Yes">Yes</Radio>
                 <Radio value="No">No</Radio>
               </Radio.Group>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           {registerSameAsAadhaar === "No" && (
             <Col xs={24} md={8}>
-              <Form.Item label="Is vehicle registered at permanent address?" name="registerSameAsPermanent">
+              <PermissionFormItem label="Is vehicle registered at permanent address?" name="registerSameAsPermanent">
                 <Radio.Group>
                   <Radio value="Yes">Yes</Radio>
                   <Radio value="No">No</Radio>
                 </Radio.Group>
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           )}
 
           {registerSameAsAadhaar === "No" && registerSameAsPermanent === "No" && (
             <>
               <Col xs={24} md={24}>
-                <Form.Item
+                <PermissionFormItem
                   label="Registration Address"
                   name="registrationAddress"
                   normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}
                 >
                   <TextArea rows={2} placeholder="Registration Address" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Registration Pincode" name="registrationPincode">
+                <PermissionFormItem label="Registration Pincode" name="registrationPincode">
                   <Input placeholder="6-Digit Pincode" maxLength={6} />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Registration City" name="registrationCity">
+                <PermissionFormItem label="Registration City" name="registrationCity">
                   <Input placeholder="City (Auto-Filled)" />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
             </>
           )}
@@ -848,7 +849,7 @@ const PersonalDetails = ({
         <Row gutter={[16, 0]}>
           <Col xs={24} md={8}>
             <div className="relative" ref={dropdownRef}>
-              <Form.Item
+              <PermissionFormItem
                 label="Customer Name"
                 name="customerName"
                 normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}
@@ -865,7 +866,7 @@ const PersonalDetails = ({
                   }}
                   onFocus={() => searchable && searchTerm && setIsOpen(true)}
                 />
-              </Form.Item>
+              </PermissionFormItem>
 
               {searchable && isOpen && (searchTerm || loading) && (
                 <div className="absolute left-0 right-0 top-[72px] z-[500] bg-popover border border-border rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200 ring-1 ring-black/5">
@@ -931,62 +932,62 @@ const PersonalDetails = ({
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="S/D/W of" name="sdwOf" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
+            <PermissionFormItem label="S/D/W of" name="sdwOf" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
               <Input placeholder="Father / Spouse Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Date of Birth" name="dob">
+            <PermissionFormItem label="Date of Birth" name="dob">
               <DatePicker className="w-full" format="DD-MM-YYYY" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Mother's Name" name="motherName" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
+            <PermissionFormItem label="Mother's Name" name="motherName" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
               <Input placeholder="Mother's Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="PAN Number" name="panNumber">
+            <PermissionFormItem label="PAN Number" name="panNumber">
               <Input placeholder="ABCDE1234F" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Aadhaar Number" name="aadhaarNumber">
+            <PermissionFormItem label="Aadhaar Number" name="aadhaarNumber">
               <Input placeholder="1234 5678 9012" maxLength={14} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={24}>
-            <Form.Item
+            <PermissionFormItem
               label="Residence Address"
               name="residenceAddress"
               normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}
             >
               <TextArea rows={2} placeholder="House No, Street, Area" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Pincode" name="pincode">
+            <PermissionFormItem label="Pincode" name="pincode">
               <Input placeholder="6-Digit Pincode" maxLength={6} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="City" name="city">
+            <PermissionFormItem label="City" name="city">
               <Input
                 placeholder="City (Auto-Filled)"
                 suffix={fetchingPincode ? <span className="text-[10px] text-muted-foreground">Loading...</span> : null}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Mobile Number"
               name="primaryMobile"
               rules={[
@@ -1011,7 +1012,7 @@ const PersonalDetails = ({
                   </div>
                 }
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Form.List name="extraMobiles">
@@ -1019,7 +1020,7 @@ const PersonalDetails = ({
               <>
                 {fields.map((field, index) => (
                   <Col key={field.key} xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       {...field}
                       label="Alternate Mobile Number"
                       rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
@@ -1049,7 +1050,7 @@ const PersonalDetails = ({
                           </div>
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 ))}
               </>
@@ -1057,15 +1058,15 @@ const PersonalDetails = ({
           </Form.List>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Email ID" name="email">
+            <PermissionFormItem label="Email ID" name="email">
               <Input placeholder="Customer@Example.Com" prefix={<Icon name="Mail" size={14} className="text-muted-foreground mr-1" />} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="File Prepared By" name="docsPreparedBy">
+            <PermissionFormItem label="File Prepared By" name="docsPreparedBy">
               <Input placeholder="Enter name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={24}>
@@ -1074,21 +1075,21 @@ const PersonalDetails = ({
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Nominee Name" name="nomineeName" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
+            <PermissionFormItem label="Nominee Name" name="nomineeName" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
               <Input placeholder="Nominee Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Nominee DOB" name="nomineeDob">
+            <PermissionFormItem label="Nominee DOB" name="nomineeDob">
               <DatePicker className="w-full" format="DD-MM-YYYY" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={8}>
-            <Form.Item label="Relation" name="nomineeRelation" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
+            <PermissionFormItem label="Relation" name="nomineeRelation" normalize={(value) => value?.replace(/\b\w/g, (c) => c.toUpperCase())}>
               <Input placeholder="Relation" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         </Row>
       </div>
@@ -1096,8 +1097,8 @@ const PersonalDetails = ({
   }
 
   return (
-    <div 
-        id="section-personal" 
+    <div
+        id="section-personal"
         className="form-section bg-card border border-border/50 rounded-2xl p-6 shadow-sm mb-6"
         style={{ background: "var(--card)" }}
     >
@@ -1116,7 +1117,7 @@ const PersonalDetails = ({
       <Row gutter={[16, 0]}>
         {showApplicantType && (
           <Col xs={24} md={8}>
-            <Form.Item label="Applicant Type" name="applicantType">
+            <PermissionFormItem label="Applicant Type" name="applicantType">
               <Radio.Group buttonStyle="solid" className="w-full flex">
                 <Radio.Button
                   value="Individual"
@@ -1131,21 +1132,21 @@ const PersonalDetails = ({
                   Company
                 </Radio.Button>
               </Radio.Group>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {/* Basic identity */}
         <Col xs={24} md={8}>
           <div className="relative" ref={dropdownRef}>
-            <Form.Item 
-                label={isCompany ? "Company Name" : "Customer Name"} 
-                name="customerName" 
+            <PermissionFormItem
+                label={isCompany ? "Company Name" : "Customer Name"}
+                name="customerName"
                 normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}
             >
-              <Input 
-                placeholder="Enter Full Name" 
-                prefix={<Icon name="User" size={14} className="text-muted-foreground mr-1" />} 
+              <Input
+                placeholder="Enter Full Name"
+                prefix={<Icon name="User" size={14} className="text-muted-foreground mr-1" />}
                 autoComplete="off"
                 onChange={(e) => {
                     if (searchable) {
@@ -1155,7 +1156,7 @@ const PersonalDetails = ({
                 }}
                 onFocus={() => searchable && searchTerm && setIsOpen(true)}
               />
-            </Form.Item>
+            </PermissionFormItem>
 
             {/* Custom Search Dropdown */}
             {searchable && isOpen && (searchTerm || loading) && (
@@ -1219,105 +1220,105 @@ const PersonalDetails = ({
 
         {!isCompany && (
           <Col xs={24} md={8}>
-            <Form.Item label="S/D/W of" name="sdwOf" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+            <PermissionFormItem label="S/D/W of" name="sdwOf" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
               <Input placeholder="Father / Spouse Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {!isCompany && (
           <Col xs={24} md={8}>
-            <Form.Item label="Gender" name="gender">
+            <PermissionFormItem label="Gender" name="gender">
               <Select placeholder="Select Gender" showSearch filterOption={(input, option) =>
                 (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
               } allowClear>
                 <Option value="Male">Male</Option>
                 <Option value="Female">Female</Option>
               </Select>
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         <Col xs={24} md={8}>
-          <Form.Item label={isCompany ? "Date of Incorporation" : "Date of Birth"} name="dob">
+          <PermissionFormItem label={isCompany ? "Date of Incorporation" : "Date of Birth"} name="dob">
             <DatePicker className="w-full" format="DD-MM-YYYY" />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {!isCompany && (
           <Col xs={24} md={8}>
-            <Form.Item label="Mother's Name" name="motherName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+            <PermissionFormItem label="Mother's Name" name="motherName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
               <Input placeholder="Mother's Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {/* Email ID (Moved from bottom) */}
         <Col xs={24} md={8}>
-          <Form.Item label="Email ID" name="email">
+          <PermissionFormItem label="Email ID" name="email">
             <Input placeholder="Customer@Example.Com" prefix={<Icon name="Mail" size={14} className="text-muted-foreground mr-1" />} />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {isCompany && (
           <Col xs={24} md={8}>
-            <Form.Item label="Contact Person Name" name="contactPersonName">
+            <PermissionFormItem label="Contact Person Name" name="contactPersonName">
               <Input placeholder="Contact Person Name" />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         {isCompany && (
           <Col xs={24} md={8}>
-            <Form.Item
+            <PermissionFormItem
               label="Contact Person Mobile"
               name="contactPersonMobile"
               rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
             >
               <Input placeholder="Contact Person Mobile" maxLength={10} />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         )}
 
         <Col xs={24} md={24}>
-          <Form.Item
+          <PermissionFormItem
             label={isCompany ? "Present Address" : "Residence Address"}
             name="residenceAddress"
             normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}
           >
             <TextArea rows={2} placeholder={isCompany ? "Office Address" : "House No, Street, Area"} />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label={isCompany ? "Present Pincode" : "Pincode"} name="pincode">
+          <PermissionFormItem label={isCompany ? "Present Pincode" : "Pincode"} name="pincode">
             <Input placeholder="6-Digit Pincode" maxLength={6} />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item label={isCompany ? "Present City" : "City"} name="city">
+          <PermissionFormItem label={isCompany ? "Present City" : "City"} name="city">
             <Input placeholder="City (Auto-Filled)" suffix={fetchingPincode ? <span className="text-[10px] text-muted-foreground">Loading...</span> : null} />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {/* ===== CREDIT-RELEVANT FIELDS ===== */}
         {showCreditFields && !isCompany && (
           <>
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Years at current City" name="yearsInCurrentCity">
+              <PermissionFormItem label="Years at current City" name="yearsInCurrentCity">
                 <InputNumber min={0} className="w-full" placeholder="Years" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Years at current Residence" name="yearsInCurrentHouse">
+              <PermissionFormItem label="Years at current Residence" name="yearsInCurrentHouse">
                 <InputNumber min={0} className="w-full" placeholder="Years" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="House Type" name="houseType">
+              <PermissionFormItem label="House Type" name="houseType">
                 <Select placeholder="Select House Type" showSearch filterOption={(input, option) =>
                   (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
                 } allowClear>
@@ -1326,12 +1327,12 @@ const PersonalDetails = ({
                   <Option value="company">Company Provided</Option>
                   <Option value="rented">Rented</Option>
                 </Select>
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-               <Form.Item label="Education" className="mb-0">
-                 <Form.Item name="education" className={education === 'others' ? 'mb-2' : 'mb-6'}>
+               <PermissionFormItem label="Education" className="mb-0">
+                 <PermissionFormItem name="education" className={education === 'others' ? 'mb-2' : 'mb-6'}>
                     <Select placeholder="Select Education" showSearch filterOption={(input, option) =>
                       (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
                     } allowClear>
@@ -1340,70 +1341,70 @@ const PersonalDetails = ({
                       <Option value="Postgraduate">Post Graduate & above</Option>
                       <Option value="Others">Others</Option>
                     </Select>
-                 </Form.Item>
+                 </PermissionFormItem>
                  {education === 'others' && (
-                    <Form.Item name="educationOther" rules={[{ required: true, message: 'Please specify' }]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+                    <PermissionFormItem name="educationOther" rules={[{ required: true, message: 'Please specify' }]} normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                        <Input placeholder="Please Specify" />
-                    </Form.Item>
+                    </PermissionFormItem>
                  )}
-               </Form.Item>
+               </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Marital Status" name="maritalStatus">
+              <PermissionFormItem label="Marital Status" name="maritalStatus">
                 <Select placeholder="Select Marital Status" showSearch filterOption={(input, option) =>
                   (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
                 } allowClear>
                   <Option value="Married">Married</Option>
                   <Option value="Unmarried">Unmarried</Option>
                 </Select>
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8} className="mt-4">
-              <Form.Item label="Dependents" name="dependents">
+              <PermissionFormItem label="Dependents" name="dependents">
                 <Input placeholder="Number Of Dependents" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             {!loanProfileMode && (
               <>
                 <Col xs={24} md={8} className="mt-4">
-                  <Form.Item label="Address Type" name="addressType">
+                  <PermissionFormItem label="Address Type" name="addressType">
                     <Select options={ADDRESS_TYPE_OPTIONS} placeholder="Select address type" allowClear />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
 
                 <Col xs={24} md={8} className="mt-4">
-                  <Form.Item label="Identity Proof" name="identityProofType">
+                  <PermissionFormItem label="Identity Proof" name="identityProofType">
                     <Select options={IDENTITY_OPTIONS} placeholder="Select identity proof" allowClear />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
 
                 <Col xs={24} md={8} className="mt-4">
-                  <Form.Item label="Identity Proof Number" name="identityProofNumber">
+                  <PermissionFormItem label="Identity Proof Number" name="identityProofNumber">
                     <Input placeholder="Enter identity proof number" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
 
                 {(identityProofType === "PASSPORT" || identityProofType === "DRIVING_LICENSE") && (
                   <Col xs={24} md={8} className="mt-4">
-                    <Form.Item label="Identity Proof Expiry" name="identityProofExpiry">
+                    <PermissionFormItem label="Identity Proof Expiry" name="identityProofExpiry">
                       <DatePicker className="w-full" format="DD-MM-YYYY" />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 )}
 
                 <Col xs={24} md={8} className="mt-4">
-                  <Form.Item label="Address Proof (type)" name="addressProofType">
+                  <PermissionFormItem label="Address Proof (type)" name="addressProofType">
                     <Select options={ADDRESS_PROOF_OPTIONS} placeholder="Select address proof type" allowClear />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
 
                 <Col xs={24} md={8} className="mt-4">
-                  <Form.Item label="Address Proof Number" name="addressProofNumber">
+                  <PermissionFormItem label="Address Proof Number" name="addressProofNumber">
                     <Input placeholder="Enter address proof number" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
               </>
             )}
@@ -1411,7 +1412,7 @@ const PersonalDetails = ({
         )}
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item
+          <PermissionFormItem
             label="Primary Mobile"
             name="primaryMobile"
             rules={[
@@ -1444,7 +1445,7 @@ const PersonalDetails = ({
                 ) : null
               }
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Form.List name="extraMobiles">
@@ -1453,7 +1454,7 @@ const PersonalDetails = ({
               {!isCompany &&
                 fields.map((field, index) => (
                   <Col key={field.key} xs={24} md={8} className="mt-4">
-                    <Form.Item
+                    <PermissionFormItem
                       {...field}
                       label="Alt Mobile"
                       rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
@@ -1489,7 +1490,7 @@ const PersonalDetails = ({
                           </div>
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 ))}
             </>
@@ -1497,37 +1498,37 @@ const PersonalDetails = ({
         </Form.List>
 
         <Col xs={24} md={8} className="mt-4">
-          <Form.Item
+          <PermissionFormItem
             label="Permanent Address is same as current?"
             name="sameAsCurrentAddress"
             valuePropName="checked"
           >
             <Switch />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         {!sameAsCurrentAddress && (
           <>
             <Col xs={24} md={24}>
-              <Form.Item
+              <PermissionFormItem
                 label="Permanent Address"
                 name="permanentAddress"
                 normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}
               >
                 <TextArea rows={2} placeholder="Permanent Address" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Permanent Pincode" name="permanentPincode">
+              <PermissionFormItem label="Permanent Pincode" name="permanentPincode">
                 <Input placeholder="6-Digit Pincode" maxLength={6} />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Permanent City" name="permanentCity">
+              <PermissionFormItem label="Permanent City" name="permanentCity">
                 <Input placeholder="City (Auto-Filled)" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           </>
         )}
@@ -1535,15 +1536,15 @@ const PersonalDetails = ({
         {showCreditFields && !loanProfileMode && (
           <>
             <Col xs={24} md={8}>
-              <Form.Item label="Is Co-Applicant Applicable" name="hasCoApplicant" valuePropName="checked">
+              <PermissionFormItem label="Is Co-Applicant Applicable" name="hasCoApplicant" valuePropName="checked">
                 <Switch disabled={isCompany} />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Is Guarantor Applicable" name="hasGuarantor" valuePropName="checked">
+              <PermissionFormItem label="Is Guarantor Applicable" name="hasGuarantor" valuePropName="checked">
                 <Switch />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           </>
         )}
@@ -1558,41 +1559,41 @@ const PersonalDetails = ({
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Co-Applicant Name" name="co_customerName">
+              <PermissionFormItem label="Co-Applicant Name" name="co_customerName">
                 <Input placeholder="Co-Applicant Name" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item
+              <PermissionFormItem
                 label="Co-Applicant Mobile"
                 name="co_primaryMobile"
                 rules={[{ pattern: /^[0-9]{10}$/, message: "10 digits" }]}
               >
                 <Input placeholder="Co-Applicant Mobile" maxLength={10} />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Co-Applicant PAN" name="co_pan">
+              <PermissionFormItem label="Co-Applicant PAN" name="co_pan">
                 <Input placeholder="ABCDE1234F" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Co-Applicant DOB" name="co_dob">
+              <PermissionFormItem label="Co-Applicant DOB" name="co_dob">
                 <DatePicker
                   className="w-full"
                   format="DD-MM-YYYY"
                   getValueProps={(value) => ({ value: toDayjsSafe(value) })}
                 />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={16}>
-              <Form.Item label="Co-Applicant Address" name="co_address">
+              <PermissionFormItem label="Co-Applicant Address" name="co_address">
                 <Input placeholder="Co-Applicant Address" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           </>
         )}
@@ -1605,21 +1606,21 @@ const PersonalDetails = ({
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Nominee Name" name="nomineeName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+              <PermissionFormItem label="Nominee Name" name="nomineeName" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                 <Input placeholder="Nominee Name" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Nominee DOB" name="nomineeDob">
+              <PermissionFormItem label="Nominee DOB" name="nomineeDob">
                 <DatePicker className="w-full" format="DD-MM-YYYY" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
 
             <Col xs={24} md={8}>
-              <Form.Item label="Nominee Relation" name="nomineeRelation" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
+              <PermissionFormItem label="Nominee Relation" name="nomineeRelation" normalize={(value) => value?.replace(/\b\w/g, c => c.toUpperCase())}>
                 <Input placeholder="Relation" />
-              </Form.Item>
+              </PermissionFormItem>
             </Col>
           </>
         )}

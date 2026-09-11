@@ -1,16 +1,17 @@
 import { Col, Form, Input, Row } from "antd";
+import PermissionFormItem from "../../../components/permissions/PermissionFormItem";
 import Icon from "../../../components/AppIcon";
 import DocumentUpload from "../../../components/ui/DocumentUpload";
 
 const UploadSlot = ({ name, uploadTitle, viewerTitle, docTag, label }) => (
   <div className="space-y-1">
-    <Form.Item name={name} style={{ marginBottom: 0 }}>
+    <PermissionFormItem name={name} style={{ marginBottom: 0 }}>
       <DocumentUpload
         uploadTitle={uploadTitle}
         viewerTitle={viewerTitle}
         docTag={docTag}
       />
-    </Form.Item>
+    </PermissionFormItem>
     <div className="max-w-24 text-center text-[10px] font-medium text-muted-foreground">
       {label}
     </div>
@@ -35,14 +36,14 @@ const KycItem = ({
           <Icon name={icon} size={14} />
           <span className="font-normal">{label}</span>
         </div>
-        <Form.Item name={nameInput} style={{ marginBottom: 0 }}>
+        <PermissionFormItem name={nameInput} style={{ marginBottom: 0 }}>
           <Input
             placeholder={placeholder}
             maxLength={maxLength}
             className="bg-transparent border-border rounded-xl placeholder:font-normal font-normal"
             style={{ ...styleInput }}
           />
-        </Form.Item>
+        </PermissionFormItem>
       </div>
 
       <div className="flex-none pt-1">
