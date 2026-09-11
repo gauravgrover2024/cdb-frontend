@@ -18,6 +18,7 @@ import dayjs from "dayjs";
 import useChannelPartnerAutoSuggest from "../../../hooks/useChannelPartnerAutoSuggest";
 import useChannelsMasterSearch from "../../../hooks/useChannelsMasterSearch";
 import useShowroomAutoSuggest from "../../../hooks/useShowroomAutoSuggest";
+import PermissionField from "../../permissions/PermissionField";
 
 const { Text } = Typography;
 
@@ -47,6 +48,7 @@ const CleanField = ({ label, required, children, extra }) => {
     : children;
 
   return (
+    <PermissionField module="insurance" section="customer" label={label}>
     <div className="pb-1 space-y-2" data-ins-field="true">
     <div className={labelClass}>
       {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
@@ -54,6 +56,7 @@ const CleanField = ({ label, required, children, extra }) => {
     {normalizedChild}
     {extra ? <div className="mt-1">{extra}</div> : null}
   </div>
+  </PermissionField>
   );
 };
 

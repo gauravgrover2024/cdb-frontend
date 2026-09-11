@@ -34,7 +34,13 @@ export const useRBAC = () => {
     if (!modulePermissions) return true;
     const sectionPermissions = modulePermissions?.[section];
     if (!sectionPermissions) return false;
-    if (field) return Boolean(sectionPermissions.fields?.[field]?.[action]);
+    if (field) {
+      const fieldPermissions = sectionPermissions.fields?.[field];
+      if (!fieldPermissions || typeof fieldPermissions[action] !== "boolean") {
+        return Boolean(sectionPermissions[action]);
+      }
+      return Boolean(fieldPermissions[action]);
+    }
     return Boolean(sectionPermissions[action]);
   };
 

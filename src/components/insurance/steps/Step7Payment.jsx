@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
+import PermissionField from "../../permissions/PermissionField";
 import {
   Button,
   DatePicker,
@@ -379,6 +380,7 @@ const FlowIndicator = ({ label, settled }) => {
 };
 
 const FormField = ({ label, children, required }) => (
+  <PermissionField module="insurance" section="payment" label={label}>
   <div className="flex flex-col gap-1.5">
     <label className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
       {label}
@@ -386,6 +388,7 @@ const FormField = ({ label, children, required }) => (
     </label>
     {children}
   </div>
+  </PermissionField>
 );
 
 const Step7Payment = ({

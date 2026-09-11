@@ -30,6 +30,7 @@ import { addOnCatalog } from "./allSteps";
 import { formatPolicyDuration } from "../../../utils/insurancePolicyDisplay";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
+import PermissionField from "../../permissions/PermissionField";
 import {
   escapeHtmlText,
   scheduleWindowPrint,
@@ -329,6 +330,7 @@ const FieldBlock = ({
   className = "",
   helper = null,
 }) => (
+  <PermissionField module="insurance" section="quotes" label={label}>
   <div
     className={`flex flex-col gap-1.5 insurance-field-block ${className}`}
     data-ins-field="true"
@@ -342,6 +344,7 @@ const FieldBlock = ({
       {helper || <span className="opacity-0">.</span>}
     </div>
   </div>
+  </PermissionField>
 );
 
 // ── TickerRow ──

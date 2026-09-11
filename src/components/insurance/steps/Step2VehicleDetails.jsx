@@ -24,6 +24,7 @@ import {
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { usedCarsDbApi } from "../../../api/usedCars";
 import { vehiclesApi } from "../../../api/vehicles";
+import PermissionField from "../../permissions/PermissionField";
 
 const { Text } = Typography;
 
@@ -40,6 +41,7 @@ const fieldWrapClass = "insurance-field-wrap";
 const controlStyle = {};
 
 const CleanField = ({ label, required, children, extra }) => (
+  <PermissionField module="insurance" section="vehicle" label={label}>
   <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
       {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
@@ -47,6 +49,7 @@ const CleanField = ({ label, required, children, extra }) => (
     {children}
     {extra ? <div className="mt-1">{extra}</div> : null}
   </div>
+  </PermissionField>
 );
 
 const SummaryRow = ({ label, value }) => (
