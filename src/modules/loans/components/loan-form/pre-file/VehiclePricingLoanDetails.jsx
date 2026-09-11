@@ -1,5 +1,6 @@
 // src/modules/loans/components/loan-form/prefile/Section4VehiclePricing.jsx
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 
 import {
   Form,
@@ -547,7 +548,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
               {/* Make / Model / Variant / Fuel — COMMON to all types */}
               {(isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={6}>
-                  <Form.Item label="Vehicle Regd Number" name="vehicleRegNo">
+                  <PermissionFormItem label="Vehicle Regd Number" name="vehicleRegNo">
                     <AutoComplete
                       options={registrationLookupOptions}
                       onSearch={searchRegistrationLookup}
@@ -566,11 +567,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         }
                       />
                     </AutoComplete>
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
               )}
               <Col xs={24} md={6}>
-                <Form.Item label="Make" name="vehicleMake">
+                <PermissionFormItem label="Make" name="vehicleMake">
                   <Select 
                     placeholder="Select Make" 
                     allowClear 
@@ -606,10 +607,10 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       </Select.Option>
                     ))}
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
               <Col xs={24} md={6}>
-                <Form.Item label="Model" name="vehicleModel">
+                <PermissionFormItem label="Model" name="vehicleModel">
                   <Select
                     placeholder={vehicleMake ? "Select Model" : "Select Make First"}
                     disabled={!vehicleMake}
@@ -646,10 +647,10 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       </Select.Option>
                     ))}
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
               <Col xs={24} md={6}>
-                <Form.Item label="Variant" name="vehicleVariant">
+                <PermissionFormItem label="Variant" name="vehicleVariant">
                   <Select
                     placeholder={vehicleModel ? "Select Variant" : "Select Model First"}
                     disabled={!vehicleModel}
@@ -694,17 +695,17 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       </Select.Option>
                     ))}
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
               {(isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={6}>
-                  <Form.Item label="Bought In (Year)" name="boughtInYear">
+                  <PermissionFormItem label="Bought In (Year)" name="boughtInYear">
                     <Input placeholder="e.g. 2020" />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
               )}
               <Col xs={24} md={6}>
-                <Form.Item label="Fuel Type" name="vehicleFuelType">
+                <PermissionFormItem label="Fuel Type" name="vehicleFuelType">
                   <Select placeholder="Select Fuel Type" allowClear>
                     <Select.Option value="Petrol">Petrol</Select.Option>
                     <Select.Option value="Diesel">Diesel</Select.Option>
@@ -712,10 +713,10 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                     <Select.Option value="Hybrid">Hybrid</Select.Option>
                     <Select.Option value="Electric">Electric</Select.Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
               <Col xs={24}>
-                <Form.Item className="mb-1">
+                <PermissionFormItem className="mb-1">
                   <Checkbox
                     checked={showDiscontinuedCars}
                     onChange={(event) =>
@@ -724,7 +725,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   >
                     Show discontinued cars
                   </Checkbox>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
               {(loadingMakes || loadingModels || loadingVariants) && (
                 <Col xs={24}>
@@ -735,18 +736,18 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
               )}
               {/* Type of Loan */}
               <Col xs={24} md={8}>
-                <Form.Item label="Type of Loan" name="typeOfLoan">
+                <PermissionFormItem label="Type of Loan" name="typeOfLoan">
                   <Select placeholder="Select Type of Loan" disabled>
                     <Option value="New Car">New Car</Option>
                     <Option value="Used Car">Used Car</Option>
                     <Option value="Car Cash-in">Car Cash-in</Option>
                     <Option value="Refinance">Refinance</Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item
+                <PermissionFormItem
                   label="Usage"
                   name="usage"
                   rules={[{ required: true, message: "Select usage" }]}
@@ -755,18 +756,18 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                     <Select.Option value="Private">Private</Select.Option>
                     <Select.Option value="Commercial">Commercial</Select.Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               {(isUsedCar || isCashIn || isRefinance) && (
                 <Col xs={24} md={8}>
-                  <Form.Item label="Valuation" name="valuation">
+                  <PermissionFormItem label="Valuation" name="valuation">
                     <InputNumber
                       min={0}
                       style={{ width: "100%" }}
                       placeholder="Enter valuation amount"
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
               )}
 
@@ -774,7 +775,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
               {isNewCar &&
                 !(aadhaarSame === "No" && registerSameAsPermanent === "No") && (
                 <Col xs={24} md={8}>
-                  <Form.Item
+                  <PermissionFormItem
                     label="Registration City"
                     name="registrationCity"
                     rules={[{ required: true, message: "Select registration city" }]}
@@ -788,7 +789,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       allowClear
                       showSearch
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
               )}
               
@@ -796,16 +797,16 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
               {(isUsedCar || isCashIn || isRefinance) && (
                 <>
                   <Col xs={24} md={8}>
-                    <Form.Item label="Hypothecation" name="hypothecation">
+                    <PermissionFormItem label="Hypothecation" name="hypothecation">
                       <Radio.Group>
                         <Radio value="Yes">Yes</Radio>
                         <Radio value="No">No</Radio>
                       </Radio.Group>
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                   {hypothecation === "Yes" && (
                     <Col xs={24} md={8}>
-                      <Form.Item
+                      <PermissionFormItem
                         label="Hypothecation Bank"
                         name="hypothecationBank"
                         rules={[{ required: true, message: "Bank required" }]}
@@ -820,7 +821,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                           }
                           allowClear
                         />
-                      </Form.Item>
+                      </PermissionFormItem>
                     </Col>
                   )}
 
@@ -828,7 +829,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   {(isCashIn || isRefinance) && (
                     <>
                       <Col xs={24} md={8}>
-                        <Form.Item
+                        <PermissionFormItem
                           label="Purpose of Loan"
                           name="purposeOfLoan"
                           rules={[{ required: true }]}
@@ -844,7 +845,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                             <Option value="Agriculture">Agriculture</Option>
                             <Option value="Other">Other</Option>
                           </Select>
-                        </Form.Item>
+                        </PermissionFormItem>
                       </Col>
                     </>
                   )}
@@ -865,7 +866,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Ex-Showroom Price" name="exShowroomPrice">
+                    <PermissionFormItem label="Ex-Showroom Price" name="exShowroomPrice">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -873,11 +874,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Insurance Cost" name="insuranceCost">
+                    <PermissionFormItem label="Insurance Cost" name="insuranceCost">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -885,11 +886,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Road Tax" name="roadTax">
+                    <PermissionFormItem label="Road Tax" name="roadTax">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -897,11 +898,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Accessories Amount" name="accessoriesAmount">
+                    <PermissionFormItem label="Accessories Amount" name="accessoriesAmount">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -909,7 +910,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   {/* Discounts Section Header */}
@@ -923,7 +924,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Dealer Discount" name="dealerDiscount">
+                    <PermissionFormItem label="Dealer Discount" name="dealerDiscount">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -931,11 +932,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Manufacturer Discount" name="manufacturerDiscount">
+                    <PermissionFormItem label="Manufacturer Discount" name="manufacturerDiscount">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -943,7 +944,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   {/* Loan Components Section Header */}
@@ -957,7 +958,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Margin Money" name="marginMoney">
+                    <PermissionFormItem label="Margin Money" name="marginMoney">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -965,11 +966,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Advance EMI" name="advanceEmi">
+                    <PermissionFormItem label="Advance EMI" name="advanceEmi">
                       <InputNumber 
                         style={{ width: "100%" }} 
                         className="rounded-lg"
@@ -977,19 +978,19 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} 
                         parser={value => value.replace(/₹\s?|(,*)/g, '')} 
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Trade-in Value" name="tradeInValue">
+                    <PermissionFormItem label="Trade-in Value" name="tradeInValue">
                       <InputNumber style={{ width: "100%" }} formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/₹\s?|(,*)/g, '')} />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Other Discounts" name="otherDiscounts">
+                    <PermissionFormItem label="Other Discounts" name="otherDiscounts">
                       <InputNumber style={{ width: "100%" }} formatter={value => `₹ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')} parser={value => value.replace(/₹\s?|(,*)/g, '')} />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   {!cashPrefileMode && (
@@ -1001,7 +1002,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                       </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item label="Dealer Name" name="showroomDealerName">
+                    <PermissionFormItem label="Dealer Name" name="showroomDealerName">
                       <AutoComplete
                         options={showroomOptions}
                         allowClear={false}
@@ -1024,11 +1025,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                           data-lpignore="true"
                         />
                       </AutoComplete>
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Contact Person"
                       name="showroomDealerContactPerson"
                     >
@@ -1040,11 +1041,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                           })
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Contact Number"
                       name="showroomDealerContactNumber"
                     >
@@ -1056,11 +1057,11 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                           })
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24}>
-                    <Form.Item label="Dealer Address" name="showroomDealerAddress">
+                    <PermissionFormItem label="Dealer Address" name="showroomDealerAddress">
                       <Input.TextArea
                         autoSize={{ minRows: 2, maxRows: 5 }}
                         placeholder="Enter Dealer Address"
@@ -1070,7 +1071,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                           })
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24}>
@@ -1079,7 +1080,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </Col>
 
                   <Col xs={24}>
-                    <Form.Item
+                    <PermissionFormItem
                       label={
                         isCompany
                           ? "Is vehicle registered at GST/office address?"
@@ -1091,13 +1092,13 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                         <Radio value="Yes">Yes</Radio>
                         <Radio value="No">No</Radio>
                       </Radio.Group>
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                       {aadhaarSame === "No" && (
                         <>
                           <Col xs={24}>
-                            <Form.Item
+                            <PermissionFormItem
                               label="Is vehicle registered at permanent address?"
                               name="registerSameAsPermanent"
                             >
@@ -1105,13 +1106,13 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                                 <Radio value="Yes">Yes</Radio>
                                 <Radio value="No">No</Radio>
                               </Radio.Group>
-                            </Form.Item>
+                            </PermissionFormItem>
                           </Col>
 
                           {registerSameAsPermanent === "No" && (
                             <>
                               <Col xs={24}>
-                                <Form.Item
+                                <PermissionFormItem
                                   label="Registration Address"
                                   name="registrationAddress"
                                   rules={[{ required: true, message: "Enter registration address" }]}
@@ -1120,21 +1121,21 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                                     autoSize={{ minRows: 2, maxRows: 5 }}
                                     placeholder="Enter Registration Address"
                                   />
-                                </Form.Item>
+                                </PermissionFormItem>
                               </Col>
 
                           <Col xs={24} md={8}>
-                            <Form.Item
+                            <PermissionFormItem
                               label="Registration Pincode"
                               name="registrationPincode"
                               rules={[{ required: true, message: "Enter registration pincode" }]}
                             >
                               <Input maxLength={6} placeholder="Enter Pincode" />
-                            </Form.Item>
+                            </PermissionFormItem>
                           </Col>
 
                               <Col xs={24} md={8}>
-                                <Form.Item
+                                <PermissionFormItem
                                   label="Registration City"
                                   name="registrationCity"
                                   rules={[{ required: true, message: "Select registration city" }]}
@@ -1154,7 +1155,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                                     allowClear
                                     showSearch
                                   />
-                                </Form.Item>
+                                </PermissionFormItem>
                               </Col>
                             </>
                           )}

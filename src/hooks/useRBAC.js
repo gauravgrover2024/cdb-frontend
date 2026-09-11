@@ -32,7 +32,12 @@ export const useRBAC = () => {
     if (isSuperAdmin()) return true;
     const modulePermissions = user?.permissions?.[module];
     if (!modulePermissions) return true;
-    const sectionPermissions = modulePermissions?.[section];
+    let sectionPermissions = modulePermissions?.[section];
+    if (!sectionPermissions && field) {
+      const matchingSection = Object.values(modulePermissions).find((candidate) => candidate?.fields?.[field]);
+      if (matchingSection) sectionPermissions = matchingSection;
+      else return true;
+    }
     if (!sectionPermissions) return false;
     if (field) {
       const fieldPermissions = sectionPermissions.fields?.[field];

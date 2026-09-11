@@ -1,4 +1,5 @@
 import React from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { Form, Select, InputNumber, Row, Col } from "antd";
 import Icon from "../../../../../components/AppIcon";
 
@@ -27,7 +28,7 @@ const FinanceDetailsForm = () => {
         </div>
         <Row gutter={[16, 16]}>
           <Col xs={24} md={12}>
-            <Form.Item label="Expected Funding" name="financeExpectation" className="mb-0">
+            <PermissionFormItem label="Expected Funding" name="financeExpectation" className="mb-0">
               <InputNumber
                 placeholder="Requested amount"
                 min={0}
@@ -39,18 +40,18 @@ const FinanceDetailsForm = () => {
                 }}
                 parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
 
           <Col xs={24} md={12}>
-            <Form.Item label="Requested Tenure (Months)" name="loanTenureMonths" className="mb-0">
+            <PermissionFormItem label="Requested Tenure (Months)" name="loanTenureMonths" className="mb-0">
               <InputNumber
                 placeholder="Months"
                 min={1}
                 className="w-full h-10 rounded-xl flex items-center"
                 addonAfter="Months"
               />
-            </Form.Item>
+            </PermissionFormItem>
           </Col>
         </Row>
       </div>

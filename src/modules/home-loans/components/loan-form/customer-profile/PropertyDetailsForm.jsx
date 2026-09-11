@@ -1,4 +1,5 @@
 import React from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { Form, Select, Row, Col } from "antd";
 
 const PROPERTY_TYPE_OPTIONS = [
@@ -58,7 +59,7 @@ const PropertyDetailsForm = () => {
     <div className="space-y-4 p-2">
       <Row gutter={[16, 16]}>
         <Col xs={24} md={12}>
-          <Form.Item
+          <PermissionFormItem
             label="Property Type"
             name="propertyType"
             rules={[{ required: true, message: "Select property type" }]}
@@ -69,11 +70,11 @@ const PropertyDetailsForm = () => {
               onChange={handlePropertyTypeChange}
               className="h-10 rounded-lg w-full"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={12}>
-          <Form.Item
+          <PermissionFormItem
             label="Type of Loan"
             name="typeOfLoan"
             rules={[{ required: true, message: "Select loan type" }]}
@@ -85,7 +86,7 @@ const PropertyDetailsForm = () => {
               onChange={handleLoanTypeChange}
               className="h-10 rounded-lg w-full"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
       </Row>
     </div>

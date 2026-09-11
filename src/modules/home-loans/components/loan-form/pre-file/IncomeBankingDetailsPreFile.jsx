@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import {
   Button,
   Checkbox,
@@ -293,7 +294,7 @@ const IncomeBankingDetailsPreFile = () => {
       ====================== */}
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
-          <Form.Item label="Total Income (as per ITR)" name="totalIncomeITR">
+          <PermissionFormItem label="Total Income (as per ITR)" name="totalIncomeITR">
             <InputNumber
               style={{ width: "100%" }}
               min={0}
@@ -306,11 +307,11 @@ const IncomeBankingDetailsPreFile = () => {
               }}
               parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8}>
-          <Form.Item label="Total Income" name="totalIncome">
+          <PermissionFormItem label="Total Income" name="totalIncome">
             <InputNumber
               style={{ width: "100%" }}
               min={0}
@@ -323,11 +324,11 @@ const IncomeBankingDetailsPreFile = () => {
               }}
               parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8}>
-          <Form.Item label="Total Turnover (as per GST)" name="totalTurnoverGST">
+          <PermissionFormItem label="Total Turnover (as per GST)" name="totalTurnoverGST">
             <InputNumber
               style={{ width: "100%" }}
               min={0}
@@ -340,13 +341,13 @@ const IncomeBankingDetailsPreFile = () => {
               }}
               parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
       </Row>
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={8}>
-          <Form.Item label="Monthly Obligation" name="monthlyObligation">
+          <PermissionFormItem label="Monthly Obligation" name="monthlyObligation">
             <InputNumber
               style={{ width: "100%" }}
               min={0}
@@ -359,16 +360,16 @@ const IncomeBankingDetailsPreFile = () => {
               }}
               parser={(value) => value.replace(/₹\s?|(,*)/g, "")}
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={8}>
-          <Form.Item label="PAN Number" name="panNumber">
+          <PermissionFormItem label="PAN Number" name="panNumber">
             <Input
               placeholder="Enter PAN Number"
               className="rounded-xl border-border"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
       </Row>
 
@@ -382,7 +383,7 @@ const IncomeBankingDetailsPreFile = () => {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} md={6}>
-          <Form.Item
+          <PermissionFormItem
             label="IFSC Code"
             name="ifsc"
             normalize={(value) => normalizeIfsc(value)}
@@ -399,11 +400,11 @@ const IncomeBankingDetailsPreFile = () => {
                 ) : null
               }
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Bank Name" name="bankName">
+          <PermissionFormItem label="Bank Name" name="bankName">
             <AutoComplete
               placeholder="Select or enter Bank Name"
               options={bankOptions}
@@ -426,60 +427,60 @@ const IncomeBankingDetailsPreFile = () => {
                   .indexOf(inputValue.toUpperCase()) !== -1
               }
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Branch / Address" name="branch">
+          <PermissionFormItem label="Branch / Address" name="branch">
             <Input.TextArea
               autoSize={{ minRows: 2, maxRows: 4 }}
               placeholder="Enter Branch / Address"
               className="rounded-xl border-border"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Applicant Account Number" name="accountNumber">
+          <PermissionFormItem label="Applicant Account Number" name="accountNumber">
             <Input
               placeholder="Enter Account Number"
               className="rounded-xl border-border"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Bank Customer ID" name="bankCustomerId">
+          <PermissionFormItem label="Bank Customer ID" name="bankCustomerId">
             <Input
               placeholder="Enter Bank Customer ID"
               className="rounded-xl border-border"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Account Since (Years)" name="accountSinceYears">
+          <PermissionFormItem label="Account Since (Years)" name="accountSinceYears">
             <InputNumber
               style={{ width: "100%" }}
               min={0}
               placeholder="Years"
               className="rounded-xl border-border"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Opened In" name="openedIn">
+          <PermissionFormItem label="Opened In" name="openedIn">
             <Input
               disabled
               placeholder="Auto-filled Year"
               className="rounded-xl border-border"
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
 
         <Col xs={24} md={6}>
-          <Form.Item label="Account Type" name="accountType">
+          <PermissionFormItem label="Account Type" name="accountType">
             <Select
               placeholder="Select Type"
               className="rounded-xl border-border"
@@ -487,12 +488,12 @@ const IncomeBankingDetailsPreFile = () => {
               <Option value="Savings">Savings</Option>
               <Option value="Current">Current</Option>
             </Select>
-          </Form.Item>
+          </PermissionFormItem>
         </Col>
       </Row>
 
       <div className="mt-6 rounded-xl border border-border/70 bg-muted/20 p-4">
-        <Form.Item
+        <PermissionFormItem
           name="hasAdditionalBankDetails"
           valuePropName="checked"
           className="mb-3"
@@ -500,7 +501,7 @@ const IncomeBankingDetailsPreFile = () => {
           <Checkbox>
             Add additional banking details (up to 3 banks total)
           </Checkbox>
-        </Form.Item>
+        </PermissionFormItem>
 
         {hasAdditionalBankDetails && (
           <div className="space-y-4">
@@ -525,7 +526,7 @@ const IncomeBankingDetailsPreFile = () => {
 
                 <Row gutter={[16, 16]}>
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="IFSC Code"
                       name={["additionalBankDetails", index, "ifsc"]}
                       normalize={(value) => normalizeIfsc(value)}
@@ -535,11 +536,11 @@ const IncomeBankingDetailsPreFile = () => {
                         maxLength={11}
                         className="rounded-xl border-border"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Bank Name"
                       name={["additionalBankDetails", index, "bankName"]}
                     >
@@ -553,11 +554,11 @@ const IncomeBankingDetailsPreFile = () => {
                             .indexOf(inputValue.toUpperCase()) !== -1
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Branch / Address"
                       name={["additionalBankDetails", index, "branch"]}
                     >
@@ -566,11 +567,11 @@ const IncomeBankingDetailsPreFile = () => {
                         placeholder="Enter Branch / Address"
                         className="rounded-xl border-border"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Applicant Account Number"
                       name={["additionalBankDetails", index, "accountNumber"]}
                     >
@@ -578,11 +579,11 @@ const IncomeBankingDetailsPreFile = () => {
                         placeholder="Enter Account Number"
                         className="rounded-xl border-border"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Account Since (Years)"
                       name={[
                         "additionalBankDetails",
@@ -596,11 +597,11 @@ const IncomeBankingDetailsPreFile = () => {
                         placeholder="Years"
                         className="rounded-xl border-border"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Opened In"
                       name={["additionalBankDetails", index, "openedIn"]}
                     >
@@ -609,11 +610,11 @@ const IncomeBankingDetailsPreFile = () => {
                         placeholder="Auto-filled Year"
                         className="rounded-xl border-border"
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={6}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Account Type"
                       name={["additionalBankDetails", index, "accountType"]}
                     >
@@ -624,7 +625,7 @@ const IncomeBankingDetailsPreFile = () => {
                         <Option value="Savings">Savings</Option>
                         <Option value="Current">Current</Option>
                       </Select>
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 </Row>
               </div>
