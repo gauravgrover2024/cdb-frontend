@@ -1,5 +1,6 @@
 import React from "react";
 import { Form, Row, Col, Input, Select, AutoComplete, Divider } from "antd";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { SolutionOutlined } from "@ant-design/icons";
 import { COMPANY_TYPE_OPTIONS, BUSINESS_NATURE_OPTIONS, getOptionsWithCustom } from "../../../../../constants/employmentOptions";
 
@@ -17,7 +18,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
         <SolutionOutlined /> {title}
       </Divider>
 
-      <Form.Item shouldUpdate noStyle>
+      <PermissionFormItem shouldUpdate noStyle>
         {({ getFieldValue }) => {
           const occupation = getFieldValue(`${prefix}_occupation`);
           const companyTypeValue = getFieldValue(`${prefix}_companyType`);
@@ -29,7 +30,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
             <Row gutter={[16, 12]}>
               {/* Occupation */}
               <Col xs={24} md={8}>
-                <Form.Item label="Occupation" name={`${prefix}_occupation`}>
+                <PermissionFormItem label="Occupation" name={`${prefix}_occupation`}>
                   <Select>
                     <Select.Option value="Salaried">Salaried</Select.Option>
                     <Select.Option value="Self Employed">
@@ -40,13 +41,13 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                     </Select.Option>
                     <Select.Option value="Other">Other</Select.Option>
                   </Select>
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               {/* Professional Type */}
               {occupation === "Self Employed Professional" && (
                 <Col xs={24} md={8}>
-                  <Form.Item
+                  <PermissionFormItem
                     label="Professional Type"
                     name={`${prefix}_professionalType`}
                   >
@@ -61,7 +62,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                       <Select.Option value="Lawyer">Lawyer</Select.Option>
                       <Select.Option value="Other">Other</Select.Option>
                     </Select>
-                  </Form.Item>
+                  </PermissionFormItem>
                 </Col>
               )}
 
@@ -70,7 +71,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                 occupation === "Self Employed Professional") && (
                 <>
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Type of Company"
                       name={`${prefix}_companyType`}
                     >
@@ -82,11 +83,11 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                           (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Nature of Business"
                       name={`${prefix}_businessNature`}
                     >
@@ -98,7 +99,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                           (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 </>
               )}
@@ -107,7 +108,7 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
               {occupation === "Salaried" && (
                 <>
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Type of Company"
                       name={`${prefix}_companyType`}
                     >
@@ -119,11 +120,11 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                           (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
 
                   <Col xs={24} md={8}>
-                    <Form.Item
+                    <PermissionFormItem
                       label="Nature of Business"
                       name={`${prefix}_businessNature`}
                     >
@@ -135,81 +136,81 @@ const PersonOccupationalDetails = ({ prefix, title }) => {
                           (option?.label ?? "").toString().toLowerCase().includes((input || "").toLowerCase())
                         }
                       />
-                    </Form.Item>
+                    </PermissionFormItem>
                   </Col>
                 </>
               )}
 
               {/* Common */}
               <Col xs={24} md={8}>
-                <Form.Item
+                <PermissionFormItem
                   label="Employer / Business Detail"
                   name={`${prefix}_employerDetail`}
                 >
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Designation" name={`${prefix}_designation`}>
+                <PermissionFormItem label="Designation" name={`${prefix}_designation`}>
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item
+                <PermissionFormItem
                   label="Experience in Current Job / Business"
                   name={`${prefix}_currentExperience`}
                 >
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item
+                <PermissionFormItem
                   label="Total Experience"
                   name={`${prefix}_totalExperience`}
                 >
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Company Name" name={`${prefix}_companyName`}>
+                <PermissionFormItem label="Company Name" name={`${prefix}_companyName`}>
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24}>
-                <Form.Item
+                <PermissionFormItem
                   label="Company Address"
                   name={`${prefix}_companyAddress`}
                 >
                   <TextArea autoSize={{ minRows: 2, maxRows: 5 }} />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Pin code" name={`${prefix}_companyPincode`}>
+                <PermissionFormItem label="Pin code" name={`${prefix}_companyPincode`}>
                   <Input maxLength={6} />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="City" name={`${prefix}_companyCity`}>
+                <PermissionFormItem label="City" name={`${prefix}_companyCity`}>
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
 
               <Col xs={24} md={8}>
-                <Form.Item label="Phone No" name={`${prefix}_companyPhone`}>
+                <PermissionFormItem label="Phone No" name={`${prefix}_companyPhone`}>
                   <Input />
-                </Form.Item>
+                </PermissionFormItem>
               </Col>
             </Row>
           );
         }}
-      </Form.Item>
+      </PermissionFormItem>
     </>
   );
 };

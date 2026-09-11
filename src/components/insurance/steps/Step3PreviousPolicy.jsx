@@ -25,6 +25,7 @@ import {
 import { lenderHypothecationOptions } from "../../../constants/lenderHypothecationOptions";
 import { IRDAI_INSURANCE_COMPANIES } from "../../../constants/irdaiInsuranceCompanies";
 import { calculateSuggestedNcb } from "../../../utils/ncbCalculator";
+import PermissionField from "../../permissions/PermissionField";
 
 const shellStyle = "rounded-xl border border-slate-200/75 bg-white shadow-sm";
 
@@ -66,6 +67,7 @@ const HYPOTHECATION_OPTIONS = [
 ];
 
 const CleanField = ({ label, required, hint, children, extra }) => (
+  <PermissionField module="insurance" section="renewal" label={label}>
   <div className="pb-1 insurance-field-block" data-ins-field="true">
     <div className={labelClass}>
       {label} {required ? <span className="text-[#FF8EAD]">*</span> : null}
@@ -74,6 +76,7 @@ const CleanField = ({ label, required, hint, children, extra }) => (
     {hint ? <div className={microHintClass}>{hint}</div> : null}
     {extra ? <div className="mt-1">{extra}</div> : null}
   </div>
+  </PermissionField>
 );
 
 const BreakupRow = ({ label, value, bold, muted, indent }) => (

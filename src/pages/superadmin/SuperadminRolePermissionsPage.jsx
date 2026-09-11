@@ -136,10 +136,19 @@ const SuperadminRolePermissionsPage = () => {
           const sectionPermission = modulePermissions[section.key] || {};
           return <div key={section.key} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
             <div className="flex flex-col gap-3 border-b border-slate-100 bg-slate-50 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"><h2 className="font-bold capitalize text-slate-900">{section.label}</h2><div className="flex flex-wrap gap-3">{ACTIONS.map((action) => <label key={action} className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-600"><input type="checkbox" disabled={selectedRole === "superadmin"} checked={Boolean(sectionPermission[action])} onChange={(e) => setSectionPermission(section.key, action, e.target.checked)} />{action}</label>)}</div></div>
-            <div className="divide-y divide-slate-100">{section.fields.map(([fieldKey, fieldLabel]) => { const field = sectionPermission.fields?.[fieldKey] || {}; return <div key={fieldKey} className="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"><span className="text-sm text-slate-700">{fieldLabel}</span><div className="flex flex-wrap gap-3">{["view", "edit"].map((action) => <label key={action} className="flex items-center gap-1.5 text-xs font-semibold uppercase text-slate-500"><input type="checkbox" disabled={selectedRole === "superadmin"} checked={Boolean(field[action])} onChange={(e) => setFieldPermission(section.key, fieldKey, action, e.target.checked)} />{action}</label>)}</div></div>; })}</div>
+            <div className="divide-y divide-slate-100">{section.fields.map((fieldDefinition) => {
+              const [fieldKey, fieldLabel, calculated] = Array.isArray(fieldDefinition)
+                ? fieldDefinition
+                : [fieldDefinition.key, fieldDefinition.label, fieldDefinition.calculated];
+              const field = sectionPermission.fields?.[fieldKey] || {};
+              return <div key={fieldKey} className="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between">
+                <span className="flex items-center gap-2 text-sm text-slate-700"><span>{fieldLabel}</span>{calculated && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700">Auto-calculated</span>}</span>
+                <div className="grid grid-cols-4 gap-3">{ACTIONS.map((action) => <label key={action} className="flex items-center gap-1.5 text-[11px] font-semibold uppercase text-slate-500"><input type="checkbox" disabled={selectedRole === "superadmin"} checked={Boolean(field[action])} onChange={(e) => setFieldPermission(section.key, fieldKey, action, e.target.checked)} />{action}</label>)}</div>
+              </div>;
+            })}</div>
           </div>;
           })}
-          <div className="flex items-center gap-2 text-xs text-slate-500"><Check size={14} />Field permissions override visibility and edit access for sensitive data.</div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-slate-500"><span className="flex items-center gap-2"><Check size={14} />Field-level permissions control every input, document and calculation.</span><span>Section actions act as bulk defaults; field settings take precedence.</span></div>
         </main>
       </div>
     </div>

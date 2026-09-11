@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import { Form } from "antd";
 import Icon from "../../../../../components/AppIcon";
 import Button from "../../../../../components/ui/Button";
@@ -600,7 +601,7 @@ const PostFileDocumentManagement = ({ form }) => {
 
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-border/70 bg-card p-5 dark:bg-card md:p-6">
-      <Form.Item name="postfile_tags" hidden />
+      <PermissionFormItem name="postfile_tags" hidden />
       <div className="relative">
         <div className="documents-header mb-6 flex flex-col gap-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">

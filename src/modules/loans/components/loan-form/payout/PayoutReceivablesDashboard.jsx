@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import PermissionFormItem from "../../../../../components/permissions/PermissionFormItem";
 import {
   Tag,
   Select,
@@ -3726,7 +3727,7 @@ const PayoutReceivablesDashboard = () => {
                   Bill setup
                 </div>
                 <div className="mt-4 grid gap-4">
-                  <Form.Item label="Party" required style={{ marginBottom: 0 }}>
+                  <PermissionFormItem label="Party" required style={{ marginBottom: 0 }}>
                     <Select
                       value={billPartyFilter || undefined}
                       onChange={(value) => {
@@ -3744,9 +3745,9 @@ const PayoutReceivablesDashboard = () => {
                         </Option>
                       ))}
                     </Select>
-                  </Form.Item>
+                  </PermissionFormItem>
 
-                  <Form.Item
+                  <PermissionFormItem
                     name="billNumber"
                     label="Bill Number"
                     rules={[{ required: true, message: "Please enter bill number" }]}
@@ -3766,9 +3767,9 @@ const PayoutReceivablesDashboard = () => {
                         </Button>
                       }
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
 
-                  <Form.Item
+                  <PermissionFormItem
                     name="billDate"
                     label="Bill Date"
                     rules={[{ required: true, message: "Please select bill date" }]}
@@ -3779,14 +3780,14 @@ const PayoutReceivablesDashboard = () => {
                       size="large"
                       format="DD MMM YYYY"
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
 
-                  <Form.Item name="billNotes" label="Bill Notes" style={{ marginBottom: 0 }}>
+                  <PermissionFormItem name="billNotes" label="Bill Notes" style={{ marginBottom: 0 }}>
                     <Input.TextArea
                       rows={3}
                       placeholder="Short note for the party or internal remark"
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </div>
               </div>
 
@@ -4193,7 +4194,7 @@ const PayoutReceivablesDashboard = () => {
             )}
           </div>
 
-          <Form.Item
+          <PermissionFormItem
             name="received_date"
             label="Collection Date"
             rules={[
@@ -4205,7 +4206,7 @@ const PayoutReceivablesDashboard = () => {
               format="DD MMM YYYY"
               size="large"
             />
-          </Form.Item>
+          </PermissionFormItem>
 
           <Space style={{ marginBottom: 16 }} wrap>
             <Button
@@ -4272,7 +4273,7 @@ const PayoutReceivablesDashboard = () => {
                       </div>
                     </div>
                   </div>
-                  <Form.Item
+                  <PermissionFormItem
                     name={`amount_${payoutRowId}`}
                     rules={[
                       { required: true, message: "Required" },
@@ -4305,7 +4306,7 @@ const PayoutReceivablesDashboard = () => {
                       min={0}
                       max={paymentStatus.pendingAmount}
                     />
-                  </Form.Item>
+                  </PermissionFormItem>
                 </div>
               );
             })}
@@ -4347,7 +4348,7 @@ const PayoutReceivablesDashboard = () => {
               })()}
             </div>
 
-            <Form.Item
+            <PermissionFormItem
               name="payment_amount"
               label="Payment Amount"
               rules={[
@@ -4380,9 +4381,9 @@ const PayoutReceivablesDashboard = () => {
                 size="large"
                 min={0}
               />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item
+            <PermissionFormItem
               name="payment_date"
               label="Payment Date"
               rules={[
@@ -4394,14 +4395,14 @@ const PayoutReceivablesDashboard = () => {
                 format="DD MMM YYYY"
                 size="large"
               />
-            </Form.Item>
+            </PermissionFormItem>
 
-            <Form.Item name="payment_remarks" label="Remarks (optional)">
+            <PermissionFormItem name="payment_remarks" label="Remarks (optional)">
               <Input.TextArea
                 rows={2}
                 placeholder="Payment method, reference number, etc."
               />
-            </Form.Item>
+            </PermissionFormItem>
 
             {safeArray(currentRecord.payment_history).length > 0 && (
               <div className="mt-4">
@@ -4537,7 +4538,7 @@ const PayoutReceivablesDashboard = () => {
         okText="Save Changes"
       >
         <Form form={editPaymentForm} layout="vertical">
-          <Form.Item
+          <PermissionFormItem
             name="payment_amount"
             label="Payment Amount"
             rules={[{ required: true, message: "Please enter payment amount" }]}
@@ -4552,9 +4553,9 @@ const PayoutReceivablesDashboard = () => {
               size="large"
               min={0}
             />
-          </Form.Item>
+          </PermissionFormItem>
 
-          <Form.Item
+          <PermissionFormItem
             name="payment_date"
             label="Payment Date"
             rules={[{ required: true, message: "Please select payment date" }]}
@@ -4564,14 +4565,14 @@ const PayoutReceivablesDashboard = () => {
               format="DD MMM YYYY"
               size="large"
             />
-          </Form.Item>
+          </PermissionFormItem>
 
-          <Form.Item name="payment_remarks" label="Remarks">
+          <PermissionFormItem name="payment_remarks" label="Remarks">
             <Input.TextArea
               rows={2}
               placeholder="Payment method, reference number, etc."
             />
-          </Form.Item>
+          </PermissionFormItem>
         </Form>
       </Modal>
 
