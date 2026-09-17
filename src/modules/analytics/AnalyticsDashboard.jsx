@@ -1,3054 +1,734 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import dayjs from "dayjs";
-import customParseFormat from "dayjs/plugin/customParseFormat";
 import {
   Alert,
   Button,
   Card,
-  ConfigProvider,
+  Col,
   DatePicker,
+  Drawer,
+  Empty,
+  Form,
   Input,
   InputNumber,
-  Modal,
+  List,
+  Progress,
+  Row,
+  Segmented,
   Select,
-  Spin,
+  Space,
+  Statistic,
   Table,
   Tabs,
+  Tag,
+  Tooltip,
   Typography,
 } from "antd";
 import {
-  AlertTriangle,
-  BarChart3,
-  Database,
-  BriefcaseBusiness,
-  Building2,
-  CarFront,
-  ChartNoAxesCombined,
-  CircleDot,
-  Clock3,
-  Filter,
-  GitBranch,
-  IndianRupee,
-  RefreshCcw,
-  SearchCode,
-  ShieldAlert,
-  TrendingUp,
-  UsersRound,
-} from "lucide-react";
+  AlertOutlined,
+  BankOutlined,
+  CarOutlined,
+  CheckCircleOutlined,
+  ClockCircleOutlined,
+  FileTextOutlined,
+  FundOutlined,
+  ReloadOutlined,
+  ShopOutlined,
+  TeamOutlined,
+} from "@ant-design/icons";
 import { loansApi } from "../../api/loans";
 import { useAuth } from "../../context/AuthContext";
 
-const { RangePicker } = DatePicker;
-dayjs.extend(customParseFormat);
+const { Title, Text } = Typography;
 
-/** Tailwind-only polish for Ant Table (replaces former analytics-table CSS). */
-const TABLE_SHELL_CLASS =
-  "[&_.ant-table-thead>tr>th]:!bg-muted/70 [&_.ant-table-thead>tr>th]:!text-[11px] [&_.ant-table-thead>tr>th]:!font-bold [&_.ant-table-thead>tr>th]:uppercase [&_.ant-table-thead>tr>th]:!tracking-wider [&_.ant-table-tbody>tr:hover>td]:!bg-primary/10";
-
-const analyticsTabsTheme = {
-  components: {
-    Tabs: {
-      inkBarColor: "rgb(var(--primary))",
-      itemSelectedColor: "rgb(var(--primary))",
-      itemHoverColor: "rgb(var(--primary))",
-    },
-  },
-};
+// ─── Constants ──────────────────────────────────────────────────────────────
 
 const RANGE_OPTIONS = [
-  { label: "All", value: "all" },
-  { label: "Month till date", value: "mtd" },
-  { label: "Last 1 month", value: "1m" },
+  { label: "All time", value: "all" },
+  { label: "This month", value: "mtd" },
+  { label: "Last month", value: "1m" },
   { label: "Last 3 months", value: "3m" },
-  { label: "Last 1 year", value: "1y" },
+  { label: "Last year", value: "1y" },
   { label: "Custom", value: "custom" },
 ];
 
+const STAGES = [
+  { key: "profile", label: "Customer profile" },
+  { key: "prefile", label: "Pre-file" },
+  { key: "approval", label: "Approval" },
+  { key: "postfile", label: "Post-file" },
+  { key: "delivery", label: "Delivery" },
+  { key: "payout", label: "Payout" },
+];
+
+const STATUS_META = {
+  disbursed: { label: "Disbursed", color: "green" },
+  approved: { label: "Approved", color: "blue" },
+  pending: { label: "Pending", color: "gold" },
+  completed: { label: "Completed", color: "cyan" },
+  rejected: { label: "Rejected", color: "red" },
+  cancelled: { label: "Cancelled", color: "default" },
+};
+
 const CUSTOM_WIDGET_METRICS = [
-  { label: "Count", value: "count" },
-  { label: "Sum", value: "sum" },
-  { label: "Average", value: "avg" },
+  { label: "Count of files", value: "count" },
+  { label: "Sum of amount", value: "sum" },
+  { label: "Average amount", value: "avg" },
 ];
 
 const CUSTOM_WIDGET_GROUP_BY = [
   { label: "Month", value: "month" },
   { label: "Bank", value: "bank" },
   { label: "Source", value: "source" },
-  { label: "Loan Type", value: "loanType" },
+  { label: "Loan type", value: "loanType" },
   { label: "Status", value: "status" },
   { label: "Stage", value: "stage" },
-  { label: "Dealer / Showroom", value: "dealer" },
-  { label: "Vehicle Make", value: "vehicleMake" },
-  { label: "Vehicle Model", value: "vehicleModel" },
+  { label: "Dealer / showroom", value: "dealer" },
+  { label: "Vehicle make", value: "vehicleMake" },
+  { label: "Vehicle model", value: "vehicleModel" },
 ];
 
-const CUSTOM_WIDGET_FIELDS = [
-  { label: "Loan Amount", value: "loanAmount" },
-  { label: "Approved Amount", value: "approval_loanAmountApproved" },
-  { label: "Disbursed Amount", value: "approval_loanAmountDisbursed" },
-  { label: "Disburse Amount", value: "disburse_amount" },
-  { label: "Finance Expectation", value: "financeExpectation" },
+const AMOUNT_FIELDS = [
+  { label: "Loan amount", value: "loanAmount" },
+  { label: "Approved amount", value: "approval_loanAmountApproved" },
+  { label: "Disbursed amount (approval)", value: "approval_loanAmountDisbursed" },
+  { label: "Disbursed amount (disbursal)", value: "disburse_amount" },
+  { label: "Finance expectation", value: "financeExpectation" },
 ];
 
-const REPORT_FIELDS = [
-  "loanId",
-  "customerName",
-  "primaryMobile",
-  "typeOfLoan",
-  "currentStage",
-  "status",
-  "approval_status",
-  "approval_bankName",
-  "approval_brokerName",
-  "recordSource",
-  "dealerName",
-  "showroomDealerName",
-  "vehicleMake",
-  "vehicleModel",
-  "vehicleVariant",
-  "loanAmount",
-  "approval_loanAmountApproved",
-  "approval_loanAmountDisbursed",
-  "disburse_amount",
-  "registrationNumber",
-  "vehicleRegNo",
-  "rc_redg_no",
-  "invoice_number",
-  "invoice_date",
-  "insurance_policy_number",
-  "createdAt",
-  "updatedAt",
-];
-
-const formatINR = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
-
-const pick = (obj, path) =>
-  String(path || "")
-    .split(".")
-    .reduce(
-      (acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined),
-      obj,
-    );
-
-const getRangeParams = (preset, customRange) => {
-  const params = { range: preset };
-  if (preset === "custom" && customRange?.[0] && customRange?.[1]) {
-    params.from = customRange[0].format("YYYY-MM-DD");
-    params.to = customRange[1].format("YYYY-MM-DD");
-  }
-  return params;
+const REPORT_FIELDS = {
+  loanId: "Loan ID",
+  customerName: "Customer",
+  primaryMobile: "Mobile",
+  typeOfLoan: "Loan type",
+  currentStage: "Stage",
+  status: "Status",
+  approval_status: "Approval status",
+  approval_bankName: "Bank",
+  approval_brokerName: "Broker",
+  recordSource: "Source",
+  dealerName: "Dealer",
+  showroomDealerName: "Showroom",
+  vehicleMake: "Make",
+  vehicleModel: "Model",
+  vehicleVariant: "Variant",
+  loanAmount: "Loan amount",
+  approval_loanAmountApproved: "Approved amount",
+  approval_loanAmountDisbursed: "Disbursed amount",
+  disburse_amount: "Disburse amount",
+  registrationNumber: "Registration no.",
+  vehicleRegNo: "Vehicle reg. no.",
+  rc_redg_no: "RC no.",
+  invoice_number: "Invoice no.",
+  invoice_date: "Invoice date",
+  insurance_policy_number: "Insurance policy no.",
+  createdAt: "Created",
+  updatedAt: "Updated",
 };
 
-const monthKey = (value) => {
-  const d = dayjs(value);
-  if (!d.isValid()) return null;
-  return d.format("YYYY-MM");
+const AMOUNT_REPORT_FIELDS = new Set(["loanAmount", "approval_loanAmountApproved", "approval_loanAmountDisbursed", "disburse_amount"]);
+const DRILL_LIMIT = 1000;
+const CACHE_PREFIX = "analytics_cache_v2_";
+
+// ─── Helpers (mirror the backend analytics rules) ───────────────────────────
+
+const toNumber = (value) => {
+  const n = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
+  return Number.isFinite(n) ? n : 0;
 };
+const formatINR = (value) =>
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(toNumber(value));
+const formatCount = (value) => new Intl.NumberFormat("en-IN").format(toNumber(value));
+const percent = (part, whole) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
+const firstPositive = (...values) => values.map(toNumber).find((n) => n > 0) || 0;
 
-const monthLabel = (key) => {
-  const d = dayjs(`${key}-01`);
-  return d.isValid() ? d.format("MMM YYYY") : key;
-};
-
-const stageKey = (stage) => {
-  const s = String(stage || "").toLowerCase();
-  if (s.includes("pre")) return "prefile";
-  if (s.includes("approv")) return "approval";
-  if (s.includes("post")) return "postfile";
-  if (s.includes("deliver")) return "delivery";
-  if (s.includes("payout")) return "payout";
-  return "profile";
-};
-
-const normalizeTypeText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
-const isCashDeliveryBasedCase = (loan) => {
-  const t = normalizeTypeText(
-    loan?.typeOfLoan || loan?.loanType || loan?.caseType,
+const loanValue = (loan) =>
+  firstPositive(
+    loan?.disburse_amount,
+    loan?.approval_loanAmountDisbursed,
+    loan?.postfile_loanAmountDisbursed,
+    loan?.approval_loanAmountApproved,
+    loan?.loanAmount,
+    loan?.financeExpectation,
   );
-  const financed = normalizeTypeText(loan?.isFinanced);
-  const bankText = normalizeTypeText(
-    loan?.approval_bankName || loan?.postfile_bankName || loan?.bankName,
-  );
-  if (bankText.includes("cash sale bank")) return true;
-  if (t.includes("cash-in") || t.includes("cash in")) return false;
-  if (financed === "no" && !t.includes("refinance")) return true;
-  if (!t) return false;
-  return t === "cash" || t.includes("cash car") || t.includes("cash sale");
-};
 
-const parseMaybeDate = (value) => {
-  if (value === null || value === undefined || value === "") return null;
-  if (dayjs.isDayjs(value)) return value.isValid() ? value : null;
-  if (value instanceof Date) {
-    const d = dayjs(value);
-    return d.isValid() ? d : null;
-  }
-  if (typeof value === "number") {
-    const ms = value > 1e12 ? value : value * 1000;
-    const d = dayjs(ms);
-    return d.isValid() ? d : null;
-  }
-  const raw = String(value).trim();
-  if (!raw) return null;
-
-  const native = dayjs(raw);
-  if (native.isValid()) return native;
-
-  const formats = [
-    "DD-MM-YYYY",
-    "D/M/YYYY",
-    "DD-MM-YYYY",
-    "D-M-YYYY",
-    "DD-MM-YY",
-    "D/M/YY",
-    "DD-MM-YY",
-    "D-M-YY",
-    "YYYY/MM/DD",
-    "YYYY-MM-DD",
-    "DD MMM YYYY",
-    "D MMM YYYY",
-    "DD MMM YY",
-    "D MMM YY",
-    "DD-MMM-YYYY",
-    "D-MMM-YYYY",
-    "DD-MMM-YY",
-    "D-MMM-YY",
-    "DD.MM.YYYY",
-    "D.M.YYYY",
-  ];
-  for (const fmt of formats) {
-    const d = dayjs(raw, fmt, true);
-    if (d.isValid()) return d;
-  }
+const classifyStatus = (value) => {
+  const text = String(value || "").toLowerCase();
+  if (!text) return null;
+  if (text.includes("disburs")) return "disbursed";
+  if (text.includes("cancel")) return "cancelled";
+  if (/reject|declin|fail/.test(text)) return "rejected";
+  if (/complete|close/.test(text)) return "completed";
+  if (/approv|accept|sanction/.test(text)) return "approved";
   return null;
 };
+const loanStatus = (loan) =>
+  (classifyStatus(loan?.disburse_status || loan?.disbursementStatus) === "disbursed" && "disbursed") ||
+  classifyStatus(loan?.approval_status) ||
+  classifyStatus(loan?.status) ||
+  "pending";
 
-const firstValidDate = (...values) => {
-  for (const value of values) {
-    const d = parseMaybeDate(value);
-    if (d?.isValid()) return d;
-  }
-  return null;
+const formatDate = (value) => {
+  const date = dayjs(value);
+  return value && date.isValid() ? date.format("DD MMM YYYY") : "—";
 };
 
-const collectStatusHistoryDates = (loan, statusNeedle) => {
-  const needle = String(statusNeedle || "").toLowerCase();
-  const bankHistory = Array.isArray(loan?.approval_banksData)
-    ? loan.approval_banksData.flatMap((b) =>
-        Array.isArray(b?.statusHistory) ? b.statusHistory : [],
-      )
-    : [];
-  const rootHistory = [
-    ...(Array.isArray(loan?.approval_statusHistory)
-      ? loan.approval_statusHistory
-      : []),
-    ...(Array.isArray(loan?.statusHistory) ? loan.statusHistory : []),
-  ];
-  const all = [...rootHistory, ...bankHistory];
-  const hits = all
-    .filter((entry) =>
-      String(entry?.status || "")
-        .toLowerCase()
-        .includes(needle),
-    )
-    .map((entry) => entry?.changedAt || entry?.date || entry?.updatedAt)
-    .filter(Boolean);
-  return firstValidDate(...hits);
+const rangeParams = (preset, customRange) =>
+  preset === "custom" && customRange?.[0] && customRange?.[1]
+    ? { range: preset, from: customRange[0].format("YYYY-MM-DD"), to: customRange[1].format("YYYY-MM-DD") }
+    : { range: preset };
+
+const StatusTag = ({ status }) => {
+  const meta = STATUS_META[status] || { label: status || "—", color: "default" };
+  return <Tag color={meta.color}>{meta.label}</Tag>;
 };
 
-const getLifecycleDates = (loan) => ({
-  createdAt: firstValidDate(loan?.createdAt),
-  approvedAt: firstValidDate(
-    loan?.approval_approvalDate,
-    loan?.approvalDate,
-    loan?.approvedDate,
-    loan?.approval_date,
-    collectStatusHistoryDates(loan, "approved"),
-    Array.isArray(loan?.approval_banksData)
-      ? loan.approval_banksData[0]?.approvalDate
-      : null,
-  ),
-  disbursedAt: firstValidDate(
-    loan?.disbursement_date,
-    loan?.approval_disbursedDate,
-    loan?.disbursementDate,
-    loan?.disbursedDate,
-    loan?.disburse_date,
-    loan?.disburseDate,
-    collectStatusHistoryDates(loan, "disbursed"),
-    Array.isArray(loan?.approval_banksData)
-      ? loan.approval_banksData[0]?.disbursedDate ||
-          loan.approval_banksData[0]?.disbursalDate
-      : null,
-  ),
-  deliveryAt: firstValidDate(
-    loan?.delivery_done_at,
-    loan?.delivery_date,
-    loan?.deliveryDate,
-    loan?.handoverDate,
-  ),
-  invoiceAt: firstValidDate(
-    loan?.invoice_done_at,
-    loan?.invoice_received_date,
-    loan?.invoice_date,
-    loan?.invoiceDate,
-  ),
-});
-
-const getPrimaryBusinessDate = (loan) => {
-  const { createdAt, approvedAt, disbursedAt, deliveryAt, invoiceAt } =
-    getLifecycleDates(loan);
-  if (isCashDeliveryBasedCase(loan))
-    return deliveryAt || invoiceAt || approvedAt || createdAt;
-  return disbursedAt || approvedAt || createdAt;
-};
-
-const getDisbursalOrDeliveryDate = (loan) => {
-  const { approvedAt, disbursedAt, deliveryAt, invoiceAt, createdAt } =
-    getLifecycleDates(loan);
-  if (isCashDeliveryBasedCase(loan))
-    return deliveryAt || invoiceAt || approvedAt || createdAt;
-  return disbursedAt || approvedAt || deliveryAt || invoiceAt || createdAt;
-};
-
-const statusKey = (loan) => {
-  const s = String(loan?.status || loan?.approval_status || "").toLowerCase();
-  if (s.includes("disburs")) return "disbursed";
-  if (s.includes("approv")) return "approved";
-  if (s.includes("reject") || s.includes("declin") || s.includes("fail"))
-    return "rejected";
-  if (s.includes("complete") || s.includes("close")) return "completed";
-  return "pending";
-};
-
-const num = (value) => {
-  if (value === null || value === undefined || value === "") return 0;
-  if (typeof value === "number") return Number.isFinite(value) ? value : 0;
-  const parsed = Number(String(value).replace(/[^\d.-]/g, ""));
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-const isDisbursed = (loan) =>
-  statusKey(loan) === "disbursed" ||
-  num(loan?.disburse_amount) > 0 ||
-  num(loan?.approval_loanAmountDisbursed) > 0 ||
-  Boolean(
-    loan?.disbursement_date ||
-    loan?.approval_disbursedDate ||
-    loan?.disburse_date,
-  );
-
-const isBusinessCompletedCash = (loan) => {
-  if (!isCashDeliveryBasedCase(loan)) return false;
-  const { deliveryAt, invoiceAt } = getLifecycleDates(loan);
-  return Boolean(deliveryAt || invoiceAt);
-};
-
-const amountValue = (loan) =>
-  num(
-    loan?.disburse_amount ||
-      loan?.approval_loanAmountDisbursed ||
-      loan?.approval_loanAmountApproved ||
-      loan?.loanAmount ||
-      loan?.financeExpectation ||
-      0,
-  );
-
-const getRangeWindow = (rangePreset, customRange) => {
-  const now = dayjs();
-  let start = now.startOf("month");
-  let end = now.endOf("day");
-  if (rangePreset === "all") {
-    start = dayjs(0).startOf("day");
-    end = now.endOf("day");
-  } else if (rangePreset === "1m")
-    start = now.subtract(1, "month").startOf("day");
-  else if (rangePreset === "3m")
-    start = now.subtract(3, "month").startOf("day");
-  else if (rangePreset === "1y") start = now.subtract(1, "year").startOf("day");
-  else if (rangePreset === "custom" && customRange?.[0] && customRange?.[1]) {
-    start = customRange[0].startOf("day");
-    end = customRange[1].endOf("day");
-  }
-  return { start, end };
-};
-
-/**
- * Build a readable timeframe label for the selected range.
- *
- * Purpose: show users an “industry dashboard” timeframe context.
- * @param {string} rangePreset
- * @param {[any, any]} customRange
- * @returns {string}
- */
-const getTimeframeLabel = (rangePreset, customRange) => {
-  const meta = RANGE_OPTIONS.find((o) => o.value === rangePreset);
-  const presetLabel = meta?.label || String(rangePreset || "Custom");
-  if (rangePreset === "all") {
-    const end = dayjs().endOf("day");
-    return `${presetLabel} · entire history through ${end.format("DD MMM YYYY")}`;
-  }
-  const { start, end } = getRangeWindow(rangePreset, customRange);
-  return `${presetLabel} · ${start.format("DD MMM YYYY")} - ${end.format("DD MMM YYYY")}`;
-};
-
-const isWithinRange = (value, start, end) => {
-  if (!value) return false;
-  return (
-    (value.isAfter(start) || value.isSame(start)) &&
-    (value.isBefore(end) || value.isSame(end))
-  );
-};
-
-const filterLoansByRange = (loans, rangePreset, customRange) => {
-  const { start, end } = getRangeWindow(rangePreset, customRange);
-  const rows = loans.filter((loan) => {
-    const businessDate = getPrimaryBusinessDate(loan);
-    return isWithinRange(businessDate, start, end);
-  });
-  return { rows, start, end };
-};
-
-const keyLower = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
-
-const buildFallbackOverview = (loans = [], rangePreset, customRange) => {
-  const { rows, start, end } = filterLoansByRange(
-    loans,
-    rangePreset,
-    customRange,
-  );
-
-  const monthBuckets = [];
-  let cursor = start.startOf("month");
-  const endMonth = end.startOf("month");
-  while (cursor.isBefore(endMonth) || cursor.isSame(endMonth)) {
-    monthBuckets.push(cursor.format("YYYY-MM"));
-    cursor = cursor.add(1, "month");
-  }
-
-  const totalLoansTrendMap = new Map(monthBuckets.map((m) => [m, 0]));
-  const disbursedTrendMap = new Map(
-    monthBuckets.map((m) => [m, { amount: 0, count: 0 }]),
-  );
-  const stageMap = new Map([
-    ["profile", 0],
-    ["prefile", 0],
-    ["approval", 0],
-    ["postfile", 0],
-    ["delivery", 0],
-    ["payout", 0],
-  ]);
-  const loanTypeMap = new Map();
-  const bankMap = new Map();
-  const sourceMap = new Map();
-  const dealerMap = new Map();
-  const statusMap = new Map();
-  const vehicleMap = new Map();
-
-  let approvalPendingCount = 0;
-  let approvalPendingAmount = 0;
-  let missingRegCount = 0;
-  let missingDeliveryCount = 0;
-  let cashCarCases = 0;
-  let cashCarDelivered = 0;
-  let cashCarPending = 0;
-  let cashCarAmount = 0;
-
-  rows.forEach((loan) => {
-    const isCashCar = isCashDeliveryBasedCase(loan);
-    const m = monthKey(getPrimaryBusinessDate(loan));
-    if (m && totalLoansTrendMap.has(m))
-      totalLoansTrendMap.set(m, (totalLoansTrendMap.get(m) || 0) + 1);
-
-    const stg = stageKey(loan?.currentStage);
-    stageMap.set(stg, (stageMap.get(stg) || 0) + 1);
-
-    const st = statusKey(loan);
-    statusMap.set(st, (statusMap.get(st) || 0) + 1);
-
-    const lt =
-      String(
-        loan?.typeOfLoan || loan?.loanType || loan?.caseType || "Unknown",
-      ).trim() || "Unknown";
-    loanTypeMap.set(lt, (loanTypeMap.get(lt) || 0) + 1);
-
-    if (!isCashCar) {
-      const bank =
-        String(
-          loan?.approval_bankName ||
-            loan?.postfile_bankName ||
-            loan?.bankName ||
-            (Array.isArray(loan?.approval_banksData)
-              ? loan.approval_banksData[0]?.bankName
-              : "") ||
-            "Unknown",
-        ).trim() || "Unknown";
-      if (!bankMap.has(bank))
-        bankMap.set(bank, {
-          bankName: bank,
-          total: 0,
-          approved: 0,
-          disbursed: 0,
-          pending: 0,
-          totalLoanAmount: 0,
-        });
-      const bankNode = bankMap.get(bank);
-      bankNode.total += 1;
-      bankNode.totalLoanAmount += amountValue(loan);
-      if (st === "approved") bankNode.approved += 1;
-      if (st === "pending") bankNode.pending += 1;
-      if (isDisbursed(loan)) bankNode.disbursed += 1;
-    } else {
-      cashCarCases += 1;
-      cashCarAmount += amountValue(loan);
-      if (isBusinessCompletedCash(loan)) cashCarDelivered += 1;
-      else cashCarPending += 1;
-    }
-
-    const srcRaw = String(
-      loan?.approval_loanBookedIn || loan?.recordSource || loan?.source || "",
-    ).toLowerCase();
-    const src = srcRaw.includes("indirect")
-      ? "Indirect"
-      : srcRaw.includes("direct")
-        ? "Direct"
-        : "Unknown";
-    if (!sourceMap.has(src))
-      sourceMap.set(src, {
-        source: src,
-        total: 0,
-        approved: 0,
-        disbursed: 0,
-        pending: 0,
-        conversionRate: 0,
-      });
-    const sourceNode = sourceMap.get(src);
-    sourceNode.total += 1;
-    if (st === "approved") sourceNode.approved += 1;
-    if (st === "pending") sourceNode.pending += 1;
-    if (isDisbursed(loan)) sourceNode.disbursed += 1;
-
-    const dealer =
-      String(
-        loan?.dealerName ||
-          loan?.showroomDealerName ||
-          loan?.showroomName ||
-          "Unknown",
-      ).trim() || "Unknown";
-    if (!dealerMap.has(dealer))
-      dealerMap.set(dealer, {
-        dealerName: dealer,
-        total: 0,
-        disbursed: 0,
-        totalLoanAmount: 0,
-      });
-    const dealerNode = dealerMap.get(dealer);
-    dealerNode.total += 1;
-    dealerNode.totalLoanAmount += amountValue(loan);
-    if (isDisbursed(loan)) dealerNode.disbursed += 1;
-
-    const vehicle = `${String(loan?.vehicleMake || "Unknown")} | ${String(loan?.vehicleModel || "Unknown")} | ${String(loan?.vehicleVariant || "Unknown")}`;
-    if (!vehicleMap.has(vehicle))
-      vehicleMap.set(vehicle, {
-        segment: vehicle,
-        total: 0,
-        totalLoanAmount: 0,
-      });
-    const vehicleNode = vehicleMap.get(vehicle);
-    vehicleNode.total += 1;
-    vehicleNode.totalLoanAmount += amountValue(loan);
-
-    const approvedPending =
-      (st === "approved" || num(loan?.approval_loanAmountApproved) > 0) &&
-      !isDisbursed(loan) &&
-      !isBusinessCompletedCash(loan);
-    if (approvedPending) {
-      approvalPendingCount += 1;
-      approvalPendingAmount += amountValue(loan);
-    }
-
-    const regNo = String(
-      loan?.rc_redg_no || loan?.registrationNumber || loan?.vehicleRegNo || "",
-    ).trim();
-    if (!regNo) missingRegCount += 1;
-
-    const hasMissingDelivery = [
-      loan?.invoice_number,
-      loan?.invoice_date,
-      loan?.insurance_policy_number,
-      loan?.insurance_policy_start_date,
-      loan?.insurance_company_name,
-      loan?.rc_redg_no,
-    ].some((v) => v === null || v === undefined || String(v).trim() === "");
-    if (
-      (stg === "delivery" || stg === "payout" || isDisbursed(loan)) &&
-      hasMissingDelivery
-    ) {
-      missingDeliveryCount += 1;
-    }
-
-    if (isDisbursed(loan) || isBusinessCompletedCash(loan)) {
-      const dm = monthKey(getDisbursalOrDeliveryDate(loan));
-      if (dm && disbursedTrendMap.has(dm)) {
-        const node = disbursedTrendMap.get(dm);
-        node.amount += num(
-          loan?.disburse_amount ||
-            loan?.approval_loanAmountDisbursed ||
-            amountValue(loan),
-        );
-        node.count += 1;
+// Clickable KPI card built from antd Card + Statistic.
+const KpiCard = ({ title, value, suffix, precision, formatter, footer, icon, loading, onClick, tooltip }) => (
+  <Card hoverable={Boolean(onClick)} onClick={onClick} loading={loading} size="small" className="h-full">
+    <Statistic
+      title={
+        <Space size={6}>
+          {icon}
+          {tooltip ? <Tooltip title={tooltip}>{title}</Tooltip> : title}
+        </Space>
       }
-    }
-  });
-
-  const totalLoansTrend = monthBuckets.map((bucket) => ({
-    bucket,
-    label: monthLabel(bucket),
-    value: totalLoansTrendMap.get(bucket) || 0,
-  }));
-  const disbursedAmountTrend = monthBuckets.map((bucket) => ({
-    bucket,
-    label: monthLabel(bucket),
-    amount: disbursedTrendMap.get(bucket)?.amount || 0,
-    count: disbursedTrendMap.get(bucket)?.count || 0,
-  }));
-  const stageFunnel = Array.from(stageMap.entries()).map(([stage, count]) => ({
-    stage,
-    count,
-  }));
-  const loanTypeMix = Array.from(loanTypeMap.entries())
-    .map(([label, count]) => ({ label, count }))
-    .sort((a, b) => b.count - a.count);
-  const bankPipeline = Array.from(bankMap.values()).sort(
-    (a, b) => b.total - a.total,
-  );
-  const sourcePerformance = Array.from(sourceMap.values())
-    .map((item) => ({
-      ...item,
-      conversionRate:
-        item.total > 0
-          ? Number(((item.disbursed / item.total) * 100).toFixed(1))
-          : 0,
-    }))
-    .sort((a, b) => b.total - a.total);
-  const dealerPerformance = Array.from(dealerMap.values()).sort(
-    (a, b) => b.total - a.total,
-  );
-  const caseStatusDistribution = Array.from(statusMap.entries())
-    .map(([status, count]) => ({ status, count }))
-    .sort((a, b) => b.count - a.count);
-  const vehicleSegmentTrends = Array.from(vehicleMap.values())
-    .map((item) => ({
-      ...item,
-      avgLoanAmount: item.total > 0 ? item.totalLoanAmount / item.total : 0,
-    }))
-    .sort((a, b) => b.total - a.total);
-
-  const mobileCount = new Map();
-  rows.forEach((loan) => {
-    const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
-    if (m.length >= 10) mobileCount.set(m, (mobileCount.get(m) || 0) + 1);
-  });
-  const repeatedCaseCount = rows.filter(
-    (loan) =>
-      mobileCount.get(String(loan?.primaryMobile || "").replace(/\D/g, "")) > 1,
-  ).length;
-  const repeatedIdentityCount = Array.from(mobileCount.values()).filter(
-    (count) => count > 1,
-  ).length;
-
-  return {
-    timeframe: {
-      range: rangePreset,
-      start: start.toISOString(),
-      end: end.toISOString(),
-    },
-    totals: {
-      totalCases: rows.length,
-      totalLoanAmount: rows.reduce((acc, loan) => acc + amountValue(loan), 0),
-      totalDisbursedAmount: rows.reduce(
-        (acc, loan) =>
-          acc +
-          (isDisbursed(loan) || isBusinessCompletedCash(loan)
-            ? num(
-                loan?.disburse_amount ||
-                  loan?.approval_loanAmountDisbursed ||
-                  amountValue(loan),
-              )
-            : 0),
-        0,
-      ),
-    },
-    widgets: {
-      totalLoansTrend,
-      disbursedAmountTrend,
-      stageFunnel,
-      approvalPendingDisbursal: {
-        count: approvalPendingCount,
-        amount: approvalPendingAmount,
-      },
-      missingRegNumber: { count: missingRegCount },
-      missingCriticalDeliveryFields: { count: missingDeliveryCount },
-      cashCarSummary: {
-        total: cashCarCases,
-        delivered: cashCarDelivered,
-        pending: cashCarPending,
-        amount: cashCarAmount,
-      },
-      loanTypeMix,
-      bankPipeline,
-      sourcePerformance,
-      dealerPerformance,
-      caseStatusDistribution,
-      vehicleSegmentTrends,
-      repeatedCustomers: { repeatedIdentityCount, repeatedCaseCount },
-      bankWiseTotalLoanAmount: bankPipeline
-        .map((row) => ({
-          bankName: row.bankName,
-          totalLoanAmount: row.totalLoanAmount,
-        }))
-        .sort((a, b) => b.totalLoanAmount - a.totalLoanAmount),
-    },
-  };
-};
-
-const buildLocalDrillRows = (
-  loans = [],
-  rangePreset,
-  customRange,
-  { widget, bucket, key },
-) => {
-  const { rows } = filterLoansByRange(loans, rangePreset, customRange);
-
-  if (!widget) return rows.slice(0, 1000);
-
-  if (widget === "total_loan_trend" && bucket) {
-    return rows
-      .filter((loan) => monthKey(getPrimaryBusinessDate(loan)) === bucket)
-      .slice(0, 1000);
-  }
-
-  if (widget === "disbursed_amount_trend" && bucket) {
-    return rows
-      .filter(
-        (loan) =>
-          (isDisbursed(loan) || isBusinessCompletedCash(loan)) &&
-          monthKey(getDisbursalOrDeliveryDate(loan)) === bucket,
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "approval_pending_disbursal") {
-    return rows
-      .filter(
-        (loan) =>
-          (statusKey(loan) === "approved" ||
-            num(loan?.approval_loanAmountApproved) > 0) &&
-          !isDisbursed(loan) &&
-          !isBusinessCompletedCash(loan),
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "missing_reg_number") {
-    return rows
-      .filter(
-        (loan) =>
-          !String(
-            loan?.rc_redg_no ||
-              loan?.registrationNumber ||
-              loan?.vehicleRegNo ||
-              "",
-          ).trim(),
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "missing_delivery_fields") {
-    return rows
-      .filter((loan) => {
-        const stg = stageKey(loan?.currentStage);
-        const hasMissingDelivery = [
-          loan?.invoice_number,
-          loan?.invoice_date,
-          loan?.insurance_policy_number,
-          loan?.insurance_policy_start_date,
-          loan?.insurance_company_name,
-          loan?.rc_redg_no,
-        ].some((v) => v === null || v === undefined || String(v).trim() === "");
-        return (
-          (stg === "delivery" ||
-            stg === "payout" ||
-            isDisbursed(loan) ||
-            isBusinessCompletedCash(loan)) &&
-          hasMissingDelivery
-        );
-      })
-      .slice(0, 1000);
-  }
-
-  if (widget === "loan_type_mix" && key) {
-    return rows
-      .filter(
-        (loan) =>
-          keyLower(loan?.typeOfLoan || loan?.loanType || loan?.caseType) ===
-          keyLower(key),
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "bank_pipeline" && key) {
-    return rows
-      .filter((loan) => {
-        if (isCashDeliveryBasedCase(loan)) return false;
-        const bank = String(
-          loan?.approval_bankName ||
-            loan?.postfile_bankName ||
-            loan?.bankName ||
-            (Array.isArray(loan?.approval_banksData)
-              ? loan.approval_banksData[0]?.bankName
-              : "") ||
-            "Unknown",
-        ).trim();
-        return keyLower(bank) === keyLower(key);
-      })
-      .slice(0, 1000);
-  }
-
-  if (widget === "cash_car_all") {
-    return rows.filter((loan) => isCashDeliveryBasedCase(loan)).slice(0, 1000);
-  }
-
-  if (widget === "cash_car_delivered") {
-    return rows
-      .filter(
-        (loan) =>
-          isCashDeliveryBasedCase(loan) && isBusinessCompletedCash(loan),
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "cash_car_pending_delivery") {
-    return rows
-      .filter(
-        (loan) =>
-          isCashDeliveryBasedCase(loan) && !isBusinessCompletedCash(loan),
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "source_performance" && key) {
-    return rows
-      .filter((loan) => {
-        const srcRaw = String(
-          loan?.approval_loanBookedIn ||
-            loan?.recordSource ||
-            loan?.source ||
-            "",
-        ).toLowerCase();
-        const src = srcRaw.includes("indirect")
-          ? "indirect"
-          : srcRaw.includes("direct")
-            ? "direct"
-            : "unknown";
-        return src === keyLower(key);
-      })
-      .slice(0, 1000);
-  }
-
-  if (widget === "dealer_performance" && key) {
-    return rows
-      .filter(
-        (loan) =>
-          keyLower(
-            loan?.dealerName ||
-              loan?.showroomDealerName ||
-              loan?.showroomName ||
-              "unknown",
-          ) === keyLower(key),
-      )
-      .slice(0, 1000);
-  }
-
-  if (widget === "case_status_distribution" && key) {
-    return rows
-      .filter((loan) => keyLower(statusKey(loan)) === keyLower(key))
-      .slice(0, 1000);
-  }
-
-  if (widget === "vehicle_segment" && key) {
-    return rows
-      .filter((loan) => {
-        const segment = `${String(loan?.vehicleMake || "Unknown")} | ${String(loan?.vehicleModel || "Unknown")} | ${String(loan?.vehicleVariant || "Unknown")}`;
-        return keyLower(segment) === keyLower(key);
-      })
-      .slice(0, 1000);
-  }
-
-  if (widget === "stage_funnel" && key) {
-    return rows
-      .filter((loan) => stageKey(loan?.currentStage) === keyLower(key))
-      .slice(0, 1000);
-  }
-
-  if (widget === "repeated_customers") {
-    const mobileCount = new Map();
-    rows.forEach((loan) => {
-      const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
-      if (m.length >= 10) mobileCount.set(m, (mobileCount.get(m) || 0) + 1);
-    });
-    return rows
-      .filter((loan) => {
-        const m = String(loan?.primaryMobile || "").replace(/\D/g, "");
-        return mobileCount.get(m) > 1;
-      })
-      .slice(0, 1000);
-  }
-
-  return rows.slice(0, 1000);
-};
-
-const FALLBACK_MAX_LOANS = 5000;
-
-const fetchAllLoansForFallback = async () => {
-  const all = [];
-  let skip = 0;
-  const limit = 1000;
-  while (all.length < FALLBACK_MAX_LOANS) {
-    const res = await loansApi.getAll({ limit, skip });
-    const rows = Array.isArray(res?.data) ? res.data : [];
-    all.push(...rows);
-    if (!res?.hasMore || rows.length === 0) break;
-    skip += rows.length;
-  }
-  return all;
-};
-
-const CHART_PALETTE = [
-  "#1d9bf0",
-  "#3B82F6",
-  "#06B6D4",
-  "#10B981",
-  "#22C55E",
-  "#F59E0B",
-  "#F97316",
-  "#EF4444",
-];
-
-const ChartNoData = ({ text = "No data for selected timeframe" }) => (
-  <div className="rounded-2xl border border-dashed border-border bg-muted/30 px-4 py-8 text-center text-sm font-medium text-muted-foreground">
-    {text}
-  </div>
+      value={value}
+      suffix={suffix}
+      precision={precision}
+      formatter={formatter}
+    />
+    {footer ? <Text type="secondary" className="mt-1 block text-xs">{footer}</Text> : null}
+  </Card>
 );
 
-const compactNumber = (value) =>
-  new Intl.NumberFormat("en-IN", {
-    notation: "compact",
-    maximumFractionDigits: 1,
-  }).format(Number(value || 0));
-
-const VerticalBarChart = ({
-  points = [],
-  valueKey = "value",
-  color = "#4F46E5",
-  onSelect,
-}) => {
-  if (!points.length) return <ChartNoData />;
-
-  const values = points.map((p) => Number(p[valueKey] || 0));
-  const max = Math.max(...values, 1);
-
-  const width = Math.max(620, points.length * 48 + 90);
-  const height = 240;
-  const m = { top: 14, right: 20, bottom: 36, left: 44 };
-  const chartW = width - m.left - m.right;
-  const chartH = height - m.top - m.bottom;
-  const slot = chartW / points.length;
-  const barW = Math.max(8, Math.min(20, slot * 0.58));
-  const ticks = 4;
-
+// A ranked list of values with an antd Progress bar per row.
+const BarList = ({ rows, total, onSelect, renderLabel, emptyText = "No data for this period" }) => {
+  if (!rows?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText} />;
+  const max = Math.max(...rows.map((row) => row.count), 1);
   return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
-      <svg width={width} height={height} role="img" aria-label="bar chart">
-        {Array.from({ length: ticks + 1 }).map((_, idx) => {
-          const y = m.top + (idx / ticks) * chartH;
-          const tickValue = Math.round(((ticks - idx) / ticks) * max);
-          return (
-            <g key={`tick-${idx}`}>
-              <line
-                x1={m.left}
-                x2={width - m.right}
-                y1={y}
-                y2={y}
-                stroke="var(--border)"
-                strokeWidth="1"
-              />
-              <text
-                x={m.left - 8}
-                y={y + 4}
-                textAnchor="end"
-                fontSize="10"
-                fill="var(--muted-foreground)"
-              >
-                {compactNumber(tickValue)}
-              </text>
-            </g>
-          );
-        })}
-        {points.map((point, idx) => {
-          const v = Number(point[valueKey] || 0);
-          const h = (v / max) * chartH;
-          const x = m.left + idx * slot + (slot - barW) / 2;
-          const y = m.top + (chartH - h);
-          return (
-            <g key={point.bucket || point.label || idx}>
-              <rect
-                x={x}
-                y={y}
-                width={barW}
-                height={Math.max(2, h)}
-                rx="6"
-                fill={color}
-                opacity="0.9"
-                style={{ cursor: onSelect ? "pointer" : "default" }}
-                onClick={() => onSelect?.(point)}
-              />
-              <text
-                x={x + barW / 2}
-                y={height - 14}
-                textAnchor="middle"
-                fontSize="10"
-                fill="var(--muted-foreground)"
-              >
-                {String(point.label || "").slice(0, 3)}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-};
-
-const AreaLineChart = ({
-  points = [],
-  valueKey = "value",
-  color = "#10B981",
-  onSelect,
-  id = "area-chart",
-}) => {
-  if (!points.length) return <ChartNoData />;
-
-  const values = points.map((p) => Number(p[valueKey] || 0));
-  const max = Math.max(...values, 1);
-  const min = Math.min(...values, 0);
-
-  const width = Math.max(620, points.length * 44 + 90);
-  const height = 240;
-  const m = { top: 14, right: 20, bottom: 36, left: 44 };
-  const chartW = width - m.left - m.right;
-  const chartH = height - m.top - m.bottom;
-  const x = (idx) =>
-    points.length <= 1
-      ? m.left + chartW / 2
-      : m.left + (idx / (points.length - 1)) * chartW;
-  const y = (v) => m.top + ((max - v) / Math.max(max - min, 1)) * chartH;
-  const linePath = points
-    .map(
-      (point, idx) =>
-        `${idx === 0 ? "M" : "L"} ${x(idx)} ${y(Number(point[valueKey] || 0))}`,
-    )
-    .join(" ");
-  const areaPath = `${linePath} L ${x(points.length - 1)} ${m.top + chartH} L ${x(0)} ${m.top + chartH} Z`;
-
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
-      <svg
-        width={width}
-        height={height}
-        role="img"
-        aria-label="area line chart"
-      >
-        <defs>
-          <linearGradient id={`grad-${id}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.30" />
-            <stop offset="100%" stopColor={color} stopOpacity="0.02" />
-          </linearGradient>
-        </defs>
-        {Array.from({ length: 5 }).map((_, idx) => {
-          const gy = m.top + (idx / 4) * chartH;
-          return (
-            <line
-              key={`grid-${idx}`}
-              x1={m.left}
-              x2={width - m.right}
-              y1={gy}
-              y2={gy}
-              stroke="var(--border)"
-              strokeWidth="1"
-            />
-          );
-        })}
-        <path d={areaPath} fill={`url(#grad-${id})`} />
-        <path
-          d={linePath}
-          fill="none"
-          stroke={color}
-          strokeWidth="2.5"
-          strokeLinecap="round"
-        />
-        {points.map((point, idx) => (
-          <circle
-            key={point.bucket || point.label || idx}
-            cx={x(idx)}
-            cy={y(Number(point[valueKey] || 0))}
-            r="3.2"
-            fill={color}
-            style={{ cursor: onSelect ? "pointer" : "default" }}
-            onClick={() => onSelect?.(point)}
-          />
-        ))}
-        {points.map((point, idx) => (
-          <text
-            key={`lbl-${point.bucket || idx}`}
-            x={x(idx)}
-            y={height - 14}
-            textAnchor="middle"
-            fontSize="10"
-            fill="var(--muted-foreground)"
-          >
-            {String(point.label || "").slice(0, 3)}
-          </text>
-        ))}
-      </svg>
-    </div>
-  );
-};
-
-const FunnelChart = ({ rows = [], onSelect }) => {
-  if (!rows.length) return <ChartNoData />;
-  const stageOrder = [
-    "profile",
-    "prefile",
-    "approval",
-    "postfile",
-    "delivery",
-    "payout",
-  ];
-  const ordered = [...rows].sort(
-    (a, b) => stageOrder.indexOf(a.stage) - stageOrder.indexOf(b.stage),
-  );
-  const max = Math.max(...ordered.map((r) => Number(r.count || 0)), 1);
-  const width = 520;
-  const rowH = 52;
-  const gap = 6;
-  const height = ordered.length * (rowH + gap) + 8;
-  const centerX = width / 2;
-  const maxW = 420;
-  const minW = 150;
-
-  const toW = (v) => minW + (Number(v || 0) / max) * (maxW - minW);
-
-  return (
-    <div className="overflow-x-auto rounded-2xl border border-border bg-card px-2 py-2">
-      <svg width={width} height={height} role="img" aria-label="funnel chart">
-        {ordered.map((row, idx) => {
-          const topW = toW(row.count);
-          const next = ordered[idx + 1];
-          const bottomW = next
-            ? toW(next.count)
-            : Math.max(minW * 0.8, topW * 0.72);
-          const y = 4 + idx * (rowH + gap);
-          const color = CHART_PALETTE[idx % CHART_PALETTE.length];
-          const x1 = centerX - topW / 2;
-          const x2 = centerX + topW / 2;
-          const x3 = centerX + bottomW / 2;
-          const x4 = centerX - bottomW / 2;
-          const points = `${x1},${y} ${x2},${y} ${x3},${y + rowH} ${x4},${y + rowH}`;
-          return (
-            <g key={row.stage}>
-              <polygon
-                points={points}
-                fill={color}
-                opacity="0.88"
-                stroke="var(--background)"
-                strokeWidth="1"
-                style={{ cursor: onSelect ? "pointer" : "default" }}
-                onClick={() => onSelect?.(row)}
-              />
-              <text
-                x={centerX}
-                y={y + rowH / 2 - 3}
-                textAnchor="middle"
-                fontSize="11"
-                fill="#ffffff"
-                fontWeight="700"
-              >
-                {String(row.stage || "").toUpperCase()}
-              </text>
-              <text
-                x={centerX}
-                y={y + rowH / 2 + 12}
-                textAnchor="middle"
-                fontSize="11"
-                fill="#ffffff"
-                fontWeight="700"
-              >
-                {Number(row.count || 0).toLocaleString("en-IN")}
-              </text>
-            </g>
-          );
-        })}
-      </svg>
-    </div>
-  );
-};
-
-const donutArcPath = (cx, cy, rOuter, rInner, start, end) => {
-  const rad = Math.PI / 180;
-  const sx = cx + rOuter * Math.cos(start * rad);
-  const sy = cy + rOuter * Math.sin(start * rad);
-  const ex = cx + rOuter * Math.cos(end * rad);
-  const ey = cy + rOuter * Math.sin(end * rad);
-  const six = cx + rInner * Math.cos(end * rad);
-  const siy = cy + rInner * Math.sin(end * rad);
-  const eix = cx + rInner * Math.cos(start * rad);
-  const eiy = cy + rInner * Math.sin(start * rad);
-  const large = end - start > 180 ? 1 : 0;
-  return [
-    `M ${sx} ${sy}`,
-    `A ${rOuter} ${rOuter} 0 ${large} 1 ${ex} ${ey}`,
-    `L ${six} ${siy}`,
-    `A ${rInner} ${rInner} 0 ${large} 0 ${eix} ${eiy}`,
-    "Z",
-  ].join(" ");
-};
-
-const DonutBreakdown = ({
-  rows = [],
-  labelKey = "label",
-  valueKey = "count",
-  onClick,
-}) => {
-  if (!rows.length) return <ChartNoData text="No segments available" />;
-  const data = rows.slice(0, 6);
-  const total =
-    data.reduce((sum, row) => sum + Number(row[valueKey] || 0), 0) || 1;
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 p-4 text-center">
-        <div className="text-sm font-medium text-muted-foreground">
-          Total Cases
-        </div>
-        <div className="mt-1 text-3xl font-bold text-foreground">
-          {Number(total).toLocaleString("en-IN")}
-        </div>
-      </div>
-      <div className="space-y-2.5">
-        {data.map((row, idx) => {
-          const count = Number(row[valueKey] || 0);
-          const pct = (count / total) * 100;
-          const color = CHART_PALETTE[idx % CHART_PALETTE.length];
-          return (
-            <button
-              key={`status-${idx}`}
-              type="button"
-              onClick={() => onClick?.(row)}
-              className="w-full rounded-lg border border-border bg-card p-3 text-left transition hover:border-primary/40 hover:bg-primary/5"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 items-center gap-3 flex-1">
-                  <div
-                    className="relative h-10 w-10 flex-shrink-0 rounded-lg"
-                    style={{
-                      backgroundColor: color + "20",
-                      borderLeft: `3px solid ${color}`,
-                    }}
-                  >
-                    <div className="flex h-full items-center justify-center">
-                      <span className="text-xs font-bold" style={{ color }}>
-                        {count}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-semibold text-foreground capitalize">
-                      {String(row[labelKey] || "").replace(/_/g, " ")}
-                    </div>
-                    <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full transition-all duration-300"
-                        style={{ width: `${pct}%`, backgroundColor: color }}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 text-right">
-                  <div className="text-xs font-bold text-foreground">
-                    {pct.toFixed(1)}%
-                  </div>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const DisbursedAmountTrendChart = ({ rows = [], onSelect }) => {
-  if (!rows.length) return <ChartNoData text="No disbursal data available" />;
-
-  const maxAmount = Math.max(...rows.map((r) => Number(r.amount || 0)), 1);
-  const totalAmount = rows.reduce((sum, r) => sum + Number(r.amount || 0), 0);
-  const totalCases = rows.reduce((sum, r) => sum + Number(r.count || 0), 0);
-
-  return (
-    <div className="flex min-h-0 flex-col space-y-4">
-      <div className="grid shrink-0 grid-cols-2 gap-3">
-        <div className="rounded-xl bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3">
-          <div className="text-xs font-medium text-muted-foreground">
-            Total Disbursed
-          </div>
-          <div className="mt-1 text-lg font-bold text-foreground">
-            {formatINR(totalAmount)}
-          </div>
-        </div>
-        <div className="rounded-xl bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-3">
-          <div className="text-xs font-medium text-muted-foreground">
-            Total Cases
-          </div>
-          <div className="mt-1 text-lg font-bold text-foreground">
-            {Number(totalCases).toLocaleString("en-IN")}
-          </div>
-        </div>
-      </div>
-
-      <div
-        className="min-h-0 max-h-[min(18rem,45vh)] space-y-2 overflow-y-auto overscroll-y-contain pr-1 [scrollbar-gutter:stable]"
-        role="region"
-        aria-label="Month-wise disbursal breakdown"
-      >
-        {rows.map((row, idx) => {
-          const amount = Number(row.amount || 0);
-          const count = Number(row.count || 0);
-          const pct = (amount / maxAmount) * 100;
-          const avgPerCase = count > 0 ? amount / count : 0;
-
-          return (
-            <button
-              key={`disbursal-${idx}`}
-              type="button"
-              onClick={() => onSelect?.(row)}
-              className="w-full rounded-lg border border-border bg-card p-3 text-left transition hover:border-emerald-400/40 hover:bg-emerald-500/5"
-            >
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-foreground">
-                    {row.label || "N/A"}
-                  </span>
-                  <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                    {formatINR(amount)}
-                  </span>
-                </div>
-                <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-300"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">
-                    {count} case{count !== 1 ? "s" : ""}
-                  </span>
-                  <span className="text-muted-foreground">
-                    Avg: {formatINR(avgPerCase)}/case
-                  </span>
-                </div>
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-const HorizontalBarChart = ({
-  rows = [],
-  labelKey,
-  valueKey,
-  onClick,
-  formatValue = (v) => Number(v || 0).toLocaleString("en-IN"),
-}) => {
-  if (!rows.length) return <ChartNoData text="No rows available" />;
-  const top = rows.slice(0, 8);
-  const max = Math.max(...top.map((row) => Number(row[valueKey] || 0)), 1);
-  return (
-    <div className="space-y-2">
-      {top.map((row, idx) => {
-        const value = Number(row[valueKey] || 0);
-        const widthPct = (value / max) * 100;
-        return (
-          <button
-            key={`${row[labelKey]}-${idx}`}
-            type="button"
-            onClick={() => onClick?.(row)}
-            className="w-full rounded-lg border border-border bg-card px-2.5 py-2 text-left transition hover:border-primary/40 hover:bg-primary/5"
-          >
-            <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="truncate text-xs font-semibold text-foreground">
-                {row[labelKey]}
-              </span>
-              <span className="text-xs font-bold text-foreground">
-                {formatValue(value)}
-              </span>
-            </div>
-            <div className="h-2 rounded-full bg-muted">
-              <div
-                className="h-2 rounded-full"
-                style={{
-                  width: `${Math.max(5, widthPct)}%`,
-                  background: CHART_PALETTE[idx % CHART_PALETTE.length],
-                }}
-              />
-            </div>
-          </button>
-        );
-      })}
-    </div>
-  );
-};
-
-const polarToCartesian = (cx, cy, r, angleDeg) => {
-  const a = (angleDeg - 90) * (Math.PI / 180);
-  return { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a) };
-};
-
-const describeArc = (cx, cy, r, startAngle, endAngle) => {
-  const start = polarToCartesian(cx, cy, r, endAngle);
-  const end = polarToCartesian(cx, cy, r, startAngle);
-  const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-  return `M ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y}`;
-};
-
-const SemiGauge = ({ value = 0, title = "Completion", subtitle }) => {
-  const pct = Math.max(0, Math.min(100, Number(value || 0)));
-  const start = -180;
-  const end = 0;
-  const fillEnd = start + (pct / 100) * (end - start);
-  const basePath = describeArc(120, 120, 82, start, end);
-  const fillPath = describeArc(120, 120, 82, start, fillEnd);
-  return (
-    <div className="relative overflow-hidden rounded-xl bg-muted/25 p-4 ring-1 ring-border/50">
-      <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-        {title}
-      </div>
-      <svg
-        width="240"
-        height="150"
-        viewBox="0 0 240 150"
-        className="mx-auto block text-foreground"
-      >
-        <path
-          d={basePath}
-          fill="none"
-          stroke="currentColor"
-          strokeOpacity="0.2"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-        <path
-          d={fillPath}
-          fill="none"
-          stroke="rgb(var(--primary))"
-          strokeWidth="14"
-          strokeLinecap="round"
-        />
-        <text
-          x="120"
-          y="100"
-          textAnchor="middle"
-          fontSize="32"
-          fontWeight="700"
-          fill="currentColor"
-          className="text-foreground"
-        >
-          {pct.toFixed(1)}%
-        </text>
-      </svg>
-      {subtitle ? (
-        <div className="mt-2 text-center text-xs font-medium text-muted-foreground">
-          {subtitle}
-        </div>
-      ) : null}
-    </div>
-  );
-};
-
-const WIDGET_ACCENT = {
-  blue: "bg-sky-500/[0.12] text-sky-700 ring-sky-500/25 dark:text-sky-300",
-  emerald:
-    "bg-emerald-500/[0.12] text-emerald-700 ring-emerald-500/25 dark:text-emerald-300",
-  indigo:
-    "bg-indigo-500/[0.12] text-indigo-700 ring-indigo-500/25 dark:text-indigo-300",
-  slate:
-    "bg-slate-500/[0.1] text-slate-700 ring-slate-400/30 dark:text-slate-300",
-  amber:
-    "bg-amber-500/[0.14] text-amber-800 ring-amber-500/30 dark:text-amber-300",
-  rose: "bg-rose-500/[0.12] text-rose-700 ring-rose-500/25 dark:text-rose-300",
-};
-
-const KPI_TONE = {
-  blue: {
-    wash: "from-sky-500/[0.08] via-transparent to-cyan-500/[0.04]",
-    icon: "bg-sky-500/[0.12] text-sky-700 ring-sky-500/20 dark:text-sky-300",
-    dot: "bg-sky-500",
-  },
-  emerald: {
-    wash: "from-emerald-500/[0.08] via-transparent to-teal-500/[0.04]",
-    icon: "bg-emerald-500/[0.12] text-emerald-700 ring-emerald-500/20 dark:text-emerald-300",
-    dot: "bg-emerald-500",
-  },
-  amber: {
-    wash: "from-amber-500/[0.1] via-transparent to-orange-500/[0.05]",
-    icon: "bg-amber-500/[0.14] text-amber-900 ring-amber-500/25 dark:text-amber-300",
-    dot: "bg-amber-500",
-  },
-  rose: {
-    wash: "from-rose-500/[0.08] via-transparent to-fuchsia-500/[0.04]",
-    icon: "bg-rose-500/[0.12] text-rose-700 ring-rose-500/20 dark:text-rose-300",
-    dot: "bg-rose-500",
-  },
-};
-
-const WidgetShell = ({
-  title,
-  subtitle,
-  icon: Icon,
-  children,
-  color = "slate",
-}) => {
-  const accent = WIDGET_ACCENT[color] || WIDGET_ACCENT.slate;
-  return (
-    <Card
-      className="h-full min-h-0 rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow duration-200 hover:shadow-md"
+    <List
       size="small"
-      bordered={false}
-      bodyStyle={{ padding: 16 }}
-      style={{ height: "100%" }}
-    >
-      <div className="mb-4 flex items-start gap-3 border-b border-border/60 pb-3">
-        {Icon ? (
-          <span
-            className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ring-1 ${accent}`}
-            aria-hidden
-          >
-            <Icon size={16} strokeWidth={2} />
-          </span>
-        ) : null}
-        <div className="min-w-0 flex-1">
-          <Typography.Text className="block truncate text-sm font-semibold leading-tight tracking-tight text-foreground">
-            {title}
-          </Typography.Text>
-          {subtitle ? (
-            <Typography.Text
-              type="secondary"
-              className="mt-0.5 block truncate text-[11px] leading-snug"
-            >
-              {subtitle}
-            </Typography.Text>
-          ) : null}
-        </div>
-      </div>
-      <div className="min-h-0">{children}</div>
-    </Card>
+      split={false}
+      dataSource={rows}
+      renderItem={(row) => (
+        <List.Item className="!px-0 !py-1.5">
+          <button type="button" onClick={() => onSelect?.(row)} className="w-full cursor-pointer bg-transparent p-0 text-left">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="truncate">{renderLabel(row)}</span>
+              <Text strong className="tabular-nums">
+                {formatCount(row.count)}
+                {total ? <Text type="secondary" className="ml-1 text-xs font-normal">({percent(row.count, total)}%)</Text> : null}
+              </Text>
+            </div>
+            <Progress status="normal" percent={(row.count / max) * 100} showInfo={false} size="small" className="!m-0" />
+          </button>
+        </List.Item>
+      )}
+    />
   );
 };
 
-const KpiTile = ({
-  label,
-  value,
-  subLabel,
-  icon: Icon,
-  loading = false,
-  tone = "blue",
-}) => {
-  const t = KPI_TONE[tone] || KPI_TONE.blue;
-  return (
-    <Card
-      className="group relative flex min-h-[142px] flex-col justify-center overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm transition-all duration-200 hover:border-primary/30 hover:shadow-md"
-      bordered={false}
-      hoverable
-      bodyStyle={{ padding: 20 }}
-      style={{ height: "100%" }}
-    >
-      <div
-        className={`pointer-events-none absolute inset-0 bg-gradient-to-br ${t.wash}`}
-        aria-hidden
-      />
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span
-              className={`h-1.5 w-1.5 shrink-0 rounded-full ${t.dot}`}
-              aria-hidden
-            />
-            <Typography.Text
-              type="secondary"
-              className="text-[10px] font-bold uppercase tracking-[0.14em]"
-            >
-              {label}
-            </Typography.Text>
-          </div>
-          <div className="mt-2 text-2xl font-black tracking-tight tabular-nums text-foreground md:text-3xl">
-            {loading ? (
-              <span className="inline-block h-8 w-28 animate-pulse rounded-lg bg-muted/80" />
-            ) : (
-              value
-            )}
-          </div>
-          {subLabel && !loading ? (
-            <Typography.Text
-              type="secondary"
-              className="mt-1.5 block text-[11px] leading-relaxed"
-            >
-              {subLabel}
-            </Typography.Text>
-          ) : loading ? (
-            <span className="mt-2 inline-block h-3 w-24 animate-pulse rounded bg-muted/80" />
-          ) : null}
-        </div>
-        {Icon ? (
-          <span
-            className={`relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ring-1 ${t.icon}`}
-            aria-hidden
-          >
-            <Icon size={18} strokeWidth={1.75} />
-          </span>
-        ) : null}
-      </div>
-    </Card>
-  );
-};
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 const AnalyticsDashboard = () => {
   const { user } = useAuth();
   const [rangePreset, setRangePreset] = useState("all");
-  const [customRange, setCustomRange] = useState([
-    dayjs().startOf("month"),
-    dayjs(),
-  ]);
-  const [loading, setLoading] = useState(false);
+  const [customRange, setCustomRange] = useState([dayjs().startOf("month"), dayjs()]);
+  const [overview, setOverview] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
-  const [overview, setOverview] = useState(null);
-  const roleLabel = String(user?.role || "staff")
-    .replaceAll("_", " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
-  const [drillOpen, setDrillOpen] = useState(false);
-  const [drillLoading, setDrillLoading] = useState(false);
-  const [drillRows, setDrillRows] = useState([]);
-  const [drillTitle, setDrillTitle] = useState("");
+  const [drill, setDrill] = useState({ open: false, title: "", loading: false, rows: [], total: 0, error: "" });
   const [drillSearch, setDrillSearch] = useState("");
-  const [drillError, setDrillError] = useState("");
 
-  const [customWidgetLoading, setCustomWidgetLoading] = useState(false);
-  const [customWidgetData, setCustomWidgetData] = useState([]);
-  const [customWidgetConfig, setCustomWidgetConfig] = useState({
-    metric: "count",
-    metricField: "loanAmount",
-    groupBy: "bank",
-    topN: 12,
-  });
+  const [widgetForm] = Form.useForm();
+  const [widgetRows, setWidgetRows] = useState(null);
+  const [widgetLoading, setWidgetLoading] = useState(false);
 
-  const [customReportLoading, setCustomReportLoading] = useState(false);
-  const [customReportRows, setCustomReportRows] = useState([]);
-  const [customReportMeta, setCustomReportMeta] = useState(null);
-  const [customReportSearch, setCustomReportSearch] = useState("");
-  const [customReportConfig, setCustomReportConfig] = useState({
-    fields: [
-      "loanId",
-      "customerName",
-      "primaryMobile",
-      "typeOfLoan",
-      "currentStage",
-      "approval_bankName",
-      "loanAmount",
-      "approval_loanAmountApproved",
-      "approval_loanAmountDisbursed",
-      "createdAt",
-    ],
-    sortBy: "updatedAt",
-    sortDir: "desc",
-    limit: 300,
-  });
+  const [reportForm] = Form.useForm();
+  const [report, setReport] = useState({ rows: [], fields: [] });
+  const [reportLoading, setReportLoading] = useState(false);
+  const [reportSearch, setReportSearch] = useState("");
 
-  const queryParams = useMemo(
-    () => getRangeParams(rangePreset, customRange),
-    [rangePreset, customRange],
-  );
-  const timeframeLabel = useMemo(
-    () => getTimeframeLabel(rangePreset, customRange),
-    [rangePreset, customRange],
-  );
-  const activeOverviewRequestRef = useRef(null);
-  const lastOverviewQueryKeyRef = useRef("");
-  const lastOverviewFetchAtRef = useRef(0);
-
-  // Backend analytics endpoint uses Mongo maxTimeMS(45s). If the frontend times out earlier,
-  // it triggers an expensive fallback fetch of thousands of loans, making the page slower.
-  // This value is intentionally higher than 20s to avoid that.
-  const ANALYTICS_TIMEOUT_MS = 60000;
-  const ANALYTICS_RETRY_TIMEOUT_MS = 120000;
-
-  const isConnectionError = (e) => {
-    const msg = String(e?.message || "").toLowerCase();
-    return (
-      msg.includes("failed to fetch") ||
-      msg.includes("network") ||
-      msg.includes("connection refused") ||
-      msg.includes("connection reset")
-    );
-  };
-
-  const ANALYTICS_SS_PREFIX = "analytics_cache_v1_";
+  const params = useMemo(() => rangeParams(rangePreset, customRange), [rangePreset, customRange]);
+  const requestRef = useRef(null);
 
   const fetchOverview = useCallback(async () => {
-    const queryKey = JSON.stringify(queryParams || {});
-    const now = Date.now();
+    const cacheKey = CACHE_PREFIX + JSON.stringify(params);
+    requestRef.current?.abort();
+    const controller = new AbortController();
+    requestRef.current = controller;
 
-    // In dev (StrictMode/Fast Refresh), effect can run twice quickly with same params.
-    if (
-      queryKey === lastOverviewQueryKeyRef.current &&
-      now - lastOverviewFetchAtRef.current < 900
-    ) {
-      return;
-    }
-
-    lastOverviewQueryKeyRef.current = queryKey;
-    lastOverviewFetchAtRef.current = now;
-
-    if (activeOverviewRequestRef.current) {
-      activeOverviewRequestRef.current.abort();
-    }
-
-    // Show last-known result immediately so the page isn't blank while fetching
+    let cached = null;
     try {
-      const cached = sessionStorage.getItem(ANALYTICS_SS_PREFIX + queryKey);
-      if (cached) {
-        const parsed = JSON.parse(cached);
-        setOverview(parsed);
-        setLoading(false); // show cached data without spinner
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+      cached = JSON.parse(sessionStorage.getItem(cacheKey) || "null");
+    } catch {
+      cached = null;
+    }
+    if (cached) setOverview(cached);
+    setLoading(!cached);
+    setRefreshing(Boolean(cached));
+    setError("");
+
+    const timeoutId = setTimeout(() => controller.abort(), 120000);
+    try {
+      const res = await loansApi.getAnalyticsOverview(params, { signal: controller.signal });
+      if (requestRef.current !== controller) return;
+      const data = res?.data || null;
+      setOverview(data);
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify(data));
+      } catch {
+        /* storage full — ignore */
+      }
+    } catch (err) {
+      if (requestRef.current !== controller) return;
+      const timedOut = err?.name === "AbortError" || /abort|timeout/i.test(String(err?.message));
+      setError(timedOut ? "Analytics took too long to load. Please retry." : err?.message || "Could not load analytics.");
+      if (!cached) setOverview(null);
+    } finally {
+      clearTimeout(timeoutId);
+      if (requestRef.current === controller) {
+        setLoading(false);
         setRefreshing(false);
       }
-    } catch {
-      setLoading(true);
-      setRefreshing(false);
     }
-    setError("");
-    const runOverviewRequest = async (timeoutMs) => {
-      const controller = new AbortController();
-      activeOverviewRequestRef.current = controller;
-      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-      try {
-        const res = await loansApi.getAnalyticsOverview(queryParams, {
-          signal: controller.signal,
-        });
-        return res;
-      } finally {
-        clearTimeout(timeoutId);
-        if (activeOverviewRequestRef.current === controller) {
-          activeOverviewRequestRef.current = null;
-        }
-      }
-    };
-
-    try {
-      let res;
-      try {
-        res = await runOverviewRequest(ANALYTICS_TIMEOUT_MS);
-      } catch (firstErr) {
-        const firstMsg = String(firstErr?.message || "").toLowerCase();
-        const firstTimedOut =
-          firstErr?.name === "AbortError" ||
-          firstMsg.includes("aborted") ||
-          firstMsg.includes("timeout") ||
-          firstMsg.includes("request timeout");
-
-        if (!firstTimedOut) {
-          throw firstErr;
-        }
-
-        // One automatic retry with extended timeout to reduce false timeout failures.
-        res = await runOverviewRequest(ANALYTICS_RETRY_TIMEOUT_MS);
-      }
-      const freshData = res?.data || null;
-      if (freshData) {
-        try {
-          sessionStorage.setItem(
-            ANALYTICS_SS_PREFIX + queryKey,
-            JSON.stringify(freshData),
-          );
-        } catch {
-          /* storage quota exceeded — ignore */
-        }
-      }
-      setOverview(freshData);
-    } catch (err) {
-      const connectionDown = isConnectionError(err);
-      if (connectionDown) {
-        setError(
-          "Backend server is not running. Start it with: cd cdb-api && npm run dev",
-        );
-        setOverview(null);
-      } else {
-        const errMsg = String(err?.message || "").toLowerCase();
-        const isTimeout =
-          err?.name === "AbortError" ||
-          errMsg.includes("aborted") ||
-          errMsg.includes("timeout") ||
-          errMsg.includes("request timeout");
-
-        // If we timed out, do not run fallback. Fallback fetches thousands of loans and is
-        // almost always slower than letting the backend finish its work.
-        if (isTimeout) {
-          setError("Analytics request timed out. Please try again.");
-          setOverview(null);
-          return;
-        }
-
-        // Backend responded but analytics failed; fall back to client-side computation.
-        setError("");
-        try {
-          const loans = await fetchAllLoansForFallback();
-          const fallback = buildFallbackOverview(
-            loans,
-            rangePreset,
-            customRange,
-          );
-          setOverview(fallback);
-        } catch (fallbackErr) {
-          console.error(
-            "[AnalyticsDashboard] Fallback also failed:",
-            fallbackErr,
-          );
-          setError(
-            err?.message ||
-              "Failed to load analytics. Ensure the backend is running (npm run dev in cdb-api).",
-          );
-          setOverview(null);
-        }
-      }
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [queryParams, rangePreset, customRange]);
+  }, [params]);
 
   useEffect(() => {
     fetchOverview();
+    return () => requestRef.current?.abort();
   }, [fetchOverview]);
 
-  const runCustomWidget = useCallback(async () => {
-    try {
-      setCustomWidgetLoading(true);
-      setError("");
-      const res = await loansApi.createCustomWidget({
-        ...queryParams,
-        ...customWidgetConfig,
-      });
-      setCustomWidgetData(Array.isArray(res?.data) ? res.data : []);
-    } catch (err) {
-      console.error("[Analytics] Custom widget error:", err);
-      setError(err?.message || "Failed to generate custom widget");
-      setCustomWidgetData([]);
-    } finally {
-      setCustomWidgetLoading(false);
-    }
-  }, [queryParams, customWidgetConfig]);
-
-  const runCustomReport = useCallback(async () => {
-    try {
-      setCustomReportLoading(true);
-      setError("");
-      const res = await loansApi.createCustomReport({
-        ...queryParams,
-        ...customReportConfig,
-      });
-      setCustomReportRows(Array.isArray(res?.data) ? res.data : []);
-      setCustomReportMeta(res?.meta || null);
-    } catch (err) {
-      console.error("[Analytics] Custom report error:", err);
-      setError(err?.message || "Failed to generate custom report");
-      setCustomReportRows([]);
-      setCustomReportMeta(null);
-    } finally {
-      setCustomReportLoading(false);
-    }
-  }, [queryParams, customReportConfig]);
-
-  const openDrilldown = useCallback(
-    async ({ title, widget, bucket, key }) => {
-      setDrillTitle(title);
-      setDrillOpen(true);
-      setDrillLoading(true);
+  const openDrill = useCallback(
+    async (title, query) => {
       setDrillSearch("");
-      setDrillRows([]);
-      setDrillError("");
-
+      setDrill({ open: true, title, loading: true, rows: [], total: 0, error: "" });
       try {
-        const params = {
-          ...queryParams,
-          widget,
-          bucket,
-          key,
-        };
-
-        console.log("[Analytics Drilldown] Opening:", {
-          title,
-          widget,
-          bucket,
-          key,
-          params,
-        });
-
-        const res = await loansApi.getAnalyticsDrilldown(params);
-
-        console.log("[Analytics Drilldown] Response:", {
-          success: res?.success,
-          dataCount: res?.data?.length || 0,
-          total: res?.total,
-          meta: res?.meta,
-        });
-
+        const res = await loansApi.getAnalyticsDrilldown({ ...params, ...query, limit: DRILL_LIMIT });
         const rows = Array.isArray(res?.data) ? res.data : [];
-
-        if (rows.length === 0) {
-          setDrillError(
-            res?.meta?.rowsAnalyzed === 0
-              ? "No loans found in this date range. Try expanding your date range."
-              : `No records found matching "${widget}" filter for the selected period. Try adjusting your date range.`,
-          );
-        }
-
-        setDrillRows(rows);
+        setDrill((prev) => ({ ...prev, loading: false, rows, total: Number(res?.total ?? rows.length) }));
       } catch (err) {
-        console.error("[Analytics] Drilldown error:", err);
-
-        const errorMsg =
-          err?.payload?.error || err?.payload?.message || err?.message;
-
-        if (err?.status === 404) {
-          setDrillError(
-            "Drill-down feature is not yet deployed. Please contact support.",
-          );
-        } else if (err?.status === 500) {
-          setDrillError(
-            `Server error: ${errorMsg || "Something went wrong on the backend"}`,
-          );
-        } else {
-          setDrillError(
-            errorMsg ||
-              "Failed to load drilldown data. Check browser console for details.",
-          );
-        }
-
-        setDrillRows([]);
-      } finally {
-        setDrillLoading(false);
+        setDrill((prev) => ({ ...prev, loading: false, error: err?.payload?.message || err?.message || "Could not load files." }));
       }
     },
-    [queryParams],
+    [params],
   );
 
-  const widgets = overview?.widgets || {};
+  const runWidget = async (values) => {
+    setWidgetLoading(true);
+    try {
+      const res = await loansApi.createCustomWidget({ ...params, ...values });
+      setWidgetRows({ metric: values.metric, rows: Array.isArray(res?.data) ? res.data : [] });
+    } catch (err) {
+      setWidgetRows({ metric: values.metric, rows: [] });
+      setError(err?.message || "Could not build the widget.");
+    } finally {
+      setWidgetLoading(false);
+    }
+  };
+
+  const runReport = async (values) => {
+    setReportLoading(true);
+    try {
+      const res = await loansApi.createCustomReport({ ...params, ...values });
+      setReport({ rows: Array.isArray(res?.data) ? res.data : [], fields: res?.meta?.fields || values.fields });
+    } catch (err) {
+      setReport({ rows: [], fields: values.fields });
+      setError(err?.message || "Could not generate the report.");
+    } finally {
+      setReportLoading(false);
+    }
+  };
+
+  // ─── Derived data ─────────────────────────────────────────────────────────
+
   const totals = overview?.totals || {};
-  const completionPct = useMemo(() => {
-    const done = (widgets.caseStatusDistribution || [])
-      .filter((row) =>
-        /(disburs|deliver|paid|closed|complete)/i.test(
-          String(row?.status || ""),
-        ),
-      )
-      .reduce((sum, row) => sum + Number(row?.count || 0), 0);
-    const total = Number(totals.totalCases || 0);
-    return total > 0 ? (done / total) * 100 : 0;
-  }, [totals.totalCases, widgets.caseStatusDistribution]);
+  const widgets = overview?.widgets || {};
+  const totalCases = toNumber(totals.totalCases);
+  const financedCases = toNumber(totals.financedCases);
+  const disbursedCases = toNumber(totals.disbursedCases);
+  const cash = widgets.cashCarSummary || {};
+
+  const monthlyRows = useMemo(() => {
+    const disbursedByMonth = new Map((widgets.disbursedAmountTrend || []).map((row) => [row.bucket, row]));
+    return (widgets.totalLoansTrend || [])
+      .map((row) => ({
+        key: row.bucket,
+        label: row.label,
+        created: toNumber(row.value),
+        completed: toNumber(disbursedByMonth.get(row.bucket)?.count),
+        amount: toNumber(disbursedByMonth.get(row.bucket)?.amount),
+      }))
+      .reverse();
+  }, [widgets.totalLoansTrend, widgets.disbursedAmountTrend]);
+  const monthlyMax = useMemo(
+    () => ({
+      created: Math.max(...monthlyRows.map((row) => row.created), 1),
+      amount: Math.max(...monthlyRows.map((row) => row.amount), 1),
+    }),
+    [monthlyRows],
+  );
+
+  const stageRows = useMemo(() => {
+    const counts = new Map((widgets.stageFunnel || []).map((row) => [row.stage, toNumber(row.count)]));
+    return STAGES.map((stage) => ({ ...stage, count: counts.get(stage.key) || 0 }));
+  }, [widgets.stageFunnel]);
+
+  const statusRows = (widgets.caseStatusDistribution || []).map((row) => ({ key: row.status, count: toNumber(row.count) }));
+  const loanTypeRows = (widgets.loanTypeMix || []).slice(0, 8).map((row) => ({ key: row.label, count: toNumber(row.count) }));
+
+  const filteredDrillRows = useMemo(() => {
+    const q = drillSearch.trim().toLowerCase();
+    if (!q) return drill.rows;
+    return drill.rows.filter((row) =>
+      [row.loanId, row.customerName, row.primaryMobile, row.approval_bankName, row.vehicleMake, row.vehicleModel, row.dealerName]
+        .join(" ")
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [drill.rows, drillSearch]);
+
+  const filteredReportRows = useMemo(() => {
+    const q = reportSearch.trim().toLowerCase();
+    if (!q) return report.rows;
+    return report.rows.filter((row) => report.fields.some((field) => String(row?.[field] ?? "").toLowerCase().includes(q)));
+  }, [report, reportSearch]);
+
+  // ─── Table columns ────────────────────────────────────────────────────────
+
+  const monthlyColumns = [
+    { title: "Month", dataIndex: "label", key: "label", width: 110 },
+    {
+      title: "Files created",
+      key: "created",
+      render: (_, row) => (
+        <button type="button" className="w-full cursor-pointer bg-transparent p-0 text-left" onClick={() => row.created && openDrill(`Files created in ${row.label}`, { widget: "total_loan_trend", bucket: row.key })}>
+          <Progress status="normal" percent={(row.created / monthlyMax.created) * 100} format={() => formatCount(row.created)} size="small" className="!m-0" />
+        </button>
+      ),
+    },
+    {
+      title: <Tooltip title="Financed files disbursed plus cash cars delivered, for files created in this period">Disbursed / delivered</Tooltip>,
+      key: "amount",
+      render: (_, row) => (
+        <button type="button" className="w-full cursor-pointer bg-transparent p-0 text-left" onClick={() => row.completed && openDrill(`Disbursed or delivered in ${row.label}`, { widget: "disbursed_amount_trend", bucket: row.key })}>
+          <Progress status="normal" percent={(row.amount / monthlyMax.amount) * 100} strokeColor="#16a34a" format={() => `${formatINR(row.amount)} · ${formatCount(row.completed)}`} size="small" className="!m-0" />
+        </button>
+      ),
+    },
+  ];
+
+  const bankColumns = [
+    { title: "Bank", dataIndex: "bankName", key: "bankName", ellipsis: true },
+    { title: "Files", dataIndex: "total", key: "total", align: "right", width: 80, sorter: (a, b) => a.total - b.total, defaultSortOrder: "descend" },
+    { title: "Approved", dataIndex: "approved", key: "approved", align: "right", width: 90 },
+    { title: "Disbursed", dataIndex: "disbursed", key: "disbursed", align: "right", width: 110, sorter: (a, b) => a.disbursed - b.disbursed },
+    { title: "Conversion", key: "conversion", width: 150, render: (_, row) => <Progress status="normal" percent={percent(row.disbursed, row.total)} size="small" className="!m-0" /> },
+    { title: "Loan value", dataIndex: "totalLoanAmount", key: "value", align: "right", width: 140, render: formatINR, sorter: (a, b) => a.totalLoanAmount - b.totalLoanAmount },
+  ];
+
+  const dealerColumns = [
+    { title: "Dealer / showroom", dataIndex: "dealerName", key: "dealerName", ellipsis: true },
+    { title: "Files", dataIndex: "total", key: "total", align: "right", width: 70, sorter: (a, b) => a.total - b.total, defaultSortOrder: "descend" },
+    { title: "Completed", dataIndex: "disbursed", key: "disbursed", align: "right", width: 95 },
+    {
+      title: <Tooltip title="Average days from file creation to disbursal">Avg TAT</Tooltip>,
+      dataIndex: "avgTatDays",
+      key: "tat",
+      align: "right",
+      width: 85,
+      render: (value) => (value === null || value === undefined ? "—" : `${value}d`),
+    },
+    { title: "Loan value", dataIndex: "totalLoanAmount", key: "value", align: "right", width: 130, render: formatINR },
+  ];
+
+  const sourceColumns = [
+    { title: "Source", dataIndex: "source", key: "source" },
+    { title: "Files", dataIndex: "total", key: "total", align: "right", width: 70 },
+    { title: "Completed", dataIndex: "disbursed", key: "disbursed", align: "right", width: 95 },
+    { title: "Conversion", key: "conversion", width: 140, render: (_, row) => <Progress status="normal" percent={percent(row.disbursed, row.total)} size="small" className="!m-0" /> },
+  ];
+
+  const vehicleColumns = [
+    { title: "Make", dataIndex: "make", key: "make", ellipsis: true },
+    { title: "Model", dataIndex: "model", key: "model", ellipsis: true },
+    { title: "Variant", dataIndex: "variant", key: "variant", ellipsis: true },
+    { title: "Files", dataIndex: "total", key: "total", align: "right", width: 70 },
+    { title: "Avg loan", dataIndex: "avgLoanAmount", key: "avg", align: "right", width: 120, render: formatINR },
+  ];
 
   const drillColumns = [
     {
       title: "Loan ID",
       dataIndex: "loanId",
       key: "loanId",
-      width: 140,
-      fixed: "left",
-    },
-    {
-      title: "Customer",
-      dataIndex: "customerName",
-      key: "customerName",
-      width: 220,
-    },
-    {
-      title: "Mobile",
-      dataIndex: "primaryMobile",
-      key: "primaryMobile",
       width: 130,
+      fixed: "left",
+      render: (value, row) => <Link to={`/loans/edit/${row._id || value}`} className="font-medium text-blue-600 hover:underline">{value || "—"}</Link>,
     },
-    {
-      title: "Loan Type",
-      dataIndex: "typeOfLoan",
-      key: "typeOfLoan",
-      width: 140,
-    },
-    {
-      title: "Stage",
-      dataIndex: "currentStage",
-      key: "currentStage",
-      width: 120,
-    },
-    { title: "Status", dataIndex: "status", key: "status", width: 130 },
-    {
-      title: "Bank",
-      key: "bank",
-      width: 220,
-      render: (_, row) => row.approval_bankName || row.postfile_bankName || "-",
-    },
-    {
-      title: "Loan Amount",
-      key: "amount",
-      width: 140,
-      render: (_, row) =>
-        formatINR(
-          row.disburse_amount ||
-            row.approval_loanAmountDisbursed ||
-            row.approval_loanAmountApproved ||
-            row.loanAmount ||
-            0,
-        ),
-    },
-    {
-      title: "Business Date",
-      key: "businessDate",
-      width: 140,
-      render: (_, row) => {
-        const d = getPrimaryBusinessDate(row);
-        return d?.isValid() ? d.format("DD MMM YYYY") : "-";
-      },
-    },
+    { title: "Customer", dataIndex: "customerName", key: "customerName", width: 160, ellipsis: true },
+    { title: "Mobile", dataIndex: "primaryMobile", key: "primaryMobile", width: 120 },
+    { title: "Loan type", key: "type", width: 120, render: (_, row) => row.typeOfLoan || row.loanType || "—" },
+    { title: "Stage", dataIndex: "currentStage", key: "stage", width: 110, render: (value) => STAGES.find((stage) => stage.key === String(value || "").toLowerCase())?.label || value || "—" },
+    { title: "Status", key: "status", width: 110, render: (_, row) => <StatusTag status={loanStatus(row)} /> },
+    { title: "Bank", key: "bank", width: 140, ellipsis: true, render: (_, row) => row.approval_bankName || row.postfile_bankName || row.bankName || "—" },
+    { title: "Loan value", key: "value", width: 130, align: "right", render: (_, row) => formatINR(loanValue(row)) },
+    { title: "Created", dataIndex: "createdAt", key: "createdAt", width: 120, render: formatDate },
   ];
 
-  const reportColumns = useMemo(
-    () =>
-      (customReportMeta?.fields || customReportConfig.fields).map((field) => ({
-        title: field,
-        dataIndex: field,
-        key: field,
-        width: 180,
-        render: (value) => {
-          if (value === null || value === undefined || value === "") return "-";
-          if (String(field).toLowerCase().includes("date")) {
-            const d = dayjs(value);
-            return d.isValid() ? d.format("DD MMM YYYY") : String(value);
-          }
-          return String(value);
-        },
-      })),
-    [customReportConfig.fields, customReportMeta?.fields],
-  );
+  const reportColumns = report.fields.map((field) => ({
+    title: REPORT_FIELDS[field] || field,
+    dataIndex: field,
+    key: field,
+    width: 160,
+    ellipsis: true,
+    align: AMOUNT_REPORT_FIELDS.has(field) ? "right" : "left",
+    render: (value) => {
+      if (value === null || value === undefined || value === "") return "—";
+      if (AMOUNT_REPORT_FIELDS.has(field)) return formatINR(value);
+      if (/date|At$/.test(field)) return formatDate(value);
+      return String(value);
+    },
+  }));
 
-  const filteredReportRows = useMemo(() => {
-    const q = String(customReportSearch || "")
-      .trim()
-      .toLowerCase();
-    if (!q) return customReportRows;
-    const fields = customReportMeta?.fields || customReportConfig.fields || [];
-    return customReportRows.filter((row) =>
-      fields.some((field) =>
-        String(row?.[field] ?? "")
-          .toLowerCase()
-          .includes(q),
-      ),
-    );
-  }, [
-    customReportConfig.fields,
-    customReportMeta?.fields,
-    customReportRows,
-    customReportSearch,
-  ]);
-
-  const filteredDrillRows = useMemo(() => {
-    const q = String(drillSearch || "")
-      .trim()
-      .toLowerCase();
-    if (!q) return drillRows;
-    return drillRows.filter((row) =>
-      [
-        row.loanId,
-        row.customerName,
-        row.primaryMobile,
-        row.typeOfLoan,
-        row.currentStage,
-        row.status,
-        row.approval_bankName,
-        row.postfile_bankName,
-        row.vehicleMake,
-        row.vehicleModel,
-        row.vehicleVariant,
-      ]
-        .join(" ")
-        .toLowerCase()
-        .includes(q),
-    );
-  }, [drillRows, drillSearch]);
+  const drillValue = filteredDrillRows.reduce((sum, row) => sum + loanValue(row), 0);
+  const timeframe = overview?.timeframe;
+  const periodLabel = timeframe ? `${formatDate(timeframe.start)} – ${formatDate(timeframe.end)}` : "";
+  const cardProps = { size: "small", className: "h-full", loading };
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-muted/20">
-      <ConfigProvider theme={analyticsTabsTheme}>
-        <div className="app-max-wrap space-y-5 py-5 md:space-y-6 md:py-6">
-        <header className="relative overflow-hidden rounded-3xl border border-border/70 bg-card px-5 py-6 shadow-sm sm:px-7 md:px-9 md:py-8">
-          <div
-            className="pointer-events-none absolute -right-20 -top-24 h-72 w-72 rounded-full bg-primary/[0.09] blur-3xl"
-            aria-hidden
-          />
-          <div
-            className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-emerald-500/[0.06] blur-3xl dark:bg-emerald-500/[0.1]"
-            aria-hidden
-          />
-          <div className="relative z-[1] flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-            <div className="min-w-0 space-y-2">
-              <div className="inline-flex items-center gap-2 rounded-full border border-border/80 bg-muted/50 px-3 py-1">
-                <ChartNoAxesCombined
-                  size={15}
-                  strokeWidth={2}
-                  className="shrink-0 text-primary"
-                  aria-hidden
-                />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                  AutoCredits India LLP
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-              <Typography.Title
-                level={2}
-                className="!mb-0 !mt-1 !text-3xl !font-bold !tracking-tight md:!text-4xl"
-              >
-                Business overview
-              </Typography.Title>
-              <span className="mt-1 rounded-full border border-border bg-muted/60 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">{roleLabel}</span>
-              </div>
-              <Typography.Text
-                type="secondary"
-                className="block max-w-xl text-sm leading-relaxed"
-              >
-                A clear view of pipeline movement, disbursements, quality gaps, and team performance for the selected window.
-              </Typography.Text>
-            </div>
-
-            <div className="flex w-full flex-col gap-4 lg:max-w-2xl lg:items-end">
-              <div className="flex w-full flex-wrap items-center justify-between gap-3 sm:justify-end">
-                <Typography.Text
-                  type="secondary"
-                  className="text-xs font-medium tabular-nums"
-                >
-                  {timeframeLabel}
-                </Typography.Text>
-                <Button
-                  type={refreshing ? "primary" : "default"}
-                  size="small"
-                  className="shrink-0 rounded-xl border-border font-semibold"
-                  icon={
-                    <RefreshCcw
-                      size={14}
-                      className={refreshing ? "animate-spin" : ""}
-                    />
-                  }
-                  onClick={fetchOverview}
-                >
-                  {refreshing ? "Refreshing…" : "Refresh data"}
-                </Button>
-              </div>
-
-              <div className="flex w-full flex-wrap items-center gap-2">
-                {RANGE_OPTIONS.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => setRangePreset(option.value)}
-                    className={`min-h-[40px] rounded-xl border px-3.5 py-2 text-left text-xs font-semibold transition-all duration-150 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
-                      rangePreset === option.value
-                        ? "border-primary bg-primary text-primary-foreground shadow-[0_2px_12px_-4px_rgb(var(--primary)_/_0.45)]"
-                        : "border-border/80 bg-muted/40 text-muted-foreground hover:border-border hover:bg-muted/70 hover:text-foreground"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-
+    <div className="w-full space-y-4 pb-10">
+      {/* Header */}
+      <Card size="small">
+        <Row gutter={[16, 12]} align="middle" justify="space-between">
+          <Col flex="auto">
+            <Space direction="vertical" size={0}>
+              <Space size={8} wrap>
+                <Title level={3} className="!mb-0">Business overview</Title>
+                {user?.role ? <Tag>{String(user.role).replaceAll("_", " ")}</Tag> : null}
+              </Space>
+              <Text type="secondary">
+                Loan files created {periodLabel ? `between ${periodLabel}` : "in the selected period"}. Click any number to see the files behind it.
+              </Text>
+            </Space>
+          </Col>
+          <Col>
+            <Space wrap>
+              <Segmented options={RANGE_OPTIONS} value={rangePreset} onChange={setRangePreset} />
               {rangePreset === "custom" ? (
-                <div className="w-full max-w-md lg:ml-auto [&_.ant-picker]:rounded-xl [&_.ant-picker-input_input]:text-[13px]">
-                  <RangePicker
-                    value={customRange}
-                    allowClear={false}
-                    onChange={(values) => setCustomRange(values || [])}
-                    size="middle"
-                    className="w-full"
-                  />
-                </div>
+                <DatePicker.RangePicker value={customRange} allowClear={false} onChange={(values) => values && setCustomRange(values)} disabledDate={(date) => date.isAfter(dayjs(), "day")} />
               ) : null}
-            </div>
-          </div>
-        </header>
+              <Button icon={<ReloadOutlined spin={refreshing} />} onClick={fetchOverview} loading={loading && !overview}>
+                Refresh
+              </Button>
+            </Space>
+          </Col>
+        </Row>
+      </Card>
 
-        {error ? (
-          <Alert
-            type="error"
-            message={error}
-            showIcon
-            className="rounded-xl border-border"
-          />
-        ) : null}
+      {error ? (
+        <Alert type="error" showIcon message={error} action={<Button size="small" onClick={fetchOverview}>Retry</Button>} closable onClose={() => setError("")} />
+      ) : null}
 
-        <div>
-          <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
-            <div className="mb-5">
-              <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                Key metrics
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Condensed totals for{" "}
-                <span className="font-medium text-foreground">
-                  {timeframeLabel}
-                </span>
-              </p>
-            </div>
-            <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <KpiTile
-                label="Total Cases"
-                value={Number(totals.totalCases || 0).toLocaleString("en-IN")}
-                subLabel="In selected timeframe"
-                tone="blue"
-                icon={BriefcaseBusiness}
-                loading={loading}
-              />
-              <KpiTile
-                label="Total Loan Amount"
-                value={formatINR(totals.totalLoanAmount || 0)}
-                subLabel="Sum across filtered loans"
-                tone="emerald"
-                icon={IndianRupee}
-                loading={loading}
-              />
-              <KpiTile
-                label="Disbursed / Delivered"
-                value={formatINR(totals.totalDisbursedAmount || 0)}
-                subLabel="Business-event amount volume"
-                tone="amber"
-                icon={TrendingUp}
-                loading={loading}
-              />
-              <KpiTile
-                label="Pending Disbursal"
-                value={Number(
-                  widgets.approvalPendingDisbursal?.count || 0,
-                ).toLocaleString("en-IN")}
-                subLabel={formatINR(
-                  widgets.approvalPendingDisbursal?.amount || 0,
-                )}
-                tone="rose"
-                icon={Clock3}
-                loading={loading}
-              />
-            </section>
-          </section>
-        </div>
+      {/* KPIs */}
+      <Row gutter={[16, 16]}>
+        <Col xs={12} md={8} xl={4}>
+          <KpiCard loading={loading} icon={<FileTextOutlined />} title="Files created" value={totalCases} formatter={formatCount}
+            footer={`${formatCount(financedCases)} financed · ${formatCount(cash.total)} cash`} onClick={() => openDrill("All files", {})} />
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <KpiCard loading={loading} icon={<FundOutlined />} title="Loan value" tooltip="Disbursed amount if disbursed, otherwise approved, requested or expected amount" value={totals.totalLoanAmount} formatter={formatINR}
+            footer="Across all files in the period" />
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <KpiCard loading={loading} icon={<CheckCircleOutlined />} title="Disbursed" value={totals.disbursedLoanAmount} formatter={formatINR}
+            footer={`${formatCount(disbursedCases)} financed files`} onClick={() => openDrill("Disbursed files", { widget: "disbursed_loans" })} />
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <KpiCard loading={loading} icon={<FundOutlined />} title="Disbursal conversion" tooltip="Disbursed financed files ÷ all financed files" value={percent(disbursedCases, financedCases)} precision={1} suffix="%"
+            footer={`${formatCount(disbursedCases)} of ${formatCount(financedCases)} financed files`} />
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <KpiCard loading={loading} icon={<ClockCircleOutlined />} title="Approved, not disbursed" value={widgets.approvalPendingDisbursal?.count} formatter={formatCount}
+            footer={formatINR(widgets.approvalPendingDisbursal?.amount)} onClick={() => openDrill("Approved, not yet disbursed", { widget: "approval_pending_disbursal" })} />
+        </Col>
+        <Col xs={12} md={8} xl={4}>
+          <KpiCard loading={loading} icon={<CarOutlined />} title="Cash cars delivered" value={cash.delivered} formatter={formatCount}
+            footer={`${formatCount(cash.pending)} pending of ${formatCount(cash.total)}`} onClick={() => openDrill("Cash cars delivered", { widget: "cash_car_delivered" })} />
+        </Col>
+      </Row>
 
-        <div>
-          <section className="rounded-3xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
-            <div className="mb-5">
-              <h2 className="text-xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
-                Charts & insights
-              </h2>
-              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-                Click bars or segments to open case-level drilldown for that
-                slice.
-              </p>
-            </div>
-            <section className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-12">
-              {loading ? (
-                <>
-                  {[...Array(6)].map((_, i) => (
-                    <div
-                      key={i}
-                      className={`${
-                        [5, 4, 3, 5, 4, 3][i] === 5
-                          ? "xl:col-span-5"
-                          : [5, 4, 3, 5, 4, 3][i] === 4
-                            ? "xl:col-span-4"
-                            : "xl:col-span-3"
-                      } animate-pulse`}
-                    >
-                      <div className="h-64 rounded-2xl border border-border bg-muted/40" />
-                    </div>
-                  ))}
-                </>
-              ) : (
-                <>
-                  <div className="xl:col-span-5">
-                    <WidgetShell
-                      title="Total Loans Trend"
-                      subtitle="Click any month to open case-level detail"
-                      icon={BarChart3}
-                      color="blue"
-                    >
-                      <VerticalBarChart
-                        points={widgets.totalLoansTrend || []}
-                        valueKey="value"
-                        color="#1d9bf0"
-                        onSelect={(p) =>
-                          openDrilldown({
-                            title: `Loans in ${p.label}`,
-                            widget: "total_loan_trend",
-                            bucket: p.bucket,
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={14}>
+          <Card {...cardProps} title="Monthly trend" extra={<Text type="secondary" className="text-xs">Newest first</Text>}>
+            <Table size="small" rowKey="key" columns={monthlyColumns} dataSource={monthlyRows} pagination={monthlyRows.length > 12 ? { pageSize: 12, size: "small" } : false}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No files in this period" /> }} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={5}>
+          <Card {...cardProps} title="Pipeline by stage">
+            <BarList rows={stageRows} total={totalCases} renderLabel={(row) => row.label} onSelect={(row) => row.count && openDrill(`Stage: ${row.label}`, { widget: "stage_funnel", key: row.key })} />
+          </Card>
+        </Col>
+        <Col xs={24} md={12} xl={5}>
+          <Card {...cardProps} title="Status">
+            <BarList rows={statusRows} total={totalCases} renderLabel={(row) => <StatusTag status={row.key} />} onSelect={(row) => openDrill(`Status: ${STATUS_META[row.key]?.label || row.key}`, { widget: "case_status_distribution", key: row.key })} />
+          </Card>
+        </Col>
+      </Row>
 
-                  <div className="xl:col-span-4">
-                    <WidgetShell
-                      title="Disbursed Amount Trend"
-                      subtitle="Month-wise disbursal movement"
-                      icon={IndianRupee}
-                      color="emerald"
-                    >
-                      <DisbursedAmountTrendChart
-                        rows={widgets.disbursedAmountTrend || []}
-                        onSelect={(p) =>
-                          openDrilldown({
-                            title: `Disbursed in ${p.label}`,
-                            widget: "disbursed_amount_trend",
-                            bucket: p.bucket,
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
+      {/* Data quality */}
+      <Card {...cardProps} loading={false} title={<Space><AlertOutlined />Needs attention</Space>}>
+        <Row gutter={[16, 16]}>
+          {[
+            { title: "Approved, not disbursed", value: widgets.approvalPendingDisbursal?.count, hint: "Financed files approved by a bank but not yet disbursed", widget: "approval_pending_disbursal" },
+            { title: "Missing registration no.", value: widgets.missingRegNumber?.count, hint: "Disbursed or delivered files without an RC / registration number", widget: "missing_reg_number" },
+            { title: "Delivery paperwork gaps", value: widgets.missingCriticalDeliveryFields?.count, hint: "Disbursed or delivered files missing invoice, insurance or RC details", widget: "missing_delivery_fields" },
+            { title: "Repeat customers", value: widgets.repeatedCustomers?.repeatedCaseCount, hint: `${formatCount(widgets.repeatedCustomers?.repeatedIdentityCount)} customers (same mobile, PAN or GST) with more than one file`, widget: "repeated_customers" },
+          ].map((item) => (
+            <Col key={item.widget} xs={12} lg={6}>
+              <Card size="small" hoverable onClick={() => openDrill(item.title, { widget: item.widget })} loading={loading}>
+                <Statistic title={<Tooltip title={item.hint}>{item.title}</Tooltip>} value={toNumber(item.value)} formatter={formatCount}
+                  valueStyle={toNumber(item.value) ? { color: "#d97706" } : undefined} />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Card>
 
-                  <div className="xl:col-span-3">
-                    <WidgetShell
-                      title="Business Target"
-                      subtitle="Disbursed/Delivered share in selected range"
-                      icon={TrendingUp}
-                      color="indigo"
-                    >
-                      <SemiGauge
-                        value={completionPct}
-                        title="Execution Progress"
-                        subtitle={`${Number(totals.totalCases || 0).toLocaleString("en-IN")} total cases in range`}
-                      />
-                    </WidgetShell>
-                  </div>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={14}>
+          <Card {...cardProps} title={<Space><BankOutlined />Banks</Space>} extra={<Text type="secondary" className="text-xs">Financed files only</Text>}>
+            <Table size="small" rowKey="bankName" columns={bankColumns} dataSource={widgets.bankPipeline || []} pagination={{ pageSize: 8, size: "small", hideOnSinglePage: true }} scroll={{ x: 700 }}
+              onRow={(row) => ({ onClick: () => openDrill(`Bank: ${row.bankName}`, { widget: "bank_pipeline", key: row.bankName.toLowerCase() }), className: "cursor-pointer" })} />
+          </Card>
+        </Col>
+        <Col xs={24} xl={10}>
+          <Space direction="vertical" size={16} className="w-full">
+          <Card size="small" loading={loading} title="Loan types">
+            <BarList rows={loanTypeRows} total={totalCases} renderLabel={(row) => row.key} onSelect={(row) => openDrill(`Loan type: ${row.key}`, { widget: "loan_type_mix", key: row.key.toLowerCase() })} />
+          </Card>
+          <Card size="small" loading={loading} title={<Space><TeamOutlined />Sources</Space>}>
+            <Table size="small" rowKey="source" columns={sourceColumns} dataSource={widgets.sourcePerformance || []} pagination={false}
+              onRow={(row) => ({ onClick: () => openDrill(`Source: ${row.source}`, { widget: "source_performance", key: row.source.toLowerCase() }), className: "cursor-pointer" })} />
+          </Card>
+          </Space>
+        </Col>
+      </Row>
 
-                  <div className="xl:col-span-5">
-                    <WidgetShell
-                      title="Stage Funnel"
-                      subtitle="Pipeline concentration by stage"
-                      icon={GitBranch}
-                      color="indigo"
-                    >
-                      <FunnelChart
-                        rows={widgets.stageFunnel || []}
-                        onSelect={(stage) =>
-                          openDrilldown({
-                            title: `Stage: ${stage.stage}`,
-                            widget: "stage_funnel",
-                            key: stage.stage,
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={12}>
+          <Card {...cardProps} title={<Space><ShopOutlined />Dealers</Space>}>
+            <Table size="small" rowKey="dealerName" columns={dealerColumns} dataSource={widgets.dealerPerformance || []} pagination={{ pageSize: 8, size: "small", hideOnSinglePage: true }} scroll={{ x: 520 }}
+              onRow={(row) => ({ onClick: () => openDrill(`Dealer: ${row.dealerName}`, { widget: "dealer_performance", key: row.dealerName.toLowerCase() }), className: "cursor-pointer" })} />
+          </Card>
+        </Col>
+        <Col xs={24} xl={12}>
+          <Card {...cardProps} title={<Space><CarOutlined />Top vehicles</Space>}>
+            <Table size="small" rowKey="segment" columns={vehicleColumns} dataSource={widgets.vehicleSegmentTrends || []} pagination={{ pageSize: 8, size: "small", hideOnSinglePage: true }} scroll={{ x: 460 }}
+              onRow={(row) => ({ onClick: () => openDrill(`Vehicle: ${row.make} ${row.model} ${row.variant}`, { widget: "vehicle_segment", key: row.segment.toLowerCase() }), className: "cursor-pointer" })} />
+          </Card>
+        </Col>
+      </Row>
 
-                  <div className="xl:col-span-4">
-                    <WidgetShell
-                      title="Loan Type Mix"
-                      subtitle="Distribution by case type"
-                      icon={CircleDot}
-                      color="slate"
-                    >
-                      <DonutBreakdown
-                        rows={widgets.loanTypeMix || []}
-                        labelKey="label"
-                        valueKey="count"
-                        onClick={(row) =>
-                          openDrilldown({
-                            title: `Loan Type: ${row.label}`,
-                            widget: "loan_type_mix",
-                            key: String(row.label || "").toLowerCase(),
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
+      {/* Builders */}
+      <Card size="small">
+        <Tabs
+          items={[
+            {
+              key: "widget",
+              label: "Custom widget",
+              children: (
+                <Space direction="vertical" size="middle" className="w-full">
+                  <Form form={widgetForm} layout="inline" initialValues={{ metric: "count", groupBy: "bank", metricField: "loanAmount", topN: 12 }} onFinish={runWidget} className="gap-y-3">
+                    <Form.Item name="metric" label="Measure"><Select options={CUSTOM_WIDGET_METRICS} className="!w-44" /></Form.Item>
+                    <Form.Item noStyle shouldUpdate={(prev, next) => prev.metric !== next.metric}>
+                      {({ getFieldValue }) =>
+                        getFieldValue("metric") !== "count" ? (
+                          <Form.Item name="metricField" label="Amount"><Select options={AMOUNT_FIELDS} className="!w-56" /></Form.Item>
+                        ) : null
+                      }
+                    </Form.Item>
+                    <Form.Item name="groupBy" label="Group by"><Select options={CUSTOM_WIDGET_GROUP_BY} className="!w-44" /></Form.Item>
+                    <Form.Item name="topN" label="Top"><InputNumber min={1} max={200} /></Form.Item>
+                    <Form.Item><Button type="primary" htmlType="submit" loading={widgetLoading}>Build</Button></Form.Item>
+                  </Form>
+                  {widgetRows === null ? null : widgetRows.rows.length ? (
+                    <Table size="small" rowKey="key" pagination={false} dataSource={widgetRows.rows}
+                      columns={[
+                        { title: "Group", dataIndex: "label", key: "label" },
+                        {
+                          title: "Value",
+                          dataIndex: "value",
+                          key: "value",
+                          align: "right",
+                          render: (value) => (widgetRows.metric === "count" ? formatCount(value) : formatINR(value)),
+                        },
+                      ]} />
+                  ) : (
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No data for this period" />
+                  )}
+                </Space>
+              ),
+            },
+            {
+              key: "report",
+              label: "Custom report",
+              children: (
+                <Space direction="vertical" size="middle" className="w-full">
+                  <Form form={reportForm} layout="vertical" onFinish={runReport}
+                    initialValues={{ fields: ["loanId", "customerName", "primaryMobile", "typeOfLoan", "currentStage", "approval_bankName", "loanAmount", "approval_loanAmountDisbursed", "createdAt"], sortBy: "updatedAt", sortDir: "desc", limit: 300 }}>
+                    <Form.Item name="fields" label="Columns" rules={[{ required: true, message: "Pick at least one column" }]}>
+                      <Select mode="multiple" maxTagCount="responsive" options={Object.entries(REPORT_FIELDS).map(([value, label]) => ({ value, label }))} />
+                    </Form.Item>
+                    <Row gutter={16}>
+                      <Col xs={24} md={8}><Form.Item name="sortBy" label="Sort by"><Select options={Object.entries(REPORT_FIELDS).map(([value, label]) => ({ value, label }))} /></Form.Item></Col>
+                      <Col xs={12} md={8}><Form.Item name="sortDir" label="Order"><Select options={[{ label: "Newest / highest first", value: "desc" }, { label: "Oldest / lowest first", value: "asc" }]} /></Form.Item></Col>
+                      <Col xs={12} md={8}><Form.Item name="limit" label="Max rows"><InputNumber min={10} max={10000} className="!w-full" /></Form.Item></Col>
+                    </Row>
+                    <Button type="primary" htmlType="submit" loading={reportLoading}>Generate report</Button>
+                  </Form>
+                  {report.fields.length ? (
+                    <Table size="small" rowKey={(row, index) => row._id || row.loanId || index} columns={reportColumns} dataSource={filteredReportRows}
+                      title={() => (
+                        <Space wrap>
+                          <Input.Search allowClear placeholder="Search report rows" value={reportSearch} onChange={(e) => setReportSearch(e.target.value)} className="!w-72" />
+                          <Text type="secondary">{formatCount(filteredReportRows.length)} rows</Text>
+                        </Space>
+                      )}
+                      pagination={{ pageSize: 20, showSizeChanger: true }} scroll={{ x: report.fields.length * 160 }} />
+                  ) : null}
+                </Space>
+              ),
+            },
+          ]}
+        />
+      </Card>
 
-                  <div className="xl:col-span-3">
-                    <WidgetShell
-                      title="Status Distribution"
-                      subtitle="Current lifecycle status split"
-                      icon={ShieldAlert}
-                      color="slate"
-                    >
-                      <DonutBreakdown
-                        rows={widgets.caseStatusDistribution || []}
-                        labelKey="status"
-                        valueKey="count"
-                        onClick={(row) =>
-                          openDrilldown({
-                            title: `Status: ${row.status}`,
-                            widget: "case_status_distribution",
-                            key: String(row.status || "").toLowerCase(),
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-6">
-                    <WidgetShell
-                      title="Bank Pipeline + Amounts"
-                      subtitle="Top financed banks by case volume"
-                      icon={Building2}
-                      color="slate"
-                    >
-                      <HorizontalBarChart
-                        rows={(widgets.bankPipeline || []).slice(0, 6)}
-                        labelKey="bankName"
-                        valueKey="total"
-                        onClick={(row) =>
-                          openDrilldown({
-                            title: `Bank: ${row.bankName}`,
-                            widget: "bank_pipeline",
-                            key: String(row.bankName || "").toLowerCase(),
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-3">
-                    <WidgetShell
-                      title="Source Performance"
-                      subtitle="Direct vs indirect efficiency"
-                      icon={SearchCode}
-                      color="slate"
-                    >
-                      <HorizontalBarChart
-                        rows={(widgets.sourcePerformance || [])
-                          .slice(0, 6)
-                          .map((row) => ({
-                            ...row,
-                            label: `${row.source} (${row.conversionRate || 0}%)`,
-                            total: row.total || 0,
-                          }))}
-                        labelKey="label"
-                        valueKey="total"
-                        onClick={(row) =>
-                          openDrilldown({
-                            title: `Source: ${row.source}`,
-                            widget: "source_performance",
-                            key: String(row.source || "").toLowerCase(),
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-3">
-                    <WidgetShell
-                      title="Dealer Performance"
-                      subtitle="Top dealer contribution"
-                      icon={BriefcaseBusiness}
-                      color="slate"
-                    >
-                      <HorizontalBarChart
-                        rows={(widgets.dealerPerformance || []).slice(0, 6)}
-                        labelKey="dealerName"
-                        valueKey="total"
-                        onClick={(row) =>
-                          openDrilldown({
-                            title: `Dealer: ${row.dealerName}`,
-                            widget: "dealer_performance",
-                            key: String(row.dealerName || "").toLowerCase(),
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-5">
-                    <WidgetShell
-                      title="Vehicle Segment Trends"
-                      subtitle="Model/variant concentration"
-                      icon={CarFront}
-                      color="slate"
-                    >
-                      <HorizontalBarChart
-                        rows={(widgets.vehicleSegmentTrends || [])
-                          .slice(0, 6)
-                          .map((row) => ({
-                            ...row,
-                            label: `${row.segment} | Avg ${formatINR(row.avgLoanAmount || 0)}`,
-                          }))}
-                        labelKey="label"
-                        valueKey="total"
-                        onClick={(row) =>
-                          openDrilldown({
-                            title: `Vehicle Segment: ${row.segment}`,
-                            widget: "vehicle_segment",
-                            key: String(row.segment || "").toLowerCase(),
-                          })
-                        }
-                      />
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-4">
-                    <WidgetShell
-                      title="Cash Car Pipeline"
-                      subtitle="Cash-car cases tracked separately from banks"
-                      icon={IndianRupee}
-                      color="amber"
-                    >
-                      <div className="grid grid-cols-1 gap-2">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openDrilldown({
-                              title: "Cash Car Cases",
-                              widget: "cash_car_all",
-                            })
-                          }
-                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                        >
-                          <div className="text-2xl font-black tabular-nums text-foreground">
-                            {Number(
-                              widgets.cashCarSummary?.total || 0,
-                            ).toLocaleString("en-IN")}
-                          </div>
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Total
-                          </div>
-                          <div className="mt-1 text-[11px] text-muted-foreground">
-                            {formatINR(widgets.cashCarSummary?.amount || 0)}
-                          </div>
-                        </button>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDrilldown({
-                                title: "Cash Car Delivered",
-                                widget: "cash_car_delivered",
-                              })
-                            }
-                            className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                          >
-                            <div className="text-xl font-black tabular-nums text-emerald-600 dark:text-emerald-400">
-                              {Number(
-                                widgets.cashCarSummary?.delivered || 0,
-                              ).toLocaleString("en-IN")}
-                            </div>
-                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              Delivered
-                            </div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              openDrilldown({
-                                title: "Cash Car Pending Delivery",
-                                widget: "cash_car_pending_delivery",
-                              })
-                            }
-                            className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                          >
-                            <div className="text-xl font-black tabular-nums text-rose-500 dark:text-rose-400">
-                              {Number(
-                                widgets.cashCarSummary?.pending || 0,
-                              ).toLocaleString("en-IN")}
-                            </div>
-                            <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                              Pending
-                            </div>
-                          </button>
-                        </div>
-                      </div>
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-3">
-                    <WidgetShell
-                      title="Repeated Customers"
-                      subtitle="Identity collision and repeat case flags"
-                      icon={UsersRound}
-                      color="rose"
-                    >
-                      <div className="grid grid-cols-1 gap-2">
-                        <button
-                          type="button"
-                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                          onClick={() =>
-                            openDrilldown({
-                              title: "Repeated Customers (identity collisions)",
-                              widget: "repeated_customers",
-                            })
-                          }
-                        >
-                          <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
-                            {widgets.repeatedCustomers?.repeatedIdentityCount ||
-                              0}
-                          </div>
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Identities
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                          onClick={() =>
-                            openDrilldown({
-                              title: "Repeated Customer Cases",
-                              widget: "repeated_customers",
-                            })
-                          }
-                        >
-                          <div className="text-2xl font-black tabular-nums text-fuchsia-500 dark:text-fuchsia-400">
-                            {widgets.repeatedCustomers?.repeatedCaseCount || 0}
-                          </div>
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Cases
-                          </div>
-                        </button>
-                      </div>
-                    </WidgetShell>
-                  </div>
-
-                  <div className="xl:col-span-12">
-                    <WidgetShell
-                      title="Quality Alerts"
-                      subtitle="Approval pending and critical missing data"
-                      icon={AlertTriangle}
-                      color="amber"
-                    >
-                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openDrilldown({
-                              title: "Approval Pending Disbursal",
-                              widget: "approval_pending_disbursal",
-                            })
-                          }
-                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                        >
-                          <div className="text-2xl font-black tabular-nums text-amber-500 dark:text-amber-400">
-                            {widgets.approvalPendingDisbursal?.count || 0}
-                          </div>
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Pending Disbursal
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openDrilldown({
-                              title: "Missing RC Registration",
-                              widget: "missing_reg_number",
-                            })
-                          }
-                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                        >
-                          <div className="text-2xl font-black tabular-nums text-rose-500 dark:text-rose-400">
-                            {widgets.missingRegNumber?.count || 0}
-                          </div>
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Missing RC
-                          </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            openDrilldown({
-                              title: "Missing Critical Delivery Fields",
-                              widget: "missing_delivery_fields",
-                            })
-                          }
-                          className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-left transition hover:bg-muted/60 hover:shadow-sm"
-                        >
-                          <div className="text-2xl font-black tabular-nums text-orange-500 dark:text-orange-400">
-                            {widgets.missingCriticalDeliveryFields?.count || 0}
-                          </div>
-                          <div className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                            Delivery Gaps
-                          </div>
-                        </button>
-                      </div>
-                    </WidgetShell>
-                  </div>
-                </>
-              )}
-            </section>
-          </section>
-
-          <section className="relative overflow-hidden rounded-3xl border border-border/70 bg-card p-5 shadow-sm md:p-6">
-            <Tabs
-              defaultActiveKey="customWidget"
-              items={[
-                {
-                  key: "customWidget",
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Filter size={14} />
-                      Custom Widget
-                    </span>
-                  ),
-                  children: (
-                    <div className="space-y-3">
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
-                        <Select
-                          value={customWidgetConfig.metric}
-                          options={CUSTOM_WIDGET_METRICS}
-                          onChange={(v) =>
-                            setCustomWidgetConfig((prev) => ({
-                              ...prev,
-                              metric: v,
-                            }))
-                          }
-                        />
-                        <Select
-                          value={customWidgetConfig.groupBy}
-                          options={CUSTOM_WIDGET_GROUP_BY}
-                          onChange={(v) =>
-                            setCustomWidgetConfig((prev) => ({
-                              ...prev,
-                              groupBy: v,
-                            }))
-                          }
-                        />
-                        <Select
-                          value={customWidgetConfig.metricField}
-                          options={CUSTOM_WIDGET_FIELDS}
-                          onChange={(v) =>
-                            setCustomWidgetConfig((prev) => ({
-                              ...prev,
-                              metricField: v,
-                            }))
-                          }
-                        />
-                        <InputNumber
-                          min={1}
-                          max={200}
-                          value={customWidgetConfig.topN}
-                          onChange={(v) =>
-                            setCustomWidgetConfig((prev) => ({
-                              ...prev,
-                              topN: Number(v || 12),
-                            }))
-                          }
-                          style={{ width: "100%" }}
-                        />
-                      </div>
-                      <Button
-                        type="primary"
-                        className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
-                        loading={customWidgetLoading}
-                        onClick={runCustomWidget}
-                      >
-                        Build Widget
-                      </Button>
-                      <div className="grid grid-cols-1 gap-2 md:grid-cols-3">
-                        {customWidgetData.map((row) => (
-                          <div
-                            key={row.key}
-                            className="rounded-xl border border-border bg-muted/50 px-3 py-2"
-                          >
-                            <div className="truncate text-xs font-semibold text-muted-foreground">
-                              {row.label}
-                            </div>
-                            <div className="text-lg font-black text-foreground">
-                              {Number(row.value || 0).toLocaleString("en-IN")}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ),
-                },
-                {
-                  key: "customReport",
-                  label: (
-                    <span className="flex items-center gap-2">
-                      <Database size={14} />
-                      Custom Report
-                    </span>
-                  ),
-                  children: (
-                    <div className="space-y-3">
-                      <Select
-                        mode="multiple"
-                        value={customReportConfig.fields}
-                        options={REPORT_FIELDS.map((f) => ({
-                          label: f,
-                          value: f,
-                        }))}
-                        onChange={(values) =>
-                          setCustomReportConfig((prev) => ({
-                            ...prev,
-                            fields: values,
-                          }))
-                        }
-                        maxTagCount="responsive"
-                        placeholder="Select fields for report output"
-                      />
-                      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                        <Select
-                          value={customReportConfig.sortBy}
-                          options={REPORT_FIELDS.map((f) => ({
-                            label: f,
-                            value: f,
-                          }))}
-                          onChange={(v) =>
-                            setCustomReportConfig((prev) => ({
-                              ...prev,
-                              sortBy: v,
-                            }))
-                          }
-                        />
-                        <Select
-                          value={customReportConfig.sortDir}
-                          options={[
-                            { label: "Descending", value: "desc" },
-                            { label: "Ascending", value: "asc" },
-                          ]}
-                          onChange={(v) =>
-                            setCustomReportConfig((prev) => ({
-                              ...prev,
-                              sortDir: v,
-                            }))
-                          }
-                        />
-                        <InputNumber
-                          min={10}
-                          max={10000}
-                          value={customReportConfig.limit}
-                          onChange={(v) =>
-                            setCustomReportConfig((prev) => ({
-                              ...prev,
-                              limit: Number(v || 300),
-                            }))
-                          }
-                          style={{ width: "100%" }}
-                        />
-                      </div>
-                      <Button
-                        type="primary"
-                        className="rounded-xl !border-primary !bg-primary !text-primary-foreground hover:!opacity-90"
-                        loading={customReportLoading}
-                        onClick={runCustomReport}
-                      >
-                        Generate Report
-                      </Button>
-                      <div className="overflow-x-auto rounded-xl border border-border bg-card p-3 transition-shadow">
-                        <div className="mb-3 flex flex-col gap-2 border-b border-border pb-3 md:flex-row md:items-center md:justify-between">
-                          <div className="text-sm font-bold text-foreground">
-                            Report Output
-                          </div>
-                          <div className="flex flex-col items-stretch gap-2 md:flex-row md:items-center">
-                            <Input
-                              allowClear
-                              value={customReportSearch}
-                              onChange={(e) =>
-                                setCustomReportSearch(e.target.value)
-                              }
-                              placeholder="Search across generated report rows"
-                              className="h-[2.35rem] w-full rounded-xl md:w-80"
-                            />
-                            <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
-                              <span>Rows: {filteredReportRows.length}</span>
-                              <span className="text-muted-foreground">•</span>
-                              <span>
-                                Cols:{" "}
-                                {
-                                  (
-                                    customReportMeta?.fields ||
-                                    customReportConfig.fields ||
-                                    []
-                                  ).length
-                                }
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                        <Table
-                          className={TABLE_SHELL_CLASS}
-                          rowKey={(row, idx) =>
-                            row.loanId || row._id || `r-${idx}`
-                          }
-                          columns={reportColumns}
-                          dataSource={filteredReportRows}
-                          size="small"
-                          pagination={{ pageSize: 20, showSizeChanger: true }}
-                          rowClassName={(_, index) =>
-                            index % 2 ? "[&>td]:!bg-muted/50" : ""
-                          }
-                          scroll={{ x: 1400 }}
-                        />
-                      </div>
-                    </div>
-                  ),
-                },
-              ]}
-            />
-          </section>
-        </div>
-        </div>
-      </ConfigProvider>
-
-      <Modal
-        title={drillTitle}
-        open={drillOpen}
-        onCancel={() => {
-          setDrillOpen(false);
-          setDrillError("");
-        }}
-        footer={null}
-        width={1200}
-        styles={{
-          content: {
-            borderRadius: 16,
-            overflow: "hidden",
-            border: "1px solid rgb(var(--border))",
-          },
-          header: { borderRadius: "16px 16px 0 0" },
-        }}
-      >
-        <Spin spinning={drillLoading}>
-          {drillError ? (
-            <Alert
-              type="error"
-              message={drillError}
-              showIcon
-              className="mb-3 rounded-xl"
-            />
+      {/* Drilldown */}
+      <Drawer title={drill.title} open={drill.open} width="min(1200px, 100vw)" onClose={() => setDrill((prev) => ({ ...prev, open: false }))} destroyOnHidden>
+        <Space direction="vertical" size="middle" className="w-full">
+          {drill.error ? <Alert type="error" showIcon message={drill.error} /> : null}
+          <Row gutter={16}>
+            <Col xs={12} md={6}><Statistic title="Matching files" value={drill.total} formatter={formatCount} loading={drill.loading} /></Col>
+            <Col xs={12} md={6}><Statistic title="Shown" value={filteredDrillRows.length} formatter={formatCount} loading={drill.loading} /></Col>
+            <Col xs={12} md={6}><Statistic title="Loan value (shown)" value={drillValue} formatter={formatINR} loading={drill.loading} /></Col>
+            <Col xs={12} md={6}><Statistic title="Average per file" value={filteredDrillRows.length ? drillValue / filteredDrillRows.length : 0} formatter={formatINR} loading={drill.loading} /></Col>
+          </Row>
+          {drill.total > drill.rows.length ? (
+            <Alert type="info" showIcon message={`Showing the ${formatCount(drill.rows.length)} most recently updated of ${formatCount(drill.total)} files.`} />
           ) : null}
-
-          {drillRows.length > 0 && !drillLoading && (
-            <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4">
-              <div className="rounded-lg border border-border bg-gradient-to-br from-blue-500/10 to-blue-500/5 p-3">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Total Cases
-                </div>
-                <div className="mt-1 text-2xl font-bold text-foreground">
-                  {drillRows.length}
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-gradient-to-br from-purple-500/10 to-purple-500/5 p-3">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Total Amount
-                </div>
-                <div className="mt-1 text-lg font-bold text-foreground">
-                  {formatINR(
-                    drillRows.reduce(
-                      (sum, row) =>
-                        sum + num(row?.loanAmount || row?.disburse_amount || 0),
-                      0,
-                    ),
-                  )}
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-3">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Avg Per Case
-                </div>
-                <div className="mt-1 text-lg font-bold text-foreground">
-                  {formatINR(
-                    drillRows.length > 0
-                      ? drillRows.reduce(
-                          (sum, row) =>
-                            sum +
-                            num(row?.loanAmount || row?.disburse_amount || 0),
-                          0,
-                        ) / drillRows.length
-                      : 0,
-                  )}
-                </div>
-              </div>
-              <div className="rounded-lg border border-border bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-3">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Displayed
-                </div>
-                <div className="mt-1 text-2xl font-bold text-foreground">
-                  {filteredDrillRows.length}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-            <Input
-              allowClear
-              value={drillSearch}
-              onChange={(e) => setDrillSearch(e.target.value)}
-              placeholder="Search in this drilldown (Loan ID, customer, bank, stage...)"
-              className="w-full md:w-96"
-            />
-            <div className="inline-flex items-center gap-2 rounded-lg border border-border bg-muted/50 px-3 py-1 text-xs font-semibold text-foreground">
-              <span>Showing: {filteredDrillRows.length}</span>
-              <span className="text-muted-foreground">•</span>
-              <span>Total: {drillRows.length}</span>
-            </div>
-          </div>
-          {!drillLoading && !drillError && drillRows.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border bg-muted/30 py-10 text-center text-sm text-muted-foreground">
-              No records found for the selected filter and date range.
-            </div>
-          ) : (
-            <Table
-              className={TABLE_SHELL_CLASS}
-              rowKey={(row) => row._id || row.loanId}
-              columns={drillColumns}
-              dataSource={filteredDrillRows}
-              size="small"
-              pagination={{ pageSize: 15, showSizeChanger: true }}
-              scroll={{ x: 1300, y: 460 }}
-            />
-          )}
-        </Spin>
-      </Modal>
-    </main>
+          <Input.Search allowClear placeholder="Search loan ID, customer, mobile, bank, vehicle or dealer" value={drillSearch} onChange={(e) => setDrillSearch(e.target.value)} className="md:!w-[28rem]" />
+          <Table size="small" rowKey={(row) => row._id || row.loanId} loading={drill.loading} columns={drillColumns} dataSource={filteredDrillRows}
+            pagination={{ pageSize: 20, showSizeChanger: true }} scroll={{ x: "max-content" }}
+            locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No files match" /> }} />
+        </Space>
+      </Drawer>
+    </div>
   );
 };
 
