@@ -33,10 +33,11 @@ export const useRBAC = () => {
     const modulePermissions = user?.permissions?.[module];
     if (!modulePermissions) return true;
     let sectionPermissions = modulePermissions?.[section];
-    if (!sectionPermissions && field) {
+    // Forms often pass a default section; resolve the field to the section that actually owns it.
+    if (field && !sectionPermissions?.fields?.[field]) {
       const matchingSection = Object.values(modulePermissions).find((candidate) => candidate?.fields?.[field]);
       if (matchingSection) sectionPermissions = matchingSection;
-      else return true;
+      else if (!sectionPermissions) return true;
     }
     if (!sectionPermissions) return false;
     if (field) {

@@ -1,358 +1,292 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import {
-  Alert,
-  Avatar,
-  Card,
-  Col,
-  Empty,
-  Progress,
-  Row,
-  Spin,
-  Table,
-  Tag,
-  Timeline,
-} from "antd";
+import { Alert, Empty, Table, Tag, Tooltip } from "antd";
 import {
   ArrowLeft,
   Banknote,
-  CarFront,
+  BriefcaseBusiness,
+  CalendarClock,
   CheckCircle2,
-  CircleAlert,
-  CreditCard,
-  DollarSign,
   FileText,
+  IdCard,
+  Landmark,
+  Mail,
+  MapPin,
+  Pencil,
+  Phone,
   ShieldCheck,
-  UserCircle2,
+  UserRound,
+  Users,
+  Wallet,
 } from "lucide-react";
 import { customersApi } from "../../api/customers";
 import { loansApi } from "../../api/loans";
 import { insuranceApi } from "../../api/insurance";
 import { paymentsApi } from "../../api/payments";
 
-const getData = (response) =>
-  response?.data?.data ?? response?.data ?? response ?? null;
+// ─── Formatting helpers ─────────────────────────────────────────────────────
+
+const getData = (response) => response?.data?.data ?? response?.data ?? response ?? null;
 const toArray = (value) => (Array.isArray(value) ? value : []);
-const isPresent = (value) =>
-  value !== undefined && value !== null && String(value).trim() !== "";
-const normalizeText = (value) =>
-  String(value || "")
-    .trim()
-    .toLowerCase();
+const isPresent = (value) => value !== undefined && value !== null && String(value).trim() !== "";
+const firstValue = (...values) => values.find((value) => isPresent(value));
 const asNumber = (value) => {
   const n = Number(value);
   return Number.isFinite(n) ? n : 0;
 };
-const firstValue = (...values) => values.find((value) => isPresent(value));
+// Many schema fields default to 0, so "first present" would pick a meaningless 0.
+const firstPositive = (...values) => values.map(asNumber).find((n) => n > 0) || 0;
+const normalizeText = (value) => String(value || "").trim().toLowerCase().replace(/\s+/g, " ");
+const lastTenDigits = (value) => String(value || "").replace(/\D/g, "").slice(-10);
+
 const formatCurrency = (value) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(asNumber(value));
-const formatNumber = (value) =>
-  new Intl.NumberFormat("en-IN").format(asNumber(value));
-const formatDate = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(asNumber(value));
+const formatNumber = (value) => new Intl.NumberFormat("en-IN").format(asNumber(value));
+
+// Accepts Date, ISO strings, "YYYY-MM-DD", "DD-MM-YYYY" and "DD/MM/YYYY".
+const parseDate = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const text = String(value).trim();
+  const dmy = text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  const date = dmy ? new Date(Number(dmy[3]), Number(dmy[2]) - 1, Number(dmy[1])) : new Date(text);
+  return Number.isNaN(date.getTime()) ? null : date;
 };
-const formatDateTime = (value) => {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return date.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+const formatDate = (value) => {
+  const date = parseDate(value);
+  return date ? date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+};
+const addMonths = (value, months) => {
+  const date = parseDate(value);
+  if (!date || !months) return null;
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + Number(months));
+  return next;
+};
+const daysUntil = (value) => {
+  const date = parseDate(value);
+  if (!date) return null;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((date.getTime() - today.getTime()) / 86400000);
+};
+const ageFrom = (value) => {
+  const dob = parseDate(value);
+  if (!dob) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  if (now < new Date(now.getFullYear(), dob.getMonth(), dob.getDate())) age -= 1;
+  return age >= 0 && age < 120 ? age : null;
+};
+const maskTail = (value, visible = 4) => {
+  const text = String(value || "").replace(/\s+/g, "");
+  if (!text) return "";
+  return text.length <= visible ? text : `${"•".repeat(Math.min(text.length - visible, 8))}${text.slice(-visible)}`;
 };
 const getInitials = (name) => {
   const text = String(name || "").trim();
   if (!text) return "?";
   const parts = text.split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return text.slice(0, 2).toUpperCase();
+  return (parts.length >= 2 ? parts[0][0] + parts[1][0] : text.slice(0, 2)).toUpperCase();
 };
 const nameToHue = (name) => {
   const str = String(name || "?");
   let hash = 0;
-  for (let i = 0; i < str.length; i += 1) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
+  for (let i = 0; i < str.length; i += 1) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return Math.abs(hash) % 360;
 };
-const matchesCustomerIdentity = (row = {}, customer = {}) => {
-  const customerId = normalizeText(
-    customer?._id || customer?.id || customer?.customerId,
-  );
-  const customerName = normalizeText(customer?.customerName || customer?.name);
-  const customerMobile = normalizeText(
-    customer?.primaryMobile || customer?.mobile,
-  );
-  const rowCustomerId = normalizeText(
-    row?.customerId || row?.customerSnapshot?.customerId,
-  );
-  const rowCustomerName = normalizeText(
-    row?.customerName || row?.customerSnapshot?.customerName,
-  );
-  const rowMobile = normalizeText(
-    row?.primaryMobile || row?.customerSnapshot?.primaryMobile,
-  );
-  return (
-    (customerId && rowCustomerId === customerId) ||
-    (customerName && rowCustomerName.includes(customerName)) ||
-    (customerMobile && rowMobile.includes(customerMobile))
-  );
+const yearsLabel = (n) => `${n} ${Number(n) === 1 ? "Year" : "Years"}`;
+
+// ─── Domain mapping (matches Loan, InsuranceCase and Payment models) ────────
+
+const KYC_TAG = {
+  completed: { color: "green", label: "KYC Completed" },
+  "in progress": { color: "blue", label: "KYC In Progress" },
+  "pending docs": { color: "gold", label: "KYC Pending Docs" },
+  rejected: { color: "red", label: "KYC Rejected" },
 };
-const buildRiskMeta = (score, loans = []) => {
-  const numericScore = asNumber(score);
-  if (numericScore >= 780) {
-    return { label: "Low Risk", tone: "emerald", score: numericScore || null };
+
+const loanState = (loan, disbursedAmount) => {
+  const disburse = normalizeText(loan?.disburse_status);
+  const approval = normalizeText(loan?.approval_status);
+  const status = normalizeText(loan?.status);
+  if (normalizeText(loan?.isFinanced) === "no") return { key: "cash", label: "Cash purchase", color: "default" };
+  if (/cancel/.test(`${disburse} ${status}`)) return { key: "closed", label: "Cancelled", color: "default" };
+  if (/reject/.test(`${approval} ${status}`)) return { key: "closed", label: "Rejected", color: "red" };
+  if (disburse.includes("disburs") || status.includes("disburs") || disbursedAmount > 0) {
+    return { key: "disbursed", label: "Disbursed", color: "green" };
   }
-  if (numericScore >= 700) {
-    return { label: "Moderate", tone: "amber", score: numericScore || null };
-  }
-  if (numericScore > 0) {
-    return { label: "High Risk", tone: "rose", score: numericScore || null };
-  }
-  const defaultLabel = loans.some((loan) =>
-    /default|overdue|bounced/i.test(String(loan?.status || "")),
-  )
-    ? "High Risk"
-    : loans.some((loan) =>
-          /active|pending|approved/i.test(String(loan?.status || "")),
-        )
-      ? "Moderate"
-      : "Standard";
-  const tone =
-    defaultLabel === "High Risk"
-      ? "rose"
-      : defaultLabel === "Moderate"
-        ? "amber"
-        : "sky";
-  return { label: defaultLabel, tone, score: null };
+  if (approval.includes("approv")) return { key: "process", label: "Approved", color: "blue" };
+  return { key: "process", label: "In process", color: "gold" };
 };
-const statusMeta = (status) => {
-  const value = normalizeText(status);
-  if (/verified|active|approved|paid|settled|closed/.test(value)) {
-    return { label: status || "Active", color: "green" };
-  }
-  if (/pending|draft|in progress|processing/.test(value)) {
-    return { label: status || "Pending", color: "gold" };
-  }
-  if (/blocked|deactivated|rejected|default/.test(value)) {
-    return { label: status || "Blocked", color: "red" };
-  }
-  return { label: status || "Unknown", color: "blue" };
-};
-const loanStatusTone = (status) => {
-  const value = normalizeText(status);
-  if (/active|approved|disbursed|pending/.test(value)) return "blue";
-  if (/closed|completed|settled/.test(value)) return "green";
-  if (/default|overdue|bounced|failed/.test(value)) return "red";
-  return "default";
-};
-const insuranceTone = (status) => {
-  const value = normalizeText(status);
-  if (/active|valid|in force|verified/.test(value)) return "green";
-  if (/expired|lapsed|inactive/.test(value)) return "red";
-  if (/pending|draft|processing/.test(value)) return "gold";
-  return "default";
-};
-const paymentTone = (row = {}) => {
-  const text = normalizeText(
-    firstValue(row?.status, row?.paymentStatus, row?.overallStatus),
-  );
-  if (
-    /late|pending|missed|overdue|bounced/.test(text) ||
-    asNumber(row?.lateFee || row?.lateFees || row?.penalty)
-  )
-    return "red";
-  if (/paid|settled|verified|completed/.test(text)) return "green";
-  return "blue";
-};
-const sum = (items, selector) =>
-  items.reduce((total, item) => total + asNumber(selector(item)), 0);
-const loanAmountValue = (loan = {}) =>
-  firstValue(
-    loan?.loanAmount,
-    loan?.approval_loanAmountApproved,
-    loan?.approvalAmount,
-    loan?.approval_loanAmount,
-    loan?.financeAmount,
-  );
-const emiValue = (loan = {}) =>
-  firstValue(
-    loan?.emiAmount,
-    loan?.postfile_emiAmount,
-    loan?.approval_emiAmount,
-    loan?.monthlyEmi,
-  );
-const rateValue = (loan = {}) =>
-  firstValue(
-    loan?.interestRate,
-    loan?.rateOfInterest,
-    loan?.roi,
-    loan?.approval_interestRate,
-  );
-const vehicleLabel = (loan = {}) =>
-  [loan?.vehicleMake, loan?.vehicleModel, loan?.vehicleVariant]
-    .filter(Boolean)
-    .join(" ") || "Vehicle not set";
-const resolveLoanDate = (loan = {}) =>
-  firstValue(
-    loan?.startDate,
-    loan?.disbursement_date,
-    loan?.approval_disbursedDate,
-    loan?.createdAt,
-  );
-const resolveLoanEndDate = (loan = {}) =>
-  firstValue(
-    loan?.endDate,
-    loan?.end_date,
-    loan?.maturityDate,
-    loan?.expectedClosureDate,
-  );
-const normalizeLoan = (loan = {}, paymentByLoan = new Map()) => {
-  const amount = asNumber(loanAmountValue(loan));
-  const paid = asNumber(
-    paymentByLoan.get(String(loan?.loanId || loan?._id || "")),
-  );
-  const outstanding = firstValue(
-    loan?.pendingAmount,
-    loan?.balanceOutstanding,
-    loan?.outstandingAmount,
-    loan?.balanceAmount,
-  );
+
+const normalizeLoan = (loan = {}) => {
+  const disbursedAmount = firstPositive(loan.disburse_amount, loan.approval_loanAmountDisbursed, loan.postfile_loanAmountDisbursed);
+  const approvedAmount = firstPositive(loan.approval_loanAmountApproved);
+  const requestedAmount = firstPositive(loan.loanAmount, loan.financeExpectation);
+  const tenureMonths = firstPositive(loan.postfile_tenureMonths, loan.approval_tenureMonths, loan.tenure);
+  const firstEmiDate = parseDate(loan.postfile_firstEmiDate);
   return {
-    id: String(loan?._id || loan?.loanId || Math.random()),
-    loanId: loan?.loanId || loan?.loan_number || loan?._id || "—",
-    amount,
-    rate: rateValue(loan),
-    emi: emiValue(loan),
-    startDate: resolveLoanDate(loan),
-    endDate: resolveLoanEndDate(loan),
-    status:
-      firstValue(
-        loan?.status,
-        loan?.currentStage,
-        loan?.loanStatus,
-        loan?.approval_status,
-      ) || "Unknown",
-    vehicle: vehicleLabel(loan),
-    registrationNumber:
-      firstValue(
-        loan?.vehicleRegNo,
-        loan?.registrationNumber,
-        loan?.rc_redg_no,
-      ) || "—",
-    bank: firstValue(loan?.bankName, loan?.approval_bankName) || "—",
-    loanStage:
-      firstValue(loan?.currentStage, loan?.currentStatus, loan?.status) || "—",
-    paymentPaid: paid,
-    outstanding: asNumber(outstanding || Math.max(amount - paid, 0)),
-    approvalAmount: asNumber(
-      firstValue(loan?.approval_loanAmountApproved, loan?.approvalAmount),
-    ),
-    disbursedAmount: asNumber(
-      firstValue(
-        loan?.approval_loanAmountDisbursed,
-        loan?.disburse_amount,
-        loan?.disburseAmount,
-      ),
-    ),
-    createdAt: loan?.createdAt,
-    updatedAt: loan?.updatedAt,
-    raw: loan,
+    key: String(loan._id || loan.loanId),
+    routeId: loan._id || loan.loanId,
+    loanId: loan.loanId || "—",
+    loanType: firstValue(loan.typeOfLoan, loan.loanType) || "",
+    vehicle: [loan.vehicleMake, loan.vehicleModel, loan.vehicleVariant].filter(Boolean).join(" ") || "Vehicle not added",
+    registrationNumber: firstValue(loan.vehicleRegNo, loan.rc_redg_no, loan.registrationNumber) || "",
+    bank: firstValue(loan.disburse_bankName, loan.approval_bankName, loan.bankName) || "",
+    requestedAmount,
+    approvedAmount,
+    disbursedAmount,
+    roi: firstPositive(loan.postfile_roi, loan.approval_roi, loan.interestRate),
+    tenureMonths,
+    emi: firstPositive(loan.postfile_emiAmount),
+    firstEmiDate,
+    lastEmiDate: firstEmiDate && tenureMonths ? addMonths(firstEmiDate, tenureMonths - 1) : null,
+    approvedOn: parseDate(loan.approval_approvalDate),
+    disbursedOn: parseDate(firstValue(loan.disburse_date, loan.approval_disbursedDate, loan.disbursement_date)),
+    stage: loan.currentStage || "",
+    state: loanState(loan, disbursedAmount),
+    createdAt: parseDate(loan.createdAt),
   };
 };
-const normalizeInsurance = (row = {}) => ({
-  id: String(row?._id || row?.caseId || Math.random()),
-  policyNumber:
-    firstValue(
-      row?.policyNumber,
-      row?.policyNo,
-      row?.caseId,
-      row?.insurancePolicyNo,
-    ) || "—",
-  provider:
-    firstValue(
-      row?.companyName,
-      row?.insurerName,
-      row?.providerName,
-      row?.insuranceCompany,
-    ) || "—",
-  coverage: asNumber(
-    firstValue(
-      row?.coverageAmount,
-      row?.sumInsured,
-      row?.insuranceAmount,
-      row?.insuredDeclaredValue,
-    ),
-  ),
-  expiryDate: firstValue(
-    row?.expiryDate,
-    row?.policyExpiryDate,
-    row?.policyEndDate,
-    row?.insuranceExpiryDate,
-  ),
-  status:
-    firstValue(row?.status, row?.policyStatus, row?.insuranceStatus) ||
-    "Unknown",
-  vehicle:
-    firstValue(
-      row?.vehicleName,
-      row?.vehicleModel,
-      row?.registrationNumber,
-      row?.vehicleRegNo,
-    ) || "—",
-  registrationNumber:
-    firstValue(row?.registrationNumber, row?.vehicleRegNo, row?.rc_redg_no) ||
-    "—",
-  loanId: firstValue(row?.loanId, row?.linkedLoanId) || "—",
-  customerId: firstValue(row?.customerId) || "",
-  customerName:
-    firstValue(row?.customerName, row?.customerSnapshot?.customerName) || "",
-  raw: row,
-});
-const normalizePayment = (row = {}) => ({
-  id: String(row?._id || row?.paymentId || row?.loanId || Math.random()),
-  date: firstValue(
-    row?.paymentDate,
-    row?.paidDate,
-    row?.receiptDate,
-    row?.transactionDate,
-    row?.createdAt,
-  ),
-  loanId: firstValue(row?.loanId, row?.do_loanId) || "—",
-  amount: asNumber(
-    firstValue(
-      row?.amount,
-      row?.paymentAmount,
-      row?.receiptAmount,
-      row?.paidAmount,
-    ),
-  ),
-  status:
-    firstValue(row?.status, row?.paymentStatus, row?.overallStatus) ||
-    "Recorded",
-  lateFee: asNumber(
-    firstValue(row?.lateFee, row?.lateFees, row?.penalty, row?.lateCharge),
-  ),
-  remarks:
-    firstValue(row?.remarks, row?.note, row?.paymentRemark, row?.reason) || "—",
-  mode: firstValue(row?.paymentMode, row?.receiptMode, row?.mode) || "—",
-  customerName: firstValue(row?.customerName, row?.do_customerName) || "",
-  raw: row,
-});
+
+const INSURANCE_STATUS = {
+  issued: { label: "Issued", color: "green" },
+  submitted: { label: "Submitted", color: "blue" },
+  draft: { label: "Draft", color: "default" },
+  cancelled: { label: "Cancelled", color: "red" },
+};
+
+const normalizeInsurance = (row = {}) => {
+  const quotes = toArray(row.quotes);
+  const accepted =
+    quotes.find((quote) => isPresent(row.acceptedQuoteId) && String(quote?.id) === String(row.acceptedQuoteId)) ||
+    quotes.find((quote) => quote?.isAccepted);
+  const tenure = row.policyTenure || {};
+  const odYears = asNumber(tenure.odTenureYears);
+  const tpYears = asNumber(tenure.tpTenureYears);
+  return {
+    key: String(row._id || row.caseId),
+    routeId: row.caseId || row._id,
+    caseId: row.caseId || "—",
+    policyNumber: row.newPolicyNumber || "",
+    insurer: firstValue(row.newInsuranceCompany, accepted?.insuranceCompany) || "",
+    policyType: firstValue(row.newPolicyType, accepted?.coverageType) || "",
+    tenureLabel: odYears && tpYears ? `${yearsLabel(odYears)} OD + ${yearsLabel(tpYears)} TP` : row.newInsuranceDuration || "",
+    premium: firstPositive(row.newTotalPremium, accepted?.totalPremium),
+    idv: firstPositive(row.newIdvAmount, accepted?.totalIdv, row.newVehicleIdv),
+    vehicle: [row.vehicleMake, row.vehicleModel, row.vehicleVariant].filter(Boolean).join(" ") || "",
+    registrationNumber: row.registrationNumber || "",
+    issuedOn: parseDate(row.newIssueDate),
+    odExpiry: parseDate(row.newOdExpiryDate),
+    tpExpiry: parseDate(row.newTpExpiryDate),
+    status: INSURANCE_STATUS[normalizeText(row.status)] || { label: row.status || "Draft", color: "default" },
+    isIssued: normalizeText(row.status) === "issued",
+    createdAt: parseDate(row.createdAt),
+    customerId: String(row.customerId || ""),
+    customerName: firstValue(row.customerName, row.customerSnapshot?.customerName) || "",
+    mobile: firstValue(row.mobile, row.customerSnapshot?.primaryMobile) || "",
+  };
+};
+
+const expiryBadge = (date) => {
+  const days = daysUntil(date);
+  if (days === null) return null;
+  if (days < 0) return { label: "Expired", className: "bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/10 dark:text-rose-300 dark:ring-rose-500/30" };
+  if (days <= 30) return { label: `${days}d left`, className: "bg-amber-50 text-amber-700 ring-amber-200 dark:bg-amber-500/10 dark:text-amber-300 dark:ring-amber-500/30" };
+  return null;
+};
+
+// Payment sheets hold showroom payments and AutoCredits receipts per loan file — not EMIs.
+const paymentEntriesFromSheet = (sheet = {}) => {
+  const entries = [];
+  toArray(sheet.showroomRows).forEach((row, index) => {
+    const amount = asNumber(row?.paymentAmount);
+    if (amount <= 0) return;
+    entries.push({
+      key: `${sheet.loanId}-s-${index}`,
+      loanId: sheet.loanId,
+      direction: "paid",
+      label: row?.paymentType || "Showroom payment",
+      party: row?.paymentMadeBy || sheet.showroomName || "",
+      mode: row?.paymentMode || "",
+      amount,
+      date: parseDate(row?.paymentDate),
+    });
+  });
+  toArray(sheet.autocreditsRows).forEach((row, index) => {
+    const amount = asNumber(row?.receiptAmount);
+    if (amount <= 0) return;
+    entries.push({
+      key: `${sheet.loanId}-r-${index}`,
+      loanId: sheet.loanId,
+      direction: "received",
+      label: toArray(row?.receiptTypes).join(", ") || "Receipt",
+      party: "AutoCredits",
+      mode: row?.receiptMode || "",
+      amount,
+      date: parseDate(row?.receiptDate),
+    });
+  });
+  return entries;
+};
+
+// ─── UI building blocks ─────────────────────────────────────────────────────
+
+const CARD = "rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-950";
+const LABEL = "text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400";
+
+const Section = ({ title, subtitle, action, children, bodyClassName = "p-5" }) => (
+  <section className={CARD}>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+      <div>
+        <h3 className="text-base font-bold text-slate-900 dark:text-slate-50">{title}</h3>
+        {subtitle && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+    <div className={bodyClassName}>{children}</div>
+  </section>
+);
+
+const Kpi = ({ label, value, hint, icon: Icon, tone }) => (
+  <div className={`${CARD} p-4`}>
+    <div className="flex items-center justify-between gap-2">
+      <p className={LABEL}>{label}</p>
+      <span className={`flex h-8 w-8 items-center justify-center rounded-lg ${tone}`}><Icon size={15} /></span>
+    </div>
+    <p className="mt-3 truncate text-xl font-bold tabular-nums text-slate-900 dark:text-slate-50 2xl:text-2xl">{value}</p>
+    <p className="mt-1 truncate text-xs text-slate-500 dark:text-slate-400">{hint}</p>
+  </div>
+);
+
+const DetailGroup = ({ icon: Icon, title, rows }) => {
+  const visible = rows.filter((row) => isPresent(row.value));
+  return (
+    <div className="py-4 first:pt-0 last:pb-0">
+      <div className="mb-2 flex items-center gap-2">
+        <Icon size={15} className="text-slate-400" />
+        <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">{title}</h4>
+      </div>
+      {visible.length ? (
+        <dl className="grid grid-cols-1 gap-x-4 gap-y-2.5 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          {visible.map((row) => (
+            <div key={row.label} className={row.wide ? "sm:col-span-2 xl:col-span-1 2xl:col-span-2" : ""}>
+              <dt className="text-xs text-slate-500 dark:text-slate-400">{row.label}</dt>
+              <dd className="mt-0.5 break-words text-sm font-medium text-slate-900 dark:text-slate-100">{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm text-slate-400 dark:text-slate-500">Not added yet</p>
+      )}
+    </div>
+  );
+};
+
+const SectionError = ({ text }) => <Alert type="warning" showIcon className="mb-4" message={text} />;
+
+// ─── Page ───────────────────────────────────────────────────────────────────
 
 const CustomerProfilePage = () => {
   const { id } = useParams();
@@ -362,10 +296,12 @@ const CustomerProfilePage = () => {
   const [error, setError] = useState("");
   const [customer, setCustomer] = useState(null);
   const [summary, setSummary] = useState(null);
-  const [dashboardLoans, setDashboardLoans] = useState([]);
   const [loans, setLoans] = useState([]);
   const [insurance, setInsurance] = useState([]);
-  const [payments, setPayments] = useState([]);
+  const [paymentSheets, setPaymentSheets] = useState([]);
+  const [sectionErrors, setSectionErrors] = useState({});
+  const [showAllActivity, setShowAllActivity] = useState(false);
+  const [avatarBroken, setAvatarBroken] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -374,150 +310,91 @@ const CustomerProfilePage = () => {
     const load = async () => {
       setLoading(true);
       setError("");
+      setSectionErrors({});
       try {
-        console.log("🔍 Loading customer profile for ID:", id);
-
-        const [detailRes, dashboardRes] = await Promise.all([
+        const [detailResult, dashboardResult] = await Promise.allSettled([
           customersApi.getById(id),
           customersApi.getDashboard(id),
         ]);
+        const detail = detailResult.status === "fulfilled" ? getData(detailResult.value) || {} : {};
+        const dashboard = dashboardResult.status === "fulfilled" ? getData(dashboardResult.value) || {} : {};
+        const resolvedCustomer = { ...(dashboard.customer || {}), ...detail };
+        if (!resolvedCustomer._id && !resolvedCustomer.customerId) {
+          const reason = detailResult.reason || dashboardResult.reason;
+          throw new Error(reason?.message || "Customer not found");
+        }
 
-        console.log("📦 Customer Detail Response:", detailRes);
-        console.log("📦 Dashboard Response:", dashboardRes);
+        const customerObjectId = String(resolvedCustomer._id || id);
+        const customerName = normalizeText(resolvedCustomer.customerName);
+        const customerMobile = lastTenDigits(resolvedCustomer.primaryMobile);
+        const errors = {};
 
-        const detail = getData(detailRes) || {};
-        const dashboard = getData(dashboardRes) || {};
-        console.log("📋 Extracted Detail:", detail);
-        console.log("📋 Extracted Dashboard:", dashboard);
-
-        const dashboardCustomer =
-          dashboard?.customer || dashboard?.data?.customer || {};
-        const resolvedCustomer =
-          detail && Object.keys(detail).length ? detail : dashboardCustomer;
-        const customerName = firstValue(
-          resolvedCustomer?.customerName,
-          dashboardCustomer?.customerName,
-          dashboard?.customerName,
-          detail?.customerName,
-          "",
-        );
-
-        console.log("👤 Customer Name:", customerName);
-        console.log("👤 Resolved Customer:", resolvedCustomer);
-
-        const dashboardLoanRows = toArray(
-          dashboard?.loans || dashboard?.linkedLoans || detail?.linkedLoans,
-        );
-        const dashboardSummary = dashboard?.summary || {
-          totalLoans: dashboardLoanRows.length,
-        };
-
-        console.log("💰 Dashboard Loans:", dashboardLoanRows);
-        console.log("📊 Dashboard Summary:", dashboardSummary);
-
-        const [loanRes, insuranceRes, paymentRes] = await Promise.all([
-          loansApi.getAll({ search: customerName, limit: 1000, skip: 0 }),
-          insuranceApi.getAll({ limit: 1000, skip: 0 }),
-          paymentsApi.getAll({ search: customerName, limit: 1000, skip: 0 }),
+        // Loans: linked by customerId, plus legacy files without a link that match both mobile and name.
+        const [linkedLoansResult, legacyLoansResult] = await Promise.allSettled([
+          loansApi.getAll({ customerId: customerObjectId, limit: 1000, noCount: 1 }),
+          customerMobile ? loansApi.getAll({ primaryMobile: customerMobile, limit: 200, noCount: 1 }) : Promise.resolve(null),
         ]);
-
-        console.log("📄 Loans Response:", loanRes);
-        console.log("🛡️ Insurance Response:", insuranceRes);
-        console.log("💳 Payments Response:", paymentRes);
-
-        const fullLoans = toArray(getData(loanRes));
-        const insuranceRows = toArray(getData(insuranceRes));
-        const paymentRows = toArray(getData(paymentRes));
-
-        console.log("✅ Processed Loans:", fullLoans);
-        console.log("✅ Processed Insurance:", insuranceRows);
-        console.log("✅ Processed Payments:", paymentRows);
-
-        const paymentRowsNormalized = paymentRows
-          .map(normalizePayment)
-          .filter(
-            (row) =>
-              !customerName ||
-              normalizeText(row.customerName || "").includes(
-                normalizeText(customerName),
-              ) ||
-              row.loanId !== "—",
-          );
-
-        const paymentByLoan = new Map();
-        paymentRowsNormalized.forEach((payment) => {
-          const loanKey = String(payment?.loanId || "").trim();
-          if (!loanKey) return;
-          const current = paymentByLoan.get(loanKey) || 0;
-          paymentByLoan.set(loanKey, current + payment.amount);
+        if (linkedLoansResult.status === "rejected") errors.loans = "Loan files could not be loaded.";
+        const loanMap = new Map();
+        toArray(linkedLoansResult.status === "fulfilled" ? getData(linkedLoansResult.value) : []).forEach((loan) => {
+          loanMap.set(String(loan._id || loan.loanId), loan);
         });
+        toArray(legacyLoansResult.status === "fulfilled" ? getData(legacyLoansResult.value) : []).forEach((loan) => {
+          const linkedElsewhere = loan.customerId && String(loan.customerId) !== customerObjectId;
+          if (linkedElsewhere || normalizeText(loan.customerName) !== customerName) return;
+          loanMap.set(String(loan._id || loan.loanId), loan);
+        });
+        const normalizedLoans = [...loanMap.values()]
+          .map(normalizeLoan)
+          .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0));
 
-        const mergedLoanMap = new Map();
-        [...dashboardLoanRows, ...fullLoans]
-          .filter(
-            (loan) =>
-              loan &&
-              (matchesCustomerIdentity(loan, resolvedCustomer) ||
-                matchesCustomerIdentity(loan, dashboardCustomer) ||
-                !customerName),
-          )
-          .forEach((loan) => {
-            const key = String(
-              loan?._id || loan?.loanId || loan?.loan_number || "",
-            ).trim();
-            if (!key) return;
-            if (!mergedLoanMap.has(key)) mergedLoanMap.set(key, loan);
-            else mergedLoanMap.set(key, { ...mergedLoanMap.get(key), ...loan });
-          });
-
-        const normalizedLoans = [...mergedLoanMap.values()].map((loan) =>
-          normalizeLoan(loan, paymentByLoan),
+        // Insurance list has no customerId filter, so search by mobile and name, then match strictly.
+        const insuranceSearches = [customerMobile, resolvedCustomer.customerName].filter((term) => String(term || "").trim().length >= 2);
+        const insuranceResults = await Promise.allSettled(
+          insuranceSearches.map((search) => insuranceApi.getAll({ search, limit: 200 })),
         );
-        const normalizedInsurance = insuranceRows
-          .map(normalizeInsurance)
-          .filter((row) => {
-            const idMatch =
-              String(row.customerId || "") ===
-              String(resolvedCustomer?._id || detail?._id || "");
-            const nameMatch =
-              customerName &&
-              normalizeText(row.customerName).includes(
-                normalizeText(customerName),
-              );
-            return idMatch || nameMatch || !customerName;
+        if (insuranceResults.some((result) => result.status === "rejected")) errors.insurance = "Some insurance cases could not be loaded.";
+        const insuranceMap = new Map();
+        insuranceResults.forEach((result) => {
+          if (result.status !== "fulfilled") return;
+          toArray(getData(result.value)).map(normalizeInsurance).forEach((row) => {
+            const idMatch = row.customerId && row.customerId === customerObjectId;
+            const linkedElsewhere = row.customerId && row.customerId !== customerObjectId;
+            const mobileMatch = customerMobile && lastTenDigits(row.mobile) === customerMobile;
+            const nameMatch = customerName && normalizeText(row.customerName) === customerName;
+            const matches = idMatch || (!linkedElsewhere && (customerMobile ? mobileMatch && nameMatch : nameMatch));
+            if (matches) insuranceMap.set(row.key, row);
           });
+        });
+        const normalizedInsurance = [...insuranceMap.values()].sort(
+          (a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0),
+        );
 
-        const finalCustomer = {
-          ...dashboardCustomer,
-          ...detail,
-          ...resolvedCustomer,
-        };
-
-        console.log("🎯 Final Customer:", finalCustomer);
-        console.log("📊 Summary:", dashboardSummary);
-        console.log("📋 Normalized Loans:", normalizedLoans);
-        console.log("🛡️ Normalized Insurance:", normalizedInsurance);
-        console.log("💳 Payment Rows Normalized:", paymentRowsNormalized);
+        // Payment sheets for this customer's loan files only.
+        let sheets = [];
+        const loanIds = normalizedLoans.map((loan) => loan.loanId).filter((loanId) => loanId && loanId !== "—");
+        if (loanIds.length) {
+          try {
+            const paymentRes = await paymentsApi.getAll({ loanIds: loanIds.join(","), limit: 500, noCount: 1 });
+            const allowed = new Set(loanIds);
+            sheets = toArray(getData(paymentRes)).filter((sheet) => allowed.has(sheet.loanId));
+          } catch {
+            errors.payments = "Payments could not be loaded.";
+          }
+        }
 
         if (!cancelled) {
-          setCustomer(finalCustomer);
-          setSummary(dashboardSummary);
-          setDashboardLoans(dashboardLoanRows);
+          setCustomer(resolvedCustomer);
+          setSummary(dashboard.summary || null);
           setLoans(normalizedLoans);
           setInsurance(normalizedInsurance);
-          setPayments(paymentRowsNormalized);
-          console.log("✨ State updated successfully!");
+          setPaymentSheets(sheets);
+          setSectionErrors(errors);
         }
       } catch (err) {
-        console.error("❌ Error loading customer profile:", err);
-        if (!cancelled) {
-          setError(err?.message || "Failed to load customer profile");
-        }
+        if (!cancelled) setError(err?.message || "Failed to load customer profile");
       } finally {
-        if (!cancelled) {
-          setLoading(false);
-          console.log("🏁 Loading complete");
-        }
+        if (!cancelled) setLoading(false);
       }
     };
 
@@ -527,337 +404,69 @@ const CustomerProfilePage = () => {
     };
   }, [id]);
 
-  const customerName = customer?.customerName || customer?.name || "Customer";
-  const customerId = customer?.customerId || summary?.customerId || "—";
-  const initials = getInitials(customerName);
-  const hue = nameToHue(customerName);
-  const avatarUrl = String(
-    customer?.avatarUrl || customer?.photoUrl || "",
-  ).trim();
-  const score = firstValue(
-    customer?.creditScore,
-    customer?.cibilScore,
-    customer?.cibil,
-    customer?.score,
-  );
-  const risk = buildRiskMeta(score, loans);
-  const kyc = statusMeta(
-    customer?.kycStatus || customer?.kyc_status || customer?.kyc,
-  );
-  const account = statusMeta(
-    firstValue(
-      customer?.status,
-      customer?.accountStatus,
-      customer?.customerStatus,
-    ),
+  const paymentEntries = useMemo(
+    () =>
+      paymentSheets
+        .flatMap(paymentEntriesFromSheet)
+        .sort((a, b) => (b.date?.getTime() || 0) - (a.date?.getTime() || 0)),
+    [paymentSheets],
   );
 
-  const activeLoans = loans.filter((loan) =>
-    /active|approved|disbursed|pending/i.test(String(loan.status || "")),
-  ).length;
-  const closedLoans = loans.filter((loan) =>
-    /closed|completed|settled/i.test(String(loan.status || "")),
-  ).length;
-  const defaultedLoans = loans.filter((loan) =>
-    /default|overdue|bounced/i.test(String(loan.status || "")),
-  ).length;
-  const totalLoanAmount = sum(
-    loans,
-    (loan) => loan.amount || loan.approvalAmount || loan.disbursedAmount,
-  );
-  const totalEMIPaid = sum(payments, (row) => row.amount);
-  const pendingAmount = sum(loans, (loan) => loan.outstanding);
-  const totalInsuranceCoverage = sum(insurance, (row) => row.coverage);
-  const activeInsuranceCount = insurance.filter((row) =>
-    /active|verified|in force|valid/i.test(String(row.status || "")),
-  ).length;
-  const paymentLateFees = sum(payments, (row) => row.lateFee);
-  const repaymentProgress =
-    totalLoanAmount > 0
-      ? Math.min(
-          100,
-          Math.round(
-            ((totalLoanAmount - pendingAmount) / totalLoanAmount) * 100,
-          ),
-        )
-      : 0;
-  const totalPaymentEvents = payments.length;
-  const onTimePayments = payments.filter(
-    (row) =>
-      !row.lateFee &&
-      !/late|missed|overdue|bounced/i.test(String(row.status || "")),
-  ).length;
-  const paymentConsistency = totalPaymentEvents
-    ? Math.round((onTimePayments / totalPaymentEvents) * 100)
-    : 0;
+  const stats = useMemo(() => {
+    const disbursed = loans.filter((loan) => loan.state.key === "disbursed");
+    const inProcess = loans.filter((loan) => loan.state.key === "process");
+    const issued = insurance.filter((row) => row.isIssued);
+    return {
+      disbursedCount: disbursed.length,
+      inProcessCount: inProcess.length,
+      totalDisbursed: disbursed.reduce((total, loan) => total + loan.disbursedAmount, 0),
+      totalApproved: loans.reduce((total, loan) => total + loan.approvedAmount, 0),
+      monthlyEmi: disbursed.reduce((total, loan) => total + loan.emi, 0),
+      runningEmiCount: disbursed.filter((loan) => loan.emi > 0 && (!loan.lastEmiDate || daysUntil(loan.lastEmiDate) >= 0)).length,
+      issuedCount: issued.length,
+      totalPremium: issued.reduce((total, row) => total + row.premium, 0),
+      paidToShowroom: paymentEntries.filter((entry) => entry.direction === "paid").reduce((total, entry) => total + entry.amount, 0),
+      receivedByAutocredits: paymentEntries.filter((entry) => entry.direction === "received").reduce((total, entry) => total + entry.amount, 0),
+    };
+  }, [loans, insurance, paymentEntries]);
 
-  const vehicleCards = useMemo(() => {
-    const byKey = new Map();
-    loans.forEach((loan) => {
-      const key = String(
-        loan.registrationNumber || loan.vehicle || loan.loanId || Math.random(),
-      );
-      if (!byKey.has(key)) {
-        const matchingInsurance = insurance.find(
-          (item) =>
-            normalizeText(item.registrationNumber) ===
-              normalizeText(loan.registrationNumber) ||
-            normalizeText(item.loanId) === normalizeText(loan.loanId) ||
-            (!item.registrationNumber &&
-              !loan.registrationNumber &&
-              normalizeText(item.customerName).includes(
-                normalizeText(customerName),
-              )),
-        );
-        byKey.set(key, {
-          id: key,
-          vehicle: loan.vehicle,
-          registrationNumber: loan.registrationNumber,
-          loanId: loan.loanId,
-          insuranceStatus: matchingInsurance?.status,
-          insuranceExpiry: matchingInsurance?.expiryDate,
-        });
-      }
-    });
-    return [...byKey.values()];
-  }, [loans, insurance, customerName]);
-
-  const timelineItems = useMemo(() => {
+  const activity = useMemo(() => {
     const items = [];
+    const created = parseDate(customer?.createdOn || customer?.createdAt);
+    if (created) items.push({ key: "customer", date: created, tone: "bg-slate-400", title: "Customer profile created", detail: customer?.customerId || "" });
     loans.forEach((loan) => {
-      if (loan.createdAt) {
-        items.push({
-          key: `${loan.id}-applied`,
-          date: loan.createdAt,
-          color: "blue",
-          label: "Loan applied",
-          title: loan.loanId,
-          description: `${loan.vehicle} • ${formatCurrency(loan.amount || loan.approvalAmount || loan.disbursedAmount)}`,
-        });
-      }
-      if (
-        loan.status &&
-        /approved|disbursed|active/i.test(String(loan.status))
-      ) {
-        items.push({
-          key: `${loan.id}-approved`,
-          date: loan.updatedAt || loan.createdAt,
-          color: "green",
-          label: "Loan approved",
-          title: loan.loanId,
-          description: `${loan.status} • EMI ${loan.emi ? formatCurrency(loan.emi) : "N/A"}`,
-        });
-      }
-      if (loan.outstanding > 0) {
-        items.push({
-          key: `${loan.id}-pending`,
-          date: loan.updatedAt || loan.createdAt,
-          color: "gold",
-          label: "Pending amount",
-          title: loan.loanId,
-          description: `${formatCurrency(loan.outstanding)} still outstanding`,
-        });
-      }
-      if (/default|overdue|bounced/i.test(String(loan.status || ""))) {
-        items.push({
-          key: `${loan.id}-default`,
-          date: loan.updatedAt || loan.createdAt,
-          color: "red",
-          label: "Penalty / default",
-          title: loan.loanId,
-          description: `Needs attention for ${loan.vehicle}`,
-        });
-      }
+      if (loan.createdAt) items.push({ key: `${loan.key}-c`, date: loan.createdAt, tone: "bg-sky-500", title: `Loan file ${loan.loanId} created`, detail: loan.vehicle });
+      if (loan.approvedOn) items.push({ key: `${loan.key}-a`, date: loan.approvedOn, tone: "bg-indigo-500", title: `Loan ${loan.loanId} approved`, detail: [loan.bank, loan.approvedAmount ? formatCurrency(loan.approvedAmount) : ""].filter(Boolean).join(" · ") });
+      if (loan.disbursedOn) items.push({ key: `${loan.key}-d`, date: loan.disbursedOn, tone: "bg-emerald-500", title: `Loan ${loan.loanId} disbursed`, detail: [loan.bank, loan.disbursedAmount ? formatCurrency(loan.disbursedAmount) : ""].filter(Boolean).join(" · ") });
     });
-
-    payments.slice(0, 20).forEach((payment) => {
+    insurance.forEach((row) => {
+      if (row.createdAt) items.push({ key: `${row.key}-c`, date: row.createdAt, tone: "bg-violet-400", title: `Insurance case ${row.caseId} created`, detail: row.vehicle || row.registrationNumber });
+      if (row.issuedOn) items.push({ key: `${row.key}-i`, date: row.issuedOn, tone: "bg-violet-600", title: "Insurance policy issued", detail: [row.insurer, row.policyNumber].filter(Boolean).join(" · ") });
+    });
+    paymentEntries.forEach((entry) => {
+      if (!entry.date) return;
       items.push({
-        key: `${payment.id}-payment`,
-        date: payment.date,
-        color: paymentTone(payment) === "red" ? "red" : "blue",
-        label:
-          asNumber(payment.lateFee) > 0 ? "EMI paid with late fee" : "EMI paid",
-        title: payment.loanId,
-        description: `${formatCurrency(payment.amount)} • ${payment.mode}${asNumber(payment.lateFee) > 0 ? ` • late fee ${formatCurrency(payment.lateFee)}` : ""}`,
+        key: entry.key,
+        date: entry.date,
+        tone: entry.direction === "paid" ? "bg-amber-500" : "bg-emerald-400",
+        title: `${entry.direction === "paid" ? "Paid to showroom" : "Received"} ${formatCurrency(entry.amount)}`,
+        detail: [entry.loanId, entry.label, entry.mode].filter(Boolean).join(" · "),
       });
     });
-
-    insurance.forEach((policy) => {
-      items.push({
-        key: `${policy.id}-insurance`,
-        date:
-          policy.expiryDate || policy.raw?.updatedAt || policy.raw?.createdAt,
-        color: insuranceTone(policy.status) === "red" ? "red" : "green",
-        label: "Insurance update",
-        title: policy.policyNumber,
-        description: `${policy.provider} • ${policy.status}`,
-      });
-    });
-
-    return items
-      .filter((item) => item.date)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 18);
-  }, [loans, payments, insurance]);
-
-  const analyticsBars = useMemo(() => {
-    const months = new Map();
-    payments.forEach((payment) => {
-      const date = payment.date ? new Date(payment.date) : null;
-      if (!date || Number.isNaN(date.getTime())) return;
-      const key = date.toLocaleDateString("en-IN", {
-        month: "short",
-        year: "numeric",
-      });
-      months.set(key, (months.get(key) || 0) + payment.amount);
-    });
-    const entries = [...months.entries()].slice(-6);
-    const max = Math.max(...entries.map(([, value]) => value), 1);
-    return entries.map(([label, value]) => ({
-      label,
-      value,
-      width: Math.max(8, Math.round((value / max) * 100)),
-    }));
-  }, [payments]);
-
-  const summaryCards = [
-    {
-      title: "Total Loan Amount Taken",
-      value: formatCurrency(totalLoanAmount),
-      subtitle: `${formatNumber(loans.length)} linked loans`,
-      icon: DollarSign,
-      tone: "from-sky-500 to-indigo-600",
-    },
-    {
-      title: "Active Loans",
-      value: formatNumber(activeLoans),
-      subtitle: `${formatNumber(closedLoans)} closed`,
-      icon: Banknote,
-      tone: "from-emerald-500 to-green-600",
-    },
-    {
-      title: "Closed Loans",
-      value: formatNumber(closedLoans),
-      subtitle: `${formatNumber(defaultedLoans)} defaulted`,
-      icon: CheckCircle2,
-      tone: "from-violet-500 to-fuchsia-600",
-    },
-    {
-      title: "Total EMI Paid",
-      value: formatCurrency(totalEMIPaid),
-      subtitle: `${formatNumber(totalPaymentEvents)} payments`,
-      icon: CreditCard,
-      tone: "from-amber-500 to-orange-600",
-    },
-    {
-      title: "Pending Amount",
-      value: formatCurrency(pendingAmount),
-      subtitle: `${formatCurrency(paymentLateFees)} late fees`,
-      icon: CircleAlert,
-      tone: "from-rose-500 to-red-600",
-    },
-    {
-      title: "Insurance Coverage",
-      value: formatCurrency(totalInsuranceCoverage),
-      subtitle: `${formatNumber(activeInsuranceCount)} active policies`,
-      icon: ShieldCheck,
-      tone: "from-cyan-500 to-blue-600",
-    },
-  ];
-
-  const loanColumns = [
-    {
-      title: "Loan ID",
-      dataIndex: "loanId",
-      key: "loanId",
-      render: (value) => (
-        <span className="font-semibold text-slate-900 dark:text-slate-100">
-          {value}
-        </span>
-      ),
-    },
-    {
-      title: "Loan Amount",
-      dataIndex: "amount",
-      key: "amount",
-      render: (value) => formatCurrency(value),
-    },
-    {
-      title: "Interest Rate",
-      dataIndex: "rate",
-      key: "rate",
-      render: (value) => (isPresent(value) ? `${value}%` : "—"),
-    },
-    {
-      title: "Start / End",
-      key: "duration",
-      render: (_, row) => (
-        <div className="text-xs text-slate-600 dark:text-slate-300">
-          <div>{formatDate(row.startDate)}</div>
-          <div>{formatDate(row.endDate)}</div>
-        </div>
-      ),
-    },
-    {
-      title: "EMI",
-      dataIndex: "emi",
-      key: "emi",
-      render: (value) => (value ? formatCurrency(value) : "—"),
-    },
-    {
-      title: "Status",
-      dataIndex: "status",
-      key: "status",
-      render: (value) => (
-        <Tag color={loanStatusTone(value)}>{value || "Unknown"}</Tag>
-      ),
-    },
-  ];
-
-  const loanExpandedRowRender = (row) => (
-    <div className="grid grid-cols-1 gap-3 p-2 md:grid-cols-3">
-      {[
-        { label: "Vehicle", value: row.vehicle },
-        { label: "Registration", value: row.registrationNumber },
-        { label: "Bank", value: row.bank },
-        { label: "Stage", value: row.loanStage },
-        {
-          label: "Approved Amount",
-          value: row.approvalAmount ? formatCurrency(row.approvalAmount) : "—",
-        },
-        {
-          label: "Disbursed Amount",
-          value: row.disbursedAmount
-            ? formatCurrency(row.disbursedAmount)
-            : "—",
-        },
-      ].map((item) => (
-        <div
-          key={item.label}
-          className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/50"
-        >
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-            {item.label}
-          </div>
-          <div className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">
-            {item.value}
-          </div>
-        </div>
-      ))}
-    </div>
-  );
+    return items.sort((a, b) => b.date.getTime() - a.date.getTime());
+  }, [customer, loans, insurance, paymentEntries]);
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 pb-12 pt-4 md:px-6">
-        <div className="mb-4 flex items-center gap-3 text-sm text-slate-500">
-          <Spin size="small" /> Loading customer profile...
+      <div className="w-full space-y-4 pb-10">
+        <div className="h-8 w-40 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-900" />
+        <div className="h-36 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-28 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900" />)}
         </div>
         <div className="grid gap-4 xl:grid-cols-12">
-          <div className="h-64 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-900 xl:col-span-12" />
-          <div className="h-28 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-900 xl:col-span-6" />
-          <div className="h-28 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-900 xl:col-span-6" />
-          <div className="h-64 animate-pulse rounded-3xl bg-slate-100 dark:bg-slate-900 xl:col-span-12" />
+          <div className="h-96 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900 xl:col-span-8" />
+          <div className="h-96 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-900 xl:col-span-4" />
         </div>
       </div>
     );
@@ -865,18 +474,14 @@ const CustomerProfilePage = () => {
 
   if (error) {
     return (
-      <div className="mx-auto max-w-7xl px-4 pb-12 pt-4 md:px-6">
+      <div className="w-full pb-10">
         <Alert
           type="error"
           showIcon
           message="Customer profile could not be loaded"
           description={error}
           action={
-            <button
-              type="button"
-              onClick={() => navigate("/customers")}
-              className="rounded-xl bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200"
-            >
+            <button type="button" onClick={() => navigate("/customers")} className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200">
               Back to customers
             </button>
           }
@@ -885,577 +490,441 @@ const CustomerProfilePage = () => {
     );
   }
 
-  return (
-    <div className="mx-auto max-w-7xl space-y-5 px-4 pb-12 pt-4 md:px-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <button
-            type="button"
-            onClick={() => navigate("/customers")}
-            className="mb-3 inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
-          >
-            <ArrowLeft size={14} /> Back to Customers
-          </button>
-          <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500 dark:text-slate-400">
-            Customer Profile Dashboard
-          </p>
-          <h1 className="mt-1 text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100 md:text-4xl">
-            {customerName}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            A complete overview of identity, loans, vehicles, payments,
-            insurance, and activity.
-          </p>
-        </div>
+  const customerName = customer?.customerName || "Customer";
+  const editId = customer?._id || id;
+  const kycTag = KYC_TAG[normalizeText(customer?.kycStatus)] || { color: "default", label: customer?.kycStatus ? `KYC ${customer.kycStatus}` : "KYC not set" };
+  const profileCompletion = Math.max(0, Math.min(100, asNumber(summary?.profileCompletion)));
+  const avatarUrl = String(customer?.avatarUrl || customer?.photoUrl || "").trim();
+  const age = ageFrom(customer?.dob);
+  const monthlyIncome = firstPositive(customer?.monthlyIncome, customer?.salaryMonthly, customer?.monthlySalary);
+  const currentAddress = [customer?.residenceAddress, customer?.city, customer?.state, customer?.pincode].filter(Boolean).join(", ");
+  const permanentAddress = customer?.sameAsCurrentAddress
+    ? "Same as current address"
+    : [customer?.permanentAddress, customer?.permanentCity, customer?.permanentPincode].filter(Boolean).join(", ");
+  const extraMobiles = toArray(customer?.extraMobiles).map((item) => (typeof item === "string" ? item : item?.mobile || item?.number)).filter(Boolean).join(", ");
 
-        <div className="flex flex-wrap items-center gap-2">
-          <Tag
-            color={kyc.color}
-            className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
-          >
-            KYC {kyc.label}
-          </Tag>
-          <Tag
-            color={account.color}
-            className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
-          >
-            Account {account.label}
-          </Tag>
-          <Tag
-            color={
-              risk.tone === "rose"
-                ? "red"
-                : risk.tone === "amber"
-                  ? "gold"
-                  : risk.tone === "emerald"
-                    ? "green"
-                    : "blue"
-            }
-            className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
-          >
-            {risk.label}
-            {risk.score ? ` • ${risk.score}` : ""}
-          </Tag>
+  const loanColumns = [
+    {
+      title: "Loan file",
+      key: "loanId",
+      fixed: "left",
+      width: 150,
+      render: (_, row) => (
+        <div>
+          <p className="font-semibold text-slate-900 dark:text-slate-100">{row.loanId}</p>
+          <p className="text-xs text-slate-500">{formatDate(row.createdAt)}</p>
         </div>
+      ),
+    },
+    {
+      title: "Vehicle",
+      key: "vehicle",
+      width: 220,
+      render: (_, row) => (
+        <div className="min-w-0">
+          <p className="truncate font-medium text-slate-900 dark:text-slate-100">{row.vehicle}</p>
+          <p className="text-xs uppercase text-slate-500">{row.registrationNumber || "Reg. no. pending"}</p>
+        </div>
+      ),
+    },
+    { title: "Bank", dataIndex: "bank", key: "bank", width: 150, render: (value) => value || "—" },
+    {
+      title: "Amount",
+      key: "amount",
+      width: 150,
+      align: "right",
+      render: (_, row) => (
+        <div className="tabular-nums">
+          <p className="font-semibold text-slate-900 dark:text-slate-100">{formatCurrency(row.disbursedAmount || row.approvedAmount || row.requestedAmount)}</p>
+          <p className="text-xs text-slate-500">{row.disbursedAmount ? "Disbursed" : row.approvedAmount ? "Approved" : "Requested"}</p>
+        </div>
+      ),
+    },
+    {
+      title: "ROI · Tenure",
+      key: "terms",
+      width: 120,
+      render: (_, row) => (
+        <span className="tabular-nums">{row.roi ? `${row.roi}%` : "—"} · {row.tenureMonths ? `${row.tenureMonths} mo` : "—"}</span>
+      ),
+    },
+    {
+      title: "EMI",
+      key: "emi",
+      width: 160,
+      align: "right",
+      render: (_, row) => (
+        <div className="tabular-nums">
+          <p className="font-semibold text-slate-900 dark:text-slate-100">{row.emi ? formatCurrency(row.emi) : "—"}</p>
+          {row.firstEmiDate && <p className="text-xs text-slate-500">{formatDate(row.firstEmiDate)} – {formatDate(row.lastEmiDate)}</p>}
+        </div>
+      ),
+    },
+    {
+      title: "Status",
+      key: "status",
+      width: 130,
+      render: (_, row) => (
+        <Tooltip title={row.stage ? `Stage: ${row.stage}` : undefined}>
+          <Tag color={row.state.color} className="m-0">{row.state.label}</Tag>
+        </Tooltip>
+      ),
+    },
+  ];
+
+  const insuranceColumns = [
+    {
+      title: "Case / Policy",
+      key: "policy",
+      width: 190,
+      render: (_, row) => (
+        <div>
+          <p className="font-semibold text-slate-900 dark:text-slate-100">{row.policyNumber || "Policy no. pending"}</p>
+          <p className="text-xs text-slate-500">{row.caseId}</p>
+        </div>
+      ),
+    },
+    {
+      title: "Insurer",
+      key: "insurer",
+      width: 200,
+      render: (_, row) => (
+        <div>
+          <p className="font-medium text-slate-900 dark:text-slate-100">{row.insurer || "—"}</p>
+          <p className="text-xs text-slate-500">{[row.policyType, row.tenureLabel].filter(Boolean).join(" · ") || "—"}</p>
+        </div>
+      ),
+    },
+    {
+      title: "Vehicle",
+      key: "vehicle",
+      width: 190,
+      render: (_, row) => (
+        <div>
+          <p className="truncate font-medium text-slate-900 dark:text-slate-100">{row.vehicle || "—"}</p>
+          <p className="text-xs uppercase text-slate-500">{row.registrationNumber || "—"}</p>
+        </div>
+      ),
+    },
+    {
+      title: "Premium · IDV",
+      key: "premium",
+      width: 150,
+      align: "right",
+      render: (_, row) => (
+        <div className="tabular-nums">
+          <p className="font-semibold text-slate-900 dark:text-slate-100">{row.premium ? formatCurrency(row.premium) : "—"}</p>
+          <p className="text-xs text-slate-500">IDV {row.idv ? formatCurrency(row.idv) : "—"}</p>
+        </div>
+      ),
+    },
+    {
+      title: "OD / TP expiry",
+      key: "expiry",
+      width: 190,
+      render: (_, row) => (
+        <div className="space-y-1 text-xs">
+          {[["OD", row.odExpiry], ["TP", row.tpExpiry]].map(([label, date]) => {
+            const badge = row.isIssued ? expiryBadge(date) : null;
+            return (
+              <div key={label} className="flex items-center gap-2">
+                <span className="w-5 font-semibold text-slate-500">{label}</span>
+                <span className="tabular-nums text-slate-800 dark:text-slate-200">{formatDate(date)}</span>
+                {badge && <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ring-1 ${badge.className}`}>{badge.label}</span>}
+              </div>
+            );
+          })}
+        </div>
+      ),
+    },
+    { title: "Status", key: "status", width: 110, render: (_, row) => <Tag color={row.status.color} className="m-0">{row.status.label}</Tag> },
+  ];
+
+  const paymentColumns = [
+    { title: "Date", key: "date", width: 120, render: (_, row) => formatDate(row.date) },
+    { title: "Loan file", dataIndex: "loanId", key: "loanId", width: 140 },
+    {
+      title: "Type",
+      key: "type",
+      width: 220,
+      render: (_, row) => (
+        <div>
+          <p className="font-medium text-slate-900 dark:text-slate-100">{row.label}</p>
+          <p className="text-xs text-slate-500">{row.party || "—"}</p>
+        </div>
+      ),
+    },
+    { title: "Mode", dataIndex: "mode", key: "mode", width: 120, render: (value) => value || "—" },
+    {
+      title: "Amount",
+      key: "amount",
+      width: 150,
+      align: "right",
+      render: (_, row) => (
+        <span className={`font-semibold tabular-nums ${row.direction === "paid" ? "text-amber-700 dark:text-amber-300" : "text-emerald-700 dark:text-emerald-300"}`}>
+          {row.direction === "paid" ? "−" : "+"}{formatCurrency(row.amount)}
+        </span>
+      ),
+    },
+  ];
+
+  const visibleActivity = showAllActivity ? activity : activity.slice(0, 10);
+
+  return (
+    <div className="w-full space-y-5 pb-10">
+      {/* Top bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={() => navigate("/customers")}
+          className="inline-flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900"
+        >
+          <ArrowLeft size={16} /> Customers
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/customers/edit/${editId}`)}
+          className="inline-flex h-9 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+          <Pencil size={14} /> Edit customer
+        </button>
       </div>
 
-      <Card
-        className="overflow-hidden rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-        styles={{ body: { padding: 0 } }}
-      >
-        <div className="grid gap-0 xl:grid-cols-[1.25fr_0.75fr]">
-          <div className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 px-6 py-6 text-white md:px-8 md:py-8">
-            <div className="pointer-events-none absolute right-6 top-6 h-32 w-32 rounded-full bg-white/10 blur-3xl" />
-            <div className="pointer-events-none absolute left-24 top-12 h-20 w-20 rounded-full bg-cyan-400/10 blur-2xl" />
-
-            <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-              <div className="flex flex-col gap-5 sm:flex-row sm:items-end">
-                <div
-                  className="flex h-28 w-28 items-center justify-center overflow-hidden rounded-[1.5rem] border border-white/15 text-4xl font-black text-white shadow-2xl"
-                  style={{ backgroundColor: `hsl(${hue}, 55%, 46%)` }}
-                >
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt={customerName}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    initials
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/60">
-                    Customer Overview
-                  </p>
-                  <h2 className="mt-2 text-3xl font-black tracking-tight md:text-4xl">
-                    {customerName}
-                  </h2>
-                  <p className="mt-1 text-sm text-white/75">
-                    Customer ID: {customerId}
-                  </p>
-                  <div className="mt-4 flex flex-wrap items-center gap-2.5">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold text-white/90 ring-1 ring-white/15">
-                      <UserCircle2 size={14} />{" "}
-                      {customer?.primaryMobile || "No mobile"}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold text-white/90 ring-1 ring-white/15">
-                      <FileText size={14} /> {customer?.email || "No email"}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/12 px-3 py-1 text-xs font-semibold text-white/90 ring-1 ring-white/15">
-                      <ShieldCheck size={14} /> {risk.label}
-                    </span>
-                  </div>
-                </div>
+      {/* Identity */}
+      <section className={`${CARD} p-5 md:p-6`}>
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex min-w-0 items-center gap-4">
+            <div
+              className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl text-2xl font-bold text-white md:h-24 md:w-24 md:text-3xl"
+              style={{ backgroundColor: `hsl(${nameToHue(customerName)}, 55%, 45%)` }}
+            >
+              {avatarUrl && !avatarBroken ? (
+                <img src={avatarUrl} alt={customerName} className="h-full w-full object-cover" onError={() => setAvatarBroken(true)} />
+              ) : (
+                getInitials(customerName)
+              )}
+            </div>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="truncate text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50 md:text-3xl">{customerName}</h1>
+                <Tag color={kycTag.color} className="m-0">{kycTag.label}</Tag>
               </div>
-
-              <div className="grid min-w-[18rem] gap-2 sm:grid-cols-2 sm:gap-3">
-                <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10 backdrop-blur-sm">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-white/60">
-                    Phone
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-white">
-                    {customer?.primaryMobile || "—"}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10 backdrop-blur-sm">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-white/60">
-                    Email
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-white truncate">
-                    {customer?.email || "—"}
-                  </p>
-                </div>
-                <div className="rounded-2xl bg-white/10 px-4 py-3 ring-1 ring-white/10 backdrop-blur-sm sm:col-span-2">
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-white/60">
-                    Address
-                  </p>
-                  <p className="mt-1 text-sm font-bold text-white">
-                    {customer?.residenceAddress ||
-                      customer?.permanentAddress ||
-                      "—"}
-                  </p>
-                </div>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                {[customer?.customerId, customer?.customerType].filter(Boolean).join(" · ") || "—"}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-slate-700 dark:text-slate-300">
+                {customer?.primaryMobile && (
+                  <a href={`tel:${customer.primaryMobile}`} className="inline-flex items-center gap-1.5 hover:text-sky-600"><Phone size={14} className="text-slate-400" />{customer.primaryMobile}</a>
+                )}
+                {customer?.email && (
+                  <a href={`mailto:${customer.email}`} className="inline-flex min-w-0 items-center gap-1.5 hover:text-sky-600"><Mail size={14} className="text-slate-400" /><span className="truncate">{customer.email}</span></a>
+                )}
+                {(customer?.city || customer?.state) && (
+                  <span className="inline-flex items-center gap-1.5"><MapPin size={14} className="text-slate-400" />{[customer?.city, customer?.state].filter(Boolean).join(", ")}</span>
+                )}
               </div>
             </div>
           </div>
 
-          <div className="grid gap-3 bg-slate-50 p-4 dark:bg-slate-950 md:grid-cols-2 xl:grid-cols-1 xl:p-5">
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                KYC Status
-              </p>
-              <p className="mt-2 text-lg font-black text-slate-900 dark:text-slate-100">
-                {kyc.label}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Verification and document readiness.
-              </p>
+          <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 dark:border-slate-800 dark:bg-slate-800 sm:grid-cols-3 lg:min-w-[30rem]">
+            <div className="col-span-2 bg-white px-4 py-3 dark:bg-slate-950 sm:col-span-1">
+              <dt className={LABEL}>Profile completion</dt>
+              <dd className="mt-1.5 flex items-center gap-2">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div
+                    className={`h-full rounded-full ${profileCompletion >= 80 ? "bg-emerald-500" : profileCompletion >= 50 ? "bg-sky-500" : "bg-amber-500"}`}
+                    style={{ width: `${profileCompletion}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold tabular-nums text-slate-900 dark:text-slate-100">{profileCompletion}%</span>
+              </dd>
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                Risk Level
-              </p>
-              <p className="mt-2 text-lg font-black text-slate-900 dark:text-slate-100">
-                {risk.label}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Credit score: {risk.score || "—"}
-              </p>
+            <div className="bg-white px-4 py-3 dark:bg-slate-950">
+              <dt className={LABEL}>Customer since</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{formatDate(customer?.createdOn || customer?.createdAt)}</dd>
             </div>
-            <div className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:col-span-2 xl:col-span-1">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                Account Status
-              </p>
-              <p className="mt-2 text-lg font-black text-slate-900 dark:text-slate-100">
-                {account.label}
-              </p>
-              <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                Customer record and loan lifecycle health.
-              </p>
+            <div className="bg-white px-4 py-3 dark:bg-slate-950">
+              <dt className={LABEL}>Last updated</dt>
+              <dd className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{formatDate(customer?.updatedAt)}</dd>
             </div>
-          </div>
+          </dl>
         </div>
-      </Card>
+      </section>
 
-      <Row gutter={[16, 16]}>
-        {summaryCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Col key={card.title} xs={24} sm={12} xl={8}>
-              <Card
-                className="overflow-hidden rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-                styles={{ body: { padding: 0 } }}
-              >
-                <div
-                  className={`relative overflow-hidden bg-gradient-to-br ${card.tone} p-5 text-white`}
-                >
-                  <div className="absolute -right-6 -top-8 h-24 w-24 rounded-full bg-white/10 blur-2xl" />
-                  <div className="relative flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/80">
-                        {card.title}
-                      </p>
-                      <p className="mt-1 text-2xl font-black tabular-nums">
-                        {card.value}
-                      </p>
-                      <p className="mt-1 text-xs text-white/80">
-                        {card.subtitle}
-                      </p>
-                    </div>
-                    <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/15 backdrop-blur-sm">
-                      <Icon size={18} />
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </Col>
-          );
-        })}
-      </Row>
+      {/* KPIs */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <Kpi label="Loan files" value={formatNumber(loans.length)} hint={`${stats.disbursedCount} disbursed · ${stats.inProcessCount} in process`} icon={BriefcaseBusiness} tone="bg-sky-50 text-sky-600 dark:bg-sky-500/10 dark:text-sky-300" />
+        <Kpi label="Total disbursed" value={formatCurrency(stats.totalDisbursed)} hint={`${formatCurrency(stats.totalApproved)} approved`} icon={Banknote} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-300" />
+        <Kpi label="Monthly EMI" value={stats.monthlyEmi ? formatCurrency(stats.monthlyEmi) : "—"} hint={`${stats.runningEmiCount} running ${stats.runningEmiCount === 1 ? "loan" : "loans"}`} icon={CalendarClock} tone="bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-300" />
+        <Kpi label="Policies issued" value={formatNumber(stats.issuedCount)} hint={`${insurance.length} insurance ${insurance.length === 1 ? "case" : "cases"}`} icon={ShieldCheck} tone="bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300" />
+        <Kpi label="Total premium" value={formatCurrency(stats.totalPremium)} hint="Issued policies" icon={CheckCircle2} tone="bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-500/10 dark:text-fuchsia-300" />
+        <Kpi label="Paid to showroom" value={formatCurrency(stats.paidToShowroom)} hint={`${formatCurrency(stats.receivedByAutocredits)} received`} icon={Wallet} tone="bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300" />
+      </div>
 
-      <div className="grid gap-5 xl:grid-cols-12">
-        <div className="space-y-5 xl:col-span-7">
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Loan Details
-              </span>
-            }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-            extra={
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {formatNumber(loans.length)} records
-              </span>
-            }
-          >
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-12">
+        {/* Records */}
+        <div className="min-w-0 space-y-5 xl:col-span-8">
+          <Section title="Loan files" subtitle={`${formatNumber(loans.length)} ${loans.length === 1 ? "file" : "files"} linked to this customer`} bodyClassName="p-0">
+            {sectionErrors.loans && <div className="px-5 pt-4"><SectionError text={sectionErrors.loans} /></div>}
             <Table
               size="middle"
               columns={loanColumns}
               dataSource={loans}
-              pagination={false}
-              rowKey={(row) => row.id}
-              expandable={{ expandedRowRender: loanExpandedRowRender }}
-              scroll={{ x: 860 }}
+              pagination={loans.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+              rowKey="key"
+              scroll={{ x: 1080 }}
+              onRow={(row) => ({ onClick: () => navigate(`/loans/edit/${row.routeId}`), className: "cursor-pointer" })}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No loan files for this customer" /> }}
             />
-            {!loans.length && (
-              <Empty
-                className="py-10"
-                description="No loan records found for this customer."
-              />
-            )}
-          </Card>
+          </Section>
 
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Vehicle Details
-              </span>
-            }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-          >
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {vehicleCards.map((vehicle) => (
-                <div
-                  key={vehicle.id}
-                  className="rounded-3xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/60"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                        Vehicle
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {vehicle.vehicle}
-                      </p>
-                    </div>
-                    <CarFront size={18} className="text-slate-400" />
-                  </div>
-                  <div className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                    <div>
-                      Reg No:{" "}
-                      <span className="font-semibold">
-                        {vehicle.registrationNumber}
-                      </span>
-                    </div>
-                    <div>
-                      Linked Loan:{" "}
-                      <span className="font-semibold">{vehicle.loanId}</span>
-                    </div>
-                    <div>
-                      Insurance:{" "}
-                      <span className="font-semibold">
-                        {vehicle.insuranceStatus || "Not linked"}
-                      </span>
-                    </div>
-                    <div>
-                      Insurance Expiry:{" "}
-                      <span className="font-semibold">
-                        {formatDate(vehicle.insuranceExpiry)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {!vehicleCards.length && (
-                <Empty
-                  className="py-4 sm:col-span-2 xl:col-span-3"
-                  description="No vehicle information available."
-                />
-              )}
-            </div>
-          </Card>
-
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Payment History
-              </span>
-            }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-          >
+          <Section title="Insurance" subtitle={`${formatNumber(insurance.length)} ${insurance.length === 1 ? "case" : "cases"} · ${stats.issuedCount} issued`} bodyClassName="p-0">
+            {sectionErrors.insurance && <div className="px-5 pt-4"><SectionError text={sectionErrors.insurance} /></div>}
             <Table
               size="middle"
-              columns={[
-                {
-                  title: "Date",
-                  dataIndex: "date",
-                  key: "date",
-                  render: (value) => formatDate(value),
-                },
-                { title: "Loan ID", dataIndex: "loanId", key: "loanId" },
-                {
-                  title: "Amount",
-                  dataIndex: "amount",
-                  key: "amount",
-                  render: (value) => formatCurrency(value),
-                },
-                {
-                  title: "Late Fee",
-                  dataIndex: "lateFee",
-                  key: "lateFee",
-                  render: (value) => (value ? formatCurrency(value) : "—"),
-                },
-                { title: "Mode", dataIndex: "mode", key: "mode" },
-                {
-                  title: "Status",
-                  dataIndex: "status",
-                  key: "status",
-                  render: (value, row) => (
-                    <Tag color={paymentTone(row)}>{value || "Recorded"}</Tag>
-                  ),
-                },
-              ]}
-              dataSource={payments}
-              pagination={false}
-              rowKey={(row) => row.id}
-              rowClassName={(row) =>
-                asNumber(row.lateFee) > 0
-                  ? "bg-rose-50/60 dark:bg-rose-950/20"
-                  : ""
-              }
-              scroll={{ x: 860 }}
+              columns={insuranceColumns}
+              dataSource={insurance}
+              pagination={insurance.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+              rowKey="key"
+              scroll={{ x: 1030 }}
+              onRow={(row) => ({ onClick: () => navigate(`/insurance/edit/${row.routeId}`), className: "cursor-pointer" })}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No insurance cases for this customer" /> }}
             />
-            {!payments.length && (
-              <Empty
-                className="py-10"
-                description="No payment history available."
-              />
-            )}
-          </Card>
+          </Section>
 
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Insurance Details
-              </span>
+          <Section
+            title="Payments"
+            subtitle="Showroom payments and AutoCredits receipts recorded on this customer's loan files"
+            bodyClassName="p-0"
+            action={
+              <div className="flex gap-4 text-xs">
+                <span className="text-slate-500">Paid <b className="tabular-nums text-amber-700 dark:text-amber-300">{formatCurrency(stats.paidToShowroom)}</b></span>
+                <span className="text-slate-500">Received <b className="tabular-nums text-emerald-700 dark:text-emerald-300">{formatCurrency(stats.receivedByAutocredits)}</b></span>
+              </div>
             }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
           >
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {insurance.map((policy) => (
-                <div
-                  key={policy.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-950/60"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                        Policy Number
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {policy.policyNumber}
-                      </p>
-                    </div>
-                    <Tag color={insuranceTone(policy.status)}>
-                      {policy.status}
-                    </Tag>
-                  </div>
-                  <div className="mt-3 space-y-1 text-xs text-slate-600 dark:text-slate-300">
-                    <div>
-                      Provider:{" "}
-                      <span className="font-semibold">{policy.provider}</span>
-                    </div>
-                    <div>
-                      Coverage:{" "}
-                      <span className="font-semibold">
-                        {policy.coverage
-                          ? formatCurrency(policy.coverage)
-                          : "—"}
-                      </span>
-                    </div>
-                    <div>
-                      Expiry:{" "}
-                      <span className="font-semibold">
-                        {formatDate(policy.expiryDate)}
-                      </span>
-                    </div>
-                    <div>
-                      Vehicle:{" "}
-                      <span className="font-semibold">{policy.vehicle}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {!insurance.length && (
-                <Empty
-                  className="py-4 sm:col-span-2 xl:col-span-3"
-                  description="No insurance records available."
-                />
-              )}
-            </div>
-          </Card>
+            {sectionErrors.payments && <div className="px-5 pt-4"><SectionError text={sectionErrors.payments} /></div>}
+            <Table
+              size="middle"
+              columns={paymentColumns}
+              dataSource={paymentEntries}
+              pagination={paymentEntries.length > 10 ? { pageSize: 10, showSizeChanger: false } : false}
+              rowKey="key"
+              scroll={{ x: 750 }}
+              locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No payments recorded" /> }}
+            />
+          </Section>
         </div>
 
-        <div className="space-y-5 xl:col-span-5">
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Activity Timeline
-              </span>
+        {/* Details + activity */}
+        <aside className="min-w-0 space-y-5 xl:col-span-4">
+          <Section
+            title="Customer details"
+            action={
+              <button type="button" onClick={() => navigate(`/customers/edit/${editId}`)} className="text-xs font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400">
+                Edit
+              </button>
             }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
           >
-            {timelineItems.length ? (
-              <Timeline
-                items={timelineItems.map((item) => ({
-                  color: item.color,
-                  children: (
-                    <div className="pb-2">
-                      <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500 dark:text-slate-400">
-                        {item.label}
-                      </div>
-                      <div className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-                        {item.title}
-                      </div>
-                      <div className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                        {item.description}
-                      </div>
-                      <div className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-                        {formatDateTime(item.date)}
-                      </div>
-                    </div>
-                  ),
-                }))}
+            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+              <DetailGroup
+                icon={UserRound}
+                title="Personal"
+                rows={[
+                  { label: "Date of birth", value: customer?.dob ? `${formatDate(customer.dob)}${age !== null ? ` (${age} yrs)` : ""}` : "" },
+                  { label: "Gender", value: customer?.gender },
+                  { label: "Marital status", value: customer?.maritalStatus },
+                  { label: "Dependents", value: customer?.dependents },
+                  { label: "Education", value: customer?.education },
+                ]}
               />
+              <DetailGroup
+                icon={Phone}
+                title="Contact & address"
+                rows={[
+                  { label: "Mobile", value: customer?.primaryMobile },
+                  { label: "WhatsApp", value: customer?.whatsappNumber },
+                  { label: "Other numbers", value: extraMobiles },
+                  { label: "Email", value: customer?.email, wide: true },
+                  { label: "Current address", value: currentAddress, wide: true },
+                  { label: "Permanent address", value: permanentAddress, wide: true },
+                ]}
+              />
+              <DetailGroup
+                icon={BriefcaseBusiness}
+                title="Employment & income"
+                rows={[
+                  { label: "Occupation", value: firstValue(customer?.occupationType, customer?.employmentType) },
+                  { label: "Company", value: customer?.companyName },
+                  { label: "Designation", value: customer?.designation },
+                  { label: "Total experience", value: firstValue(customer?.totalExperience, customer?.totalExp) },
+                  { label: "Monthly income", value: monthlyIncome ? formatCurrency(monthlyIncome) : "" },
+                  { label: "Annual income", value: asNumber(customer?.annualIncome) ? formatCurrency(customer.annualIncome) : "" },
+                ]}
+              />
+              <DetailGroup
+                icon={IdCard}
+                title="KYC"
+                rows={[
+                  { label: "PAN", value: customer?.panNumber },
+                  { label: "Aadhaar", value: maskTail(firstValue(customer?.aadhaarNumber, customer?.aadharNumber)) },
+                  { label: "Driving licence", value: customer?.dlNumber },
+                  { label: "Passport", value: customer?.passportNumber },
+                  { label: "GSTIN", value: customer?.gstNumber },
+                ]}
+              />
+              <DetailGroup
+                icon={Landmark}
+                title="Bank account"
+                rows={[
+                  { label: "Bank", value: customer?.bankName },
+                  { label: "Account no.", value: maskTail(customer?.accountNumber) },
+                  { label: "IFSC", value: firstValue(customer?.ifscCode, customer?.ifsc) },
+                  { label: "Branch", value: customer?.branch },
+                  { label: "Account type", value: customer?.accountType },
+                ]}
+              />
+              <DetailGroup
+                icon={Users}
+                title="References & nominee"
+                rows={[
+                  { label: "Reference 1", value: [customer?.reference1_name, customer?.reference1_mobile].filter(Boolean).join(" · ") },
+                  { label: "Reference 2", value: [customer?.reference2_name, customer?.reference2_mobile].filter(Boolean).join(" · ") },
+                  { label: "Nominee", value: [customer?.nomineeName, customer?.nomineeRelation].filter(Boolean).join(" · ") },
+                ]}
+              />
+            </div>
+          </Section>
+
+          <Section title="Activity" subtitle="Dated events from loans, insurance and payments">
+            {visibleActivity.length ? (
+              <>
+                <ol className="relative space-y-4 border-l border-slate-200 pl-5 dark:border-slate-800">
+                  {visibleActivity.map((item) => (
+                    <li key={item.key} className="relative">
+                      <span className={`absolute -left-[26px] top-1 h-2.5 w-2.5 rounded-full ring-4 ring-white dark:ring-slate-950 ${item.tone}`} />
+                      <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">{item.title}</p>
+                      {item.detail && <p className="mt-0.5 text-xs text-slate-500 dark:text-slate-400">{item.detail}</p>}
+                      <p className="mt-0.5 text-[11px] text-slate-400">{formatDate(item.date)}</p>
+                    </li>
+                  ))}
+                </ol>
+                {activity.length > 10 && (
+                  <button type="button" onClick={() => setShowAllActivity((value) => !value)} className="mt-4 text-xs font-semibold text-sky-600 hover:text-sky-700 dark:text-sky-400">
+                    {showAllActivity ? "Show less" : `Show all ${activity.length} events`}
+                  </button>
+                )}
+              </>
             ) : (
-              <Empty description="No activity found yet." />
+              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No activity yet" />
             )}
-          </Card>
+          </Section>
 
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Analytics
-              </span>
-            }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-          >
-            <div className="space-y-5">
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  <span>Repayment Progress</span>
-                  <span>{repaymentProgress}%</span>
-                </div>
-                <Progress
-                  percent={repaymentProgress}
-                  strokeColor={{ from: "#0ea5e9", to: "#22c55e" }}
-                  showInfo={false}
-                />
-              </div>
-              <div>
-                <div className="flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  <span>Payment Consistency</span>
-                  <span>{paymentConsistency}%</span>
-                </div>
-                <Progress
-                  percent={paymentConsistency}
-                  strokeColor={{ from: "#8b5cf6", to: "#06b6d4" }}
-                  showInfo={false}
-                />
-              </div>
-              <div>
-                <div className="mb-3 flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-slate-400">
-                  <span>Monthly EMI Trends</span>
-                  <span>{formatCurrency(totalEMIPaid)}</span>
-                </div>
-                <div className="space-y-3">
-                  {analyticsBars.length ? (
-                    analyticsBars.map((bar) => (
-                      <div key={bar.label}>
-                        <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500 dark:text-slate-400">
-                          <span>{bar.label}</span>
-                          <span>{formatCurrency(bar.value)}</span>
-                        </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-emerald-500"
-                            style={{ width: `${bar.width}%` }}
-                          />
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-slate-500 dark:text-slate-400">
-                      No payment trend data yet.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </Card>
-
-          <Card
-            title={
-              <span className="text-sm font-bold text-slate-900 dark:text-slate-100">
-                Quick Snapshot
-              </span>
-            }
-            className="rounded-3xl border border-slate-200/80 shadow-sm dark:border-slate-800"
-          >
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                {
-                  label: "Customer Since",
-                  value: formatDate(customer?.createdAt || customer?.createdOn),
-                },
-                {
-                  label: "Profile Updated",
-                  value: formatDate(customer?.updatedAt),
-                },
-                {
-                  label: "Dashboard Loans",
-                  value: formatNumber(dashboardLoans.length),
-                },
-                {
-                  label: "Profile Completion",
-                  value: `${summary?.profileCompletion ?? 0}%`,
-                },
-                {
-                  label: "Active Insurance",
-                  value: formatNumber(activeInsuranceCount),
-                },
-                {
-                  label: "Pending Total",
-                  value: formatCurrency(pendingAmount),
-                },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/60"
-                >
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                    {item.label}
-                  </div>
-                  <div className="mt-1 text-sm font-bold text-slate-900 dark:text-slate-100">
-                    {item.value}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        </div>
+          <div className="flex items-start gap-2 px-1 text-xs text-slate-400 dark:text-slate-500">
+            <FileText size={14} className="mt-0.5 shrink-0" />
+            <span>Loans are matched by customer link (or same mobile and name for older files). Insurance cases are matched by customer link, or by mobile and name.</span>
+          </div>
+        </aside>
       </div>
     </div>
   );
