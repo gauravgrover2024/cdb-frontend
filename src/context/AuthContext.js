@@ -76,6 +76,18 @@ export const AuthProvider = ({ children }) => {
     fetchMe();
   }, [fetchMe]);
 
+  // Re-fetch when the tab regains focus so role/permission changes apply without a reload
+  useEffect(() => {
+    let lastFetch = Date.now();
+    const onVisible = () => {
+      if (document.visibilityState !== "visible" || Date.now() - lastFetch < 60000) return;
+      lastFetch = Date.now();
+      fetchMe();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [fetchMe]);
+
   const logout = useCallback(() => {
     sessionStorage.clear();
     localStorage.removeItem("firebaseToken");
