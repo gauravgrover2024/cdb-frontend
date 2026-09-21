@@ -173,11 +173,11 @@ const InsuranceCasePage = () => {
         policyPurchaseDate: "",
         ewCommencementDate: "",
         ewExpiryDate: "",
-        kmsCoverage: 0,
+        kmsCoverage: "",
         insurance_receivables: [],
         insurance_payables: [],
         yearlyIdvSchedule: [],
-        payoutSchedule: [],
+        payoutSchedule: null,
         payoutPercentage: 0,
         payoutPercent: 0,
       };
