@@ -1,0 +1,255 @@
+/* =============================================================================
+   Insurance dashboards (Policy Dashboard + Renewal Dashboard)
+   Scoped to .insurance-antd-page — both pages render that wrapper class,
+   so nothing here bleeds into the rest of the app.
+   ============================================================================= */
+
+/* ── Focus visibility — keyboard users must see where they are ────────────── */
+.insurance-antd-page :focus-visible {
+  outline: 2px solid #475569;
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* ── Numeric alignment — counts & currency line up in columns ─────────────── */
+.insurance-antd-page .ins-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Filter selects (renewal dashboard) ───────────────────────────────────── */
+.insurance-antd-page .ins-filter-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 2rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.6rem center;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.insurance-antd-page .ins-filter-select:hover {
+  border-color: #cbd5e1;
+}
+.insurance-antd-page .ins-filter-select:focus {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgba(148, 163, 184, 0.18);
+  outline: none;
+}
+
+/* ── Search clear (×) ─────────────────────────────────────────────────────── */
+.insurance-antd-page .ins-search-clear {
+  position: absolute;
+  right: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: none;
+  background: #e2e8f0;
+  color: #475569;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.insurance-antd-page .ins-search-clear:hover {
+  background: #cbd5e1;
+  color: #0f172a;
+}
+
+/* ── Skeleton loading (matches the case-card shape) ───────────────────────── */
+.insurance-antd-page .ins-skeleton {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+  background: #e9eef5;
+}
+.insurance-antd-page .ins-skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.7),
+    transparent
+  );
+  animation: ins-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes ins-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .insurance-antd-page .ins-skeleton::after {
+    animation: none;
+  }
+}
+
+/* ── Renewal status popover panel (moved out of the JSX <style> block) ────── */
+.insurance-antd-page .renewal-status-panel {
+  width: min(100vw - 2rem, 340px);
+  overflow: hidden;
+}
+.insurance-antd-page .renewal-status-panel__head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.875rem 1rem 0.625rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+}
+.insurance-antd-page .renewal-status-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.insurance-antd-page .renewal-status-panel__close:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+.insurance-antd-page .renewal-status-panel__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.5rem 1rem 0.75rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.insurance-antd-page .renewal-status-panel__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.insurance-antd-page .renewal-status-panel__meta-item {
+  font-size: 10px;
+  font-weight: 600;
+  color: #64748b;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.insurance-antd-page .renewal-status-panel__body {
+  max-height: min(70vh, 420px);
+  overflow-y: auto;
+  padding: 0.5rem;
+}
+.insurance-antd-page .renewal-status-panel__section {
+  padding: 0.35rem 0.25rem 0.5rem;
+}
+.insurance-antd-page
+  .renewal-status-panel__section
+  + .renewal-status-panel__section {
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+.insurance-antd-page .renewal-status-panel__section-label {
+  margin: 0 0 0.4rem 0.35rem;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.insurance-antd-page .renewal-status-panel__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.insurance-antd-page .renewal-status-action {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  width: 100%;
+  text-align: left;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.55rem 0.65rem;
+  background: #fff;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease,
+    border-color 0.12s ease;
+}
+.insurance-antd-page .renewal-status-action:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
+  border-color: #cbd5e1;
+}
+.insurance-antd-page .renewal-status-action:active {
+  transform: translateY(0);
+}
+.insurance-antd-page .renewal-status-action__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  flex-shrink: 0;
+}
+.insurance-antd-page .renewal-status-action__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.insurance-antd-page .renewal-status-action__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.25;
+}
+.insurance-antd-page .renewal-status-action__desc {
+  font-size: 10px;
+  font-weight: 500;
+  color: #64748b;
+  line-height: 1.3;
+}
+.insurance-antd-page .tone-save { background: #f1f5f9; color: #334155; }
+.insurance-antd-page .tone-share { background: #dbeafe; color: #1d4ed8; }
+.insurance-antd-page .tone-view { background: #ede9fe; color: #6d28d9; }
+.insurance-antd-page .tone-payment { background: #fef3c7; color: #b45309; }
+.insurance-antd-page .tone-renew { background: #dcfce7; color: #15803d; }
+.insurance-antd-page .tone-close { background: #ffe4e6; color: #be123c; }
+.insurance-antd-page .tone-renewed { background: #cffafe; color: #0e7490; }
+.insurance-antd-page .tone-sold { background: #ffedd5; color: #c2410c; }
+.insurance-antd-page .tone-expired { background: #fee2e2; color: #b91c1c; }
+.insurance-antd-page .chip-save { border-color: #e2e8f0; }
+.insurance-antd-page .chip-share { border-color: #bfdbfe; }
+.insurance-antd-page .chip-view { border-color: #ddd6fe; }
+.insurance-antd-page .chip-payment { border-color: #fde68a; }
+.insurance-antd-page .chip-renew { border-color: #bbf7d0; }
+.insurance-antd-page .chip-close { border-color: #fecdd3; }
+.insurance-antd-page .chip-renewed { border-color: #a5f3fc; }
+.insurance-antd-page .chip-sold { border-color: #fed7aa; }
+.insurance-antd-page .chip-expired { border-color: #fecaca; }
+
+/* AntD runtime CSS-in-JS loads after static stylesheets, so the critical
+   popover overrides keep their !important to win the cascade. */
+.renewal-status-popover .ant-popover-inner {
+  padding: 0 !important;
+  border-radius: 14px !important;
+  overflow: hidden;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14) !important;
+}
+.renewal-status-popover .ant-popover-inner-content {
+  padding: 0 !important;
+}

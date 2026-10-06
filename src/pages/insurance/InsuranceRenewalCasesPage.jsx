@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Button,
   DatePicker,
   Input,
   Modal,
@@ -12,6 +11,7 @@ import {
 } from "antd";
 import InsuranceAntdProvider from "../../components/insurance/InsuranceAntdProvider";
 import "../../components/insurance/insurance-forms.css";
+import "./insurance-dashboard.css";
 import dayjs from "dayjs";
 import { motion } from "framer-motion";
 import {
@@ -41,6 +41,7 @@ import {
   getPolicyPulseExpiryDate,
   getPolicyPulseMeta,
   parsePolicyIncludedAddons,
+  premiumNum,
   resolveActivePolicySnapshot,
   resolveInsuranceReference,
   shouldShowInsuranceChannelBadge,
@@ -286,29 +287,6 @@ const resolvePreviousPolicyAddons = (record = {}, snapshot) =>
     hasDisplayValue(item?.name),
   );
 
-const paymentSignalMeta = {
-  neutral: {
-    color: "#64748b",
-    soft: "rgba(148, 163, 184, 0.10)",
-    icon: DollarSign,
-  },
-  good: {
-    color: "#16a34a",
-    soft: "rgba(22, 163, 74, 0.10)",
-    icon: CheckCircle,
-  },
-  warning: {
-    color: "#d97706",
-    soft: "rgba(217, 119, 6, 0.10)",
-    icon: Activity,
-  },
-  accent: {
-    color: "#0ea5e9",
-    soft: "rgba(14, 165, 233, 0.10)",
-    icon: DollarSign,
-  },
-};
-
 const hasDisplayValue = (value) => {
   if (value == null) return false;
   const text = String(value).trim();
@@ -391,21 +369,86 @@ const getVehicleDisplayYear = (record = {}) => {
   );
 };
 
-const getRenewalVehicleType = (record = {}) =>
-  String(
-    record.vehicleType ||
-      record.caseType ||
-      record.typesOfVehicle ||
-      record.vehicleCategory ||
-      "",
-  ).trim();
+// Every filter and stat-card count below reads the exact value the card
+// renders, so a filter can never disagree with what is on screen.
 
-const getRenewalSource = (record = {}) => {
-  const directSource = String(record.source || record.sourceOrigin || "").trim();
-  if (/^direct$/i.test(directSource)) return "Direct";
-  if (/^indirect$/i.test(directSource)) return "Indirect";
-  return record.sourceName || record.dealerChannelName ? "Indirect" : "Direct";
+// Card shows the completed renewal's policy once renewed, else the case itself.
+const getDisplayedPolicy = (row = {}) =>
+  row?.renewedComplete && row?.renewedPolicy ? row.renewedPolicy : row;
+
+const getRenewalOutcome = (row = {}) =>
+  String(row?.renewalOutcome || "NONE").trim().toUpperCase();
+
+const isRenewedRow = (row = {}) =>
+  Boolean(row?.renewedComplete) || getRenewalOutcome(row) === "ALREADY_RENEWED";
+
+// Mirrors the backend's renewal / renewed / external tab split.
+const getRenewalView = (row = {}) => {
+  if (isRenewedRow(row)) return "renewed";
+  const outcome = getRenewalOutcome(row);
+  if (outcome === "POLICY_FROM_ELSEWHERE") return "external";
+  if (["CAR_SOLD", "CAR_EXPIRED", "RENEW_NEXT_YEAR"].includes(outcome)) {
+    return "other";
+  }
+  return "renewal";
 };
+
+const getRenewalLeadStatus = (row = {}) => {
+  const raw = String(row?.renewalLeadStatus || "")
+    .replace(/[\s_-]+/g, "")
+    .toLowerCase();
+  return (
+    LEAD_STATUS_OPTIONS.find(
+      (item) => item.replace(/\s+/g, "").toLowerCase() === raw,
+    ) || "New"
+  );
+};
+
+const getRenewalDaysLeft = (row = {}) =>
+  cycleAdjustedDaysUntilExpiry(getDisplayedPolicy(row));
+
+// Same label as the Workflow badge on the card.
+const getRenewalPolicyStatus = (row = {}) =>
+  getPolicyPulseMeta(getRenewalDaysLeft(row), isRenewedRow(row)).label;
+
+// Same amount as the "Total Premium" on the card.
+const getRenewalPremium = (row = {}) => premiumNum(getDisplayedPolicy(row));
+
+// Same value as the New Car / Used Car badge on the card.
+const getRenewalVehicleType = (row = {}) =>
+  String(row?.vehicleType || "Used Car").trim();
+
+const getRenewalSource = (row = {}) => {
+  const raw = String(row?.source || row?.sourceOrigin || "").trim();
+  if (/^direct$/i.test(raw)) return "Direct";
+  if (/^indirect$/i.test(raw)) return "Indirect";
+  return raw || (row?.sourceName ? "Indirect" : "Direct");
+};
+
+const matchesExpiryWindow = (days, windowKey) => {
+  if (windowKey === "all") return true;
+  if (days === null || !Number.isFinite(Number(days))) return false;
+  if (windowKey === "expired") return days < 0;
+  if (windowKey === "gt60d") return days > 60;
+  const limit = Number.parseInt(windowKey, 10);
+  return Number.isFinite(limit) && days >= 0 && days <= limit;
+};
+
+const matchesTier = (premium, tier) => {
+  if (tier === "all") return true;
+  if (tier === "high-value") return premium > 50000;
+  if (tier === "premium") return premium >= 20000 && premium <= 50000;
+  if (tier === "basic") return premium > 0 && premium < 20000;
+  return true;
+};
+
+const POLICY_STATUS_OPTIONS = [
+  "Active",
+  "Expiring Soon",
+  "Expired",
+  "Already Renewed",
+  "Pending",
+];
 
 const InsuranceRenewalCasesPage = () => {
   const navigate = useNavigate();
@@ -444,15 +487,6 @@ const InsuranceRenewalCasesPage = () => {
   const onPolicyStatusChange = (value) => setPolicyStatusFilter(String(value || "all"));
   const onTierChange = (value) => setTierFilter(String(value || "all"));
   const onLeadStatusChange = (value) => setStatusFilter(String(value || "all"));
-  const [summary, setSummary] = useState({
-    activeCases: 0,
-    policiesPending: 0,
-    paymentPending: 0,
-    pendingRenewals: 0,
-    renewed: 0,
-    external: 0,
-    highValue: 0,
-  });
 
   const handleStatCardClick = (cardKey) => {
     if (
@@ -477,11 +511,71 @@ const InsuranceRenewalCasesPage = () => {
     return selectedStatCard === key;
   };
 
+  // Anything that narrows the list — search is server-side, the rest filter
+  // client-side; all of them should flip the empty state to "no matches".
+  const hasActiveRenewalFilters =
+    Boolean(search.trim()) ||
+    windowFilter !== "all" ||
+    policyStatusFilter !== "all" ||
+    tierFilter !== "all" ||
+    statusFilter !== "all" ||
+    vehicleTypeFilter !== "all" ||
+    sourceFilter !== "all" ||
+    selectedStatCard !== "all" ||
+    viewTab !== "all";
+
+  // Dropdown filters only — stat cards count on top of this set.
+  const dropdownFilteredCases = useMemo(
+    () =>
+      cases.filter(
+        (row) =>
+          matchesExpiryWindow(getRenewalDaysLeft(row), windowFilter) &&
+          (policyStatusFilter === "all" ||
+            getRenewalPolicyStatus(row) === policyStatusFilter) &&
+          (statusFilter === "all" ||
+            getRenewalLeadStatus(row) === statusFilter) &&
+          matchesTier(getRenewalPremium(row), tierFilter) &&
+          (vehicleTypeFilter === "all" ||
+            getRenewalVehicleType(row).toLowerCase() ===
+              vehicleTypeFilter.toLowerCase()) &&
+          (sourceFilter === "all" ||
+            getRenewalSource(row).toLowerCase() === sourceFilter.toLowerCase()),
+      ),
+    [
+      cases,
+      windowFilter,
+      policyStatusFilter,
+      statusFilter,
+      tierFilter,
+      vehicleTypeFilter,
+      sourceFilter,
+    ],
+  );
+
+  const statCardMatchers = {
+    all: () => true,
+    renewal: (row) => getRenewalView(row) === "renewal",
+    renewed: (row) => getRenewalView(row) === "renewed",
+    external: (row) => getRenewalView(row) === "external",
+    active: (row) => getRenewalLeadStatus(row) !== "Closed",
+    policiesPending: (row) =>
+      !String(getDisplayedPolicy(row)?.newPolicyNumber || "").trim(),
+    paymentPending: (row) => getRenewalLeadStatus(row) === "Payment Pending",
+    highValue: (row) => getRenewalPremium(row) > 50000,
+  };
+
+  const statCounts = Object.fromEntries(
+    Object.entries(statCardMatchers).map(([key, matcher]) => [
+      key,
+      dropdownFilteredCases.filter(matcher).length,
+    ]),
+  );
+
   const statCards = [
     {
       key: "all",
       label: "All Cases",
-      count: Number(summary?.allCases || 0),
+      count: statCounts.all,
       icon: LayoutGrid,
       color: "text-slate-600",
       bg: "bg-slate-100",
@@ -494,7 +588,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "renewal",
       label: "Pending Renewals",
-      count: Number(summary?.pendingRenewals || 0),
+      count: statCounts.renewal,
       icon: Clock3,
       color: "text-rose-600",
       bg: "bg-rose-50",
@@ -507,7 +601,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "renewed",
       label: "Renewed",
-      count: Number(summary?.renewed || 0),
+      count: statCounts.renewed,
       icon: CheckCircle,
       color: "text-emerald-600",
       bg: "bg-emerald-50",
@@ -520,7 +614,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "external",
       label: "External",
-      count: Number(summary?.external || 0),
+      count: statCounts.external,
       icon: Share2,
       color: "text-indigo-600",
       bg: "bg-indigo-50",
@@ -533,7 +627,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "active",
       label: "Active Cases",
-      count: Number(summary?.activeCases || 0),
+      count: statCounts.active,
       icon: Shield,
       color: "text-blue-600",
       bg: "bg-blue-50",
@@ -546,7 +640,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "policiesPending",
       label: "Policies Pending",
-      count: Number(summary?.policiesPending || 0),
+      count: statCounts.policiesPending,
       icon: ListChecks,
       color: "text-purple-600",
       bg: "bg-purple-50",
@@ -559,7 +653,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "paymentPending",
       label: "Payment Pending",
-      count: Number(summary?.paymentPending || 0),
+      count: statCounts.paymentPending,
       icon: DollarSign,
       color: "text-amber-600",
       bg: "bg-amber-50",
@@ -572,7 +666,7 @@ const InsuranceRenewalCasesPage = () => {
     {
       key: "highValue",
       label: "High Value (>50K)",
-      count: Number(summary?.highValue || 0),
+      count: statCounts.highValue,
       icon: Activity,
       color: "text-teal-600",
       bg: "bg-teal-50",
@@ -584,78 +678,41 @@ const InsuranceRenewalCasesPage = () => {
     },
   ];
 
+  const loadRequestRef = React.useRef(0);
   const load = useCallback(async () => {
+    const requestId = ++loadRequestRef.current;
     setLoading(true);
     try {
-      const [casesRes, summaryRes] = await Promise.all([
-        insuranceApi.getRenewalCases({
-          view: viewTab,
-          window: windowFilter !== "all" ? windowFilter : undefined,
-          status: policyStatusFilter !== "all" ? policyStatusFilter : undefined,
-          tier: tierFilter !== "all" ? tierFilter : undefined,
-          search: debouncedSearch || undefined,
-        }),
-        insuranceApi.getRenewalSummary(),
-      ]);
+      // Fetch every renewal case once; tabs, dropdowns and stat-card counts
+      // are all derived client-side from these rows so they always agree.
+      const casesRes = await insuranceApi.getRenewalCases({
+        view: "all",
+        search: debouncedSearch || undefined,
+      });
       const rows = Array.isArray(casesRes?.data)
         ? casesRes.data
         : Array.isArray(casesRes?.items)
           ? casesRes.items
           : [];
-      // Backend already applies renewal-window + workflow visibility.
-      // Avoid re-filtering here, otherwise Renewed/External or edge rows can disappear.
+      // A slower response for an older filter set must not overwrite a newer one.
+      if (requestId !== loadRequestRef.current) return;
       setCases(rows);
-      setSummary(summaryRes?.data || {});
     } catch (err) {
+      if (requestId !== loadRequestRef.current) return;
       message.error(err?.message || "Failed to load renewal cases");
     } finally {
-      setLoading(false);
+      if (requestId === loadRequestRef.current) setLoading(false);
     }
-  }, [viewTab, windowFilter, policyStatusFilter, tierFilter, debouncedSearch]);
+  }, [debouncedSearch]);
 
   React.useEffect(() => {
     load();
   }, [load]);
 
   const filteredCases = useMemo(() => {
-    let rows = [...cases];
-
-    if (statusFilter !== "all") {
-      rows = rows.filter(
-        (row) =>
-          String(row?.renewalLeadStatus || "New").toLowerCase() ===
-          statusFilter.toLowerCase(),
-      );
-    }
-
-    if (selectedStatCard !== "all") {
-      if (selectedStatCard === "active") {
-        rows = rows.filter((row) => String(row?.renewalLeadStatus || "New").toLowerCase() !== "closed");
-      } else if (selectedStatCard === "policiesPending") {
-        rows = rows.filter((row) => !String(row?.newPolicyNumber || "").trim());
-      } else if (selectedStatCard === "paymentPending") {
-        rows = rows.filter((row) => String(row?.renewalLeadStatus || "New").toLowerCase() === "payment pending");
-      } else if (selectedStatCard === "highValue") {
-        rows = rows.filter((row) => {
-          const newPremium = Number(row.newTotalPremium || 0);
-          const premium = Number(row.totalPremium || 0);
-          const prevPremium = Number(row.previousTotalPremium || 0);
-          return newPremium > 50000 || premium > 50000 || prevPremium > 50000;
-        });
-      }
-    }
-
-    if (vehicleTypeFilter !== "all") {
-      rows = rows.filter(
-        (row) => getRenewalVehicleType(row).toLowerCase() === vehicleTypeFilter.toLowerCase(),
-      );
-    }
-
-    if (sourceFilter !== "all") {
-      rows = rows.filter(
-        (row) => getRenewalSource(row).toLowerCase() === sourceFilter.toLowerCase(),
-      );
-    }
+    const activeCardKey = selectedStatCard !== "all" ? selectedStatCard : viewTab;
+    const matcher = statCardMatchers[activeCardKey] || statCardMatchers.all;
+    const rows = dropdownFilteredCases.filter(matcher);
 
     return rows.sort((a, b) => {
       const aFollow = parseDate(a?.renewalFollowUpDate);
@@ -664,25 +721,20 @@ const InsuranceRenewalCasesPage = () => {
       if (aFollow && !bFollow) return -1;
       if (!aFollow && bFollow) return 1;
 
-      const aDays = cycleAdjustedDaysUntilExpiry(a);
-      const bDays = cycleAdjustedDaysUntilExpiry(b);
+      const aDays = getRenewalDaysLeft(a);
+      const bDays = getRenewalDaysLeft(b);
       const aNum = Number.isFinite(aDays) ? aDays : Number.POSITIVE_INFINITY;
       const bNum = Number.isFinite(bDays) ? bDays : Number.POSITIVE_INFINITY;
       if (aNum !== bNum) return aNum - bNum;
-      const aDate = parseDate(getPolicyPulseExpiryDate(a));
-      const bDate = parseDate(getPolicyPulseExpiryDate(b));
+      const aDate = parseDate(getPolicyPulseExpiryDate(getDisplayedPolicy(a)));
+      const bDate = parseDate(getPolicyPulseExpiryDate(getDisplayedPolicy(b)));
       if (!aDate && !bDate) return 0;
       if (!aDate) return 1;
       if (!bDate) return -1;
       return aDate.valueOf() - bDate.valueOf();
     });
-  }, [
-    cases,
-    statusFilter,
-    selectedStatCard,
-    vehicleTypeFilter,
-    sourceFilter,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dropdownFilteredCases, selectedStatCard, viewTab]);
 
   const saveRowUpdate = async (row) => {
     const id = getCaseId(row);
@@ -858,164 +910,6 @@ const InsuranceRenewalCasesPage = () => {
       style={{ background: "linear-gradient(160deg, #f0f4ff 0%, #fafafa 60%)" }}
     >
       <div className="mx-auto max-w-[1920px] space-y-4">
-        <style>{`
-          .renewal-status-panel {
-            width: min(100vw - 2rem, 340px);
-            overflow: hidden;
-          }
-          .renewal-status-panel__head {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.5rem;
-            padding: 0.875rem 1rem 0.625rem;
-            border-bottom: 1px solid #e2e8f0;
-            background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
-          }
-          .renewal-status-panel__close {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            border: 1px solid #e2e8f0;
-            background: #fff;
-            color: #64748b;
-            flex-shrink: 0;
-            transition: background 0.15s ease, color 0.15s ease;
-          }
-          .renewal-status-panel__close:hover {
-            background: #f1f5f9;
-            color: #0f172a;
-          }
-          .renewal-status-panel__meta {
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            gap: 0.375rem;
-            padding: 0.5rem 1rem 0.75rem;
-            border-bottom: 1px solid #f1f5f9;
-          }
-          .renewal-status-panel__badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.2rem 0.5rem;
-            border-radius: 6px;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.02em;
-          }
-          .renewal-status-panel__meta-item {
-            font-size: 10px;
-            font-weight: 600;
-            color: #64748b;
-            padding: 0.15rem 0.45rem;
-            border-radius: 6px;
-            background: #f8fafc;
-            border: 1px solid #e2e8f0;
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          }
-          .renewal-status-panel__body {
-            max-height: min(70vh, 420px);
-            overflow-y: auto;
-            padding: 0.5rem;
-          }
-          .renewal-status-panel__section {
-            padding: 0.35rem 0.25rem 0.5rem;
-          }
-          .renewal-status-panel__section + .renewal-status-panel__section {
-            margin-top: 0.25rem;
-            padding-top: 0.5rem;
-            border-top: 1px solid #f1f5f9;
-          }
-          .renewal-status-panel__section-label {
-            margin: 0 0 0.4rem 0.35rem;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            color: #94a3b8;
-          }
-          .renewal-status-panel__actions {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-          }
-          .renewal-status-action {
-            display: flex;
-            align-items: flex-start;
-            gap: 0.625rem;
-            width: 100%;
-            text-align: left;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 0.55rem 0.65rem;
-            background: #fff;
-            transition: transform 0.12s ease, box-shadow 0.12s ease, border-color 0.12s ease;
-          }
-          .renewal-status-action:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.06);
-            border-color: #cbd5e1;
-          }
-          .renewal-status-action:active {
-            transform: translateY(0);
-          }
-          .renewal-status-action__icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 32px;
-            height: 32px;
-            border-radius: 10px;
-            flex-shrink: 0;
-          }
-          .renewal-status-action__text {
-            display: flex;
-            flex-direction: column;
-            gap: 0.1rem;
-            min-width: 0;
-          }
-          .renewal-status-action__label {
-            font-size: 12px;
-            font-weight: 700;
-            color: #0f172a;
-            line-height: 1.25;
-          }
-          .renewal-status-action__desc {
-            font-size: 10px;
-            font-weight: 500;
-            color: #64748b;
-            line-height: 1.3;
-          }
-          .tone-save { background: #f1f5f9; color: #334155; }
-          .tone-share { background: #dbeafe; color: #1d4ed8; }
-          .tone-view { background: #ede9fe; color: #6d28d9; }
-          .tone-payment { background: #fef3c7; color: #b45309; }
-          .tone-renew { background: #dcfce7; color: #15803d; }
-          .tone-close { background: #ffe4e6; color: #be123c; }
-          .tone-renewed { background: #cffafe; color: #0e7490; }
-          .tone-sold { background: #ffedd5; color: #c2410c; }
-          .tone-expired { background: #fee2e2; color: #b91c1c; }
-          .chip-save { border-color: #e2e8f0; }
-          .chip-share { border-color: #bfdbfe; }
-          .chip-view { border-color: #ddd6fe; }
-          .chip-payment { border-color: #fde68a; }
-          .chip-renew { border-color: #bbf7d0; }
-          .chip-close { border-color: #fecdd3; }
-          .chip-renewed { border-color: #a5f3fc; }
-          .chip-sold { border-color: #fed7aa; }
-          .chip-expired { border-color: #fecaca; }
-          .renewal-status-popover .ant-popover-inner {
-            padding: 0 !important;
-            border-radius: 14px !important;
-            overflow: hidden;
-            box-shadow: 0 20px 50px rgba(15, 23, 42, 0.14) !important;
-          }
-          .renewal-status-popover .ant-popover-inner-content {
-            padding: 0 !important;
-          }
-        `}</style>
         <div className="rounded-xl border-2 border-slate-200 bg-white p-4 shadow-sm">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
@@ -1033,10 +927,12 @@ const InsuranceRenewalCasesPage = () => {
               const active = isCardActive(card.key);
               const CardIcon = card.icon;
               return (
-                <div
+                <motion.button
                   key={card.key}
+                  type="button"
+                  aria-pressed={active}
                   onClick={() => handleStatCardClick(card.key)}
-                  className={`cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-3 ${
+                  className={`cursor-pointer rounded-xl border p-3.5 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] flex items-center gap-3 text-left w-full ${
                     active ? card.activeBg : `${card.inactiveBg} ${card.borderColor}`
                   }`}
                 >
@@ -1051,11 +947,11 @@ const InsuranceRenewalCasesPage = () => {
                     <div className={`text-[10px] font-bold uppercase tracking-wider truncate ${active ? card.labelActive : card.labelInactive}`}>
                       {card.label}
                     </div>
-                    <div className="mt-0.5 text-lg font-black leading-none">
+                    <div className="ins-num mt-0.5 text-lg font-black leading-none">
                       {card.count}
                     </div>
                   </div>
-                </div>
+                </motion.button>
               );
             })}
           </div>
@@ -1073,17 +969,28 @@ const InsuranceRenewalCasesPage = () => {
                 placeholder="Search case, customer, vehicle, policy or mobile"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border-2 border-slate-200 py-2.5 pl-10 pr-4 font-medium text-slate-900 placeholder-slate-400 transition-all focus:border-slate-400 focus:outline-none"
+                className="w-full rounded-lg border-2 border-slate-200 py-2.5 pl-10 pr-10 font-medium text-slate-900 placeholder-slate-400 transition-all focus:border-slate-400 focus:outline-none"
               />
+              {search && (
+                <button
+                  type="button"
+                  aria-label="Clear search"
+                  className="ins-search-clear"
+                  onClick={() => setSearch("")}
+                >
+                  <X size={12} />
+                </button>
+              )}
             </div>
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.97 }}
               type="button"
               onClick={load}
+              aria-label="Refresh cases"
               className="flex items-center justify-center gap-2 rounded-lg bg-slate-100 px-4 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-200"
             >
-              <RefreshCw size={16} />
+              <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
               Refresh
             </motion.button>
             <motion.button
@@ -1099,7 +1006,7 @@ const InsuranceRenewalCasesPage = () => {
 
           <div className="flex flex-wrap gap-2">
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="ins-filter-select h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400"
               value={windowFilter}
               onChange={(e) => onWindowChange(e.target.value)}
             >
@@ -1113,18 +1020,19 @@ const InsuranceRenewalCasesPage = () => {
               <option value="expired">Expired</option>
             </select>
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="ins-filter-select h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400"
               value={policyStatusFilter}
               onChange={(e) => onPolicyStatusChange(e.target.value)}
             >
               <option value="all">Policy Status: All</option>
-              <option value="active">Active</option>
-              <option value="grace">Grace Period</option>
-              <option value="suspended">Suspended</option>
-              <option value="cancelled">Cancelled</option>
+              {POLICY_STATUS_OPTIONS.map((item) => (
+                <option key={item} value={item}>
+                  {item === "Pending" ? "Expiry Not Captured" : item}
+                </option>
+              ))}
             </select>
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="ins-filter-select h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400"
               value={statusFilter}
               onChange={(e) => onLeadStatusChange(e.target.value)}
             >
@@ -1136,7 +1044,7 @@ const InsuranceRenewalCasesPage = () => {
               ))}
             </select>
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="ins-filter-select h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400"
               value={tierFilter}
               onChange={(e) => onTierChange(e.target.value)}
             >
@@ -1146,7 +1054,7 @@ const InsuranceRenewalCasesPage = () => {
               <option value="basic">Basic (&lt; ₹20K)</option>
             </select>
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="ins-filter-select h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400"
               value={vehicleTypeFilter}
               onChange={(e) => setVehicleTypeFilter(e.target.value)}
             >
@@ -1155,7 +1063,7 @@ const InsuranceRenewalCasesPage = () => {
               <option value="Used Car">Used Car</option>
             </select>
             <select
-              className="h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400 focus:outline-none"
+              className="ins-filter-select h-9 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-700 focus:border-slate-400"
               value={sourceFilter}
               onChange={(e) => setSourceFilter(e.target.value)}
             >
@@ -1167,21 +1075,55 @@ const InsuranceRenewalCasesPage = () => {
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
-          <div className="mb-3 flex flex-wrap items-center justify-end gap-2">
-            <Button onClick={load} loading={loading}>
-              Refresh
-            </Button>
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <p className="ins-num text-xs font-semibold text-slate-500">
+              Showing {filteredCases.length} of {cases.length} cases
+            </p>
+            {loading && cases.length > 0 && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-400">
+                <RefreshCw size={12} className="animate-spin" />
+                Updating…
+              </span>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-4">
+            {loading &&
+              !cases.length &&
+              [0, 1, 2].map((i) => (
+                <div
+                  key={`skeleton-${i}`}
+                  className="rounded-2xl border bg-white p-4"
+                  style={{ borderColor: "#dbe3ee" }}
+                  aria-hidden="true"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="ins-skeleton h-5 w-24" />
+                    <div className="ins-skeleton h-5 w-16" />
+                    <div className="ins-skeleton h-5 w-20" />
+                    <div className="ins-skeleton h-5 w-16" />
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {[0, 1, 2, 3].map((j) => (
+                      <div
+                        key={j}
+                        className="space-y-2.5 rounded-2xl border p-3"
+                        style={{ borderColor: "#e2e8f0" }}
+                      >
+                        <div className="ins-skeleton h-3 w-20" />
+                        <div className="ins-skeleton h-4 w-3/4" />
+                        <div className="ins-skeleton h-3 w-1/2" />
+                        <div className="ins-skeleton h-3 w-2/3" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             {filteredCases.map((row) => {
               const id = getCaseId(row);
               const draft = rowDrafts[id] || {};
               const status =
                 draft.renewalLeadStatus ?? row.renewalLeadStatus ?? "New";
-              const isRowRenewed =
-                viewTab === "renewed" ||
-                Boolean(row?.renewedComplete) ||
-                row?.renewalOutcome === "ALREADY_RENEWED";
+              const isRowRenewed = isRenewedRow(row);
               const policyRecord =
                 row?.renewedComplete && row?.renewedPolicy
                   ? row.renewedPolicy
@@ -1221,21 +1163,9 @@ const InsuranceRenewalCasesPage = () => {
               const activationDate = parseInsuranceDate(activationDateRaw);
               const policyPulseTone = getPolicyPulseMeta(days, isRowRenewed);
               const comment = draft.renewalComment ?? row.renewalComment ?? "";
-              const paymentTimeline = buildInsurancePaymentTimeline(policyRecord);
-              const primaryPaymentRow = paymentTimeline[0] || {
-                label: "Total Premium",
-                amount: 0,
-                type: "neutral",
-                isPreviousYearPremium: true,
-              };
-              const secondaryPaymentRows = paymentTimeline.slice(1);
-              const paymentBaseAmount = Math.max(
-                1,
-                Number(primaryPaymentRow.amount || 0),
-              );
-              const hasPaymentActivity = secondaryPaymentRows.some(
-                (item) => Number(item.amount || 0) > 0,
-              );
+              const primaryPaymentRow = buildInsurancePaymentTimeline(
+                policyRecord,
+              )[0] || { amount: 0 };
               const { referenceName, referencePhone } =
                 resolveInsuranceReference(row);
               const snap = row.customerSnapshot || {};
@@ -1288,10 +1218,7 @@ const InsuranceRenewalCasesPage = () => {
                     : customerName || contactPerson || companyName || "—";
 
               const mobile = snap.primaryMobile || row.mobile || "—";
-              const sourceRaw = String(
-                row.source || row.sourceOrigin || "",
-              ).trim();
-              const source = sourceRaw || (row.sourceName ? "Indirect" : "Direct");
+              const source = getRenewalSource(row);
               const isIndirectSource = source.toLowerCase() === "indirect";
               const policyDoneByRaw = String(
                 row.policyDoneBy || row.policy_done_by || "",
@@ -1342,7 +1269,7 @@ const InsuranceRenewalCasesPage = () => {
               const vehicleLabel = vehicle || "—";
               const reg = row.registrationNumber || row.vehicleNumber || "";
               const policyOriginType = getPolicyOriginType(row);
-              const vehicleOwnershipBadge = row?.vehicleType || "Used Car";
+              const vehicleOwnershipBadge = getRenewalVehicleType(row);
               const ownershipLower = String(vehicleOwnershipBadge || "")
                 .trim()
                 .toLowerCase();
@@ -1799,129 +1726,23 @@ const InsuranceRenewalCasesPage = () => {
                           border: "1px solid #e2e8f0",
                         }}
                       >
-                        <div
-                          className="px-3 py-3 border-b"
-                          style={{ borderColor: "#e2e8f0" }}
-                        >
+                        <div className="px-3 py-3">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0">
                               <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">
-                                {primaryPaymentRow.isPreviousYearPremium
-                                  ? "Previous Year Payment"
-                                  : "Renewal Payment"}
+                                Renewal Payment
                               </p>
                               <p className="text-[11px] text-slate-500 mt-1 truncate">
-                                {primaryPaymentRow.label}
+                                Total Premium
                               </p>
                             </div>
                             <div className="w-8 h-8 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-600 shrink-0">
                               <DollarSign size={14} />
                             </div>
                           </div>
-                          <div className="mt-3 flex items-end justify-between gap-3">
-                            <p className="text-[22px] leading-6 font-black text-slate-900">
-                              {formatInr(primaryPaymentRow.amount)}
-                            </p>
-                          </div>
-                          <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                            <div
-                              className="h-full rounded-full"
-                              style={{
-                                width: "100%",
-                                background:
-                                  "linear-gradient(90deg, #38bdf8 0%, #818cf8 55%, #22c55e 100%)",
-                              }}
-                            />
-                          </div>
-                        </div>
-                        <div className="p-3 space-y-3">
-                          {hasPaymentActivity ? (
-                            secondaryPaymentRows.map((item, idx) => {
-                              const meta =
-                                paymentSignalMeta[item.type] ||
-                                paymentSignalMeta.neutral;
-                              const Icon = meta.icon;
-                              const isSubventionRow = String(item.label || "")
-                                .toLowerCase()
-                                .includes("subvention");
-                              const rowBase = Number(
-                                item.progressBase || paymentBaseAmount || 0,
-                              );
-                              const rawRatio =
-                                rowBase > 0
-                                  ? (Number(item.amount || 0) / rowBase) * 100
-                                  : 0;
-                              const ratio =
-                                isSubventionRow && Number(item.amount || 0) > 0
-                                  ? 100
-                                  : Math.max(
-                                      0,
-                                      Math.min(100, Math.round(rawRatio)),
-                                    );
-                              return (
-                              <motion.div
-                                key={`${id}-pay-${idx}`}
-                                whileHover={{ x: 2, y: -1 }}
-                                transition={{ duration: 0.16 }}
-                                className="relative"
-                              >
-                                <div className="flex items-start gap-2.5">
-                                  <div className="relative pt-0.5">
-                                    <div
-                                      className="w-8 h-8 rounded-xl flex items-center justify-center border"
-                                      style={{
-                                        background: meta.soft,
-                                        borderColor: `${meta.color}33`,
-                                        color: meta.color,
-                                      }}
-                                    >
-                                      <Icon size={13} />
-                                    </div>
-                                  </div>
-                                  <div className="min-w-0 flex-1">
-                                    <div className="flex items-start justify-between gap-3">
-                                      <div className="min-w-0 flex-1">
-                                        <p className="text-[12px] font-semibold text-slate-900 leading-4">
-                                          {item.label}
-                                        </p>
-                                      </div>
-                                      <div className="shrink-0">
-                                        <span
-                                          className="text-[12px] font-black whitespace-nowrap"
-                                          style={{ color: meta.color }}
-                                        >
-                                          {formatInr(item.amount)}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <div className="mt-2 flex items-center gap-2">
-                                      <div className="flex-1 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-                                        <motion.div
-                                          initial={{ width: 0 }}
-                                          animate={{ width: `${ratio}%` }}
-                                          transition={{
-                                            duration: 0.45,
-                                            ease: "easeOut",
-                                          }}
-                                          className="h-full rounded-full"
-                                          style={{
-                                            background: `linear-gradient(90deg, ${meta.color} 0%, ${meta.color}cc 100%)`,
-                                          }}
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                              </motion.div>
-                              );
-                            })
-                          ) : (
-                            <div className="rounded-xl bg-slate-50 border border-slate-200 px-3 py-4 text-center">
-                              <p className="text-[12px] font-medium text-slate-500">
-                                No payment activity
-                              </p>
-                            </div>
-                          )}
+                          <p className="ins-num mt-3 text-[22px] leading-6 font-black text-slate-900">
+                            {formatInr(primaryPaymentRow.amount)}
+                          </p>
                         </div>
                       </div>
                     </div>
@@ -1997,9 +1818,30 @@ const InsuranceRenewalCasesPage = () => {
                 </motion.div>
               );
             })}
-            {!filteredCases.length && (
-              <div className="rounded-xl border border-slate-200 bg-white py-16 text-center text-slate-500">
-                No renewal cases found
+            {!loading && !filteredCases.length && (
+              <div className="rounded-xl border border-slate-200 bg-white py-16 text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                  <Search size={24} className="text-slate-400" />
+                </div>
+                <h3 className="text-base font-bold text-slate-800">
+                  {hasActiveRenewalFilters
+                    ? "No cases match these filters"
+                    : "No renewal cases yet"}
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  {hasActiveRenewalFilters
+                    ? "Try widening the expiry window or clearing a filter."
+                    : "Cases due for renewal in the next 365 days will appear here."}
+                </p>
+                {hasActiveRenewalFilters ? (
+                  <button
+                    type="button"
+                    onClick={clearRenewalFilters}
+                    className="mt-4 rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                  >
+                    Clear all filters
+                  </button>
+                ) : null}
               </div>
             )}
           </div>
