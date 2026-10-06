@@ -23,6 +23,7 @@ import {
 import { Alert, message, Modal, Pagination, Popconfirm, Tooltip } from "antd";
 import InsuranceAntdProvider from "../../components/insurance/InsuranceAntdProvider";
 import "../../components/insurance/insurance-forms.css";
+import "./insurance-dashboard.css";
 import dayjs from "dayjs";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { insuranceApi } from "../../api/insurance";
@@ -701,11 +702,13 @@ const MetricCard = ({
   const iconBorder = isActive ? "rgba(255,255,255,0.25)" : `${color}30`;
 
   return (
-    <motion.div
+    <motion.button
+      type="button"
+      aria-pressed={isActive}
       whileHover={{ y: -3, scale: 1.02 }}
       whileTap={{ scale: 0.97 }}
       onClick={onClick}
-      className="relative cursor-pointer overflow-hidden rounded-xl border transition-all"
+      className="relative w-full cursor-pointer overflow-hidden rounded-xl border text-left transition-all"
       style={{
         background: isActive ? color : "#ffffff",
         borderColor: isActive ? color : "#e2e8f0",
@@ -761,7 +764,7 @@ const MetricCard = ({
           </div>
         </div>
       </div>
-    </motion.div>
+    </motion.button>
   );
 };
 
@@ -819,6 +822,29 @@ const FilterChip = ({ label, count, isActive, onClick, icon: Icon }) => {
 // POLICY CARD (4-COLUMN LAYOUT LIKE ORIGINAL)
 // ============================================
 
+const PAYMENT_SIGNAL_META = {
+  neutral: {
+    color: "#64748b",
+    soft: "rgba(148, 163, 184, 0.10)",
+    icon: DollarSign,
+  },
+  good: {
+    color: "#16a34a",
+    soft: "rgba(22, 163, 74, 0.10)",
+    icon: CheckCircle,
+  },
+  warning: {
+    color: "#d97706",
+    soft: "rgba(217, 119, 6, 0.10)",
+    icon: AlertCircle,
+  },
+  accent: {
+    color: "#2563eb",
+    soft: "rgba(37, 99, 235, 0.10)",
+    icon: RefreshCw,
+  },
+};
+
 const PolicyCard = ({
   policy,
   onView,
@@ -863,29 +889,6 @@ const PolicyCard = ({
   const secondaryPaymentRows = paymentRows.slice(1);
 
   const paymentBaseAmount = Math.max(1, Number(primaryPaymentRow.amount || 0));
-
-  const paymentSignalMeta = {
-    neutral: {
-      color: "#64748b",
-      soft: "rgba(148, 163, 184, 0.10)",
-      icon: DollarSign,
-    },
-    good: {
-      color: "#16a34a",
-      soft: "rgba(22, 163, 74, 0.10)",
-      icon: CheckCircle,
-    },
-    warning: {
-      color: "#d97706",
-      soft: "rgba(217, 119, 6, 0.10)",
-      icon: AlertCircle,
-    },
-    accent: {
-      color: "#2563eb",
-      soft: "rgba(37, 99, 235, 0.10)",
-      icon: RefreshCw,
-    },
-  };
 
   return (
     <motion.div
@@ -956,6 +959,7 @@ const PolicyCard = ({
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={onView}
+                aria-label="View case"
                 className="h-8 w-8 rounded-full inline-flex items-center justify-center"
                 style={{ background: "#eef2ff", color: "#4f46e5" }}
               >
@@ -968,6 +972,7 @@ const PolicyCard = ({
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={onEdit}
+                aria-label={isDraft ? "Continue case" : "Edit case"}
                 className="h-8 w-8 rounded-full inline-flex items-center justify-center"
                 style={{ background: "#eef2ff", color: "#4f46e5" }}
               >
@@ -980,6 +985,7 @@ const PolicyCard = ({
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}
                 onClick={onDocs}
+                aria-label="Open documents"
                 className="h-8 w-8 rounded-full inline-flex items-center justify-center"
                 style={{ background: "#eff6ff", color: "#2563eb" }}
               >
@@ -999,6 +1005,7 @@ const PolicyCard = ({
                 <motion.button
                   whileHover={{ scale: 1.06 }}
                   whileTap={{ scale: 0.96 }}
+                  aria-label="Delete case"
                   className="h-8 w-8 rounded-full inline-flex items-center justify-center"
                   style={{ background: "#fff1f2", color: "#e11d48" }}
                 >
@@ -1307,21 +1314,31 @@ const PolicyCard = ({
               </div>
 
               <div className="mt-3 flex items-end justify-between gap-3">
-                <p className="text-[22px] leading-6 font-black text-slate-900">
+                <p className="ins-num text-[22px] leading-6 font-black text-slate-900">
                   {formatInr(primaryPaymentRow.amount)}
                 </p>
               </div>
 
+              {/* Real collected share of the primary premium, not a decorative bar */}
               <div className="mt-3 h-1.5 rounded-full bg-slate-100 overflow-hidden">
                 <div
-                  className="h-full rounded-full"
+                  className="h-full rounded-full transition-[width] duration-500 ease-out"
                   style={{
-                    width: "100%",
+                    width: `${policy.paymentPercent || 0}%`,
                     background:
-                      "linear-gradient(90deg, #38bdf8 0%, #818cf8 55%, #22c55e 100%)",
+                      (policy.paymentPercent || 0) >= 100
+                        ? "linear-gradient(90deg, #34d399 0%, #10b981 100%)"
+                        : (policy.paymentPercent || 0) > 0
+                          ? "linear-gradient(90deg, #38bdf8 0%, #818cf8 100%)"
+                          : "transparent",
                   }}
                 />
               </div>
+              <p className="ins-num mt-1.5 text-[10px] font-semibold text-slate-400">
+                {(policy.paymentPercent || 0) > 0
+                  ? `${policy.paymentPercent}% collected`
+                  : "Nothing collected yet"}
+              </p>
             </div>
 
             {/* Signals / Secondary Payments */}
@@ -1329,7 +1346,7 @@ const PolicyCard = ({
               {secondaryPaymentRows.length > 0 ? (
                 secondaryPaymentRows.map((item, idx) => {
                   const meta =
-                    paymentSignalMeta[item.type] || paymentSignalMeta.neutral;
+                    PAYMENT_SIGNAL_META[item.type] || PAYMENT_SIGNAL_META.neutral;
                   const Icon = meta.icon;
                   const isSubventionRow = String(item.label || "")
                     .toLowerCase()
@@ -1377,7 +1394,7 @@ const PolicyCard = ({
 
                             <div className="shrink-0">
                               <span
-                                className="text-[12px] font-black whitespace-nowrap"
+                                className="ins-num text-[12px] font-black whitespace-nowrap"
                                 style={{ color: meta.color }}
                               >
                                 {formatInr(item.amount)}
@@ -2100,8 +2117,18 @@ const InsuranceDashboardPage = () => {
                   placeholder="Search by customer, policy, vehicle, registration…"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
+                  className="w-full pl-10 pr-10 py-2.5 rounded-lg border-2 border-slate-200 focus:border-slate-400 focus:outline-none text-slate-900 placeholder-slate-400 font-medium transition-all"
                 />
+                {search && (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    className="ins-search-clear"
+                    onClick={() => setSearch("")}
+                  >
+                    <X size={12} />
+                  </button>
+                )}
               </div>
               <motion.button
                 whileHover={{ scale: 1.02 }}
@@ -2200,11 +2227,35 @@ const InsuranceDashboardPage = () => {
             />
           )}
           {loading && cases.length === 0 && (
-            <div className="flex min-h-[220px] items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-500">
-              <div className="flex items-center gap-2">
-                <RefreshCw size={16} className="animate-spin text-indigo-400" />
-                Loading insurance cases…
-              </div>
+            <div className="space-y-4" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div
+                  key={`skeleton-${i}`}
+                  className="rounded-2xl border bg-white p-4"
+                  style={{ borderColor: "#dbe3ee" }}
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="ins-skeleton h-5 w-24" />
+                    <div className="ins-skeleton h-5 w-16" />
+                    <div className="ins-skeleton h-5 w-20" />
+                    <div className="ins-skeleton h-5 w-16" />
+                  </div>
+                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+                    {[0, 1, 2, 3].map((j) => (
+                      <div
+                        key={j}
+                        className="space-y-2.5 rounded-2xl border p-3"
+                        style={{ borderColor: "#e2e8f0" }}
+                      >
+                        <div className="ins-skeleton h-3 w-20" />
+                        <div className="ins-skeleton h-4 w-3/4" />
+                        <div className="ins-skeleton h-3 w-1/2" />
+                        <div className="ins-skeleton h-3 w-2/3" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
           {!loading && filteredCases.length === 0 && (
@@ -2213,20 +2264,44 @@ const InsuranceDashboardPage = () => {
               animate={{ opacity: 1 }}
               className="rounded-xl border border-slate-200 bg-white py-16 text-center"
             >
-              <div
-                className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-2xl"
-                style={{
-                  background: "linear-gradient(135deg,#4f46e520,#0ea5e920)",
-                }}
-              >
-                <Search size={36} className="text-indigo-400" />
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100">
+                <Search size={24} className="text-slate-400" />
               </div>
-              <h3 className="text-xl font-bold text-slate-800 mb-2">
-                No policies found
+              <h3 className="text-lg font-bold text-slate-800 mb-1">
+                {cases.length
+                  ? "No policies match these filters"
+                  : "No policies yet"}
               </h3>
               <p className="text-sm text-slate-500">
-                Try adjusting your filters or search query
+                {cases.length
+                  ? "Try a different search term or filter chip."
+                  : "Create your first policy and it will show up here."}
               </p>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                {hasActiveFilters && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSearch("");
+                      setPolicyFilter("all");
+                    }}
+                    className="rounded-lg bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+                  >
+                    Clear filters
+                  </button>
+                )}
+                {!cases.length && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      startNewInsuranceCase(navigate, "insurance-dashboard")
+                    }
+                    className="rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+                  >
+                    New Policy
+                  </button>
+                )}
+              </div>
             </motion.div>
           )}
 

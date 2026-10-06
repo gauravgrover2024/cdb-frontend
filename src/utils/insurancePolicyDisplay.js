@@ -43,11 +43,18 @@ export const hasDisplayValue = (value) => {
   return text.length > 0 && text.toLowerCase() !== "n/a";
 };
 
+/**
+ * Placeholder numbers issued while the real policy is pending — e.g. against
+ * a temporary registration (TEMP_REDG_…) — start with "TEMP". They are not an
+ * issued policy and must never mark a case complete.
+ */
+export const isTemporaryPolicyNumber = (value) =>
+  /^temp/i.test(String(value ?? "").trim());
+
 export const hasCurrentPolicyNumber = (record) => {
   const safe = coerceInsuranceRecord(record);
-  return hasDisplayValue(
-    safe.newPolicyNumber || safe.policyNumber || safe.new_policy_number,
-  );
+  const number = safe.newPolicyNumber || safe.policyNumber || safe.new_policy_number;
+  return hasDisplayValue(number) && !isTemporaryPolicyNumber(number);
 };
 
 export const pickPolicyValue = (...args) => {

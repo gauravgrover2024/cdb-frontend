@@ -35,7 +35,7 @@ export const AuthProvider = ({ children }) => {
 
       // Create controller for timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s — allow for backend cold start
 
       const res = await apiClient.get("/api/auth/me", {
         signal: controller.signal,
@@ -64,8 +64,18 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem("token");
         localStorage.removeItem("user");
         setUser(null);
+      } else {
+        // Timeout / network / server error (e.g. backend cold start): the
+        // token is still valid, so keep the user signed in with the cached
+        // profile instead of bouncing them to the login page.
+        try {
+          const cached =
+            localStorage.getItem("user") || sessionStorage.getItem("user");
+          if (cached) setUser((prev) => prev || JSON.parse(cached));
+        } catch (_) {
+          // corrupt cache — leave user as-is
+        }
       }
-      // For timeouts or other errors, keep the existing token/user for now
     } finally {
       setLoading(false);
     }
