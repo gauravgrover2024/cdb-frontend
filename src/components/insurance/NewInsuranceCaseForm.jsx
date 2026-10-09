@@ -677,6 +677,18 @@ const QuotePayoutCalculator = ({
 }) => {
   const isMultiYearPayout = payoutYearCount > 1;
   const [percentages, setPercentages] = useState(initialPercentages);
+  const [payoutStructure, setPayoutStructure] = useState("Split");
+
+  const handleStructureChange = (e) => {
+    const type = e.target.value;
+    setPayoutStructure(type);
+    if (payoutYearCount === 3) {
+      const newPercents = type === "Single" ? [15, 3, 3] : [10.2, 8.25, 8.25];
+      setPercentages(newPercents);
+      onChange(newPercents);
+    }
+  };
+
   const totalPercentage = percentages.reduce(
     (sum, percentage) => sum + Number(percentage || 0),
     0,
@@ -730,6 +742,20 @@ const QuotePayoutCalculator = ({
               ? "Each percentage is saved against its policy year."
               : "The payout is calculated on OD premium and applicable add-ons."}
           </p>
+          {isMultiYearPayout && payoutYearCount === 3 && (
+            <div className="mt-3">
+              <Radio.Group 
+                value={payoutStructure} 
+                onChange={handleStructureChange}
+                optionType="button"
+                buttonStyle="solid"
+                size="small"
+              >
+                <Radio.Button value="Single">Single Payout</Radio.Button>
+                <Radio.Button value="Split">Split Payout</Radio.Button>
+              </Radio.Group>
+            </div>
+          )}
         </div>
 
         <div
@@ -744,6 +770,20 @@ const QuotePayoutCalculator = ({
           {percentages.map((percentage, index) => {
             const amount =
               (Number(payoutBaseAmount || 0) * Number(percentage || 0)) / 100;
+            
+            let breakdownText = null;
+            if (payoutYearCount === 3) {
+                if (payoutStructure === "Single") {
+                    if (index === 0) breakdownText = "OD 60% @ 25%";
+                    else if (index === 1) breakdownText = "OD 20% @ 15%";
+                    else if (index === 2) breakdownText = "OD 20% @ 15%";
+                } else if (payoutStructure === "Split") {
+                    if (index === 0) breakdownText = "OD 34% @ 30%";
+                    else if (index === 1) breakdownText = "OD 33% @ 25%";
+                    else if (index === 2) breakdownText = "OD 33% @ 25%";
+                }
+            }
+
             return (
               <div
                 key={index}
@@ -771,6 +811,11 @@ const QuotePayoutCalculator = ({
                   }
                   onChange={(value) => updatePercentage(index, value)}
                 />
+                {breakdownText && (
+                  <p className="m-0 mt-1.5 text-[10px] text-slate-400 font-medium">
+                    {breakdownText}
+                  </p>
+                )}
               </div>
             );
           })}
