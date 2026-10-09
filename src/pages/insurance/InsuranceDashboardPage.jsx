@@ -1035,17 +1035,25 @@ const PolicyCard = ({
               style={{ borderColor: "#e2e8f0" }}
             >
               <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
+                <div className="min-w-0 w-full">
                   <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500 flex items-center gap-1">
                     <Car size={11} />
                     Customer &amp; Vehicle
                   </p>
-                  <p className="text-[13px] font-semibold text-slate-900 mt-1 truncate">
-                    {policy.displayName || "—"}
-                  </p>
+                  <div className="flex items-center justify-between gap-2 mt-1">
+                    <p className="text-[13px] font-semibold text-slate-900 truncate">
+                      {policy.displayName || "—"}
+                    </p>
+                    {policy.mobile && policy.mobile !== "—" && (
+                      <p className="text-[11px] font-medium text-slate-600 flex items-center gap-1 shrink-0">
+                        <Phone size={10} />
+                        {policy.mobile}
+                      </p>
+                    )}
+                  </div>
                   {policy.contactPerson &&
                     policy.contactPerson !== policy.displayName && (
-                      <p className="text-[11px] text-slate-500 truncate">
+                      <p className="text-[11px] text-slate-500 truncate mt-0.5">
                         {policy.contactPerson}
                       </p>
                     )}
@@ -1057,30 +1065,16 @@ const PolicyCard = ({
             <div className="p-3 space-y-3">
               {/* Customer block */}
               <div>
-                <div className="flex items-center gap-2 text-[11px] text-slate-600">
-                  <Phone size={11} className="shrink-0" />
-                  <span className="truncate">{policy.mobile || "—"}</span>
-                </div>
-
-                <div className="mt-2.5 space-y-1.5">
+                <div className="space-y-1.5">
                   <div className="flex items-center gap-1.5 text-[10px]">
-                    <span className="text-slate-400 font-bold uppercase tracking-wider">
+                    <span className="text-slate-400 font-bold uppercase tracking-wider shrink-0">
                       Source:
                     </span>
-                    <span className="text-slate-700 font-bold">
+                    <span className="text-slate-700 font-bold truncate">
                       {policy.source || "Direct"}
+                      {policy.sourceDetailsName && ` - ${[policy.sourceDetailsName, policy.sourceDetailsContact].filter(Boolean).join(" · ")}`}
                     </span>
                   </div>
-                  {policy.isIndirectSource && policy.sourceDetailsName ? (
-                    <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
-                      <span className="font-bold uppercase tracking-wider text-slate-400">
-                        Channel Partner:
-                      </span>
-                      <span className="truncate font-semibold text-slate-700">
-                        {[policy.sourceDetailsName, policy.sourceDetailsContact].filter(Boolean).join(" · ")}
-                      </span>
-                    </div>
-                  ) : null}
                   {policy.referenceName || policy.referencePhone ? (
                     <div className="flex items-center gap-1.5 text-[10px] text-slate-500">
                       <span className="font-bold uppercase tracking-wider text-slate-400">
@@ -1955,7 +1949,7 @@ const InsuranceDashboardPage = () => {
         isIndirectSource,
         policyDoneByLabel: policyDoneByRaw || "—",
         channelPartnerName,
-        sourceDetailsName: isIndirectSource ? dealerChannelName || referenceName : "",
+        sourceDetailsName: dealerChannelName || referenceName || record.sourceName || record.brokerName || record.showroomName || "",
         sourceDetailsContact: isIndirectSource
           ? String(
             record.dealerChannelMobile ||

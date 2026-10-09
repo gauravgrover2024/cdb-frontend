@@ -601,9 +601,7 @@ const QuoteCard = ({
               indent
               muted
             />
-            {!isNewCar && (
-              <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
-            )}
+            <BreakupRow label="NCB %" value={`${ncbPct}%`} indent muted />
           </>
         )}
 
@@ -1259,7 +1257,7 @@ const Step4InsuranceQuotes = ({
                 />
               </FieldBlock>
 
-              {includesOd && !isNewCar && (
+              {includesOd && (
                 <FieldBlock
                   label="NCB Discount (%)"
                   helper={
@@ -1854,7 +1852,7 @@ const Step4InsuranceQuotes = ({
               </div>
             </div>
 
-            {includesOd && !isNewCar && (
+            {includesOd && (
               <div
                 className={`rounded-xl border px-4 py-3.5 ${ncbPct > 0
                     ? "border-amber-300/90 bg-gradient-to-br from-amber-50 to-orange-50 shadow-sm shadow-amber-200/40"
