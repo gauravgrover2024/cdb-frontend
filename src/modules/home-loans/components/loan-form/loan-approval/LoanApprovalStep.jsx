@@ -110,7 +110,15 @@ const RecordDetailsEditable = ({ bankId, bankName, value, onChange }) => {
             <input
               type="time"
               className="w-full bg-background border border-border rounded-md pl-9 pr-2 py-1 text-sm text-foreground"
-              value={receivingTime ? dayjs(receivingTime).format("HH:mm") : ""}
+              value={
+                !receivingTime
+                  ? ""
+                  : /^\d{2}:\d{2}$/.test(String(receivingTime))
+                    ? receivingTime
+                    : dayjs(receivingTime).isValid()
+                      ? dayjs(receivingTime).format("HH:mm")
+                      : ""
+              }
               onChange={(e) =>
                 handleFieldChange("receivingTime", e.target.value)
               }
@@ -355,9 +363,9 @@ const LoanApprovalStep = ({
   const handleCreateBreakupField = async (label) => {
     const cleaned = String(label || "").trim();
     if (!cleaned) return null;
+    // Response: { success, created, data: { key, label, ... } }
     const response = await homeLoansApi.createBreakupField({ label: cleaned });
-    const payload = response?.data ?? response;
-    const created = payload?.data || null;
+    const created = response?.data?.key ? response.data : null;
     setBreakupFieldDefs((prev) =>
       buildLoanBreakupFieldDefinitions([
         ...(prev || []),
@@ -558,24 +566,25 @@ const LoanApprovalStep = ({
     "docsPreparedBy",
   ]);
 
-  const [recordDetailsByBank, setRecordDetailsByBank] = useState({});
-
-  // Wire new banks' record details to prefile form values if not already set
+  // Record details live on each bank card (bank.recordDetails) so they are
+  // saved with the banks; they used to sit in local state and were lost on
+  // every reload. New cards start from the pre-file record details.
+  const prefileRecordSignature = JSON.stringify(prefileRecordDetails);
   useEffect(() => {
-    if (!banksData || !Array.isArray(banksData)) return;
-    setRecordDetailsByBank((prev) => {
-      const updated = { ...prev };
-      banksData.forEach((bank, idx) => {
-        const bankKey =
-          getBankPrimaryKey(bank) || `${bank?.bankName || "bank"}-${idx}`;
-        if (!updated[bankKey]) {
-          updated[bankKey] = { ...prefileRecordDetails };
-        }
-      });
-      return updated;
-    });
+    if (!Array.isArray(banksData)) return;
+    const missing = banksData.some(
+      (bank, idx) => idx > 0 && !bank?.recordDetails,
+    );
+    if (!missing) return;
+    setBanksData((prev) =>
+      (Array.isArray(prev) ? prev : []).map((bank, idx) =>
+        idx > 0 && !bank?.recordDetails
+          ? { ...bank, recordDetails: { ...prefileRecordDetails } }
+          : bank,
+      ),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [banksData, JSON.stringify(prefileRecordDetails)]);
+  }, [banksData, prefileRecordSignature, setBanksData]);
 
   const statusSummary = {
     total: banksData.length,
@@ -595,6 +604,7 @@ const LoanApprovalStep = ({
   const handleAddBank = () => {
     setBanksData((prev) => {
       const newBank = {
+        recordDetails: { ...prefileRecordDetails },
         id: Date.now(),
         bankName: "New Bank",
         applicationId: `ACILLP-Loan-${String(prev.length + 1).padStart(
@@ -617,15 +627,6 @@ const LoanApprovalStep = ({
           },
         ],
       };
-
-      setRecordDetailsByBank((old) => {
-        const newBankKey = getBankPrimaryKey(newBank) || newBank.bankName;
-        if (old[newBankKey]) return old; // do NOT overwrite once created
-        return {
-          ...old,
-          [newBankKey]: { ...prefileRecordDetails },
-        };
-      });
 
       return [...prev, newBank];
     });
@@ -831,19 +832,14 @@ const LoanApprovalStep = ({
               here.
             </p>
           </div>
-          {banksData.slice(1).map((bank) => (
+          {banksData.slice(1).map((bank, idx) => (
             <RecordDetailsEditable
-              key={getBankPrimaryKey(bank) || bank.bankName}
+              key={getBankPrimaryKey(bank) || `${bank.bankName}-${idx}`}
               bankId={getBankPrimaryKey(bank) || bank.bankName}
               bankName={bank.bankName || "Bank"}
-              value={
-                recordDetailsByBank[getBankPrimaryKey(bank) || bank.bankName]
-              }
-              onChange={(id, newDetails) =>
-                setRecordDetailsByBank((prev) => ({
-                  ...prev,
-                  [id]: newDetails,
-                }))
+              value={bank.recordDetails}
+              onChange={(_id, newDetails) =>
+                handleBankUpdate(bank, { recordDetails: newDetails })
               }
             />
           ))}

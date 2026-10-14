@@ -390,9 +390,10 @@ const OccupationalDetailsPreFile = () => {
                       {(fields, { add, remove }) => (
                         <div className="space-y-3">
                           <div className="hidden md:grid md:grid-cols-12 gap-3 px-3 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                            <div className="md:col-span-4">Name</div>
+                            <div className="md:col-span-3">Name</div>
+                            <div className="md:col-span-2">Role</div>
                             <div className="md:col-span-3">PAN No.</div>
-                            <div className="md:col-span-3">Contact</div>
+                            <div className="md:col-span-2">Contact</div>
                             <div className="md:col-span-2">Date of Birth</div>
                           </div>
 
@@ -401,7 +402,7 @@ const OccupationalDetailsPreFile = () => {
                               key={field.key}
                               className="grid grid-cols-1 md:grid-cols-12 gap-3 rounded-xl border border-border bg-background p-3"
                             >
-                              <div className="md:col-span-4">
+                              <div className="md:col-span-3">
                                 <Form.Item
                                   {...field}
                                   label="Name"
@@ -409,6 +410,23 @@ const OccupationalDetailsPreFile = () => {
                                   className="mb-0"
                                 >
                                   <Input placeholder="Partner / Director name" />
+                                </Form.Item>
+                              </div>
+
+                              <div className="md:col-span-2">
+                                <Form.Item
+                                  {...field}
+                                  label="Role"
+                                  name={[field.name, "designation"]}
+                                  className="mb-0"
+                                >
+                                  <Select
+                                    placeholder="Role"
+                                    allowClear
+                                    options={["Director", "Partner", "Shareholder", "Proprietor"].map(
+                                      (value) => ({ value, label: value }),
+                                    )}
+                                  />
                                 </Form.Item>
                               </div>
 
@@ -423,7 +441,7 @@ const OccupationalDetailsPreFile = () => {
                                 </Form.Item>
                               </div>
 
-                              <div className="md:col-span-3">
+                              <div className="md:col-span-2">
                                 <Form.Item
                                   {...field}
                                   label="Contact"
@@ -464,6 +482,7 @@ const OccupationalDetailsPreFile = () => {
                             onClick={() =>
                               add({
                                 name: "",
+                                designation: undefined,
                                 panNumber: "",
                                 contactNumber: "",
                                 dateOfBirth: "",

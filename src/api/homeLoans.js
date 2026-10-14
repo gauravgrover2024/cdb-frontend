@@ -63,6 +63,25 @@ export const homeLoansApi = {
   getNextRcInvStorageNumber: async () => {
     return await apiClient.get("/api/home-loans/counters/rc-inv/next");
   },
+
+  // Splits a saved original entry into `count` loan files (the original
+  // stays file #1). `payload` is the latest form state, saved first.
+  split: async (id, { count, payload } = {}) => {
+    return await apiClient.post(`/api/home-loans/${id}/split`, { count, payload });
+  },
+
+  // Loan amount breakup components (home-loan specific catalog).
+  getBreakupFields: async () => {
+    return await apiClient.get("/api/home-loans/breakup-fields");
+  },
+  createBreakupField: async (data = {}) => {
+    return await apiClient.post("/api/home-loans/breakup-fields", data);
+  },
+  deleteBreakupField: async (key) => {
+    return await apiClient.delete(
+      `/api/home-loans/breakup-fields/${encodeURIComponent(String(key || "").trim())}`,
+    );
+  },
 };
 
 export const disburseHomeLoan = async (id, data) => {

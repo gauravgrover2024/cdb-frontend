@@ -677,10 +677,12 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                   </PermissionFormItem>
                 </Col>
               )}
+              {/* Make / Model / Variant are optional for home loans - never
+                  required to save or move between stages. */}
               {!isUnsecuredLoan && (
               <>
               <Col xs={24} md={6}>
-                <PermissionFormItem label="Make" name="vehicleMake">
+                <PermissionFormItem label="Make" name="vehicleMake" rules={[{ required: false }]}>
                   <Select
                     placeholder="Select Make" 
                     allowClear 
@@ -719,7 +721,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                 </PermissionFormItem>
               </Col>
               <Col xs={24} md={6}>
-                <PermissionFormItem label="Model" name="vehicleModel">
+                <PermissionFormItem label="Model" name="vehicleModel" rules={[{ required: false }]}>
                   <Select
                     placeholder={vehicleMake ? "Select Model" : "Select Make First"}
                     disabled={!vehicleMake}
@@ -759,7 +761,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
                 </PermissionFormItem>
               </Col>
               <Col xs={24} md={6}>
-                <PermissionFormItem label="Variant" name="vehicleVariant">
+                <PermissionFormItem label="Variant" name="vehicleVariant" rules={[{ required: false }]}>
                   <Select
                     placeholder={vehicleModel ? "Select Variant" : "Select Model First"}
                     disabled={!vehicleModel}
@@ -866,11 +868,7 @@ const Section4VehiclePricing = ({ cashPrefileMode = false }) => {
 
               {!isUnsecuredLoan && (
                 <Col xs={24} md={8}>
-                  <PermissionFormItem
-                    label="Usage"
-                    name="usage"
-                    rules={[{ required: true, message: "Select usage" }]}
-                  >
+                  <PermissionFormItem label="Usage" name="usage">
                     <Select placeholder="Select Vehicle Usage">
                       <Select.Option value="Private">Private</Select.Option>
                       <Select.Option value="Commercial">Commercial</Select.Option>

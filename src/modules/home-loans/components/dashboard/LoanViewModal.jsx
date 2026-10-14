@@ -969,6 +969,26 @@ const getStageSubTabs = (stage, data, context = {}) => {
     ];
     const reference1Fields = [
       {
+        key: "ref1Type",
+        label: "Reference 1 Type",
+        paths: ["reference1.referenceType"],
+      },
+      {
+        key: "ref1FirmName",
+        label: "Reference 1 Firm Name",
+        paths: ["reference1.firmName"],
+      },
+      {
+        key: "ref1ContactPerson",
+        label: "Reference 1 Contact Person",
+        paths: ["reference1.contactPersonName"],
+      },
+      {
+        key: "ref1ContactNumber",
+        label: "Reference 1 Contact Number",
+        paths: ["reference1.contactNumber"],
+      },
+      {
         key: "ref1Name",
         label: "Reference 1 Name",
         paths: ["reference1.name", "reference1_name"],
@@ -1000,6 +1020,26 @@ const getStageSubTabs = (stage, data, context = {}) => {
       },
     ];
     const reference2Fields = [
+      {
+        key: "ref2Type",
+        label: "Reference 2 Type",
+        paths: ["reference2.referenceType"],
+      },
+      {
+        key: "ref2FirmName",
+        label: "Reference 2 Firm Name",
+        paths: ["reference2.firmName"],
+      },
+      {
+        key: "ref2ContactPerson",
+        label: "Reference 2 Contact Person",
+        paths: ["reference2.contactPersonName"],
+      },
+      {
+        key: "ref2ContactNumber",
+        label: "Reference 2 Contact Number",
+        paths: ["reference2.contactNumber"],
+      },
       {
         key: "ref2Name",
         label: "Reference 2 Name",
@@ -1042,8 +1082,11 @@ const getStageSubTabs = (stage, data, context = {}) => {
         label: "Marital Status",
         paths: ["co_maritalStatus"],
       },
-      { key: "co_dependents", label: "Dependents", paths: ["co_dependents"] },
-      { key: "co_education", label: "Education", paths: ["co_education"] },
+      {
+        key: "co_relationWithFirm",
+        label: "Relation with Company / Firm",
+        paths: ["co_relationWithFirm"],
+      },
       { key: "co_house", label: "House", paths: ["co_houseType"] },
       {
         key: "co_mobile",

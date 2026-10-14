@@ -77,9 +77,9 @@ const PostFileApprovalDetails = ({ form }) => {
   const handleCreateBreakupField = useCallback(async (label) => {
     const cleaned = String(label || "").trim();
     if (!cleaned) return null;
+    // Response: { success, created, data: { key, label, ... } }
     const response = await homeLoansApi.createBreakupField({ label: cleaned });
-    const payload = response?.data ?? response;
-    const created = payload?.data || null;
+    const created = response?.data?.key ? response.data : null;
     setBreakupFieldDefs((prev) =>
       buildLoanBreakupFieldDefinitions([...(prev || []), ...(created ? [created] : [])]),
     );
