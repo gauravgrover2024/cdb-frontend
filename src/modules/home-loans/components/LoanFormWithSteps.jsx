@@ -641,6 +641,18 @@ const PROFILE_SECTIONS = [
     iconWrap: "bg-slate-700 text-white dark:bg-slate-300 dark:text-slate-950",
     glow: "shadow-[0_18px_45px_-24px_rgba(71,85,105,0.3)] dark:shadow-[0_22px_55px_-28px_rgba(148,163,184,0.2)]",
   },
+  {
+    id: "bulk_loan",
+    title: "Multiple Loans",
+    description: "Whether this customer needs more than one loan file.",
+    icon: "Copy",
+    accent:
+      "from-violet-500/18 via-indigo-500/10 to-transparent dark:from-violet-400/14 dark:via-indigo-400/8 dark:to-transparent",
+    chip: "bg-violet-500/12 text-violet-700 ring-violet-500/20 dark:bg-violet-400/12 dark:text-violet-200 dark:ring-violet-400/20",
+    panel: "border-violet-200/70 dark:border-violet-900/70",
+    iconWrap: "bg-violet-500 text-white dark:bg-violet-400 dark:text-slate-950",
+    glow: "shadow-[0_18px_45px_-24px_rgba(139,92,246,0.32)] dark:shadow-[0_22px_55px_-28px_rgba(167,139,250,0.24)]",
+  },
 ];
 
 const StageWorkbench = ({
@@ -829,7 +841,24 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const watchedHasCoApplicant = Form.useWatch("hasCoApplicant", form);
   const watchedHasGuarantor = Form.useWatch("hasGuarantor", form);
   const watchedApplicantType = Form.useWatch("applicantType", form);
-  const watchedIsBulk = Form.useWatch("isBulk", form);
+  // preserve: these are read on steps where their inputs aren't mounted.
+  const watchedIsBulk = Form.useWatch("isBulk", { form, preserve: true });
+  const watchedIsBulkOriginal = Form.useWatch("isBulkOriginal", {
+    form,
+    preserve: true,
+  });
+  const watchedIsMultipleCars = Form.useWatch("isMultipleCars", {
+    form,
+    preserve: true,
+  });
+  // A split file, or an original that has already been split, can't be
+  // split again - its bulk-loan answers are locked.
+  const isSplitFile = Boolean(watchedIsBulk);
+  const isSplitOriginal = Boolean(watchedIsBulkOriginal);
+  const bulkFieldsLocked = isSplitFile || isSplitOriginal;
+  // Original entry for multiple loans that hasn't been split yet: property
+  // details are captured per loan file after the split, not here.
+  const awaitingBulkSplit = Boolean(watchedIsMultipleCars) && !bulkFieldsLocked;
   const watchedAadhaarCardDocUrl = Form.useWatch("aadhaarCardDocUrl", form);
   const watchedAadhaarCardBackDocUrl = Form.useWatch(
     "aadhaarCardBackDocUrl",
@@ -1104,6 +1133,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
   // banksData must persist across steps
   const [banksData, setBanksData] = useState([]);
+  // Latest banks, readable synchronously. Disburse updates the banks and saves
+  // in the same tick, when every callback's `banksData` closure still holds
+  // the previous render's list - which saved the bank back as "Approved" and
+  // re-locked Post-File/Payout after reload.
+  const banksDataRef = useRef(banksData);
+  useEffect(() => {
+    banksDataRef.current = banksData;
+  }, [banksData]);
 
   useEffect(() => {
     if (isEditMode || !freshLoanToken) return;
@@ -1451,7 +1488,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
     () => ({
       profile: [
         { id: "lead", label: "Lead Details", visible: true },
-        { id: "property", label: "Property Details", visible: true },
+        { id: "bulk_loan", label: "Multiple Loans", visible: !isCashCase },
+        { id: "property", label: "Property Details", visible: !awaitingBulkSplit },
         { id: "finance", label: "Finance Details", visible: !isCashCase },
         { id: "personal", label: "Personal Details", visible: true },
         { id: "employment", label: "Employment Details", visible: !isCashCase },
@@ -1489,7 +1527,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           label: "Authorised Signatory",
           visible: !isCashCase && showPrefileAuthorisedSignatory,
         },
-        { id: "bulk_loan", label: "Bulk Loan Creation", visible: !isCashCase },
+        {
+          id: "vehicle_loan",
+          label: "Loan Structure",
+          visible: !awaitingBulkSplit,
+        },
+        {
+          id: "bulk_loan_create",
+          label: "Create Loan Files",
+          visible: !isCashCase && awaitingBulkSplit,
+        },
       ],
       approval: [
         { id: "approval-top", label: "Bank Status" },
@@ -1507,6 +1554,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       payout: [{ id: "payout-top", label: "Payout Details" }],
     }),
     [
+      awaitingBulkSplit,
       isCashCase,
       showPrefileAuthorisedSignatory,
       showPrefileCoApplicant,
@@ -1951,10 +1999,11 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         normalizeBankStatus(value),
       );
 
+    const latestBanks = banksDataRef.current || [];
     const primaryBank =
-      banksData.find((b) => isDisbursedLike(b?.status)) ||
-      banksData.find((b) => isApprovedLike(b?.status)) ||
-      banksData[0] ||
+      latestBanks.find((b) => isDisbursedLike(b?.status)) ||
+      latestBanks.find((b) => isApprovedLike(b?.status)) ||
+      latestBanks[0] ||
       null;
 
     if (!primaryBank) return;
@@ -2022,7 +2071,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
           : primaryBank.dsaCode || "",
       payoutPercentage: primaryBank.payoutPercent || "",
     });
-  }, [banksData, form, resolveBankAmounts]);
+  }, [form, resolveBankAmounts]);
 
   // ----------------------------
   // Save logic (API only)
@@ -2038,28 +2087,10 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         ...extra,
       };
 
-      // \ud83d\udd27 FIX: Flatten nested reference objects to match backend schema
-      // Backend expects: reference1_name, reference1_mobile, etc.
-      // Form has: reference1: { name, mobile, ... }
-      if (raw.reference1 && typeof raw.reference1 === "object") {
-        raw.reference1_name = raw.reference1.name;
-        raw.reference1_mobile = raw.reference1.mobile;
-        raw.reference1_address = raw.reference1.address;
-        raw.reference1_pincode = raw.reference1.pincode;
-        raw.reference1_city = raw.reference1.city;
-        raw.reference1_relation = raw.reference1.relation;
-        delete raw.reference1; // Remove nested object
-      }
-
-      if (raw.reference2 && typeof raw.reference2 === "object") {
-        raw.reference2_name = raw.reference2.name;
-        raw.reference2_mobile = raw.reference2.mobile;
-        raw.reference2_address = raw.reference2.address;
-        raw.reference2_pincode = raw.reference2.pincode;
-        raw.reference2_city = raw.reference2.city;
-        raw.reference2_relation = raw.reference2.relation;
-        delete raw.reference2; // Remove nested object
-      }
+      // reference1/reference2 stay nested ({ referenceType, name, mobile, ...,
+      // firmName, contactPersonName, contactNumber }) - that's the shape the
+      // home-loan backend stores. Flattening them to reference<N>_* and
+      // deleting the objects dropped every reference (and all Trade fields).
 
       // 🧹 For submit: keep "" and false so every section's data is stored according to user feed
       const cleaned = cleanPayloadForSubmit(raw, ["_id", "__v"]);
@@ -2149,16 +2180,16 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         payoutApplicable: sanitized?.payoutApplicable ?? undefined,
         prefile_sourcePayoutPercentage:
           sanitized?.prefile_sourcePayoutPercentage ?? undefined,
-        approval_banksData: banksData,
+        approval_banksData: banksDataRef.current || [],
       };
 
       if (payload.isFinanced === "No") {
         payload = scrubCashFinanceFields(payload);
         payload.isFinanced = "No";
+        // No car-loan "New Car" fallback here: it made the (car-only)
+        // registration fields mandatory on the next load of a home loan.
         payload.typeOfLoan =
-          normalizeLoanTypeLabel(sanitized?.typeOfLoan) ||
-          sanitized?.typeOfLoan ||
-          "New Car";
+          normalizeLoanTypeLabel(sanitized?.typeOfLoan) || sanitized?.typeOfLoan;
         payload.currentStage = activeStep;
         payload.approval_banksData = [];
       }
@@ -2169,7 +2200,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         loadedLoanRef.current,
       );
     },
-    [activeStep, banksData, form, syncPrimaryApprovalToForm],
+    [activeStep, form, syncPrimaryApprovalToForm],
   );
 
   // ----------------------------
@@ -2605,35 +2636,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         // 2. Build Loan Payload (includes customerName and primaryMobile for backend auto-create)
         const payload = buildLoanPayload(extraData);
 
-        const numberOfCars = Number(payload.numberOfCars) || 1;
-        const forceBulkCreate = extraData?.forceBulkCreate;
-
-        // A loan file that is itself the result of a previous split must not be split
-        // again - bulk creation is only available on the original entry.
-        if (forceBulkCreate && payload.isBulk) {
-          message.error(
-            "This loan file was created by splitting an original entry and cannot be split again.",
-          );
-          if (!silent) setSaving(false);
-          return false;
-        }
-
-        // BULK SUCCESS CASE
-        if (numberOfCars > 1 && (!isEditMode || forceBulkCreate)) {
-          const result = await createLoan(payload);
-          if (!silent) {
-            Modal.success({
-              title: "Bulk Loans Created",
-              content: result?.message || `Successfully created ${numberOfCars} loan applications.`,
-              onOk: () => navigate("/home-loans"),
-            });
-          }
-          // Clear cached draft after successful save
-          clearSavedFormData();
-          sessionStorage.removeItem("customer_form_draft");
-          sessionStorage.removeItem("customers_list_cache");
-          return true;
-        }
+        // Splitting into multiple loan files is an explicit action
+        // (handleSplitLoan) - a normal save always saves this one file.
 
         // CREATE (Fallback if accessed directly via /loans/new)
         if (!isEditMode) {
@@ -2734,6 +2738,73 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       window.removeEventListener("SAVE_AND_NEW_LOAN", handleSaveAndNewLoan);
     };
   }, [handleSaveLoan, navigate]);
+
+  // Splits the original entry into the requested number of loan files. The
+  // entry is saved first (created if new) so the split works from exactly
+  // what is on screen; the server keeps it as file #1 and links the copies.
+  const handleSplitLoan = useCallback(async () => {
+    const count = Number(form.getFieldValue("numberOfCars"));
+    if (!Number.isInteger(count) || count < 2 || count > 50) {
+      message.error("Enter a number of loan files between 2 and 50.");
+      return false;
+    }
+    if (bulkFieldsLocked) {
+      message.error(
+        isSplitFile
+          ? "This loan file was created by splitting an original entry and cannot be split again."
+          : "This entry has already been split into multiple loan files.",
+      );
+      return false;
+    }
+
+    const saved = await handleSaveLoan(false, {}, false, {
+      navigateAfterSave: false,
+    });
+    if (!saved) return false;
+
+    const originalId = loanIdFromRoute || loadedLoanRef.current?._id;
+    if (!originalId) {
+      message.error("Could not resolve the saved entry to split.");
+      return false;
+    }
+
+    try {
+      setSaving(true);
+      const result = await homeLoansApi.split(originalId, { count });
+      const files = Array.isArray(result?.data) ? result.data : [];
+      Modal.success({
+        title: "Loan files created",
+        content: (
+          <div className="space-y-1">
+            <div>{result?.message || `Split into ${count} loan files.`}</div>
+            {files.length > 0 && (
+              <div className="text-xs text-muted-foreground">
+                {files
+                  .map((loan) => loan?.applicationNumber || loan?.loanId)
+                  .filter(Boolean)
+                  .join(", ")}
+              </div>
+            )}
+          </div>
+        ),
+        onOk: () => navigate("/home-loans"),
+      });
+      return true;
+    } catch (error) {
+      console.error("Split failed:", error);
+      message.error(error?.message || "Failed to create loan files.");
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    bulkFieldsLocked,
+    form,
+    handleSaveLoan,
+    isSplitFile,
+    loanIdFromRoute,
+    navigate,
+  ]);
 
   // ----------------------------
   // Actions
@@ -2837,9 +2908,15 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       const tenure = Number(bankToDisburse.tenure) || 0;
       const emiAmount = calculateEMI(loanAmount, roi, tenure);
 
-      // ✅ Call backend disbursement API
-      // This will trigger calculatePayoutsOnDisbursement() on backend
+      // Records the disbursement against this bank card on the server
+      // without touching any other part of the file.
       await homeLoansApi.disburse(loanId, {
+        bankId:
+          bankToDisburse?.id ??
+          bankToDisburse?._id ??
+          bankToDisburse?.bankId ??
+          bankToDisburse?.applicationId ??
+          "",
         disburseAmount: loanAmount,
         disbursedBankName: bankToDisburse.bankName || "",
         payoutPercentage: bankToDisburse.payoutPercent || 0,
@@ -2868,6 +2945,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
         return bank;
       });
 
+      banksDataRef.current = updatedBanks;
       setBanksData(updatedBanks);
 
       // ONLY set non-date fields
@@ -2977,16 +3055,40 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PROFILE_SECTIONS[1]} index={2}>
+            {!isCashCase && (
+              <PrefileSectionShell {...PROFILE_SECTIONS[9]} index={2}>
+                <div
+                  id="bulk_loan"
+                  className="[&_.section-header]:hidden [&_.section-header]:mb-0"
+                >
+                  <BulkLoanCreationSection
+                    form={form}
+                    mode="collect"
+                    disabled={bulkFieldsLocked}
+                    isSplitFile={isSplitFile}
+                    isSplitOriginal={isSplitOriginal}
+                  />
+                </div>
+              </PrefileSectionShell>
+            )}
+
+            <PrefileSectionShell {...PROFILE_SECTIONS[1]} index={3}>
               <div
                 id="property"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
               >
-                <PropertyDetailsForm />
+                {awaitingBulkSplit ? (
+                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    Property details are captured separately in each loan file
+                    after this entry is split into multiple loans.
+                  </div>
+                ) : (
+                  <PropertyDetailsForm />
+                )}
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PROFILE_SECTIONS[2]} index={3}>
+            <PrefileSectionShell {...PROFILE_SECTIONS[2]} index={4}>
               <div
                 id="finance"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -2995,7 +3097,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </div>
             </PrefileSectionShell>
 
-            <PrefileSectionShell {...PROFILE_SECTIONS[3]} index={4}>
+            <PrefileSectionShell {...PROFILE_SECTIONS[3]} index={5}>
               <div
                 id="personal"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3009,7 +3111,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
 
             {!isCashCase && (
               <>
-                <PrefileSectionShell {...PROFILE_SECTIONS[4]} index={5}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[4]} index={6}>
                   <div
                     id="employment"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3018,7 +3120,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                   </div>
                 </PrefileSectionShell>
 
-                <PrefileSectionShell {...PROFILE_SECTIONS[6]} index={6}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[6]} index={7}>
                   <div
                     id="bank"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3027,7 +3129,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                   </div>
                 </PrefileSectionShell>
 
-                <PrefileSectionShell {...PROFILE_SECTIONS[7]} index={7}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[7]} index={8}>
                   <div
                     id="references"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3036,7 +3138,7 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                   </div>
                 </PrefileSectionShell>
 
-                <PrefileSectionShell {...PROFILE_SECTIONS[8]} index={8}>
+                <PrefileSectionShell {...PROFILE_SECTIONS[8]} index={9}>
                   <div
                     id="kyc"
                     className="[&_.section-header]:hidden [&_.section-header]:mb-0"
@@ -3086,7 +3188,14 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
                 id="vehicle_loan"
                 className="[&_.section-header]:hidden [&_.section-header]:mb-0"
               >
-                <VehiclePricingLoanDetails cashPrefileMode={isCashCase} />
+                {awaitingBulkSplit ? (
+                  <div className="rounded-xl border border-dashed border-border/70 bg-muted/20 p-4 text-sm text-muted-foreground">
+                    Loan structure is captured separately in each loan file
+                    after this entry is split into multiple loans.
+                  </div>
+                ) : (
+                  <VehiclePricingLoanDetails cashPrefileMode={isCashCase} />
+                )}
               </div>
             </PrefileSectionShell>
 
@@ -3150,16 +3259,19 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
               </PrefileSectionShell>
             )}
 
-            <div
-              id="bulk_loan"
-              className="rounded-2xl border border-dashed border-border/70 bg-card/75 p-2 dark:border-zinc-800 dark:bg-black/70"
-            >
-              <BulkLoanCreationSection
-                form={form}
-                onProcess={(extra) => handleSaveLoan(true, extra)}
-                disabled={isEditMode && Boolean(watchedIsBulk)}
-              />
-            </div>
+            {!isCashCase && awaitingBulkSplit && (
+              <div
+                id="bulk_loan_create"
+                className="rounded-2xl border border-dashed border-border/70 bg-card/75 p-2 dark:border-zinc-800 dark:bg-black/70"
+              >
+                <BulkLoanCreationSection
+                  form={form}
+                  mode="create"
+                  onProcess={handleSplitLoan}
+                  disabled={bulkFieldsLocked}
+                />
+              </div>
+            )}
           </div>
         );
 
@@ -3277,6 +3389,12 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
       <Form.Item name="postfile_maturityDate" hidden />
       <Form.Item name="postfile_disbursed_custom" hidden />
 
+      <Form.Item name="isBulk" hidden />
+      <Form.Item name="isBulkOriginal" hidden />
+      <Form.Item name="bulkCount" hidden />
+      <Form.Item name="bulkIndex" hidden />
+      <Form.Item name="bulkGroupId" hidden />
+
       <Form.Item name="__postfileSeeded" hidden />
       <Form.Item name="__postfileLocked" hidden />
     </>
@@ -3296,8 +3414,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   // Watch key form fields to trigger completion calculation
   const customerName = Form.useWatch("customerName", form);
   const mobileNo = Form.useWatch("mobileNo", form);
-  const vehicleMake = Form.useWatch("vehicleMake", form);
-  const vehicleModel = Form.useWatch("vehicleModel", form);
+  const primaryMobileValue = Form.useWatch("primaryMobile", form);
+  const typeOfLoanValue = Form.useWatch("typeOfLoan", form);
   const loanAmount = Form.useWatch("loanAmount", form);
   const bankName = Form.useWatch("bankName", form);
   const tenure = Form.useWatch("tenure", form);
@@ -3309,8 +3427,9 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   const completedSteps = useMemo(() => {
     const completed = [];
 
-    // Profile stage - check if basic customer info is filled
-    if (customerName && mobileNo && vehicleMake && vehicleModel) {
+    // Profile stage - basic customer info + property details (vehicle
+    // make/model are optional for home loans and never gate completion)
+    if (customerName && (mobileNo || primaryMobileValue) && typeOfLoanValue) {
       completed.push("profile");
     }
 
@@ -3338,8 +3457,8 @@ const LoanFormWithSteps = ({ mode, initialData }) => {
   }, [
     customerName,
     mobileNo,
-    vehicleMake,
-    vehicleModel,
+    primaryMobileValue,
+    typeOfLoanValue,
     loanAmount,
     bankName,
     tenure,

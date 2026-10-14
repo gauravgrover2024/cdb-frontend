@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import {
   DeleteOutlined,
   PhoneOutlined,
@@ -24,11 +24,33 @@ import { mapCustomerToPersonFields } from "./mapCustomerToPersonFields";
 import { customersApi } from "../../../../../api/customers";
 import { lookupCityByPincode, normalizePincode } from "./pincodeCityLookup";
 
-const RELATION_WITH_FIRM_OPTIONS = ["Partner", "Shareholder", "Director", "Other"];
+// Co-applicant's relation to the applicant entity. Firms (partnership/
+// proprietorship/LLP) and registered companies have different roles.
+const RELATION_WITH_FIRM_OPTIONS = ["Partner", "Shareholder", "Director", "Proprietor", "Other"];
+const RELATION_WITH_COMPANY_OPTIONS = [
+  "Director",
+  "Shareholder",
+  "Authorised Signatory",
+  "Employee",
+  "Other",
+];
 // Relations that represent a seat on the Partners/Directors register - a
 // co-applicant with one of these gets auto-mirrored into companyPartners so
 // the same details don't need to be re-entered there.
 const PARTNERS_REGISTER_RELATIONS = ["Partner", "Director"];
+// Marks Partners/Directors rows this section added, so they can be refreshed
+// or removed later (also after a reload) without touching manual rows.
+const AUTO_PARTNER_SOURCE = "co-applicant";
+
+const toPartnerKey = (name, pan) =>
+  `${String(name || "").trim().toLowerCase()}|${String(pan || "").trim().toUpperCase()}`;
+
+const toDateInputValue = (value) => {
+  if (!value) return "";
+  if (dayjs.isDayjs(value)) return value.isValid() ? value.format("YYYY-MM-DD") : "";
+  const parsed = dayjs(value);
+  return parsed.isValid() ? parsed.format("YYYY-MM-DD") : String(value);
+};
 
 const { Option } = Select;
 const normalizeMultiTags = (values) =>
@@ -73,98 +95,102 @@ const CoApplicantSection = () => {
   const companyTypeOptions = getOptionsWithCustom(COMPANY_TYPE_OPTIONS, coCompanyType);
   const businessNatureOptions = getOptionsWithCustom(BUSINESS_NATURE_OPTIONS, coBusinessNature);
 
-  // Firm applicants (partnership/proprietorship) can have more than one
-  // co-applicant, and each one's relation to the firm auto-fills the
-  // Partners/Directors (companyPartners) list further down the form.
+  // Company applicants are asked the co-applicant's relation with the
+  // company; firm applicants (partnership/proprietorship/LLP - typical for
+  // unsecured Business Loans) can also add more than one co-applicant. A
+  // Partner/Director relation auto-fills the Partners/Directors list.
   const applicantType = Form.useWatch("applicantType", form);
   const companyType = Form.useWatch("companyType", form);
-  const isFirm = applicantType === "Company" && isFirmConstitution(companyType);
+  const isCompany = applicantType === "Company";
+  const isFirm = isCompany && isFirmConstitution(companyType);
+  const relationOptions = isFirm ? RELATION_WITH_FIRM_OPTIONS : RELATION_WITH_COMPANY_OPTIONS;
   const coRelationWithFirm = Form.useWatch("co_relationWithFirm", form);
   const coCustomerName = Form.useWatch("co_customerName", form);
   const coPan = Form.useWatch("co_pan", form);
   const coDob = Form.useWatch("co_dob", form);
+  const coPrimaryMobile = Form.useWatch("co_primaryMobile", form);
   const additionalCoApplicants = Form.useWatch("coApplicants", form);
-  const autoPartnerKeysRef = useRef(new Set());
 
-  // Auto-mirror any co-applicant marked as Partner/Director into the
-  // Partners/Directors (companyPartners) list, so the same person's details
-  // don't have to be typed twice. Only touches entries this effect itself
-  // added on a previous run (tracked by name+PAN key) - manually-added
-  // partner rows are left alone.
   useEffect(() => {
-    if (!isFirm || !hasCoApplicant) return;
-
-    const toKey = (name, pan) =>
-      `${String(name || "").trim().toLowerCase()}|${String(pan || "").trim().toUpperCase()}`;
+    if (!isCompany || !hasCoApplicant) return;
 
     const candidates = [
       {
         name: coCustomerName,
         relation: coRelationWithFirm,
         pan: coPan,
-        contactNumber: form.getFieldValue("co_primaryMobile"),
-        dateOfBirth: coDob ? (dayjs.isDayjs(coDob) ? coDob.format("YYYY-MM-DD") : String(coDob)) : "",
+        contactNumber: coPrimaryMobile,
+        dateOfBirth: toDateInputValue(coDob),
       },
-      ...(Array.isArray(additionalCoApplicants) ? additionalCoApplicants : []).map((c) => ({
-        name: c?.customerName,
-        relation: c?.relationWithFirm,
-        pan: c?.pan,
-        contactNumber: c?.primaryMobile,
-        dateOfBirth: c?.dob ? (dayjs.isDayjs(c.dob) ? c.dob.format("YYYY-MM-DD") : String(c.dob)) : "",
-      })),
+      // Additional co-applicants only exist for firms.
+      ...(isFirm && Array.isArray(additionalCoApplicants) ? additionalCoApplicants : []).map(
+        (c) => ({
+          name: c?.customerName,
+          relation: c?.relationWithFirm,
+          pan: c?.pan,
+          contactNumber: c?.primaryMobile,
+          dateOfBirth: toDateInputValue(c?.dob),
+        }),
+      ),
     ];
 
-    const desired = candidates
-      .filter((c) => PARTNERS_REGISTER_RELATIONS.includes(c.relation) && String(c.name || "").trim())
-      .map((c) => ({
-        name: c.name,
-        panNumber: c.pan || "",
-        contactNumber: c.contactNumber || "",
-        dateOfBirth: c.dateOfBirth || "",
-        __key: toKey(c.name, c.pan),
-      }));
-    const desiredKeys = new Set(desired.map((d) => d.__key));
+    const desired = new Map();
+    candidates
+      .filter(
+        (c) =>
+          PARTNERS_REGISTER_RELATIONS.includes(c.relation) && String(c.name || "").trim(),
+      )
+      .forEach((c) => {
+        desired.set(toPartnerKey(c.name, c.pan), {
+          name: String(c.name).trim(),
+          panNumber: c.pan || "",
+          contactNumber: c.contactNumber || "",
+          dateOfBirth: c.dateOfBirth || "",
+          designation: c.relation,
+          source: AUTO_PARTNER_SOURCE,
+        });
+      });
 
     const existing = Array.isArray(form.getFieldValue("companyPartners"))
       ? form.getFieldValue("companyPartners")
       : [];
 
-    // Keep rows the user added manually (never auto-managed), plus rows this
-    // effect previously added that are still desired (refreshed with latest
-    // details). Drop rows this effect previously added but are no longer
-    // desired (relation changed away from Partner/Director, or removed).
-    const untouched = existing.filter(
-      (row) => !autoPartnerKeysRef.current.has(toKey(row?.name, row?.panNumber)),
-    );
+    // Refresh rows for people still marked Partner/Director (also a manual
+    // row for the same person, so they aren't listed twice), drop rows this
+    // section added for people no longer marked, keep manual rows as-is.
+    const used = new Set();
+    const nextPartners = [];
+    existing.forEach((row) => {
+      const key = toPartnerKey(row?.name, row?.panNumber);
+      if (desired.has(key) && !used.has(key)) {
+        used.add(key);
+        nextPartners.push({ ...row, ...desired.get(key) });
+        return;
+      }
+      if (row?.source === AUTO_PARTNER_SOURCE) return;
+      nextPartners.push(row);
+    });
+    desired.forEach((row, key) => {
+      if (!used.has(key)) nextPartners.push(row);
+    });
 
-    const nextPartners = [
-      ...untouched,
-      ...desired.map(({ __key, ...row }) => row),
-    ];
-
+    const fields = ["name", "panNumber", "contactNumber", "dateOfBirth", "designation", "source"];
     const isSame =
       existing.length === nextPartners.length &&
-      existing.every((row, i) => {
-        const next = nextPartners[i];
-        return (
-          row?.name === next?.name &&
-          row?.panNumber === next?.panNumber &&
-          row?.contactNumber === next?.contactNumber &&
-          row?.dateOfBirth === next?.dateOfBirth
-        );
-      });
+      existing.every((row, i) => fields.every((f) => (row?.[f] ?? "") === (nextPartners[i]?.[f] ?? "")));
 
     if (!isSame) {
       form.setFieldsValue({ companyPartners: nextPartners });
     }
-    autoPartnerKeysRef.current = desiredKeys;
   }, [
+    isCompany,
     isFirm,
     hasCoApplicant,
     coCustomerName,
     coRelationWithFirm,
     coPan,
     coDob,
+    coPrimaryMobile,
     additionalCoApplicants,
     form,
   ]);
@@ -296,19 +322,22 @@ const CoApplicantSection = () => {
             />
           </Form.Item>
         </Col>
-        {isFirm && (
+        {isCompany && (
           <Col xs={24} md={8}>
             <Form.Item
-              label="Relation with Firm"
+              label={isFirm ? "Relation with Firm" : "Relation with Company"}
               name="co_relationWithFirm"
-              tooltip="Partner/Director selections auto-fill this person into the Partners/Directors list below."
+              tooltip="Partner/Director selections auto-fill this person into the Partners / Directors details."
             >
               <Select
                 className={fieldClass}
                 placeholder="Select relation"
                 allowClear
               >
-                {RELATION_WITH_FIRM_OPTIONS.map((option) => (
+                {(coRelationWithFirm && !relationOptions.includes(coRelationWithFirm)
+                  ? [...relationOptions, coRelationWithFirm]
+                  : relationOptions
+                ).map((option) => (
                   <Option key={option} value={option}>
                     {option}
                   </Option>
@@ -537,8 +566,8 @@ const CoApplicantSection = () => {
           </div>
           <p className="mb-4 text-xs text-muted-foreground">
             Firm applicants can add more than one co-applicant (e.g. multiple partners co-signing).
-            Set a relation of Partner or Director to auto-fill that person into Partners/Directors
-            Details below.
+            A Partner or Director relation auto-fills that person into Partners / Directors
+            Details.
           </p>
 
           <Form.List name="coApplicants">
@@ -606,7 +635,20 @@ const CoApplicantSection = () => {
                         <Input placeholder="1234 5678 9012" />
                       </Form.Item>
                     </div>
-                    <div className="md:col-span-1 flex items-end justify-end">
+                    <div className="md:col-span-3">
+                      <Form.Item
+                        {...field}
+                        label="DOB"
+                        name={[field.name, "dob"]}
+                        className="mb-0"
+                      >
+                        <DatePicker
+                          style={{ width: "100%" }}
+                          getValueProps={(value) => ({ value: asDayjs(value) })}
+                        />
+                      </Form.Item>
+                    </div>
+                    <div className="md:col-span-9 flex items-end justify-end">
                       <Button
                         type="text"
                         danger
@@ -627,6 +669,7 @@ const CoApplicantSection = () => {
                       primaryMobile: "",
                       pan: "",
                       aadhaar: "",
+                      dob: null,
                     })
                   }
                 >
