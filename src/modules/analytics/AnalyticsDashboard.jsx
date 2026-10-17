@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import dayjs from "dayjs";
 import {
   Alert,
@@ -12,7 +12,6 @@ import {
   Form,
   Input,
   InputNumber,
-  List,
   Progress,
   Row,
   Segmented,
@@ -30,6 +29,8 @@ import {
   BankOutlined,
   CarOutlined,
   CheckCircleOutlined,
+  HomeOutlined,
+  SafetyCertificateOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
   FundOutlined,
@@ -39,6 +40,19 @@ import {
 } from "@ant-design/icons";
 import { loansApi } from "../../api/loans";
 import { useAuth } from "../../context/AuthContext";
+import ProductOverview from "./ProductOverview";
+import { ColumnChart, CompositionBar, SERIES_COLORS } from "./overviewCharts";
+import {
+  BarList,
+  KpiCard,
+  STATUS_META,
+  StatusTag,
+  formatCount,
+  formatDate,
+  formatINR,
+  percent,
+  toNumber,
+} from "./overviewWidgets";
 
 const { Title, Text } = Typography;
 
@@ -61,15 +75,6 @@ const STAGES = [
   { key: "delivery", label: "Delivery" },
   { key: "payout", label: "Payout" },
 ];
-
-const STATUS_META = {
-  disbursed: { label: "Disbursed", color: "green" },
-  approved: { label: "Approved", color: "blue" },
-  pending: { label: "Pending", color: "gold" },
-  completed: { label: "Completed", color: "cyan" },
-  rejected: { label: "Rejected", color: "red" },
-  cancelled: { label: "Cancelled", color: "default" },
-};
 
 const CUSTOM_WIDGET_METRICS = [
   { label: "Count of files", value: "count" },
@@ -133,14 +138,6 @@ const CACHE_PREFIX = "analytics_cache_v2_";
 
 // ─── Helpers (mirror the backend analytics rules) ───────────────────────────
 
-const toNumber = (value) => {
-  const n = Number(String(value ?? "").replace(/[^\d.-]/g, ""));
-  return Number.isFinite(n) ? n : 0;
-};
-const formatINR = (value) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(toNumber(value));
-const formatCount = (value) => new Intl.NumberFormat("en-IN").format(toNumber(value));
-const percent = (part, whole) => (whole > 0 ? Math.round((part / whole) * 1000) / 10 : 0);
 const firstPositive = (...values) => values.map(toNumber).find((n) => n > 0) || 0;
 
 const loanValue = (loan) =>
@@ -169,71 +166,44 @@ const loanStatus = (loan) =>
   classifyStatus(loan?.status) ||
   "pending";
 
-const formatDate = (value) => {
-  const date = dayjs(value);
-  return value && date.isValid() ? date.format("DD MMM YYYY") : "—";
-};
-
 const rangeParams = (preset, customRange) =>
   preset === "custom" && customRange?.[0] && customRange?.[1]
     ? { range: preset, from: customRange[0].format("YYYY-MM-DD"), to: customRange[1].format("YYYY-MM-DD") }
     : { range: preset };
 
-const StatusTag = ({ status }) => {
-  const meta = STATUS_META[status] || { label: status || "—", color: "default" };
-  return <Tag color={meta.color}>{meta.label}</Tag>;
-};
+// Business Overview product tabs. Car Loan is the original view; Home Loan
+// and Insurance render the same widgets from their own overview endpoints.
+const PRODUCT_TABS = [
+  { key: "car", label: "Car Loan", icon: <CarOutlined /> },
+  { key: "home", label: "Home Loan", icon: <HomeOutlined /> },
+  { key: "insurance", label: "Insurance", icon: <SafetyCertificateOutlined /> },
+];
+// Fixed status order → fixed color per status in the status mix bar.
+const CAR_STATUS_ORDER = ["disbursed", "approved", "pending", "completed", "rejected", "cancelled"];
 
-// Clickable KPI card built from antd Card + Statistic.
-const KpiCard = ({ title, value, suffix, precision, formatter, footer, icon, loading, onClick, tooltip }) => (
-  <Card hoverable={Boolean(onClick)} onClick={onClick} loading={loading} size="small" className="h-full">
-    <Statistic
-      title={
-        <Space size={6}>
-          {icon}
-          {tooltip ? <Tooltip title={tooltip}>{title}</Tooltip> : title}
-        </Space>
-      }
-      value={value}
-      suffix={suffix}
-      precision={precision}
-      formatter={formatter}
-    />
-    {footer ? <Text type="secondary" className="mt-1 block text-xs">{footer}</Text> : null}
-  </Card>
-);
-
-// A ranked list of values with an antd Progress bar per row.
-const BarList = ({ rows, total, onSelect, renderLabel, emptyText = "No data for this period" }) => {
-  if (!rows?.length) return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={emptyText} />;
-  const max = Math.max(...rows.map((row) => row.count), 1);
-  return (
-    <List
-      size="small"
-      split={false}
-      dataSource={rows}
-      renderItem={(row) => (
-        <List.Item className="!px-0 !py-1.5">
-          <button type="button" onClick={() => onSelect?.(row)} className="w-full cursor-pointer bg-transparent p-0 text-left">
-            <div className="flex items-center justify-between gap-3 text-sm">
-              <span className="truncate">{renderLabel(row)}</span>
-              <Text strong className="tabular-nums">
-                {formatCount(row.count)}
-                {total ? <Text type="secondary" className="ml-1 text-xs font-normal">({percent(row.count, total)}%)</Text> : null}
-              </Text>
-            </div>
-            <Progress status="normal" percent={(row.count / max) * 100} showInfo={false} size="small" className="!m-0" />
-          </button>
-        </List.Item>
-      )}
-    />
-  );
+const PRODUCT_SUBTITLE = {
+  car: "Loan files",
+  home: "Home loan files",
+  insurance: "Insurance cases",
 };
 
 // ─── Page ───────────────────────────────────────────────────────────────────
 
 const AnalyticsDashboard = () => {
   const { user } = useAuth();
+  // Active product tab lives in the URL (?tab=home) so it survives reloads
+  // and can be linked to directly.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const product = PRODUCT_TABS.some((tab) => tab.key === searchParams.get("tab"))
+    ? searchParams.get("tab")
+    : "car";
+  const setProduct = (key) => {
+    const next = new URLSearchParams(searchParams);
+    if (key === "car") next.delete("tab");
+    else next.set("tab", key);
+    setSearchParams(next, { replace: true });
+  };
+  const [productReloadToken, setProductReloadToken] = useState(0);
   const [rangePreset, setRangePreset] = useState("all");
   const [customRange, setCustomRange] = useState([dayjs().startOf("month"), dayjs()]);
   const [overview, setOverview] = useState(null);
@@ -298,10 +268,12 @@ const AnalyticsDashboard = () => {
     }
   }, [params]);
 
+  // Car-loan analytics only load while the Car Loan tab is open.
   useEffect(() => {
+    if (product !== "car") return undefined;
     fetchOverview();
     return () => requestRef.current?.abort();
-  }, [fetchOverview]);
+  }, [fetchOverview, product]);
 
   const openDrill = useCallback(
     async (title, query) => {
@@ -372,6 +344,9 @@ const AnalyticsDashboard = () => {
     }),
     [monthlyRows],
   );
+
+  // Charts read oldest → newest; the table below stays newest first.
+  const trendChartRows = useMemo(() => [...monthlyRows].reverse(), [monthlyRows]);
 
   const stageRows = useMemo(() => {
     const counts = new Map((widgets.stageFunnel || []).map((row) => [row.stage, toNumber(row.count)]));
@@ -497,7 +472,8 @@ const AnalyticsDashboard = () => {
 
   const drillValue = filteredDrillRows.reduce((sum, row) => sum + loanValue(row), 0);
   const timeframe = overview?.timeframe;
-  const periodLabel = timeframe ? `${formatDate(timeframe.start)} – ${formatDate(timeframe.end)}` : "";
+  const periodLabel =
+    product === "car" && timeframe ? `${formatDate(timeframe.start)} – ${formatDate(timeframe.end)}` : "";
   const cardProps = { size: "small", className: "h-full", loading };
 
   return (
@@ -512,7 +488,7 @@ const AnalyticsDashboard = () => {
                 {user?.role ? <Tag>{String(user.role).replaceAll("_", " ")}</Tag> : null}
               </Space>
               <Text type="secondary">
-                Loan files created {periodLabel ? `between ${periodLabel}` : "in the selected period"}. Click any number to see the files behind it.
+                {PRODUCT_SUBTITLE[product]} created {periodLabel ? `between ${periodLabel}` : "in the selected period"}. Click any number to see the records behind it.
               </Text>
             </Space>
           </Col>
@@ -522,14 +498,36 @@ const AnalyticsDashboard = () => {
               {rangePreset === "custom" ? (
                 <DatePicker.RangePicker value={customRange} allowClear={false} onChange={(values) => values && setCustomRange(values)} disabledDate={(date) => date.isAfter(dayjs(), "day")} />
               ) : null}
-              <Button icon={<ReloadOutlined spin={refreshing} />} onClick={fetchOverview} loading={loading && !overview}>
+              <Button
+                icon={<ReloadOutlined spin={product === "car" && refreshing} />}
+                onClick={product === "car" ? fetchOverview : () => setProductReloadToken((n) => n + 1)}
+                loading={product === "car" && loading && !overview}
+              >
                 Refresh
               </Button>
             </Space>
           </Col>
         </Row>
+        <Tabs
+          className="mt-2 !mb-0"
+          activeKey={product}
+          onChange={setProduct}
+          items={PRODUCT_TABS.map((tab) => ({
+            key: tab.key,
+            label: (
+              <Space size={6}>
+                {tab.icon}
+                {tab.label}
+              </Space>
+            ),
+          }))}
+        />
       </Card>
 
+      {product !== "car" ? (
+        <ProductOverview product={product} params={params} reloadToken={productReloadToken} />
+      ) : (
+      <>
       {error ? (
         <Alert type="error" showIcon message={error} action={<Button size="small" onClick={fetchOverview}>Retry</Button>} closable onClose={() => setError("")} />
       ) : null}
@@ -562,6 +560,34 @@ const AnalyticsDashboard = () => {
         </Col>
       </Row>
 
+      {/* Charts */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={14}>
+          <Card {...cardProps} title="Files created vs disbursed / delivered" extra={<Text type="secondary" className="text-xs">By month created · last 24 months</Text>}>
+            <ColumnChart
+              data={trendChartRows}
+              series={[
+                { key: "created", label: "Files created", color: SERIES_COLORS[0] },
+                { key: "completed", label: "Disbursed / delivered", color: SERIES_COLORS[1] },
+              ]}
+              onSelect={(row) => row.created && openDrill(`Files created in ${row.label}`, { widget: "total_loan_trend", bucket: row.key })}
+              emptyText="No files in this period"
+            />
+          </Card>
+        </Col>
+        <Col xs={24} xl={10}>
+          <Card {...cardProps} title="Disbursed / delivered value" extra={<Text type="secondary" className="text-xs">Last 24 months</Text>}>
+            <ColumnChart
+              data={trendChartRows}
+              currency
+              series={[{ key: "amount", label: "Value", color: SERIES_COLORS[1], format: formatINR }]}
+              onSelect={(row) => row.completed && openDrill(`Disbursed or delivered in ${row.label}`, { widget: "disbursed_amount_trend", bucket: row.key })}
+              emptyText="Nothing disbursed in this period"
+            />
+          </Card>
+        </Col>
+      </Row>
+
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={14}>
           <Card {...cardProps} title="Monthly trend" extra={<Text type="secondary" className="text-xs">Newest first</Text>}>
@@ -576,6 +602,14 @@ const AnalyticsDashboard = () => {
         </Col>
         <Col xs={24} md={12} xl={5}>
           <Card {...cardProps} title="Status">
+            <div className="mb-3">
+              <CompositionBar
+                rows={statusRows}
+                order={CAR_STATUS_ORDER}
+                labelOf={(row) => STATUS_META[row.key]?.label || row.key}
+                onSelect={(row) => openDrill(`Status: ${STATUS_META[row.key]?.label || row.key}`, { widget: "case_status_distribution", key: row.key })}
+              />
+            </div>
             <BarList rows={statusRows} total={totalCases} renderLabel={(row) => <StatusTag status={row.key} />} onSelect={(row) => openDrill(`Status: ${STATUS_META[row.key]?.label || row.key}`, { widget: "case_status_distribution", key: row.key })} />
           </Card>
         </Col>
@@ -728,6 +762,8 @@ const AnalyticsDashboard = () => {
             locale={{ emptyText: <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="No files match" /> }} />
         </Space>
       </Drawer>
+      </>
+      )}
     </div>
   );
 };
