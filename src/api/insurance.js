@@ -1,6 +1,13 @@
 import { apiClient } from "./client";
 
 export const insuranceApi = {
+  // Business Overview → Insurance tab.
+  getAnalyticsOverview: async (params = {}, options = {}) => {
+    return await apiClient.get("/api/insurance/analytics/overview", { params, ...options });
+  },
+  getAnalyticsDrilldown: async (params = {}, options = {}) => {
+    return await apiClient.get("/api/insurance/analytics/drilldown", { params, ...options });
+  },
   getAll: async (params = {}) => {
     return await apiClient.get("/api/insurance", { params });
   },
